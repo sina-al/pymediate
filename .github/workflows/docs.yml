@@ -3,63 +3,22 @@ name: Documentation
 on:
   push:
     branches: [main]
-    paths:
-      - "**.md"
-      - "**.rst"
-      - "src/pymediate/**/*.py"
   pull_request:
-    paths:
-      - "**.md"
-      - "**.rst"
-      - "src/pymediate/**/*.py"
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  check-docs:
-    name: Check Documentation
+  build:
+    name: Build documentation
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Check for broken links in markdown
-        uses: gaurav-nelson/github-action-markdown-link-check@v1
         with:
-          use-quiet-mode: "yes"
-          config-file: ".github/markdown-link-check-config.json"
-
-      - name: Validate markdown formatting
-        run: |
-          # Check for common markdown issues
-          echo "Checking markdown files..."
-          for file in $(find . -name "*.md" -not -path "./node_modules/*" -not -path "./.venv/*"); do
-            echo "Checking $file"
-            # Check for trailing whitespace
-            if grep -n " $" "$file"; then
-              echo "Error: Trailing whitespace found in $file"
-              exit 1
-            fi
-          done
-
-      - name: Check documentation completeness
-        run: |
-          # Ensure key documentation files exist
-          required_docs=("README.md" "ARCHITECTURE.md" "CONTRIBUTING.md")
-          for doc in "${required_docs[@]}"; do
-            if [ ! -f "$doc" ]; then
-              echo "Error: Required documentation file $doc is missing"
-              exit 1
-            fi
-          done
-
-  validate-examples:
-    name: Validate Code Examples in Docs
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,20 +30,46 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv sync --group docs
 
-      - name: Extract and test code examples from README
+      - name: Build documentation
         run: |
-          echo "Extracting code examples from README.md..."
-          # This would extract and test code blocks from markdown
-          # For now, just verify the main example works
-          uv run python -c "from pymediate import Request, Handler, Mediator, SimpleResolver; print('Imports successful')"
+          uv run mkdocs build --strict
 
-      - name: Verify ARCHITECTURE.md examples
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: site/
+
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
         run: |
-          echo "Verifying examples in ARCHITECTURE.md..."
-          # Check that referenced files exist
-          if ! grep -q "src/pymediate/handler.py" ARCHITECTURE.md; then
-            echo "Error: handler.py not referenced in ARCHITECTURE.md"
-            exit 1
-          fi
+          uv sync --group docs
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy to GitHub Pages
+        run: |
+          uv run mkdocs gh-deploy --force

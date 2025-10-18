@@ -3,306 +3,104 @@
 [![Tests](https://github.com/sina-al/pymediate/workflows/Tests/badge.svg)](https://github.com/sina-al/pymediate/actions/workflows/test.yml)
 [![Lint](https://github.com/sina-al/pymediate/workflows/Lint/badge.svg)](https://github.com/sina-al/pymediate/actions/workflows/lint.yml)
 [![codecov](https://codecov.io/gh/sina-al/pymediate/branch/main/graph/badge.svg)](https://codecov.io/gh/sina-al/pymediate)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/pymediate.svg)](https://badge.fury.io/py/pymediate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A type-safe mediator pattern implementation for Python with automatic type inference and runtime validation.
+A type-safe mediator pattern implementation for Python 3.13+ with automatic type inference and runtime validation.
 
 ## Features
 
-- **Type Safety**: Runtime validation of handler signatures with automatic response type inference  
-- **Minimal Boilerplate**: Only specify request type in handlers – response type is inferred automatically  
-- **Dependency Injection**: Built-in resolver protocol supports any DI framework  
-- **Clean Architecture**: Decouples request handling from business logic  
-- **Well Tested**: 42 comprehensive tests with 98%+ code coverage  
+- **Type Safety**: Full runtime validation with mypy support
+- **Zero Convention**: No naming conventions - uses type inspection
+- **DI Ready**: Built-in dependency-injector integration
+- **Dataclass Friendly**: Works seamlessly with `@dataclass` and `@request` decorator
+- **Well Tested**: 71+ tests with 96%+ coverage
 
-## Installation
-
-### Core Package
-
-```bash
-pip install pymediate
-````
-
-### With Dependency Injection Support
-
-```bash
-pip install "pymediate[di]"
-```
-
-This installs `dependency-injector` for advanced DI container integration.
-
-## Quick Start
+## Quick Example
 
 ```python
-from pymediate import Request, Handler, Mediator, SimpleResolver
+from dataclasses import dataclass
+from pymediate import Request, Handler, Mediator, SimpleResolver, request
 
-# 1. Define your response class
-class UserCreatedResponse:
-    def __init__(self, user_id: int, username: str):
-        self.user_id = user_id
-        self.username = username
+# Define response and request as pure dataclasses
+@dataclass
+class UserCreated:
+    user_id: int
+    username: str
 
-# 2. Define your request with response_type
-class CreateUserRequest(Request, response_type=UserCreatedResponse):
-    def __init__(self, username: str, email: str):
-        self.username = username
-        self.email = email
+@request(UserCreated)
+@dataclass
+class CreateUser:
+    username: str
+    email: str
 
-# 3. Define your handler – only specify the request type
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __init__(self):
-        self.next_id = 1
+# Handler automatically linked by type
+class CreateUserHandler(Handler[CreateUser]):
+    def __call__(self, req: CreateUser) -> UserCreated:
+        return UserCreated(user_id=1, username=req.username)
 
-    def __call__(self, request: CreateUserRequest) -> UserCreatedResponse:
-        user_id = self.next_id
-        self.next_id += 1
-        return UserCreatedResponse(user_id, request.username)
-
-# 4. Set up and use the mediator
+# Set up and use
 resolver = SimpleResolver()
-resolver.register(CreateUserRequest, CreateUserHandler())
+resolver.register(CreateUser, CreateUserHandler())
 mediator = Mediator(resolver)
 
-# Send a request
-request = CreateUserRequest("alice", "alice@example.com")
-response = mediator.send(request)
-
+response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 print(f"User {response.username} created with ID {response.user_id}")
 ```
 
-## Key Concepts
-
-### Automatic Type Inference
-
-Handlers only declare the request type.
-The corresponding response type is automatically inferred from the request definition.
-
-```python
-class MyHandler(Handler[MyRequest]):
-    def __call__(self, request: MyRequest) -> MyResponse:
-        ...
-```
-
-### Runtime Type Validation
-
-PyMediate validates handler signatures at class definition time:
-
-```python
-class WrongHandler(Handler[MyRequest]):
-    def __call__(self, request: MyRequest) -> str:  # Wrong return type!
-        return "hello"
-
-# TypeError: WrongHandler.__call__ must return MyResponse, got str
-```
-
-## Dependency Injection Support
-
-PyMediate integrates cleanly with `dependency-injector`.
-
-First, install the DI extra:
+## Installation
 
 ```bash
-pip install "pymediate[di]"
+# Core package
+pip install pymediate
+
+# With dependency injection support
+pip install pymediate[di]
 ```
-
-Then use the `DependencyInjectorResolver`:
-
-```python
-from dependency_injector import containers, providers
-from pymediate import DependencyInjectorResolver, Mediator
-
-class ApplicationContainer(containers.DeclarativeContainer):
-    # Services
-    database = providers.Singleton(Database)
-
-    # Handlers
-    create_user_handler = providers.Factory(
-        CreateUserHandler,
-        database=database,
-    )
-
-    # Self-reference for resolver
-    __self__ = providers.Self()
-
-    # Mediator with DI resolver
-    mediator = providers.Singleton(
-        Mediator,
-        resolver=providers.Singleton(
-            DependencyInjectorResolver,
-            container=__self__,
-        ),
-    )
-
-# Usage
-container = ApplicationContainer()
-mediator = container.mediator()
-response = mediator.send(CreateUserRequest("alice", "alice@example.com"))
-```
-
-The resolver follows a naming convention:
-
-* `CreateUserRequest` → looks for `create_user_handler`
-* `SendEmailRequest` → looks for `send_email_handler`
-
-You can also define custom resolvers by implementing the `Resolver` protocol:
-
-```python
-from pymediate import Resolver, Handler
-
-class MyCustomResolver:
-    def resolve(self, request_class: type) -> Handler:
-        # Your custom resolution logic
-        return my_handler_instance
-```
-
-## Project Structure
-
-```
-src/pymediate/
-    __init__.py       # Public API exports
-    request.py        # Request base class and metaclass
-    handler.py        # Handler base class and metaclass
-    resolver.py       # Resolver protocol and SimpleResolver
-    mediator.py       # Mediator implementation
-    registry.py       # Global type registries
-
-tests/
-    conftest.py       # Pytest configuration and fixtures
-    test_request.py   # Request tests
-    test_handler.py   # Handler tests
-    test_resolver.py  # Resolver tests
-    test_mediator.py  # Mediator tests
-    test_integration.py  # End-to-end tests
-```
-
-## Development
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/sina-al/pymediate.git
-cd pymediate
-
-# Install dependencies
-uv sync --dev
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-uv run pytest
-
-# Run with coverage
-uv run pytest --cov=pymediate --cov-report=term-missing
-
-# Run specific test file
-uv run pytest tests/test_handler.py -v
-```
-
-### Type Checking
-
-```bash
-uv run mypy src/pymediate/
-```
-
-### Code Formatting
-
-```bash
-uv run ruff format src/ tests/
-uv run ruff check src/ tests/
-```
-
-## Advanced Usage
-
-### Multiple Request Handlers
-
-```python
-# User management
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> UserCreatedResponse:
-        ...
-
-# Order management
-class CreateOrderHandler(Handler[CreateOrderRequest]):
-    def __call__(self, request: CreateOrderRequest) -> OrderCreatedResponse:
-        ...
-
-# Register all handlers
-resolver = SimpleResolver()
-resolver.register(CreateUserRequest, CreateUserHandler())
-resolver.register(CreateOrderRequest, CreateOrderHandler())
-
-mediator = Mediator(resolver)
-
-# Send different request types
-user = mediator.send(CreateUserRequest(...))
-order = mediator.send(CreateOrderRequest(...))
-```
-
-### Stateful Handlers
-
-```python
-class CounterHandler(Handler[CountRequest]):
-    def __init__(self):
-        self.count = 0
-
-    def __call__(self, request: CountRequest) -> CountResponse:
-        self.count += 1
-        return CountResponse(self.count)
-
-# Handler state is preserved across requests
-handler = CounterHandler()
-resolver.register(CountRequest, handler)
-
-mediator.send(CountRequest())  # count = 1
-mediator.send(CountRequest())  # count = 2
-```
-
-## Requirements
-
-* Python 3.10+
-* Optional: `dependency-injector>=4.41.0` (install with `pip install "pymediate[di]"`)
 
 ## Documentation
 
-* **[ARCHITECTURE.md](ARCHITECTURE.md)** – Design philosophy, technical details, and usage patterns
-* **[CONTRIBUTING.md](CONTRIBUTING.md)** – Contribution guidelines
+**[📚 Full Documentation](https://sina-al.github.io/pymediate/)**
 
+- [Quick Start](https://sina-al.github.io/pymediate/getting-started/quick-start/)
+- [User Guide](https://sina-al.github.io/pymediate/guide/requests-responses/)
+- [Examples](https://sina-al.github.io/pymediate/examples/basic/)
+- [API Reference](https://sina-al.github.io/pymediate/api/request/)
 
-## CI/CD and Quality
+## Development
 
-PyMediate uses GitHub Actions for continuous integration:
+### Quick Start
 
-* **Test Matrix**: Python 3.10–3.13 on Ubuntu, macOS, and Windows
-* **Code Coverage**: 95%+ required (tracked with Codecov)
-* **Type Checking**: mypy in strict mode
-* **Linting**: Ruff for code quality and formatting
-* **PR Checks**: Automated validation of pull requests
+```bash
+# Clone and install
+git clone https://github.com/sina-al/pymediate.git
+cd pymediate
+uv sync --all-extras
 
-## License
+# Run tests
+poe test
 
-MIT
+# Run all checks
+poe check:all
 
+# See all available tasks
+poe
+```
+
+### Available Commands
+
+PyMediate uses [Poe the Poet](https://poethepoet.natn.io/) for task running. Run `poe` to see all commands, or check [`tasks.toml`](tasks.toml).
+
+## Requirements
+
+- Python 3.13+
+- Optional: `dependency-injector>=4.41.0` for DI support
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Check the docs for guidelines.
 
-Key points:
+## License
 
-* Use conventional commit messages
-* Maintain test coverage ≥95%
-* Follow type hinting best practices
-* Add tests for new features
-* Update documentation
-
-
-## Links
-
-* **GitHub**: [https://github.com/sina-al/pymediate](https://github.com/sina-al/pymediate)
-* **Issues**: [https://github.com/sina-al/pymediate/issues](https://github.com/sina-al/pymediate/issues)
-* **Discussions**: [https://github.com/sina-al/pymediate/discussions](https://github.com/sina-al/pymediate/discussions)
+MIT License - see [LICENSE](LICENSE) for details.
