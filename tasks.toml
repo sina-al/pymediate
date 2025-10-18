@@ -1,0 +1,10 @@
+[tool.poe.tasks]
+
+"fix:lint".help = "Run ruff linter and fix issues"
+"fix:lint".cmd = "ruff check --fix ."
+
+"fix:format".help = "Run ruff formatter"
+"fix:format".cmd = "ruff format ."
+
+"fix".help = "Run both linter and formatter"
+"fix".sequence = ["fix:lint", "fix:format"]

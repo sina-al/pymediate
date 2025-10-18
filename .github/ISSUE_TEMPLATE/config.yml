@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/sina-al/pymediate/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: Documentation
+    url: https://github.com/sina-al/pymediate/blob/main/ARCHITECTURE.md
+    about: Read the comprehensive architecture and usage guide
+  - name: Contributing Guide
+    url: https://github.com/sina-al/pymediate/blob/main/CONTRIBUTING.md
+    about: Learn how to contribute to PyMediate

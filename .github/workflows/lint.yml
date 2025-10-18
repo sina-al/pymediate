@@ -1,0 +1,107 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  ruff:
+    name: Ruff (Format & Lint)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          uv sync
+
+      - name: Check formatting with ruff
+        run: |
+          uv run ruff format --check src/ tests/
+
+      - name: Lint with ruff
+        run: |
+          uv run ruff check src/ tests/ --output-format=github
+
+  mypy:
+    name: Type checking (mypy)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+
+      - name: Run mypy
+        run: |
+          uv run mypy src/pymediate/ tests/
+
+      - name: Upload mypy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-results
+          path: .mypy_cache/
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+
+      - name: Check for TODO/FIXME comments
+        run: |
+          echo "Checking for TODO/FIXME comments..."
+          if grep -r "TODO\|FIXME" src/ --exclude-dir=__pycache__ | grep -v "# TODO:"; then
+            echo "Warning: Found TODO/FIXME comments"
+          fi
+
+      - name: Check for print statements in source
+        run: |
+          echo "Checking for print statements in source code..."
+          if grep -r "print(" src/ --exclude-dir=__pycache__ | grep -v "__init__.py"; then
+            echo "Error: Found print statements in source code (excluding __init__.py)"
+            exit 1
+          fi
+
+      - name: Verify test coverage requirements
+        run: |
+          uv run pytest tests/ --cov=pymediate --cov-report=term --cov-fail-under=95

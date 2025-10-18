@@ -1,0 +1,183 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  pr-metadata:
+    name: PR Metadata Check
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check PR title format
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          if [[ ! "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: ]]; then
+            echo "Error: PR title must follow conventional commits format"
+            echo "Examples: 'feat: add async support', 'fix(handler): correct type validation'"
+            exit 1
+          fi
+
+      - name: Check PR has description
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          if [ -z "$PR_BODY" ]; then
+            echo "Error: PR must have a description"
+            exit 1
+          fi
+
+  size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          FILES_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l)
+          LINES_CHANGED=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | awk '{print $4+$6}')
+
+          echo "Files changed: $FILES_CHANGED"
+          echo "Lines changed: $LINES_CHANGED"
+
+          if [ "$FILES_CHANGED" -gt 50 ]; then
+            echo "Warning: Large PR with $FILES_CHANGED files changed. Consider splitting."
+          fi
+
+          if [ "$LINES_CHANGED" -gt 1000 ]; then
+            echo "Warning: Large PR with $LINES_CHANGED lines changed. Consider splitting."
+          fi
+
+  test-coverage-diff:
+    name: Test Coverage Diff
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests/ --cov=pymediate --cov-report=json --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-pr
+          path: coverage.json
+
+      - name: Coverage comment
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 95
+          MINIMUM_ORANGE: 90
+
+  breaking-changes:
+    name: Check for Breaking Changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for breaking changes in public API
+        run: |
+          echo "Checking for potential breaking changes..."
+
+          # Check if __init__.py exports changed
+          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/__init__.py | grep -E "^[-+].*__all__"; then
+            echo "Warning: Changes detected in __all__ exports - potential breaking change"
+          fi
+
+          # Check if core protocols changed
+          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/resolver.py | grep -E "^[-+].*class Resolver"; then
+            echo "Warning: Changes detected in Resolver protocol - potential breaking change"
+          fi
+
+          # Check if handler signature changed
+          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/handler.py | grep -E "^[-+].*class Handler"; then
+            echo "Warning: Changes detected in Handler class - potential breaking change"
+          fi
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+
+      - name: Run safety check
+        run: |
+          uv pip install --system safety
+          safety check --json || true
+
+  all-checks-passed:
+    name: All PR Checks Passed
+    runs-on: ubuntu-latest
+    needs: [pr-metadata, size-check, test-coverage-diff, breaking-changes, dependency-review, security-scan]
+    if: always()
+
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ needs.pr-metadata.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-coverage-diff.result }}" == "failure" ]] || \
+             [[ "${{ needs.dependency-review.result }}" == "failure" ]] || \
+             [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
+            echo "One or more required checks failed"
+            exit 1
+          fi
+          echo "All required PR checks passed!"

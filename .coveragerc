@@ -1,0 +1,29 @@
+[run]
+source = src/pymediate
+omit =
+    */tests/*
+    */__pycache__/*
+    */site-packages/*
+    .venv/*
+
+[report]
+# Exclude lines from coverage
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abc.abstractmethod
+    def main
+    ^def main\(\):
+
+# Report settings
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov

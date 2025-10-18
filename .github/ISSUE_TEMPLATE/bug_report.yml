@@ -1,0 +1,133 @@
+name: Bug Report
+description: File a bug report to help us improve PyMediate
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Define request '...'
+        2. Create handler '...'
+        3. Send request '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Minimal Reproducible Example
+      description: Please provide a minimal code example that reproduces the issue
+      render: python
+      placeholder: |
+        from pymediate import Request, Handler, Mediator, SimpleResolver
+
+        class MyResponse:
+            def __init__(self, value: str):
+                self.value = value
+
+        class MyRequest(Request, response_type=MyResponse):
+            pass
+
+        # Your code here that reproduces the bug
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error Traceback
+      description: If applicable, paste the full error traceback
+      render: python
+
+  - type: input
+    id: version
+    attributes:
+      label: PyMediate Version
+      description: What version of PyMediate are you using?
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: What version of Python are you using?
+      placeholder: "3.13.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: di
+    attributes:
+      label: Using dependency-injector extra?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to ensure this isn't a duplicate
+          required: true
+        - label: I have provided a minimal reproducible example
+          required: true
+        - label: I am using a supported Python version (3.10+)
+          required: true

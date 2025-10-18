@@ -1,0 +1,22 @@
+{
+  "recommendations": [
+    // Python
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+
+    // Testing
+    "littlefoxteam.vscode-python-test-adapter",
+    "hbenl.vscode-test-explorer",
+
+    // Linting and formatting
+    "charliermarsh.ruff",
+
+    // Type checking
+    "ms-python.mypy-type-checker",
+
+    // Additional helpful extensions
+    "tamasfe.even-better-toml",
+    "eamodio.gitlens",
+    "usernamehw.errorlens"
+  ]
+}
