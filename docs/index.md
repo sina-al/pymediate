@@ -30,7 +30,7 @@ PyMediate is a modern, type-safe implementation of the [Mediator Pattern](https:
 :   Built-in support for dependency-injector with automatic handler discovery
 
 📦 **Dataclass Friendly**
-:   Works seamlessly with Python dataclasses using the `@request` decorator
+:   Works seamlessly with Python dataclasses using Request[T] inheritance
 
 🧪 **Well Tested**
 :   71+ comprehensive tests with 96%+ code coverage
@@ -42,7 +42,7 @@ PyMediate is a modern, type-safe implementation of the [Mediator Pattern](https:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, SimpleResolver, request
+from pymediate import Request, Handler, Mediator, SimpleResolver
 
 # Define response and request as pure dataclasses
 @dataclass
@@ -50,9 +50,8 @@ class UserCreated:
     user_id: int
     username: str
 
-@request(UserCreated)
 @dataclass
-class CreateUser:
+class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
@@ -89,7 +88,7 @@ Unlike other mediator implementations, PyMediate:
 1. **Uses type inspection instead of naming conventions** - your handler providers can have ANY name
 2. **Provides automatic response type inference** - specify response type once in the request
 3. **Validates at class definition time** - catch errors before runtime
-4. **Supports pure dataclasses** - use `@request` decorator for clean, simple code
+4. **Supports pure dataclasses** - use Request[T] inheritance for clean, simple code
 5. **Works with modern Python** - uses PEP 695 type parameters for cleaner generics
 
 ## Installation

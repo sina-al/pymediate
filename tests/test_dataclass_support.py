@@ -7,9 +7,9 @@ providing type safety and better IDE support.
 from dataclasses import dataclass
 from datetime import datetime
 
-from pymediate import Handler, Mediator, Request, SimpleResolver, request
+from pymediate import Handler, Mediator, Request, SimpleResolver
 
-# Test using @request decorator with pure dataclasses (recommended pattern)
+# Test using Request inheritance with pure dataclasses (recommended pattern)
 
 
 @dataclass
@@ -21,12 +21,11 @@ class PureUserResponse:
     email: str
 
 
-@request(PureUserResponse)
 @dataclass
-class PureUserRequest:
-    """Pure dataclass request - no inheritance needed.
+class PureUserRequest(Request[PureUserResponse]):
+    """Pure dataclass request inheriting from Request.
 
-    Uses @request decorator to specify response type.
+    Uses Request[ResponseType] to specify response type.
     This is the recommended pattern for dataclasses!
     """
 
@@ -40,13 +39,13 @@ class PureUserHandler(Handler[PureUserRequest]):
 
 
 def test_pure_dataclass_with_decorator():
-    """Test using @request decorator with pure dataclasses (RECOMMENDED PATTERN).
+    """Test using Request inheritance with pure dataclasses (RECOMMENDED PATTERN).
 
     This is the cleanest way to use dataclasses with PyMediate:
-    - No wrapping required
     - Both request and response are pure dataclasses
-    - No inheritance needed
+    - Request inherits from Request[ResponseType]
     - Full type safety
+    - IDE autocomplete support
     """
     handler = PureUserHandler()
     resolver = SimpleResolver()

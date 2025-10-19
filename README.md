@@ -14,14 +14,14 @@ A type-safe mediator pattern implementation for Python 3.13+ with automatic type
 - **Type Safety**: Full runtime validation with mypy support
 - **Zero Convention**: No naming conventions - uses type inspection
 - **DI Ready**: Built-in dependency-injector integration
-- **Dataclass Friendly**: Works seamlessly with `@dataclass` and `@request` decorator
+- **Dataclass Friendly**: Works seamlessly with `@dataclass` and Request[T] inheritance
 - **Well Tested**: 71+ tests with 96%+ coverage
 
 ## Quick Example
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, SimpleResolver, request
+from pymediate import Request, Handler, Mediator, SimpleResolver
 
 # Define response and request as pure dataclasses
 @dataclass
@@ -29,9 +29,8 @@ class UserCreated:
     user_id: int
     username: str
 
-@request(UserCreated)
 @dataclass
-class CreateUser:
+class CreateUser(Request[UserCreated]):
     username: str
     email: str
 

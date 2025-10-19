@@ -5,11 +5,13 @@ All notable changes to PyMediate will be documented here.
 ## [Unreleased]
 
 ### Added
-- Comprehensive test suite with 71+ tests
+- Comprehensive test suite with 110+ tests
 - Type inspection-based DI resolver (no naming conventions)
-- Support for `@request` decorator with pure dataclasses
+- Full dataclass support with Request[T] inheritance
+- Type-safe SimpleResolver with runtime validation
 - MkDocs Material documentation site
 - Poe the Poet task automation
+- Comprehensive error messages with documentation links
 
 ### Changed
 - DI resolver now uses type inspection instead of naming conventions

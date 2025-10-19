@@ -2,7 +2,14 @@
 
 import pytest
 
-from pymediate import Handler, Request
+from pymediate import (
+    Handler,
+    HandlerNotFoundError,
+    InvalidHandlerSignatureError,
+    InvalidRequestTypeError,
+    Request,
+    ResponseTypeMismatchError,
+)
 from pymediate.registry import _HANDLER_REGISTRY
 
 
@@ -72,8 +79,8 @@ def test_handler_rejects_wrong_return_type():
     class ReqWithCorrectResponse(Request[CorrectResponse]):
         pass
 
-    # This should raise TypeError
-    with pytest.raises(TypeError, match="must return CorrectResponse, got WrongResponse"):
+    # This should raise ResponseTypeMismatchError
+    with pytest.raises(ResponseTypeMismatchError):
 
         class BadHandler(Handler[ReqWithCorrectResponse]):
             def __call__(self, request: ReqWithCorrectResponse) -> WrongResponse:
@@ -92,7 +99,7 @@ def test_handler_rejects_wrong_parameter_type():
     class WrongReq(Request[Resp]):
         pass
 
-    with pytest.raises(TypeError, match="parameter must be of type CorrectReq"):
+    with pytest.raises(InvalidHandlerSignatureError):
 
         class BadHandler(Handler[CorrectReq]):
             def __call__(self, request: WrongReq) -> Resp:
@@ -108,7 +115,7 @@ def test_handler_requires_exactly_one_parameter():
     class Req(Request[Resp]):
         pass
 
-    with pytest.raises(TypeError, match="must accept exactly one parameter"):
+    with pytest.raises(InvalidHandlerSignatureError):
 
         class TooManyParams(Handler[Req]):
             def __call__(self, request: Req, extra: str) -> Resp:
@@ -123,7 +130,7 @@ def test_handler_with_request_not_in_registry():
 
         pass
 
-    with pytest.raises(TypeError, match="must be a subclass of Request"):
+    with pytest.raises(InvalidRequestTypeError):
 
         class BadHandler(Handler[UnregisteredRequest]):
             def __call__(self, request: UnregisteredRequest):
@@ -213,7 +220,7 @@ def test_get_handler_for_unregistered_request():
 
     # Don't create a handler for it
 
-    with pytest.raises(ValueError, match="No handler registered"):
+    with pytest.raises(HandlerNotFoundError):
         Handler.get_handler_for_request(UnhandledReq)
 
 

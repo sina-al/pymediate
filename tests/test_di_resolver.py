@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from dependency_injector import containers, providers
 
-from pymediate import DependencyInjectorResolver, Handler, Mediator, Request
+from pymediate import DependencyInjectorResolver, Handler, HandlerNotFoundError, Mediator, Request
 
 # Define test domain objects
 
@@ -156,11 +156,11 @@ def test_di_resolver_handler_not_found():
 
     try:
         resolver.resolve(UnregisteredRequest)
-        raise AssertionError("Should have raised ValueError")
-    except ValueError as e:
+        raise AssertionError("Should have raised HandlerNotFoundError")
+    except HandlerNotFoundError as e:
         # New implementation uses type inspection, not naming conventions
-        assert "No handler found" in str(e)
         assert "UnregisteredRequest" in str(e)
+        assert "SendEmailRequest" in str(e)  # Available handler listed
 
 
 # Test with multiple handlers

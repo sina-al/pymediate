@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import DependencyInjectorResolver, Handler, Mediator, Request, request
+from pymediate import DependencyInjectorResolver, Handler, HandlerNotFoundError, Mediator, Request
 
 # ========== Test 1: Arbitrary class names (no naming conventions) ==========
 
@@ -148,10 +148,9 @@ class UserData:
     email: str
 
 
-@request(UserData)
 @dataclass
-class CreateUser:
-    """Dataclass request using @request decorator."""
+class CreateUser(Request[UserData]):
+    """Dataclass request using inheritance."""
 
     username: str
     email: str
@@ -191,7 +190,7 @@ class DataclassDIContainer(containers.DeclarativeContainer):
 
 
 def test_dataclass_decorator_with_di():
-    """Test dataclass + @request decorator + DI resolver together."""
+    """Test dataclass + Request inheritance + DI resolver together."""
     container = DataclassDIContainer()
     resolver = DependencyInjectorResolver(container)
     mediator = Mediator(resolver)
@@ -373,7 +372,7 @@ def test_handler_not_found_error():
     container = MixedNamingContainer()
     resolver = DependencyInjectorResolver(container)
 
-    with pytest.raises(ValueError, match="No handler found.*NoHandlerRequest"):
+    with pytest.raises(HandlerNotFoundError):
         resolver.resolve(NoHandlerRequest)
 
 
@@ -384,8 +383,8 @@ def test_handler_not_found_lists_available():
 
     try:
         resolver.resolve(NoHandlerRequest)
-        pytest.fail("Should have raised ValueError")
-    except ValueError as e:
+        pytest.fail("Should have raised HandlerNotFoundError")
+    except HandlerNotFoundError as e:
         error_msg = str(e)
         assert "NoHandlerRequest" in error_msg
         # Should mention available handlers or give useful info
@@ -607,7 +606,7 @@ def test_empty_container():
     resolver = DependencyInjectorResolver(container)
 
     # Should fail to resolve any request
-    with pytest.raises(ValueError, match="No handler found"):
+    with pytest.raises(HandlerNotFoundError):
         resolver.resolve(Gamma)
 
 

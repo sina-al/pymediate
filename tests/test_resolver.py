@@ -2,7 +2,7 @@
 
 import pytest
 
-from pymediate import Handler, Request, SimpleResolver
+from pymediate import Handler, HandlerNotFoundError, Request, SimpleResolver
 
 
 def test_simple_resolver_creation():
@@ -63,7 +63,7 @@ def test_resolve_unregistered_request():
 
     resolver = SimpleResolver()
 
-    with pytest.raises(ValueError, match="No handler registered"):
+    with pytest.raises(HandlerNotFoundError):
         resolver.resolve(UnregisteredReq)
 
 
@@ -141,7 +141,7 @@ def test_resolver_with_empty_handlers_dict():
     class Req(Request[Resp]):
         pass
 
-    with pytest.raises(ValueError):
+    with pytest.raises(HandlerNotFoundError):
         resolver.resolve(Req)
 
 

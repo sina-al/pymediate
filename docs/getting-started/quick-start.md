@@ -22,21 +22,20 @@ class UserCreated:
 
 ### Step 2: Define Your Request
 
-Use the `@request` decorator to link the request to its response:
+Inherit from Request[ResponseType] to link the request to its response:
 
 ```python
-from pymediate import request
+from pymediate import Request
 
-@request(UserCreated)
 @dataclass
-class CreateUser:
+class CreateUser(Request[UserCreated]):
     username: str
     email: str
 ```
 
-!!! tip "Why @request?"
-    The `@request` decorator tells PyMediate what type of response this request expects.
-    This enables automatic type inference and validation!
+!!! tip "Why Request[T] inheritance?"
+    Inheriting from Request[ResponseType] tells PyMediate what type of response this request expects.
+    This enables automatic type inference and validation, and works perfectly with dataclasses!
 
 ### Step 3: Create a Handler
 
@@ -102,7 +101,7 @@ Here's the complete code in one file:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, SimpleResolver, request
+from pymediate import Request, Handler, Mediator, SimpleResolver
 
 # 1. Define response
 @dataclass
@@ -112,9 +111,8 @@ class UserCreated:
     email: str
 
 # 2. Define request
-@request(UserCreated)
 @dataclass
-class CreateUser:
+class CreateUser(Request[UserCreated]):
     username: str
     email: str
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, SimpleResolver
+from pymediate import Handler, Mediator, Request, ResponseTypeMismatchError, SimpleResolver
 
 
 def test_complete_workflow():
@@ -195,7 +195,7 @@ def test_type_safety_at_runtime():
         pass
 
     # This should fail at class definition time
-    with pytest.raises(TypeError, match="must return CorrectResponse"):
+    with pytest.raises(ResponseTypeMismatchError):
 
         class WrongHandler(Handler[TypedRequest]):
             def __call__(self, request: TypedRequest) -> WrongResponse:

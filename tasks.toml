@@ -22,7 +22,9 @@ test.cmd = "pytest tests/"
 
 "test:specific".help = "Run specific test file (usage: poe test:specific test_handler.py)"
 "test:specific".cmd = "pytest tests/${test_file} -v"
-"test:specific".args = [{name = "test_file", positional = true, required = true}]
+"test:specific".args = [
+    { name = "test_file", positional = true, required = true },
+]
 
 # ========== Type Checking ==========
 
@@ -90,15 +92,6 @@ clean.cmd = """
 
 "clean:all".help = "Clean everything including venv"
 "clean:all".sequence = ["clean"]
-"clean:all".cmd = "rm -rf .venv"
-
-# ========== Build & Release ==========
-
-build.help = "Build distribution packages"
-build.cmd = "python -m build"
-
-"build:check".help = "Build and check distribution"
-"build:check".sequence = ["build", "twine check dist/*"]
 
 # ========== Quick Commands ==========
 

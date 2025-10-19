@@ -2,7 +2,7 @@
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, SimpleResolver
+from pymediate import Handler, HandlerNotFoundError, Mediator, Request, SimpleResolver
 
 
 def test_mediator_creation():
@@ -51,7 +51,7 @@ def test_mediator_send_unregistered_request():
     resolver = SimpleResolver()
     mediator = Mediator(resolver)
 
-    with pytest.raises(ValueError, match="No handler registered"):
+    with pytest.raises(HandlerNotFoundError):
         mediator.send(UnhandledReq("test"))
 
 

@@ -3,6 +3,12 @@
 import inspect
 from typing import Any, get_args, get_origin
 
+from pymediate.errors import (
+    HandlerNotFoundError,
+    InvalidHandlerSignatureError,
+    InvalidRequestTypeError,
+    ResponseTypeMismatchError,
+)
 from pymediate.registry import _HANDLER_REGISTRY, _REQUEST_REGISTRY
 
 
@@ -20,7 +26,7 @@ def _validate_call_signature(
         TypeError: If the signature doesn't match expectations
     """
     if "__call__" not in cls.__dict__:
-        raise TypeError(f"{cls.__name__} must implement __call__ method")
+        raise InvalidHandlerSignatureError(cls, "must implement __call__ method")
 
     call_method = cls.__dict__["__call__"]
     sig = inspect.signature(call_method)
@@ -28,14 +34,16 @@ def _validate_call_signature(
     # Validate parameters
     params = list(sig.parameters.values())
     if len(params) != 2:  # self, request
-        raise TypeError(
-            f"{cls.__name__}.__call__ must accept exactly one parameter "
-            f"(besides self), got {len(params) - 1}"
+        raise InvalidHandlerSignatureError(
+            cls,
+            f"__call__ must accept exactly one parameter (besides self), got {len(params) - 1}",
         )
 
     request_param = params[1]  # Skip 'self'
     if request_param.annotation == inspect.Parameter.empty:
-        raise TypeError(f"{cls.__name__}.__call__ request parameter must have type annotation")
+        raise InvalidHandlerSignatureError(
+            cls, "__call__ request parameter must have type annotation"
+        )
 
     if request_param.annotation != expected_request_type:
         param_name = (
@@ -43,14 +51,14 @@ def _validate_call_signature(
             if hasattr(request_param.annotation, "__name__")
             else str(request_param.annotation)
         )
-        raise TypeError(
-            f"{cls.__name__}.__call__ parameter must be of type "
-            f"{expected_request_type.__name__}, got {param_name}"
+        raise InvalidHandlerSignatureError(
+            cls,
+            f"__call__ parameter must be of type {expected_request_type.__name__}, got {param_name}",
         )
 
     # Validate return type
     if sig.return_annotation == inspect.Signature.empty:
-        raise TypeError(f"{cls.__name__}.__call__ must have return type annotation")
+        raise InvalidHandlerSignatureError(cls, "__call__ must have return type annotation")
 
     if sig.return_annotation != expected_response_type:
         return_name = (
@@ -58,10 +66,7 @@ def _validate_call_signature(
             if hasattr(sig.return_annotation, "__name__")
             else str(sig.return_annotation)
         )
-        raise TypeError(
-            f"{cls.__name__}.__call__ must return {expected_response_type.__name__}, "
-            f"got {return_name}"
-        )
+        raise ResponseTypeMismatchError(cls, expected_response_type, sig.return_annotation)
 
 
 class Handler[RequestT]:
@@ -121,10 +126,7 @@ class Handler[RequestT]:
             else:
                 # Only raise if this isn't the base Handler class
                 if cls.__name__ != "Handler":
-                    raise TypeError(
-                        f"{cls.__name__}: Request type {cls._request_type.__name__} "
-                        f"must be a subclass of Request with response type specified"
-                    )
+                    raise InvalidRequestTypeError(cls._request_type)
 
     def __call__(self, request: RequestT) -> Any:  # noqa: ARG002
         """Handle the request and return a response.
@@ -163,5 +165,6 @@ class Handler[RequestT]:
             ValueError: If no handler is registered for the request type
         """
         if request_type not in _HANDLER_REGISTRY:
-            raise ValueError(f"No handler registered for request type {request_type.__name__}")
+            available = list(_HANDLER_REGISTRY.keys())
+            raise HandlerNotFoundError(request_type, available)
         return _HANDLER_REGISTRY[request_type]
