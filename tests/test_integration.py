@@ -91,9 +91,7 @@ def test_multiple_request_types_workflow():
     # Execute multiple requests
     user = mediator.send(GetUserRequest(42))
     order = mediator.send(
-        CreateOrderRequest(
-            42, [{"name": "Item1", "price": 10.0}, {"name": "Item2", "price": 20.0}]
-        )
+        CreateOrderRequest(42, [{"name": "Item1", "price": 10.0}, {"name": "Item2", "price": 20.0}])
     )
 
     # Verify

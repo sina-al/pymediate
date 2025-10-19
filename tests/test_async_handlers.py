@@ -15,7 +15,6 @@ from pymediate import (
     SimpleResolver,
 )
 
-
 # ============================================================================
 # Test Requests and Responses (Dataclasses)
 # ============================================================================
@@ -180,9 +179,7 @@ class AsyncFetchUserHandler(Handler[FetchUserRequest]):
     def __init__(self, database: AsyncDatabaseService):
         self.database = database
 
-    async def __call__(
-        self, request: FetchUserRequest
-    ) -> FetchUserResponse:
+    async def __call__(self, request: FetchUserRequest) -> FetchUserResponse:
         user = await self.database.fetch_user(request.user_id)
 
         if not user:
@@ -198,9 +195,7 @@ class AsyncFetchUserHandler(Handler[FetchUserRequest]):
 class AsyncProcessDataHandler(Handler[ProcessDataRequest]):
     """Async handler that processes data in batches."""
 
-    async def __call__(
-        self, request: ProcessDataRequest
-    ) -> ProcessDataResponse:
+    async def __call__(self, request: ProcessDataRequest) -> ProcessDataResponse:
         import time
 
         start = time.time()
@@ -233,9 +228,7 @@ class AsyncComputeHandler(Handler[ComputeRequest]):
 
         start = time.time()
 
-        result = await self.compute_service.compute(
-            request.a, request.b, request.operation
-        )
+        result = await self.compute_service.compute(request.a, request.b, request.operation)
 
         duration_ms = (time.time() - start) * 1000
 
@@ -245,9 +238,7 @@ class AsyncComputeHandler(Handler[ComputeRequest]):
 class AsyncMultiStepHandler(Handler[MultiStepRequest]):
     """Async handler that performs multiple sequential async operations."""
 
-    async def __call__(
-        self, request: MultiStepRequest
-    ) -> MultiStepResponse:
+    async def __call__(self, request: MultiStepRequest) -> MultiStepResponse:
         import time
 
         start = time.time()
@@ -294,39 +285,28 @@ class AsyncParallelTaskHandler(Handler[ParallelTaskRequest]):
         await asyncio.sleep(delay_ms / 1000)
         return task_id * 2
 
-    async def __call__(
-        self, request: ParallelTaskRequest
-    ) -> ParallelTaskResponse:
+    async def __call__(self, request: ParallelTaskRequest) -> ParallelTaskResponse:
         import time
 
         start = time.time()
 
         # Run tasks in parallel using asyncio.gather
-        tasks = [
-            self._run_task(i, request.delay_ms)
-            for i in range(request.task_count)
-        ]
+        tasks = [self._run_task(i, request.delay_ms) for i in range(request.task_count)]
         results = await asyncio.gather(*tasks)
 
         duration_ms = (time.time() - start) * 1000
 
-        return ParallelTaskResponse(
-            task_results=list(results), total_time_ms=duration_ms
-        )
+        return ParallelTaskResponse(task_results=list(results), total_time_ms=duration_ms)
 
 
 class AsyncCachedDataHandler(Handler[CachedDataRequest]):
     """Async handler with caching support."""
 
-    def __init__(
-        self, cache: AsyncCacheService, database: AsyncDatabaseService
-    ):
+    def __init__(self, cache: AsyncCacheService, database: AsyncDatabaseService):
         self.cache = cache
         self.database = database
 
-    async def __call__(
-        self, request: CachedDataRequest
-    ) -> CachedDataResponse:
+    async def __call__(self, request: CachedDataRequest) -> CachedDataResponse:
         # Try cache first
         cached_data = await self.cache.get(request.key)
         if cached_data:
@@ -375,9 +355,7 @@ async def test_async_batch_processing():
     mediator = Mediator(resolver)
 
     items = [f"item{i}" for i in range(25)]
-    response = await mediator.send(
-        ProcessDataRequest(items=items, batch_size=10)
-    )
+    response = await mediator.send(ProcessDataRequest(items=items, batch_size=10))
 
     assert response.total_processed == 25
     assert response.processed_items == [item.upper() for item in items]
@@ -397,14 +375,10 @@ async def test_async_with_external_service():
     add_response = await mediator.send(ComputeRequest(a=5, b=3, operation="add"))
     assert add_response.result == 8
 
-    mult_response = await mediator.send(
-        ComputeRequest(a=4, b=7, operation="multiply")
-    )
+    mult_response = await mediator.send(ComputeRequest(a=4, b=7, operation="multiply"))
     assert mult_response.result == 28
 
-    power_response = await mediator.send(
-        ComputeRequest(a=2, b=10, operation="power")
-    )
+    power_response = await mediator.send(ComputeRequest(a=2, b=10, operation="power"))
     assert power_response.result == 1024
 
 
@@ -450,9 +424,7 @@ async def test_async_parallel_tasks():
     mediator = Mediator(resolver)
 
     # Run 5 tasks in parallel
-    response = await mediator.send(
-        ParallelTaskRequest(task_count=5, delay_ms=10)
-    )
+    response = await mediator.send(ParallelTaskRequest(task_count=5, delay_ms=10))
 
     assert len(response.task_results) == 5
     assert response.task_results == [0, 2, 4, 6, 8]  # task_id * 2
@@ -467,9 +439,7 @@ async def test_async_caching():
     cache = AsyncCacheService()
     database = AsyncDatabaseService()
     resolver = SimpleResolver()
-    resolver.register(
-        CachedDataRequest, AsyncCachedDataHandler(cache, database)
-    )
+    resolver.register(CachedDataRequest, AsyncCachedDataHandler(cache, database))
 
     mediator = Mediator(resolver)
 
@@ -527,15 +497,11 @@ async def test_async_with_di_resolver():
         cache = providers.Singleton(AsyncCacheService)
         compute_service = providers.Singleton(AsyncComputeService)
 
-        fetch_user_handler = providers.Factory(
-            AsyncFetchUserHandler, database=database
-        )
+        fetch_user_handler = providers.Factory(AsyncFetchUserHandler, database=database)
         cached_data_handler = providers.Factory(
             AsyncCachedDataHandler, cache=cache, database=database
         )
-        compute_handler = providers.Factory(
-            AsyncComputeHandler, compute_service=compute_service
-        )
+        compute_handler = providers.Factory(AsyncComputeHandler, compute_service=compute_service)
 
     container = Container()
     resolver = DependencyInjectorResolver(container)
@@ -546,9 +512,7 @@ async def test_async_with_di_resolver():
     assert user_response.username == "bob"
 
     # Test compute
-    compute_response = await mediator.send(
-        ComputeRequest(a=10, b=5, operation="add")
-    )
+    compute_response = await mediator.send(ComputeRequest(a=10, b=5, operation="add"))
     assert compute_response.result == 15
 
 
@@ -561,9 +525,7 @@ async def test_async_di_with_shared_services():
         database = providers.Singleton(AsyncDatabaseService)
         cache = providers.Singleton(AsyncCacheService)
 
-        fetch_user_handler = providers.Factory(
-            AsyncFetchUserHandler, database=database
-        )
+        fetch_user_handler = providers.Factory(AsyncFetchUserHandler, database=database)
         cached_data_handler = providers.Factory(
             AsyncCachedDataHandler, cache=cache, database=database
         )
@@ -600,15 +562,11 @@ class FrozenDataRequest(Request[FrozenDataResponse]):
 class AsyncFrozenDataHandler(Handler[FrozenDataRequest]):
     """Handler for frozen dataclass requests."""
 
-    async def __call__(
-        self, request: FrozenDataRequest
-    ) -> FrozenDataResponse:
+    async def __call__(self, request: FrozenDataRequest) -> FrozenDataResponse:
         import time
 
         await asyncio.sleep(0.01)
-        return FrozenDataResponse(
-            result=f"Processed: {request.input}", timestamp=time.time()
-        )
+        return FrozenDataResponse(result=f"Processed: {request.input}", timestamp=time.time())
 
 
 @pytest.mark.asyncio
@@ -622,14 +580,14 @@ async def test_async_frozen_dataclasses():
     request = FrozenDataRequest(input="test data")
 
     # Verify request is frozen
-    with pytest.raises(Exception):  # FrozenInstanceError
+    with pytest.raises(AttributeError):  # FrozenInstanceError is a subclass of AttributeError
         request.input = "modified"  # type: ignore
 
     response = await mediator.send(request)
     assert "Processed: test data" in response.result
 
     # Verify response is frozen
-    with pytest.raises(Exception):  # FrozenInstanceError
+    with pytest.raises(AttributeError):  # FrozenInstanceError is a subclass of AttributeError
         response.result = "modified"  # type: ignore
 
 
@@ -666,17 +624,13 @@ class ComplexUserRequest(Request[ComplexUserResponse]):
 class AsyncComplexUserHandler(Handler[ComplexUserRequest]):
     """Handler for nested dataclass responses."""
 
-    async def __call__(
-        self, request: ComplexUserRequest
-    ) -> ComplexUserResponse:
+    async def __call__(self, request: ComplexUserRequest) -> ComplexUserResponse:
         await asyncio.sleep(0.01)
 
         profile = UserProfile(
             name="Alice Smith",
             email="alice@example.com",
-            address=Address(
-                street="123 Main St", city="Springfield", country="USA"
-            ),
+            address=Address(street="123 Main St", city="Springfield", country="USA"),
         )
 
         return ComplexUserResponse(
@@ -721,9 +675,7 @@ class ConfigurableRequest(Request[ConfigurableResponse]):
 class AsyncConfigurableHandler(Handler[ConfigurableRequest]):
     """Handler for request with defaults and factories."""
 
-    async def __call__(
-        self, request: ConfigurableRequest
-    ) -> ConfigurableResponse:
+    async def __call__(self, request: ConfigurableRequest) -> ConfigurableResponse:
         await asyncio.sleep(0.01)
         items = [f"{request.query}_{i}" for i in range(request.limit)]
         return ConfigurableResponse(items=items, count=len(items))
@@ -814,9 +766,7 @@ async def test_async_performance():
     # Run 10 tasks, each taking 20ms
     # If sequential: ~200ms
     # If parallel: ~20ms
-    response = await mediator.send(
-        ParallelTaskRequest(task_count=10, delay_ms=20)
-    )
+    response = await mediator.send(ParallelTaskRequest(task_count=10, delay_ms=20))
 
     elapsed_ms = (time.time() - start) * 1000
 
@@ -835,12 +785,8 @@ async def test_complex_async_workflow():
         cache = providers.Singleton(AsyncCacheService)
         compute_service = providers.Singleton(AsyncComputeService)
 
-        fetch_user_handler = providers.Factory(
-            AsyncFetchUserHandler, database=database
-        )
-        compute_handler = providers.Factory(
-            AsyncComputeHandler, compute_service=compute_service
-        )
+        fetch_user_handler = providers.Factory(AsyncFetchUserHandler, database=database)
+        compute_handler = providers.Factory(AsyncComputeHandler, compute_service=compute_service)
         process_data_handler = providers.Factory(AsyncProcessDataHandler)
 
     container = Container()
@@ -856,9 +802,7 @@ async def test_complex_async_workflow():
     )
     assert compute_response.result == 10
 
-    process_response = await mediator.send(
-        ProcessDataRequest(items=["a", "b", "c"], batch_size=2)
-    )
+    process_response = await mediator.send(ProcessDataRequest(items=["a", "b", "c"], batch_size=2))
     assert process_response.processed_items == ["A", "B", "C"]
 
 
@@ -882,9 +826,7 @@ async def test_async_handler_validation():
                 raise ValueError("Must be 18 or older")
 
     class AsyncValidatedHandler(Handler[ValidatedRequest]):
-        async def __call__(
-            self, request: ValidatedRequest
-        ) -> ValidatedResponse:
+        async def __call__(self, request: ValidatedRequest) -> ValidatedResponse:
             await asyncio.sleep(0.01)
             return ValidatedResponse(success=True)
 
@@ -893,9 +835,7 @@ async def test_async_handler_validation():
     mediator = Mediator(resolver)
 
     # Valid request
-    response = await mediator.send(
-        ValidatedRequest(email="test@example.com", age=25)
-    )
+    response = await mediator.send(ValidatedRequest(email="test@example.com", age=25))
     assert response.success is True
 
     # Invalid email

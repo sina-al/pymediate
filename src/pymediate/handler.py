@@ -51,9 +51,10 @@ def _validate_call_signature(
             if hasattr(request_param.annotation, "__name__")
             else str(request_param.annotation)
         )
+        expected_name = expected_request_type.__name__
         raise InvalidHandlerSignatureError(
             cls,
-            f"__call__ parameter must be of type {expected_request_type.__name__}, got {param_name}",
+            f"__call__ parameter must be of type {expected_name}, got {param_name}",
         )
 
     # Validate return type
@@ -61,11 +62,6 @@ def _validate_call_signature(
         raise InvalidHandlerSignatureError(cls, "__call__ must have return type annotation")
 
     if sig.return_annotation != expected_response_type:
-        return_name = (
-            sig.return_annotation.__name__
-            if hasattr(sig.return_annotation, "__name__")
-            else str(sig.return_annotation)
-        )
         raise ResponseTypeMismatchError(cls, expected_response_type, sig.return_annotation)
 
 

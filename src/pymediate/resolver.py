@@ -70,9 +70,7 @@ class SimpleResolver:
         # Validate that the handler can handle this request type
         handler_request_type = getattr(type(handler), "_request_type", None)
         if handler_request_type is not None and handler_request_type != request_class:
-            raise HandlerTypeMismatchError(
-                type(handler), handler_request_type, request_class
-            )
+            raise HandlerTypeMismatchError(type(handler), handler_request_type, request_class)
         self._handlers[request_class] = handler
 
     def resolve(self, request_class: type[RequestType]) -> "Handler[RequestType]":
