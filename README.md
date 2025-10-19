@@ -6,8 +6,8 @@
   <a href="https://github.com/sina-al/pymediate/actions/workflows/test.yml">
     <img src="https://github.com/sina-al/pymediate/actions/workflows/test.yml/badge.svg" alt="Tests">
   </a>
-  <a href="https://github.com/sina-al/pymediate/actions/workflows/lint.yml">
-    <img src="https://github.com/sina-al/pymediate/actions/workflows/lint.yml/badge.svg" alt="Lint">
+  <a href="https://github.com/sina-al/pymediate/actions/workflows/code-quality.yml">
+    <img src="https://github.com/sina-al/pymediate/actions/workflows/code-quality.yml/badge.svg" alt="Code Quality">
   </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+">

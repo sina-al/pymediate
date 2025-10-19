@@ -1,4 +1,4 @@
-name: Lint
+name: Code Quality
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  ruff:
-    name: Ruff (Format & Lint)
+  check:
+    name: Check Code Quality
     runs-on: ubuntu-latest
 
     steps:
