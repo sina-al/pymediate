@@ -624,5 +624,6 @@ class Container(containers.DeclarativeContainer):
 ## See Also
 
 - [Handlers Guide](handlers.md) - Understanding handlers
-- [Dependency Injection Integration](../advanced/di-integration.md) - Advanced DI patterns
+- [Dependency Injection](dependency-injection.md) - DI integration guide
 - [API Reference: Resolvers](../api/resolvers.md) - Complete API documentation
+- [API Reference: DI Resolver](../api/di-resolver.md) - DI resolver API

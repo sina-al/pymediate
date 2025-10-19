@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" role="img" aria-label="PyMediate logo">
+  <title>PyMediate</title>
+  <defs>
+    <linearGradient id="pm-gradient" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#00BCD4"/> <!-- cyan accent -->
+      <stop offset="100%" stop-color="#2962FF"/> <!-- blue accent -->
+    </linearGradient>
+  </defs>
+
+  <!-- Icon -->
+  <g transform="translate(8,8)">
+    <!-- Outer ring -->
+    <circle cx="24" cy="24" r="20" fill="none" stroke="url(#pm-gradient)" stroke-width="3.5"/>
+    <!-- Inner node -->
+    <circle cx="24" cy="24" r="5" fill="#00BCD4"/>
+    <!-- Spokes -->
+    <line x1="24" y1="4" x2="24" y2="14" stroke="#00BCD4" stroke-width="2" stroke-linecap="round"/>
+    <line x1="24" y1="34" x2="24" y2="44" stroke="#00BCD4" stroke-width="2" stroke-linecap="round"/>
+    <line x1="4" y1="24" x2="14" y2="24" stroke="#00BCD4" stroke-width="2" stroke-linecap="round"/>
+    <line x1="34" y1="24" x2="44" y2="24" stroke="#00BCD4" stroke-width="2" stroke-linecap="round"/>
+    <!-- Suggest a “mediator network” with diagonals -->
+    <line x1="10" y1="10" x2="18" y2="18" stroke="#2962FF" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="38" y1="10" x2="30" y2="18" stroke="#2962FF" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="10" y1="38" x2="18" y2="30" stroke="#2962FF" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="38" y1="38" x2="30" y2="30" stroke="#2962FF" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="72" y="40"
+        font-family="Inter, Roboto, 'Segoe UI', system-ui, sans-serif"
+        font-size="28"
+        font-weight="600"
+        fill="#263238">Py<tspan fill="url(#pm-gradient)">Mediate</tspan></text>
+</svg>

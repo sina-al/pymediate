@@ -884,6 +884,6 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 ## Next Steps
 
 - Learn about [Handlers](handlers.md) - Implementing error handling in handlers
-- Explore [Validation](../advanced/best-practices.md#validation) - Advanced validation techniques
+- Explore [Best Practices](../advanced/best-practices.md) - Advanced techniques
 - See [Testing](../advanced/testing.md) - Testing error scenarios
-- Read [API Reference](../api/errors.md) - Complete error API documentation
+- Check out the [API Reference](../api/request.md) - Complete API documentation

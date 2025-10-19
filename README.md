@@ -1,4 +1,10 @@
-# PyMediate
+<p align="center">
+  <img src="assets/pymediate-logo.svg" alt="PyMediate logo" width="400">
+</p>
+
+<p align="center">
+  A type-safe mediator pattern implementation for Python 3.12+
+</p>
 
 [![Tests](https://github.com/sina-al/pymediate/workflows/Tests/badge.svg)](https://github.com/sina-al/pymediate/actions/workflows/test.yml)
 [![Lint](https://github.com/sina-al/pymediate/workflows/Lint/badge.svg)](https://github.com/sina-al/pymediate/actions/workflows/lint.yml)
@@ -6,8 +12,6 @@
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![PyPI version](https://badge.fury.io/py/pymediate.svg)](https://badge.fury.io/py/pymediate)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-A type-safe mediator pattern implementation for Python 3.13+ with automatic type inference and runtime validation.
 
 ## Features
 

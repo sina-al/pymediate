@@ -14,54 +14,102 @@ from pymediate.handler import Handler
 
 
 class DependencyInjectorResolver:
-    """Resolver that uses a dependency-injector Container to resolve handlers.
+    """Resolver that integrates with dependency-injector library.
 
-    This resolver works WITHOUT naming conventions by using type inspection:
-    - Scans all providers in the container at initialization
-    - Identifies Handler instances by checking isinstance(obj, Handler)
-    - Extracts the request type from Handler._request_type
-    - Builds a direct mapping from request type to provider
+    This resolver uses type inspection to automatically discover handlers from a
+    dependency-injector Container, without requiring any naming conventions.
+
+    The resolver scans all providers in the container at initialization, identifies
+    Handler instances by checking isinstance(), extracts the request type from
+    Handler._request_type, and builds a direct mapping from request type to provider.
 
     This means handler providers can have ANY name - no conventions required!
 
-    Example:
-        from dependency_injector import containers, providers
+    Attributes:
+        _container: The dependency-injector Container instance.
+        _handler_providers: Dict mapping request types to their handler providers.
 
-        class AppContainer(containers.DeclarativeContainer):
-            database = providers.Singleton(Database)
+    Examples:
+        Basic setup with Factory providers:
+            ```python
+            from dependency_injector import containers, providers
 
-            # Provider can have ANY name - no convention needed!
-            user_creation_service = providers.Factory(
-                CreateUserHandler,
-                database=database
-            )
+            class AppContainer(containers.DeclarativeContainer):
+                database = providers.Singleton(Database)
 
-            __self__ = providers.Self()
-            mediator = providers.Singleton(
-                Mediator,
-                resolver=providers.Singleton(
+                # Provider names don't matter - type inspection finds handlers!
+                user_creator = providers.Factory(
+                    CreateUserHandler,
+                    database=database
+                )
+
+                __self__ = providers.Self()
+                mediator = providers.Singleton(
+                    Mediator,
+                    resolver=providers.Singleton(
+                        DependencyInjectorResolver,
+                        container=__self__
+                    )
+                )
+
+            container = AppContainer()
+            mediator = container.mediator()
+            response = mediator.send(CreateUserRequest(...))
+            ```
+
+        Using Singleton providers:
+            ```python
+            class AppContainer(containers.DeclarativeContainer):
+                # Singleton handler - same instance every time
+                create_user_handler = providers.Singleton(CreateUserHandler)
+
+                __self__ = providers.Self()
+                resolver = providers.Singleton(
                     DependencyInjectorResolver,
                     container=__self__
                 )
-            )
-
-        container = AppContainer()
-        mediator = container.mediator()
-        response = mediator.send(CreateUserRequest(...))
+            ```
 
     Performance:
-        First resolve: O(1) lookup from pre-built cache
-        Subsequent resolves: O(1) lookup from cache
+        - Initialization: O(n) where n is number of providers (one-time cost)
+        - Resolution: O(1) lookup from pre-built cache
+        - Subsequent resolves: O(1) lookup from cache
+
+    Note:
+        The container is scanned once at initialization. If you add providers
+        after creating the resolver, you'll need to create a new resolver instance.
+
+    See Also:
+        - Resolver: The protocol this class implements
+        - SimpleResolver: Simpler dict-based alternative
     """
 
     def __init__(self, container: containers.Container) -> None:
         """Initialize resolver with a dependency-injector container.
 
-        Scans the container on initialization to build a cache mapping
-        request types to their handler providers using type inspection.
+        Scans the container immediately to build a cache mapping request types
+        to their handler providers using type inspection. This enables O(1)
+        lookups without any naming conventions.
 
         Args:
-            container: Any dependency-injector Container instance
+            container: Any dependency-injector Container instance (DeclarativeContainer
+                or DynamicContainer).
+
+        Examples:
+            ```python
+            from dependency_injector import containers
+
+            class AppContainer(containers.DeclarativeContainer):
+                # ... providers ...
+                pass
+
+            container = AppContainer()
+            resolver = DependencyInjectorResolver(container)
+            ```
+
+        Note:
+            The container scan happens in __init__, so any handlers added after
+            initialization won't be discovered.
         """
         self._container = container
         # Maps request type -> provider that creates the handler
@@ -78,6 +126,10 @@ class DependencyInjectorResolver:
         4. Map request_type -> provider for O(1) lookups
 
         This approach works with ANY provider names - no conventions needed!
+
+        Note:
+            Providers that can't be instantiated (e.g., missing dependencies) are
+            silently skipped. This is expected behavior during container scanning.
         """
         if not hasattr(self._container, "providers"):
             return
@@ -106,16 +158,35 @@ class DependencyInjectorResolver:
     def resolve(self, request_class: type) -> Any:
         """Resolve a handler instance for the given request type.
 
-        Uses type-based lookup - NO naming conventions required!
+        Uses type-based lookup from the pre-built cache - NO naming conventions
+        required! Simply calls the appropriate provider to get a handler instance.
 
         Args:
-            request_class: The request class to resolve a handler for
+            request_class: The request class to resolve a handler for.
 
         Returns:
-            The handler instance from the container
+            The handler instance from the container. Whether you get a new instance
+            or a singleton depends on the provider type (Factory vs Singleton).
 
         Raises:
-            ValueError: If no handler is found for the request type
+            HandlerNotFoundError: If no handler is found for the request type.
+                The error includes a list of available handlers.
+            DIContainerError: If the container fails to provide the handler instance
+                (e.g., due to missing dependencies).
+
+        Examples:
+            ```python
+            resolver = DependencyInjectorResolver(container)
+
+            # Resolves CreateUserHandler from container
+            handler = resolver.resolve(CreateUserRequest)
+            response = handler(CreateUserRequest(username="alice"))
+            ```
+
+        Note:
+            Each call to resolve() invokes the provider. For Factory providers,
+            this creates a new handler instance. For Singleton providers, the
+            same instance is returned.
         """
         # O(1) lookup from pre-built type-based cache
         if request_class not in self._handler_providers:

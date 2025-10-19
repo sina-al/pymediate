@@ -972,5 +972,5 @@ class PushNotificationRequest(BaseNotificationRequest):
 
 - Learn about [Requests and Responses](requests-responses.md) - Design patterns
 - Explore [Handlers](handlers.md) - Processing dataclass requests
-- See [Validation](../advanced/best-practices.md#validation) - Advanced validation techniques
+- See [Best Practices](../advanced/best-practices.md) - Advanced techniques
 - Read [Type Safety](../advanced/type-safety.md) - Ensuring type correctness

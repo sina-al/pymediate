@@ -68,32 +68,98 @@ def _validate_call_signature(
 class Handler[RequestT]:
     """Base handler class with automatic response type inference.
 
-    The handler only needs to specify the request type. The response type
-    is automatically inferred from the Request class definition.
+    Handlers contain the business logic for processing requests. They only need
+    to specify the request type - the response type is automatically inferred
+    from the Request[ResponseT] class definition.
 
-    Example:
-        class UserResponse:
-            def __init__(self, user_id: int):
-                self.user_id = user_id
+    The handler performs compile-time validation via __init_subclass__ to ensure:
+    - The __call__ method exists and is properly implemented
+    - The __call__ parameter matches the declared request type
+    - The __call__ return type matches the request's response type
 
-        class CreateUserRequest(Request[UserResponse]):
-            def __init__(self, name: str):
-                self.name = name
+    This validation happens at class definition time (import time), catching
+    errors early in the development cycle rather than at runtime.
 
-        class CreateUserHandler(Handler[CreateUserRequest]):
-            def __call__(self, request: CreateUserRequest) -> UserResponse:
-                return UserResponse(user_id=1)
+    Type Parameters:
+        RequestT: The type of request this handler processes.
 
-    The handler validates at class definition time that:
-    - __call__ accepts the correct request type
-    - __call__ returns the correct response type
+    Attributes:
+        _request_type: Class-level attribute storing the request type.
+        _response_type: Class-level attribute storing the inferred response type.
+
+    Examples:
+        Basic handler with dataclasses:
+            ```python
+            from dataclasses import dataclass
+
+            @dataclass
+            class UserResponse:
+                user_id: int
+                username: str
+
+            @dataclass
+            class CreateUserRequest(Request[UserResponse]):
+                username: str
+                email: str
+
+            class CreateUserHandler(Handler[CreateUserRequest]):
+                def __call__(self, request: CreateUserRequest) -> UserResponse:
+                    return UserResponse(user_id=1, username=request.username)
+            ```
+
+        Handler with dependencies:
+            ```python
+            class CreateUserHandler(Handler[CreateUserRequest]):
+                def __init__(self, database: Database):
+                    self.database = database
+
+                def __call__(self, request: CreateUserRequest) -> UserResponse:
+                    user_id = self.database.insert_user(
+                        username=request.username,
+                        email=request.email
+                    )
+                    return UserResponse(user_id=user_id, username=request.username)
+            ```
+
+    Note:
+        Validation occurs at class definition time. If your __call__ signature
+        doesn't match expectations, you'll get a clear error message when the
+        module is imported, not when the handler is invoked.
+
+    Raises:
+        InvalidHandlerSignatureError: If __call__ signature is invalid.
+        InvalidRequestTypeError: If request type doesn't inherit from Request.
+        ResponseTypeMismatchError: If return type doesn't match expected response.
+
+    See Also:
+        - Request: Base request class
+        - Mediator: Routes requests to handlers
+        - Resolver: Resolves handler instances
     """
 
     _request_type: type | None = None
     _response_type: type | None = None
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        """Extract request type and validate handler signature."""
+        """Extract request type and validate handler signature.
+
+        This hook is automatically called when a new Handler subclass is defined.
+        It extracts the request type from Handler[RequestType], looks up the
+        corresponding response type, validates the __call__ signature, and
+        registers the handler.
+
+        Args:
+            **kwargs: Additional keyword arguments passed to parent __init_subclass__.
+
+        Raises:
+            InvalidRequestTypeError: If the request type doesn't inherit from Request.
+            InvalidHandlerSignatureError: If __call__ signature is invalid.
+            ResponseTypeMismatchError: If return type doesn't match expected response.
+
+        Note:
+            This method is called automatically by Python when a subclass is created.
+            You should not call this method directly.
+        """
         super().__init_subclass__(**kwargs)
 
         cls._request_type = None
@@ -139,26 +205,71 @@ class Handler[RequestT]:
 
     @classmethod
     def get_request_type(cls) -> type | None:
-        """Get the request type this handler handles."""
+        """Get the request type this handler handles.
+
+        Returns:
+            The request type class that this handler is designed to process,
+            or None if no request type was specified.
+
+        Examples:
+            ```python
+            class MyHandler(Handler[MyRequest]):
+                ...
+
+            assert MyHandler.get_request_type() == MyRequest
+            ```
+        """
         return cls._request_type
 
     @classmethod
     def get_response_type(cls) -> type | None:
-        """Get the response type this handler returns."""
+        """Get the response type this handler returns.
+
+        The response type is automatically inferred from the request's
+        Request[ResponseT] declaration.
+
+        Returns:
+            The response type class that this handler will return,
+            or None if no response type was registered.
+
+        Examples:
+            ```python
+            class MyRequest(Request[MyResponse]):
+                ...
+
+            class MyHandler(Handler[MyRequest]):
+                ...
+
+            assert MyHandler.get_response_type() == MyResponse
+            ```
+        """
         return cls._response_type
 
     @classmethod
     def get_handler_for_request(cls, request_type: type) -> Any:
         """Get the handler class registered for a given request type.
 
+        This is a class-level utility method for looking up which handler
+        class is registered to handle a specific request type.
+
         Args:
-            request_type: The request type to look up
+            request_type: The request type class to look up.
 
         Returns:
-            The handler class for that request type
+            The handler class that processes the given request type.
 
         Raises:
-            ValueError: If no handler is registered for the request type
+            HandlerNotFoundError: If no handler is registered for the request type.
+
+        Examples:
+            ```python
+            handler_class = Handler.get_handler_for_request(CreateUserRequest)
+            assert handler_class == CreateUserHandler
+            ```
+
+        Note:
+            This returns the handler *class*, not an instance. Use a Resolver
+            to get handler instances.
         """
         if request_type not in _HANDLER_REGISTRY:
             available = list(_HANDLER_REGISTRY.keys())
