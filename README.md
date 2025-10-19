@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://github.com/sina-al/pymediate/blob/main/assets/logo.svg?raw=true" alt="PyMediate logo" width="400"><br><br>
-  <b>A type-safe mediator request mediator for Python 3.12+</b><br><br>
+  <b>A type-safe request mediator for Python 3.12+</b><br><br>
 
   <!-- Badges -->
   <a href="https://github.com/sina-al/pymediate/actions/workflows/test.yml">
