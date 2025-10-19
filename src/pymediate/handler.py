@@ -9,7 +9,14 @@ from pymediate.errors import (
     InvalidRequestTypeError,
     ResponseTypeMismatchError,
 )
-from pymediate.registry import _HANDLER_REGISTRY, _REQUEST_REGISTRY
+from pymediate.registry import (
+    get_all_handler_request_types,
+    get_handler_class,
+    get_response_type,
+    has_handler,
+    has_response_type,
+    register_handler,
+)
 
 
 def _validate_call_signature(
@@ -177,14 +184,19 @@ class Handler[RequestT]:
 
         # Look up response type from request registry
         if cls._request_type is not None:
-            if cls._request_type in _REQUEST_REGISTRY:
-                cls._response_type = _REQUEST_REGISTRY[cls._request_type]
+            if has_response_type(cls._request_type):
+                cls._response_type = get_response_type(cls._request_type)
 
                 # Validate the __call__ signature
+                # Type checker note: get_response_type returns type|None, but we know it's
+                # not None here because has_response_type returned True
+                assert cls._response_type is not None, (
+                    "Response type should not be None after check"
+                )
                 _validate_call_signature(cls, cls._request_type, cls._response_type)
 
                 # Register handler
-                _HANDLER_REGISTRY[cls._request_type] = cls
+                register_handler(cls._request_type, cls)
             else:
                 # Only raise if this isn't the base Handler class
                 if cls.__name__ != "Handler":
@@ -271,7 +283,7 @@ class Handler[RequestT]:
             This returns the handler *class*, not an instance. Use a Resolver
             to get handler instances.
         """
-        if request_type not in _HANDLER_REGISTRY:
-            available = list(_HANDLER_REGISTRY.keys())
+        if not has_handler(request_type):
+            available = get_all_handler_request_types()
             raise HandlerNotFoundError(request_type, available)
-        return _HANDLER_REGISTRY[request_type]
+        return get_handler_class(request_type)

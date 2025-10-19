@@ -10,7 +10,7 @@ from pymediate import (
     Request,
     ResponseTypeMismatchError,
 )
-from pymediate.registry import _HANDLER_REGISTRY
+from pymediate.registry import get_handler_class, has_handler
 
 
 def test_handler_extracts_request_type():
@@ -45,8 +45,8 @@ def test_handler_registration():
         def __call__(self, request: Req) -> Response:
             return Response()
 
-    assert Req in _HANDLER_REGISTRY
-    assert _HANDLER_REGISTRY[Req] == ReqHandler
+    assert has_handler(Req)
+    assert get_handler_class(Req) == ReqHandler
 
 
 def test_handler_validates_correct_return_type():

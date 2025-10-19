@@ -1,6 +1,6 @@
 # DependencyInjectorResolver
 
-::: pymediate.di_resolver.DependencyInjectorResolver
+::: pymediate.resolvers.dependency_injector.DependencyInjectorResolver
     options:
       show_root_heading: true
       show_source: true

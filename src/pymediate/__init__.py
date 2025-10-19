@@ -50,7 +50,6 @@ Main Components:
 For more information, see the documentation at https://sina-al.github.io/pymediate/
 """
 
-from pymediate.di_resolver import DependencyInjectorResolver
 from pymediate.errors import (
     DIContainerError,
     HandlerNotFoundError,
@@ -63,7 +62,7 @@ from pymediate.errors import (
 from pymediate.handler import Handler
 from pymediate.mediator import Mediator
 from pymediate.request import Request
-from pymediate.resolver import Resolver, SimpleResolver
+from pymediate.resolvers import DependencyInjectorResolver, Resolver, SimpleResolver
 
 __all__ = [
     "Request",

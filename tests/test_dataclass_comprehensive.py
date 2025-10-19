@@ -169,46 +169,38 @@ def test_nested_dataclasses():
 # ========== Test 5: Dataclass inheritance hierarchy ==========
 
 
-@dataclass
-class BaseResponse:
-    """Base response class."""
-
-    status: str
-
-
-@dataclass
-class ExtendedResponse(BaseResponse):
-    """Extended response with more fields."""
-
-    data: str
-
-
-@dataclass
-class BaseRequest(Request[BaseResponse]):
-    """Base request class."""
-
-    id: int
-
-
-@dataclass
-class ExtendedRequest(BaseRequest):
-    """Extended request inheriting from another Request."""
-
-    name: str
-
-
-# Note: This won't work as expected because ExtendedRequest inherits BaseRequest's
-# response type. Let's test what happens:
-
-
 def test_dataclass_inheritance_hierarchy():
     """Test dataclass inheritance from another Request subclass."""
-    # ExtendedRequest should inherit BaseResponse from BaseRequest
-    from pymediate.registry import _REQUEST_REGISTRY
+    from pymediate.registry import get_response_type, has_response_type
 
+    @dataclass
+    class BaseResponse:
+        """Base response class."""
+
+        status: str
+
+    @dataclass
+    class ExtendedResponse(BaseResponse):
+        """Extended response with more fields."""
+
+        data: str
+
+    @dataclass
+    class BaseRequest(Request[BaseResponse]):
+        """Base request class."""
+
+        id: int
+
+    @dataclass
+    class ExtendedRequest(BaseRequest):
+        """Extended request inheriting from another Request."""
+
+        name: str
+
+    # ExtendedRequest should inherit BaseResponse from BaseRequest
     # BaseRequest should be registered with BaseResponse
-    assert BaseRequest in _REQUEST_REGISTRY
-    assert _REQUEST_REGISTRY[BaseRequest] == BaseResponse
+    assert has_response_type(BaseRequest)
+    assert get_response_type(BaseRequest) == BaseResponse
 
     # ExtendedRequest inherits from BaseRequest, so it might not have its own entry
     # unless explicitly set with Request[T]

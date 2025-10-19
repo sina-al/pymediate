@@ -4,7 +4,7 @@ Following pytest best practices by using functions instead of test classes.
 """
 
 from pymediate import Request
-from pymediate.registry import _REQUEST_REGISTRY
+from pymediate.registry import get_all_request_types, get_response_type, has_response_type
 
 
 def test_request_registration():
@@ -19,21 +19,21 @@ def test_request_registration():
             self.data = data
 
     # Verify registration
-    assert TestRequest in _REQUEST_REGISTRY
-    assert _REQUEST_REGISTRY[TestRequest] == TestResponse
+    assert has_response_type(TestRequest)
+    assert get_response_type(TestRequest) == TestResponse
 
 
 def test_request_without_response_type():
     """Test that Request subclass without response type is not registered."""
-    initial_registry_size = len(_REQUEST_REGISTRY)
+    initial_registry_size = len(get_all_request_types())
 
     # This should work but not register a response type
     class TestRequestNoResponse(Request):
         pass
 
     # Should not be registered (no type parameter)
-    assert TestRequestNoResponse not in _REQUEST_REGISTRY
-    assert len(_REQUEST_REGISTRY) == initial_registry_size
+    assert not has_response_type(TestRequestNoResponse)
+    assert len(get_all_request_types()) == initial_registry_size
 
 
 def test_multiple_requests_with_different_responses():
@@ -51,8 +51,8 @@ def test_multiple_requests_with_different_responses():
     class Request2(Request[Response2]):
         pass
 
-    assert _REQUEST_REGISTRY[Request1] == Response1
-    assert _REQUEST_REGISTRY[Request2] == Response2
+    assert get_response_type(Request1) == Response1
+    assert get_response_type(Request2) == Response2
 
 
 def test_request_with_same_response_type():
@@ -68,8 +68,8 @@ def test_request_with_same_response_type():
     class Request2(Request[SharedResponse]):
         pass
 
-    assert _REQUEST_REGISTRY[Request1] == SharedResponse
-    assert _REQUEST_REGISTRY[Request2] == SharedResponse
+    assert get_response_type(Request1) == SharedResponse
+    assert get_response_type(Request2) == SharedResponse
 
 
 def test_request_inheritance():
@@ -85,7 +85,7 @@ def test_request_inheritance():
         pass
 
     # Base request should be registered
-    assert BaseRequest in _REQUEST_REGISTRY
+    assert has_response_type(BaseRequest)
     # Derived request inherits but doesn't create new registry entry
     # (it doesn't have its own type parameter)
 

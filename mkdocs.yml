@@ -192,6 +192,7 @@ nav:
     - Architecture: advanced/architecture.md
     - Best Practices: advanced/best-practices.md
     - Testing: advanced/testing.md
+    - Troubleshooting: advanced/troubleshooting.md
   - Development:
     - Contributing: development/contributing.md
     - Development Setup: development/setup.md

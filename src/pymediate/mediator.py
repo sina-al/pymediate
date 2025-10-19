@@ -1,7 +1,7 @@
 """Mediator implementation for routing requests to handlers."""
 
 from pymediate.request import Request
-from pymediate.resolver import Resolver
+from pymediate.resolvers import Resolver
 
 
 class Mediator:

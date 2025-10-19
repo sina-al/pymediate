@@ -80,6 +80,30 @@ import pymediate
 print(pymediate.__version__)
 ```
 
+## Optional Dependencies
+
+### DependencyInjectorResolver
+
+The `DependencyInjectorResolver` is only available when you install PyMediate with the `[di]` extra. If you try to use it without installing the dependency-injector package, you'll get a helpful error message:
+
+```python
+from pymediate import DependencyInjectorResolver
+
+resolver = DependencyInjectorResolver(container)
+# ImportError: DependencyInjectorResolver requires the 'dependency-injector' package.
+#
+# To use DependencyInjectorResolver, install PyMediate with the [di] extra:
+#   pip install pymediate[di]
+```
+
+**Solution:** Install with the `[di]` extra:
+
+```bash
+pip install pymediate[di]
+```
+
+See the [Troubleshooting guide](../advanced/troubleshooting.md#dependencyinjectorresolver-not-available) for more details.
+
 ## Next Steps
 
 Now that PyMediate is installed, let's get started!
