@@ -9,19 +9,15 @@ on:
 
 jobs:
   test:
-    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
-        os: [ubuntu-latest]
-        include:
-          # Add macOS and Windows for Python 3.13 only
-          - python-version: "3.13"
-            os: macos-latest
-          - python-version: "3.13"
-            os: windows-latest
+        python-version:
+          - 3.12
+          - 3.13
+          - 3.14
 
     steps:
       - name: Checkout code
@@ -46,13 +42,8 @@ jobs:
         run: |
           uv run pytest tests/ --tb=short --cov=pymediate --cov-report=xml --cov-report=term-missing
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+      - name: Report coverage
+        uses: orgoro/coverage@v3.2
         with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          coverageFile: ./coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
