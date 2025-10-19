@@ -19,6 +19,7 @@ di = [
 dev = [
     "ruff>=0.8.4",
     "poethepoet>=0.31.1",
+    "pytest-xdist>=3.8.0",
 ]
 test = [
     "mypy>=1.13.0",

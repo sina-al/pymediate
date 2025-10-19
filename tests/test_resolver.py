@@ -1,8 +1,26 @@
-"""Tests for Resolver protocol and SimpleResolver implementation."""
+"""Tests for Resolver protocol and SimpleResolver implementation.
+
+This module tests the core resolver functionality:
+- Handler registration and resolution
+- Type safety enforcement
+- Multiple handlers and resolvers
+- Error handling
+"""
+
+from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Handler, HandlerNotFoundError, Request, SimpleResolver
+from pymediate import (
+    Handler,
+    HandlerNotFoundError,
+    HandlerTypeMismatchError,
+    Mediator,
+    Request,
+    SimpleResolver,
+)
+
+# ========== Basic Functionality Tests ==========
 
 
 def test_simple_resolver_creation():
@@ -31,6 +49,23 @@ def test_simple_resolver_with_initial_handlers():
     assert resolved is handler
 
 
+def test_resolver_with_empty_handlers_dict():
+    """Test that SimpleResolver works with empty initial handlers."""
+    resolver = SimpleResolver(handlers={})
+
+    class Resp:
+        pass
+
+    class Req(Request[Resp]):
+        pass
+
+    with pytest.raises(HandlerNotFoundError):
+        resolver.resolve(Req)
+
+
+# ========== Registration and Resolution Tests ==========
+
+
 def test_register_handler():
     """Test registering a handler."""
 
@@ -53,7 +88,7 @@ def test_register_handler():
 
 
 def test_resolve_unregistered_request():
-    """Test that resolving unregistered request raises ValueError."""
+    """Test that resolving unregistered request raises HandlerNotFoundError."""
 
     class UnregisteredResp:
         pass
@@ -131,20 +166,6 @@ def test_register_overwrites_existing_handler():
     assert resolver.resolve(Req) is h2
 
 
-def test_resolver_with_empty_handlers_dict():
-    """Test that SimpleResolver works with empty initial handlers."""
-    resolver = SimpleResolver(handlers={})
-
-    class Resp:
-        pass
-
-    class Req(Request[Resp]):
-        pass
-
-    with pytest.raises(HandlerNotFoundError):
-        resolver.resolve(Req)
-
-
 def test_resolver_preserves_handler_state():
     """Test that resolver preserves handler instance state."""
 
@@ -175,3 +196,186 @@ def test_resolver_preserves_handler_state():
     assert resp1.count == 1
     assert resp2.count == 2
     assert handler.call_count == 2
+
+
+# ========== Type Safety Tests ==========
+
+
+@dataclass
+class TypeSafeResponse1:
+    value: int
+
+
+@dataclass
+class TypeSafeResponse2:
+    text: str
+
+
+@dataclass
+class TypeSafeRequest1(Request[TypeSafeResponse1]):
+    data: str
+
+
+@dataclass
+class TypeSafeRequest2(Request[TypeSafeResponse2]):
+    number: int
+
+
+class TypeSafeHandler1(Handler[TypeSafeRequest1]):
+    def __call__(self, request: TypeSafeRequest1) -> TypeSafeResponse1:
+        return TypeSafeResponse1(value=len(request.data))
+
+
+class TypeSafeHandler2(Handler[TypeSafeRequest2]):
+    def __call__(self, request: TypeSafeRequest2) -> TypeSafeResponse2:
+        return TypeSafeResponse2(text=str(request.number))
+
+
+def test_type_safe_registration():
+    """Test that SimpleResolver validates handler types at registration."""
+    resolver = SimpleResolver()
+
+    # This should work - correct handler for request type
+    handler1 = TypeSafeHandler1()
+    resolver.register(TypeSafeRequest1, handler1)
+
+    resolved = resolver.resolve(TypeSafeRequest1)
+    assert resolved is handler1
+
+
+def test_type_mismatch_detection():
+    """Test that SimpleResolver detects handler type mismatches."""
+    resolver = SimpleResolver()
+
+    # Try to register TypeSafeHandler1 for TypeSafeRequest2 - should fail
+    handler1 = TypeSafeHandler1()
+
+    with pytest.raises(HandlerTypeMismatchError):
+        resolver.register(TypeSafeRequest2, handler1)
+
+
+def test_multiple_handlers_type_safety():
+    """Test type safety with multiple handlers registered."""
+    resolver = SimpleResolver()
+
+    handler1 = TypeSafeHandler1()
+    handler2 = TypeSafeHandler2()
+
+    resolver.register(TypeSafeRequest1, handler1)
+    resolver.register(TypeSafeRequest2, handler2)
+
+    # Verify correct handlers are resolved
+    assert resolver.resolve(TypeSafeRequest1) is handler1
+    assert resolver.resolve(TypeSafeRequest2) is handler2
+
+
+def test_initial_handlers_dict_validation():
+    """Test that handlers passed to __init__ are validated."""
+    handler1 = TypeSafeHandler1()
+
+    # This should work
+    resolver = SimpleResolver(handlers={TypeSafeRequest1: handler1})
+    assert resolver.resolve(TypeSafeRequest1) is handler1
+
+    # This should fail - wrong handler for request type
+    with pytest.raises(HandlerTypeMismatchError):
+        SimpleResolver(handlers={TypeSafeRequest2: handler1})
+
+
+def test_handler_replacement_type_safety():
+    """Test that replacing handlers maintains type safety."""
+    resolver = SimpleResolver()
+
+    handler1a = TypeSafeHandler1()
+    handler1b = TypeSafeHandler1()
+
+    resolver.register(TypeSafeRequest1, handler1a)
+    assert resolver.resolve(TypeSafeRequest1) is handler1a
+
+    # Replace with another correct handler
+    resolver.register(TypeSafeRequest1, handler1b)
+    assert resolver.resolve(TypeSafeRequest1) is handler1b
+
+    # Try to replace with wrong handler type
+    handler2 = TypeSafeHandler2()
+    with pytest.raises(HandlerTypeMismatchError):
+        resolver.register(TypeSafeRequest1, handler2)
+
+
+# ========== Multiple Resolvers Tests ==========
+
+
+def test_multiple_resolvers_independence():
+    """Test that multiple resolver instances are independent."""
+    resolver1 = SimpleResolver()
+    resolver2 = SimpleResolver()
+
+    handler1a = TypeSafeHandler1()
+    handler1b = TypeSafeHandler1()
+
+    resolver1.register(TypeSafeRequest1, handler1a)
+    resolver2.register(TypeSafeRequest1, handler1b)
+
+    assert resolver1.resolve(TypeSafeRequest1) is handler1a
+    assert resolver2.resolve(TypeSafeRequest1) is handler1b
+    assert resolver1.resolve(TypeSafeRequest1) is not resolver2.resolve(TypeSafeRequest1)
+
+
+# ========== Integration with Mediator ==========
+
+
+@dataclass
+class UserCreatedResponse:
+    user_id: int
+    username: str
+
+
+@dataclass
+class CreateUserRequest(Request[UserCreatedResponse]):
+    username: str
+    email: str
+
+
+class CreateUserHandler(Handler[CreateUserRequest]):
+    def __init__(self):
+        self.next_id = 1
+
+    def __call__(self, request: CreateUserRequest) -> UserCreatedResponse:
+        user_id = self.next_id
+        self.next_id += 1
+        return UserCreatedResponse(user_id=user_id, username=request.username)
+
+
+def test_resolver_with_mediator():
+    """Test resolver integration with Mediator."""
+    resolver = SimpleResolver()
+    handler = CreateUserHandler()
+
+    resolver.register(CreateUserRequest, handler)
+
+    mediator = Mediator(resolver)
+    response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+
+    assert response.user_id == 1
+    assert response.username == "alice"
+
+
+# ========== Edge Cases ==========
+
+
+def test_resolver_handles_untyped_handler_gracefully():
+    """Test that resolver handles handlers without explicit request types."""
+    resolver = SimpleResolver()
+
+    # Create a mock handler without proper type metadata
+    class UntypedHandler:
+        def __call__(self, request):
+            return "result"
+
+    # Should be able to register (no validation if _request_type is None)
+    handler = UntypedHandler()
+    resolver.register(TypeSafeRequest1, handler)
+
+    # Should resolve
+    resolved = resolver.resolve(TypeSafeRequest1)
+    assert resolved is handler

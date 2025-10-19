@@ -1,383 +1,295 @@
-"""Tests for dataclass-based requests and responses.
+"""Tests for dataclass compatibility with PyMediate.
 
-This module demonstrates best practices for using dataclasses with PyMediate,
-providing type safety and better IDE support.
+This module tests that pymediate works correctly with Python dataclasses,
+focusing on pymediate-specific functionality rather than dataclass features.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
 
 from pymediate import Handler, Mediator, Request, SimpleResolver
 
-# Test using Request inheritance with pure dataclasses (recommended pattern)
-
-
-@dataclass
-class PureUserResponse:
-    """Pure dataclass response - no inheritance needed."""
-
-    user_id: int
-    username: str
-    email: str
-
-
-@dataclass
-class PureUserRequest(Request[PureUserResponse]):
-    """Pure dataclass request inheriting from Request.
-
-    Uses Request[ResponseType] to specify response type.
-    This is the recommended pattern for dataclasses!
-    """
-
-    username: str
-    email: str
-
-
-class PureUserHandler(Handler[PureUserRequest]):
-    def __call__(self, req: PureUserRequest) -> PureUserResponse:
-        return PureUserResponse(user_id=1, username=req.username, email=req.email)
-
-
-def test_pure_dataclass_with_decorator():
-    """Test using Request inheritance with pure dataclasses (RECOMMENDED PATTERN).
-
-    This is the cleanest way to use dataclasses with PyMediate:
-    - Both request and response are pure dataclasses
-    - Request inherits from Request[ResponseType]
-    - Full type safety
-    - IDE autocomplete support
-    """
-    handler = PureUserHandler()
-    resolver = SimpleResolver()
-    resolver.register(PureUserRequest, handler)
-    mediator = Mediator(resolver)
-
-    req = PureUserRequest(username="alice", email="alice@example.com")
-    response = mediator.send(req)
-
-    # All fields are properly typed
-    assert response.user_id == 1
-    assert response.username == "alice"
-    assert response.email == "alice@example.com"
-
-    # Both are pure dataclasses - no wrapping!
-    assert isinstance(response, PureUserResponse)
-    assert isinstance(req, PureUserRequest)
-
-
-# Test using simple dataclasses with inheritance (also works)
-
-
-@dataclass
-class SimpleResponse:
-    """Simple response with basic types."""
-
-    message: str
-    status_code: int
-
-
-class SimpleRequest(Request[SimpleResponse]):
-    """Simple request with string data."""
-
-    def __init__(self, text: str):
-        self.text = text
-
-
-class SimpleHandler(Handler[SimpleRequest]):
-    def __call__(self, request: SimpleRequest) -> SimpleResponse:
-        return SimpleResponse(message=f"Processed: {request.text}", status_code=200)
-
-
-def test_simple_dataclass_response():
-    """Test handler with simple dataclass response."""
-    handler = SimpleHandler()
-    resolver = SimpleResolver()
-    resolver.register(SimpleRequest, handler)
-    mediator = Mediator(resolver)
-
-    request = SimpleRequest("hello world")
-    response = mediator.send(request)
-
-    assert isinstance(response, SimpleResponse)
-    assert response.message == "Processed: hello world"
-    assert response.status_code == 200
-
-
-# Test using dataclass for both request and response
+# ========== Basic Dataclass Support ==========
 
 
 @dataclass
 class UserResponse:
-    """User data response."""
+    """Simple dataclass response."""
 
     user_id: int
     username: str
     email: str
-    created_at: datetime
-    is_active: bool = True
 
 
 @dataclass
-class CreateUserRequest:
-    """Request to create a new user."""
+class CreateUserRequest(Request[UserResponse]):
+    """Dataclass request inheriting from Request[T].
+
+    This is the recommended pattern for using dataclasses with PyMediate.
+    """
 
     username: str
     email: str
-    password: str
 
 
-# Need to wrap dataclass request in Request metaclass
-class CreateUserRequestWrapped(Request[UserResponse]):
-    """Wrapped version of CreateUserRequest for metaclass magic."""
-
-    def __init__(self, username: str, email: str, password: str):
-        self.username = username
-        self.email = email
-        self.password = password
-
-
-class CreateUserHandler(Handler[CreateUserRequestWrapped]):
+class CreateUserHandler(Handler[CreateUserRequest]):
     def __init__(self):
         self.next_id = 1
 
-    def __call__(self, request: CreateUserRequestWrapped) -> UserResponse:
-        user = UserResponse(
-            user_id=self.next_id,
-            username=request.username,
-            email=request.email,
-            created_at=datetime.now(),
-            is_active=True,
-        )
+    def __call__(self, request: CreateUserRequest) -> UserResponse:
+        user_id = self.next_id
         self.next_id += 1
-        return user
+        return UserResponse(user_id=user_id, username=request.username, email=request.email)
 
 
-def test_dataclass_user_creation():
-    """Test creating a user with dataclass response."""
+def test_basic_dataclass_with_pymediate():
+    """Test basic dataclass request and response with PyMediate.
+
+    This is the recommended pattern:
+    - Both request and response are pure dataclasses
+    - Request inherits from Request[ResponseType]
+    - Full type safety and IDE autocomplete support
+    """
     handler = CreateUserHandler()
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequestWrapped, handler)
+    resolver.register(CreateUserRequest, handler)
     mediator = Mediator(resolver)
 
-    request = CreateUserRequestWrapped(
-        username="alice", email="alice@example.com", password="secret123"
-    )
+    request = CreateUserRequest(username="alice", email="alice@example.com")
     response = mediator.send(request)
 
-    assert isinstance(response, UserResponse)
     assert response.user_id == 1
     assert response.username == "alice"
     assert response.email == "alice@example.com"
-    assert response.is_active is True
-    assert isinstance(response.created_at, datetime)
 
 
-def test_multiple_users_with_dataclass():
-    """Test creating multiple users maintains state."""
-    handler = CreateUserHandler()
-    resolver = SimpleResolver()
-    resolver.register(CreateUserRequestWrapped, handler)
-    mediator = Mediator(resolver)
-
-    # Create first user
-    user1 = mediator.send(CreateUserRequestWrapped("alice", "alice@example.com", "pass1"))
-    assert user1.user_id == 1
-    assert user1.username == "alice"
-
-    # Create second user
-    user2 = mediator.send(CreateUserRequestWrapped("bob", "bob@example.com", "pass2"))
-    assert user2.user_id == 2
-    assert user2.username == "bob"
-
-    # Verify they're different instances
-    assert user1.user_id != user2.user_id
-
-
-# Test with optional fields and complex types
+# ========== Request Inheritance with Dataclasses ==========
 
 
 @dataclass
-class OrderResponse:
-    """Order response with optional fields."""
+class BaseResponse:
+    """Base response class."""
 
-    order_id: int
-    total_amount: float
-    items_count: int
-    discount: float | None = None
-    promo_code: str | None = None
-    shipping_address: str | None = None
+    status: str
 
 
 @dataclass
-class OrderItem:
-    """Individual order item."""
+class ExtendedResponse(BaseResponse):
+    """Extended response with additional fields."""
 
-    product_id: int
-    name: str
-    price: float
-    quantity: int
+    data: str
 
 
-class CreateOrderRequest(Request[OrderResponse]):
-    """Request to create an order."""
+@dataclass
+class BaseRequest(Request[BaseResponse]):
+    """Base request class."""
 
-    def __init__(
-        self,
-        items: list[OrderItem],
-        promo_code: str | None = None,
-        shipping_address: str | None = None,
-    ):
-        self.items = items
-        self.promo_code = promo_code
-        self.shipping_address = shipping_address
+    action: str
 
 
-class CreateOrderHandler(Handler[CreateOrderRequest]):
-    def __init__(self):
-        self.next_order_id = 1000
+@dataclass
+class ExtendedRequest(Request[ExtendedResponse]):
+    """Extended request - note: uses Request[T] directly, not BaseRequest."""
 
-    def __call__(self, request: CreateOrderRequest) -> OrderResponse:
-        total = sum(item.price * item.quantity for item in request.items)
-        discount = None
-
-        if request.promo_code == "SAVE10":
-            discount = total * 0.1
-            total -= discount
-
-        order = OrderResponse(
-            order_id=self.next_order_id,
-            total_amount=total,
-            items_count=len(request.items),
-            discount=discount,
-            promo_code=request.promo_code,
-            shipping_address=request.shipping_address,
-        )
-        self.next_order_id += 1
-        return order
+    action: str
+    payload: str
 
 
-def test_dataclass_order_without_promo():
-    """Test creating an order without promo code."""
-    handler = CreateOrderHandler()
+class BaseHandler(Handler[BaseRequest]):
+    def __call__(self, request: BaseRequest) -> BaseResponse:
+        return BaseResponse(status="ok")
+
+
+class ExtendedHandler(Handler[ExtendedRequest]):
+    def __call__(self, request: ExtendedRequest) -> ExtendedResponse:
+        return ExtendedResponse(status="ok", data=request.payload)
+
+
+def test_dataclass_request_inheritance():
+    """Test that dataclass requests can have inheritance hierarchies."""
     resolver = SimpleResolver()
-    resolver.register(CreateOrderRequest, handler)
+    base_handler = BaseHandler()
+    extended_handler = ExtendedHandler()
+
+    resolver.register(BaseRequest, base_handler)
+    resolver.register(ExtendedRequest, extended_handler)
+
     mediator = Mediator(resolver)
 
-    items = [
-        OrderItem(product_id=1, name="Widget", price=10.0, quantity=2),
-        OrderItem(product_id=2, name="Gadget", price=15.0, quantity=1),
-    ]
-    request = CreateOrderRequest(items=items)
+    base_response = mediator.send(BaseRequest(action="test"))
+    assert base_response.status == "ok"
+
+    extended_response = mediator.send(ExtendedRequest(action="test", payload="data"))
+    assert extended_response.status == "ok"
+    assert extended_response.data == "data"
+
+
+# ========== Multiple Request Types with Same Response ==========
+
+
+@dataclass
+class StatusResponse:
+    """Shared response type."""
+
+    result: str
+
+
+@dataclass
+class RequestA(Request[StatusResponse]):
+    """First request type."""
+
+    value_a: str
+
+
+@dataclass
+class RequestB(Request[StatusResponse]):
+    """Second request type."""
+
+    value_b: int
+
+
+class HandlerA(Handler[RequestA]):
+    def __call__(self, request: RequestA) -> StatusResponse:
+        return StatusResponse(result=f"A:{request.value_a}")
+
+
+class HandlerB(Handler[RequestB]):
+    def __call__(self, request: RequestB) -> StatusResponse:
+        return StatusResponse(result=f"B:{request.value_b}")
+
+
+def test_multiple_dataclass_requests_same_response():
+    """Test that multiple request types can return the same response type."""
+    resolver = SimpleResolver()
+    resolver.register(RequestA, HandlerA())
+    resolver.register(RequestB, HandlerB())
+    mediator = Mediator(resolver)
+
+    resp_a = mediator.send(RequestA(value_a="test"))
+    resp_b = mediator.send(RequestB(value_b=42))
+
+    assert resp_a.result == "A:test"
+    assert resp_b.result == "B:42"
+
+
+# ========== Mixin Support ==========
+
+
+class TimestampMixin:
+    """Mixin providing timestamp functionality."""
+
+    def get_timestamp(self) -> str:
+        return "2025-01-01T00:00:00Z"
+
+
+@dataclass
+class TimestampedResponse:
+    """Response with timestamp."""
+
+    value: int
+    timestamp: str
+
+
+@dataclass
+class TimestampedRequest(TimestampMixin, Request[TimestampedResponse]):
+    """Request with mixin and Request inheritance."""
+
+    data: str
+
+
+class TimestampedHandler(Handler[TimestampedRequest]):
+    def __call__(self, request: TimestampedRequest) -> TimestampedResponse:
+        return TimestampedResponse(value=len(request.data), timestamp=request.get_timestamp())
+
+
+def test_dataclass_with_mixin():
+    """Test that dataclasses can use mixins with Request inheritance."""
+    resolver = SimpleResolver()
+    resolver.register(TimestampedRequest, TimestampedHandler())
+    mediator = Mediator(resolver)
+
+    request = TimestampedRequest(data="test")
     response = mediator.send(request)
 
-    assert response.order_id == 1000
-    assert response.total_amount == 35.0  # (10*2) + (15*1)
-    assert response.items_count == 2
-    assert response.discount is None
-    assert response.promo_code is None
+    assert response.value == 4
+    assert response.timestamp == "2025-01-01T00:00:00Z"
 
 
-def test_dataclass_order_with_promo():
-    """Test creating an order with promo code and address."""
-    handler = CreateOrderHandler()
-    resolver = SimpleResolver()
-    resolver.register(CreateOrderRequest, handler)
+# ========== Dependency Injection Integration ==========
+
+
+def test_dataclass_with_dependency_injection():
+    """Test dataclass requests and responses with dependency injection."""
+    from dependency_injector import containers, providers
+
+    from pymediate import DependencyInjectorResolver
+
+    @dataclass
+    class DIResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class DIRequest(Request[DIResponse]):
+        username: str
+        email: str
+
+    class Database:
+        def __init__(self):
+            self.next_id = 1
+
+        def insert_user(self, username: str, email: str) -> int:
+            user_id = self.next_id
+            self.next_id += 1
+            return user_id
+
+    class DIHandler(Handler[DIRequest]):
+        def __init__(self, database: Database):
+            self.database = database
+
+        def __call__(self, request: DIRequest) -> DIResponse:
+            user_id = self.database.insert_user(request.username, request.email)
+            return DIResponse(user_id=user_id, username=request.username)
+
+    class DIContainer(containers.DeclarativeContainer):
+        database = providers.Singleton(Database)
+        user_handler = providers.Factory(DIHandler, database=database)
+
+    container = DIContainer()
+    resolver = DependencyInjectorResolver(container)
     mediator = Mediator(resolver)
 
-    items = [
-        OrderItem(product_id=1, name="Widget", price=100.0, quantity=1),
-    ]
-    request = CreateOrderRequest(items=items, promo_code="SAVE10", shipping_address="123 Main St")
-    response = mediator.send(request)
-
-    assert response.order_id == 1000
-    assert response.total_amount == 90.0  # 100 - 10% discount
-    assert response.discount == 10.0
-    assert response.promo_code == "SAVE10"
-    assert response.shipping_address == "123 Main St"
-
-
-# Test with nested dataclasses
-
-
-@dataclass
-class Address:
-    """Address data."""
-
-    street: str
-    city: str
-    country: str
-    zip_code: str
-
-
-@dataclass
-class CompleteUserResponse:
-    """User with nested address."""
-
-    user_id: int
-    name: str
-    email: str
-    address: Address
-    is_premium: bool = False
-
-
-class RegisterUserRequest(Request[CompleteUserResponse]):
-    """Request to register a user with address."""
-
-    def __init__(self, name: str, email: str, address: Address):
-        self.name = name
-        self.email = email
-        self.address = address
-
-
-class RegisterUserHandler(Handler[RegisterUserRequest]):
-    def __init__(self):
-        self.next_id = 1
-
-    def __call__(self, request: RegisterUserRequest) -> CompleteUserResponse:
-        user = CompleteUserResponse(
-            user_id=self.next_id,
-            name=request.name,
-            email=request.email,
-            address=request.address,
-            is_premium=False,
-        )
-        self.next_id += 1
-        return user
-
-
-def test_nested_dataclass():
-    """Test with nested dataclass structures."""
-    handler = RegisterUserHandler()
-    resolver = SimpleResolver()
-    resolver.register(RegisterUserRequest, handler)
-    mediator = Mediator(resolver)
-
-    address = Address(street="123 Main St", city="Springfield", country="USA", zip_code="12345")
-    request = RegisterUserRequest(name="John Doe", email="john@example.com", address=address)
-    response = mediator.send(request)
-
+    response = mediator.send(DIRequest(username="alice", email="alice@example.com"))
     assert response.user_id == 1
-    assert response.name == "John Doe"
-    assert response.address.street == "123 Main St"
-    assert response.address.city == "Springfield"
-    assert response.is_premium is False
+    assert response.username == "alice"
 
 
-def test_dataclass_field_access():
-    """Test that dataclass fields are properly accessible with type hints."""
-    handler = RegisterUserHandler()
+# ========== Empty Dataclasses ==========
+
+
+@dataclass
+class EmptyResponse:
+    """Response with no fields."""
+
+    pass
+
+
+@dataclass
+class EmptyRequest(Request[EmptyResponse]):
+    """Request with no fields."""
+
+    pass
+
+
+class EmptyHandler(Handler[EmptyRequest]):
+    def __call__(self, request: EmptyRequest) -> EmptyResponse:
+        return EmptyResponse()
+
+
+def test_empty_dataclasses():
+    """Test that empty dataclasses work with PyMediate."""
     resolver = SimpleResolver()
-    resolver.register(RegisterUserRequest, handler)
+    resolver.register(EmptyRequest, EmptyHandler())
     mediator = Mediator(resolver)
 
-    address = Address(street="456 Oak Ave", city="Portland", country="USA", zip_code="97201")
-    request = RegisterUserRequest(name="Jane Smith", email="jane@example.com", address=address)
-    response = mediator.send(request)
-
-    # These should not raise Pylance errors due to proper typing
-    assert response.user_id == 1
-    assert response.name == "Jane Smith"
-    assert response.email == "jane@example.com"
-    assert response.address.city == "Portland"
-    assert response.address.zip_code == "97201"
+    response = mediator.send(EmptyRequest())
+    assert isinstance(response, EmptyResponse)

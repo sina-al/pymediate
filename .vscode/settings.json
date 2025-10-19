@@ -30,6 +30,13 @@
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.autoImportCompletions": true,
   "python.analysis.inlayHints.pytestParameters": true,
+  // Exclude deliberate mypy error snippets from type checking in IDE
+  // These files are DESIGNED to fail mypy for testing purposes
+  // Excluding them here prevents red squiggles while still allowing
+  // the test suite to verify they fail with expected errors
+  "python.analysis.exclude": [
+    "tests/mypy_tests/snippets/errors/**"
+  ],
 
   // File associations
   "files.associations": {
