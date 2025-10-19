@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sina-al/pymediate/refs/heads/main/assets/logo.svg" alt="PyMediate logo" width="400">
+  <img src="https://github.com/sina-al/pymediate/blob/main/assets/logo.svg" alt="PyMediate logo" width="400">
 </p>
 
 <p align="center">
