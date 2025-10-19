@@ -20,25 +20,25 @@ jobs:
           - 3.14
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - name: Install uv
+      - name: Setup uv
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: false
 
-      - name: Install dependencies
+      - name: Sync dependencies
         run: |
-          uv sync --all-extras --all-groups
+          uv sync --all-extras --only-group test
 
-      - name: Run tests with pytest
+      - name: Test
         run: |
           uv run pytest tests/ --tb=short --cov=pymediate --cov-report=xml --cov-report=term-missing
 

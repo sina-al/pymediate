@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A type-safe mediator pattern implementation for Python 3.12+"
 readme = "README.md"
 authors = [
-    { name = "sina-al", email = "27771210+sina-al@users.noreply.github.com" }
+    { name = "sina-al", email = "27771210+sina-al@users.noreply.github.com" },
 ]
 license = { text = "MIT" }
 requires-python = ">=3.12"
@@ -22,14 +22,14 @@ classifiers = [
 
 [project.optional-dependencies]
 di = [
-    "dependency-injector>=4.41.0",
+    "dependency-injector>=4.41.0"
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.8.4",
+    "ruff>=0.8.4", 
     "poethepoet>=0.31.1",
-    "pytest-xdist>=3.8.0",
+    "mypy>=1.13.0",
 ]
 test = [
     "mypy>=1.13.0",
@@ -37,6 +37,7 @@ test = [
     "pytest-cov>=4.1.0",
     "pytest-github-actions-annotate-failures>=0.2.0",
     "pytest-asyncio>=1.2.0",
+    "pytest-xdist>=3.8.0",
 ]
 docs = [
     "mkdocs>=1.6.0",
