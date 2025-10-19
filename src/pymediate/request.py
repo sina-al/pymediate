@@ -8,7 +8,7 @@ from pymediate.registry import _REQUEST_REGISTRY
 class Request[ResponseT]:
     """Base request class with generic response type parameter.
 
-    All requests should inherit from Request[ResponseType] to specify their
+    All requests should inherit from `Request[ResponseType]` to specify their
     expected response type. This enables automatic type inference and runtime
     validation throughout the mediator pattern.
 
