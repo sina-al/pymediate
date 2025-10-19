@@ -42,12 +42,10 @@ class Request[ResponseT]:
         """Register the response type when a Request subclass is created."""
         super().__init_subclass__(**kwargs)
 
-        # Extract the response type from __orig_bases__
-        if hasattr(cls, "__orig_bases__"):
-            for base in cls.__orig_bases__:
-                # Check if this is Request[SomeType]
-                if hasattr(base, "__origin__") and base.__origin__ is Request:
-                    if hasattr(base, "__args__") and base.__args__:
-                        response_type = base.__args__[0]
+        if orig_bases := getattr(cls, "__orig_bases__", None):
+            for base in orig_bases:
+                if getattr(base, "__origin__", None) is Request:
+                    if args := getattr(base, "__args__", None):
+                        response_type = args[0]
                         _REQUEST_REGISTRY[cls] = response_type
                         break
