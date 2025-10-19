@@ -6,6 +6,8 @@ focusing on pymediate-specific functionality rather than dataclass features.
 
 from dataclasses import dataclass
 
+import pytest
+
 from pymediate import Handler, Mediator, Request, SimpleResolver
 
 # ========== Basic Dataclass Support ==========
@@ -217,6 +219,7 @@ def test_dataclass_with_mixin():
 # ========== Dependency Injection Integration ==========
 
 
+@pytest.mark.requires_di
 def test_dataclass_with_dependency_injection():
     """Test dataclass requests and responses with dependency injection."""
     from dependency_injector import containers, providers

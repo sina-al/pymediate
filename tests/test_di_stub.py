@@ -31,22 +31,18 @@ def test_di_resolver_stub_repr():
     assert "_DependencyInjectorResolverStub" in repr_str
 
 
+@pytest.mark.requires_di
 def test_di_resolver_available_with_dependency():
     """Test that real resolver is available when dependency-injector is installed."""
-    try:
-        import dependency_injector  # noqa: F401
+    # If dependency-injector is available, we should get the real resolver
+    from pymediate import DependencyInjectorResolver
 
-        # If dependency-injector is available, we should get the real resolver
-        from pymediate import DependencyInjectorResolver
+    # Check it's the real class, not the stub
+    assert "dependency_injector" in DependencyInjectorResolver.__module__
+    assert "_di_stub" not in DependencyInjectorResolver.__module__
 
-        # Check it's the real class, not the stub
-        assert "dependency_injector" in DependencyInjectorResolver.__module__
-        assert "_di_stub" not in DependencyInjectorResolver.__module__
-
-        # Should be able to check for the required methods
-        assert hasattr(DependencyInjectorResolver, "resolve")
-    except ImportError:
-        pytest.skip("dependency-injector not installed")
+    # Should be able to check for the required methods
+    assert hasattr(DependencyInjectorResolver, "resolve")
 
 
 def test_di_resolver_in_all_exports():

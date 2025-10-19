@@ -2,9 +2,13 @@
 
 from dataclasses import dataclass
 
+import pytest
 from dependency_injector import containers, providers
 
 from pymediate import DependencyInjectorResolver, Handler, HandlerNotFoundError, Mediator, Request
+
+# Mark all tests in this module as requiring dependency-injector
+pytestmark = pytest.mark.requires_di
 
 # Define test domain objects
 
