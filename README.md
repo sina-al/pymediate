@@ -4,10 +4,10 @@
 
   <!-- Badges -->
   <a href="https://github.com/sina-al/pymediate/actions/workflows/test.yml">
-    <img src="https://github.com/sina-al/pymediate/workflows/Tests/badge.svg" alt="Tests">
+    <img src="https://github.com/sina-al/pymediate/actions/workflows/test.yml/badge.svg" alt="Tests">
   </a>
   <a href="https://github.com/sina-al/pymediate/actions/workflows/lint.yml">
-    <img src="https://github.com/sina-al/pymediate/workflows/Lint/badge.svg" alt="Lint">
+    <img src="https://github.com/sina-al/pymediate/actions/workflows/lint.yml/badge.svg" alt="Lint">
   </a>
   <a href="https://codecov.io/gh/sina-al/pymediate">
     <img src="https://codecov.io/gh/sina-al/pymediate/branch/main/graph/badge.svg" alt="Coverage">
