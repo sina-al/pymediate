@@ -9,9 +9,6 @@
   <a href="https://github.com/sina-al/pymediate/actions/workflows/lint.yml">
     <img src="https://github.com/sina-al/pymediate/actions/workflows/lint.yml/badge.svg" alt="Lint">
   </a>
-  <a href="https://codecov.io/gh/sina-al/pymediate">
-    <img src="https://codecov.io/gh/sina-al/pymediate/branch/main/graph/badge.svg" alt="Coverage">
-  </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+">
   </a>
