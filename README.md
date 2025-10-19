@@ -109,7 +109,7 @@ PyMediate uses [Poe the Poet](https://poethepoet.natn.io/) for task running. Run
 
 ## Requirements
 
-- Python 3.13+
+- Python 3.12+
 - Optional: `dependency-injector>=4.41.0` for DI support
 
 ## Contributing

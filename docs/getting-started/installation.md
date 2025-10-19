@@ -4,7 +4,7 @@ PyMediate is available on [PyPI](https://pypi.org/project/pymediate/) and can be
 
 ## Requirements
 
-- Python 3.13 or higher
+- Python 3.12 or higher
 - No required dependencies for core functionality
 - Optional: `dependency-injector>=4.41.0` for DI integration
 

@@ -1,7 +1,7 @@
 # PyMediate
 
 <p align="center">
-  <strong>A type-safe mediator pattern implementation for Python 3.13+</strong>
+  <strong>A type-safe mediator pattern implementation for Python 3.12+</strong>
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@ PyMediate is a modern, type-safe implementation of the [Mediator Pattern](https:
 :   71+ comprehensive tests with 96%+ code coverage
 
 🚀 **Modern Python**
-:   Built for Python 3.13+ using PEP 695 type parameter syntax
+:   Built for Python 3.12+ using PEP 695 type parameter syntax
 
 ## Quick Example
 

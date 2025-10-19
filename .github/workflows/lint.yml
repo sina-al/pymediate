@@ -26,7 +26,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync
+          uv sync --all-groups
 
       - name: Check formatting with ruff
         run: |
@@ -54,7 +54,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv sync --all-extras --all-groups
 
       - name: Run mypy
         run: |
@@ -85,7 +85,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv sync --all-extras --all-groups
 
       - name: Check for TODO/FIXME comments
         run: |

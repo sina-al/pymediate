@@ -74,10 +74,12 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv sync --all-extras --all-groups
 
       - name: Run tests with coverage
         run: |
@@ -116,7 +118,7 @@ jobs:
           fi
 
           # Check if core protocols changed
-          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/resolver.py | grep -E "^[-+].*class Resolver"; then
+          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/resolvers/base.py | grep -E "^[-+].*class Resolver"; then
             echo "Warning: Changes detected in Resolver protocol - potential breaking change"
           fi
 
@@ -154,10 +156,12 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv sync --all-extras --all-groups
 
       - name: Run safety check
         run: |

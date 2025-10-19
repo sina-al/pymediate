@@ -71,9 +71,9 @@ print("DependencyInjectorResolver is available!")
    pip install pymediate
    ```
 
-3. Check Python version (PyMediate requires Python 3.13+):
+3. Check Python version (PyMediate requires Python 3.12+):
    ```python
-   python --version  # Should be 3.13 or higher
+   python --version  # Should be 3.12 or higher
    ```
 
 ## Runtime Issues

@@ -15,7 +15,7 @@ All notable changes to PyMediate will be documented here.
 
 ### Changed
 - DI resolver now uses type inspection instead of naming conventions
-- Updated to Python 3.13+ with PEP 695 type parameters
+- Updated to Python 3.12+ with PEP 695 type parameters
 - Improved error messages
 
 ### Fixed
