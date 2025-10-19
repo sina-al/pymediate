@@ -1,17 +1,29 @@
 <p align="center">
-  <img src="https://github.com/sina-al/pymediate/blob/main/assets/logo.svg" alt="PyMediate logo" width="400">
+  <img src="https://github.com/sina-al/pymediate/blob/main/assets/logo.svg?raw=true" alt="PyMediate logo" width="400"><br><br>
+  <b>A type-safe mediator pattern implementation for Python 3.12+</b><br><br>
+
+  <!-- Badges -->
+  <a href="https://github.com/sina-al/pymediate/actions/workflows/test.yml">
+    <img src="https://github.com/sina-al/pymediate/workflows/Tests/badge.svg" alt="Tests">
+  </a>
+  <a href="https://github.com/sina-al/pymediate/actions/workflows/lint.yml">
+    <img src="https://github.com/sina-al/pymediate/workflows/Lint/badge.svg" alt="Lint">
+  </a>
+  <a href="https://codecov.io/gh/sina-al/pymediate">
+    <img src="https://codecov.io/gh/sina-al/pymediate/branch/main/graph/badge.svg" alt="Coverage">
+  </a>
+  <a href="https://www.python.org/downloads/">
+    <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+">
+  </a>
+  <a href="https://badge.fury.io/py/pymediate">
+    <img src="https://badge.fury.io/py/pymediate.svg" alt="PyPI version">
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
+  </a>
 </p>
 
-<p align="center">
-  A type-safe mediator pattern implementation for Python 3.12+
-</p>
-
-[![Tests](https://github.com/sina-al/pymediate/workflows/Tests/badge.svg)](https://github.com/sina-al/pymediate/actions/workflows/test.yml)
-[![Lint](https://github.com/sina-al/pymediate/workflows/Lint/badge.svg)](https://github.com/sina-al/pymediate/actions/workflows/lint.yml)
-[![codecov](https://codecov.io/gh/sina-al/pymediate/branch/main/graph/badge.svg)](https://codecov.io/gh/sina-al/pymediate)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![PyPI version](https://badge.fury.io/py/pymediate.svg)](https://badge.fury.io/py/pymediate)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+---
 
 ## Features
 
