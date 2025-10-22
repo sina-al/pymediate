@@ -20,10 +20,11 @@ These tests focus on compile-time type checking, not runtime behavior. If pymedi
 
 ## Test Coverage
 
-### Valid Usage (6 snippets)
+### Valid Usage (9 snippets)
 
 Tests verifying correct mypy type inference:
 
+**Synchronous:**
 - **basic_type_inference** - `mediator.send()` infers response type correctly
 - **resolver_type_inference** - `resolver.resolve()` returns correctly typed handler
 - **optional_fields** - Optional type narrowing with None checks
@@ -31,15 +32,25 @@ Tests verifying correct mypy type inference:
 - **nested_types** - Complex nested types (List[T], Dict[K,V], nested dataclasses)
 - **void_response** - None/void response handling
 
-### Error Detection (5 snippets)
+**Asynchronous:**
+- **async_basic_type_inference** - Async `mediator.send()` with await
+- **async_concurrent_requests** - Type inference with `asyncio.gather()`
+- **async_handler_with_await** - Proper await usage in async handlers
+
+### Error Detection (7 snippets)
 
 Tests verifying mypy catches incorrect usage:
 
+**Synchronous:**
 - **wrong_response_attribute** - Accessing non-existent response attribute
 - **wrong_response_type_assignment** - Assigning response to wrong type variable
 - **optional_without_none_check** - Using Optional without None check
 - **union_type_without_narrowing** - Using Union without type narrowing
 - **mediator_send_wrong_expectation** - Expecting wrong response type from `send()`
+
+**Asynchronous:**
+- **async_missing_await_on_send** - Missing await on `mediator.send()`
+- **async_wrong_response_attribute** - Accessing non-existent attribute on async response
 
 ## Running Tests
 
@@ -105,15 +116,15 @@ Runtime validation is so comprehensive that many "type errors" are actually caug
 
 The `src/pymediate/py.typed` marker file is **required** for mypy to recognize pymediate as typed. Without it, mypy treats the package as `Any` and skips type checking.
 
-### Async Tests (Temporarily Disabled)
+### Async/Await Support
 
-Async handler tests are in `tests/test_async_handlers.py` but temporarily ignored via `pytest.ini`. They'll be re-enabled when async support is finalized.
+PyMediate now includes first-class async support via `pymediate.aio`. The mypy tests cover both sync and async variants to ensure type safety in both environments.
 
 ## Statistics
 
-- **Total mypy tests**: 25 (all passing)
-- **Valid patterns**: 6
-- **Error scenarios**: 5
-- **Test execution**: ~7 seconds
+- **Total mypy tests**: ~33 (all passing)
+- **Valid patterns**: 9 (6 sync + 3 async)
+- **Error scenarios**: 7 (5 sync + 2 async)
+- **Test execution**: ~10 seconds
 - **Mypy mode**: Strict (`--strict`)
-- **Total project tests**: 135 (including 110 runtime tests)
+- **Total project tests**: 122 (106 runtime + 16 async functionality)

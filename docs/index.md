@@ -32,8 +32,11 @@ PyMediate is a modern, type-safe implementation of the [Mediator Pattern](https:
 📦 **Dataclass Friendly**
 :   Works seamlessly with Python dataclasses using Request[T] inheritance
 
+🔄 **Async/Await Support**
+:   First-class async handlers and mediators via `pymediate.aio`
+
 🧪 **Well Tested**
-:   71+ comprehensive tests with 96%+ code coverage
+:   135+ comprehensive tests with 96%+ code coverage
 
 🚀 **Modern Python**
 :   Built for Python 3.12+ using PEP 695 type parameter syntax
@@ -71,6 +74,30 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 print(f"Created user {response.username} with ID {response.user_id}")
 ```
 
+### Async Support
+
+PyMediate provides first-class async/await support:
+
+```python
+import asyncio
+from pymediate.aio import Handler, Mediator
+
+class CreateUserHandler(Handler[CreateUser]):
+    async def __call__(self, req: CreateUser) -> UserCreated:
+        # Perform async operations
+        await database.save_user(req.username, req.email)
+        return UserCreated(user_id=1, username=req.username)
+
+async def main():
+    mediator = Mediator(resolver)
+    response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+    print(f"Created user {response.username}")
+
+asyncio.run(main())
+```
+
+[Learn more about async support →](examples/async.md)
+
 ## Why Use the Mediator Pattern?
 
 The mediator pattern helps you:
@@ -89,7 +116,8 @@ Unlike other mediator implementations, PyMediate:
 2. **Provides automatic response type inference** - specify response type once in the request
 3. **Validates at class definition time** - catch errors before runtime
 4. **Supports pure dataclasses** - use Request[T] inheritance for clean, simple code
-5. **Works with modern Python** - uses PEP 695 type parameters for cleaner generics
+5. **First-class async/await support** - async handlers and mediators via `pymediate.aio`
+6. **Works with modern Python** - uses PEP 695 type parameters for cleaner generics
 
 ## Installation
 

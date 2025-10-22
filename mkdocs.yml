@@ -1,5 +1,5 @@
 site_name: PyMediate
-site_description: A type-safe mediator pattern implementation for Python 3.13+
+site_description: A type-safe mediator pattern implementation for Python 3.12+
 site_author: sina-al
 site_url: https://sina-al.github.io/pymediate
 
@@ -176,6 +176,7 @@ nav:
     - Error Handling: guide/error-handling.md
   - Examples:
     - Basic Usage: examples/basic.md
+    - Async/Await: examples/async.md
     - CQRS Pattern: examples/cqrs.md
     - Event-Driven: examples/events.md
     - FastAPI Integration: examples/fastapi.md

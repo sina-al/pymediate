@@ -26,9 +26,10 @@
 
 - **Type Safety**: Full runtime validation with mypy support
 - **Zero Convention**: No naming conventions - uses type inspection
+- **Async/Await Support**: First-class async handlers and mediators via `pymediate.aio`
 - **DI Ready**: Built-in dependency-injector integration
 - **Dataclass Friendly**: Works seamlessly with `@dataclass` and Request[T] inheritance
-- **Well Tested**: 71+ tests with 96%+ coverage
+- **Well Tested**: 135+ tests with 96%+ coverage
 
 ## Quick Example
 
@@ -60,6 +61,49 @@ mediator = Mediator(resolver)
 response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 print(f"User {response.username} created with ID {response.user_id}")
 ```
+
+### Async Support
+
+PyMediate provides first-class async/await support through the `pymediate.aio` package:
+
+```python
+import asyncio
+from dataclasses import dataclass
+from pymediate import Request, SimpleResolver
+from pymediate.aio import Handler, Mediator
+
+@dataclass
+class UserCreated:
+    user_id: int
+    username: str
+
+@dataclass
+class CreateUser(Request[UserCreated]):
+    username: str
+    email: str
+
+class CreateUserHandler(Handler[CreateUser]):
+    async def __call__(self, req: CreateUser) -> UserCreated:
+        # Perform async operations
+        await asyncio.sleep(0.1)  # Simulate async database call
+        return UserCreated(user_id=1, username=req.username)
+
+async def main():
+    resolver = SimpleResolver()
+    resolver.register(CreateUser, CreateUserHandler())
+    mediator = Mediator(resolver)
+
+    response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+    print(f"User {response.username} created with ID {response.user_id}")
+
+asyncio.run(main())
+```
+
+**Key differences for async:**
+- Import from `pymediate.aio` instead of `pymediate`
+- Handler's `__call__` method must be `async def`
+- Use `await mediator.send(...)` instead of `mediator.send(...)`
+- Supports concurrent request handling with `asyncio.gather()`
 
 ## Installation
 
