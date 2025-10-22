@@ -1,6 +1,7 @@
 """Handler base class for the mediator pattern."""
 
 import inspect
+from abc import ABC, abstractmethod
 from typing import Any, get_args, get_origin
 
 from pymediate.errors import (
@@ -72,8 +73,8 @@ def _validate_call_signature(
         raise ResponseTypeMismatchError(cls, expected_response_type, sig.return_annotation)
 
 
-class Handler[RequestT]:
-    """Base handler class with automatic response type inference.
+class Handler[RequestT](ABC):
+    """Abstract base handler class with automatic response type inference.
 
     Handlers contain the business logic for processing requests. They only need
     to specify the request type - the response type is automatically inferred
@@ -86,6 +87,10 @@ class Handler[RequestT]:
 
     This validation happens at class definition time (import time), catching
     errors early in the development cycle rather than at runtime.
+
+    As an abstract base class, Handler cannot be instantiated directly and
+    subclasses must implement the __call__ method. This ensures mypy will
+    catch missing or incorrect __call__ implementations.
 
     Type Parameters:
         RequestT: The type of request this handler processes.
@@ -202,18 +207,25 @@ class Handler[RequestT]:
                 if cls.__name__ != "Handler":
                     raise InvalidRequestTypeError(cls._request_type)
 
-    def __call__(self, request: RequestT) -> Any:  # noqa: ARG002
+    @abstractmethod
+    def __call__(self, request: RequestT) -> Any:
         """Handle the request and return a response.
 
-        This method must be implemented by subclasses with the correct signature.
+        This is an abstract method that must be implemented by all Handler subclasses.
+        Mypy will enforce that subclasses properly override this method with the
+        correct type signature.
 
         Args:
             request: The request to handle
 
         Returns:
             The response (type determined by the request's response type)
+
+        Note:
+            Subclasses must implement this with the signature:
+            `def __call__(self, request: RequestType) -> ResponseType: ...`
         """
-        raise NotImplementedError(f"{self.__class__.__name__} must implement __call__ method")
+        ...
 
     @classmethod
     def get_request_type(cls) -> type | None:
