@@ -29,7 +29,7 @@ Note:
     operations, use `from pymediate import Handler, Mediator` instead.
 """
 
-from pymediate.aio.handler import Handler
-from pymediate.aio.mediator import Mediator
+from .handler import Handler
+from .mediator import Mediator
 
 __all__ = ["Handler", "Mediator"]

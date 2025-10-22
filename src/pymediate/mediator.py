@@ -1,7 +1,7 @@
 """Mediator implementation for routing requests to handlers."""
 
-from pymediate._mediator_base import MediatorBaseMixin
-from pymediate.request import Request
+from ._internal.mediator_base import MediatorBaseMixin
+from .request import Request
 
 
 class Mediator(MediatorBaseMixin):

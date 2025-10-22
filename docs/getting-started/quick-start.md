@@ -159,11 +159,36 @@ class WrongHandler(Handler[CreateUser]):
 # TypeError: WrongHandler.__call__ must return UserCreated, got str
 ```
 
+## Async Support
+
+PyMediate also supports async/await for asynchronous operations:
+
+```python
+from pymediate.aio import Handler, Mediator
+
+class CreateUserHandler(Handler[CreateUser]):
+    async def __call__(self, request: CreateUser) -> UserCreated:
+        # Can use await for async operations
+        await database.save_user(request.username, request.email)
+        return UserCreated(
+            user_id=1,
+            username=request.username,
+            email=request.email
+        )
+
+# Use async mediator
+mediator = Mediator(resolver)
+response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+```
+
+See the [async examples](../examples/async.md) for more details.
+
 ## Next Steps
 
 Now that you understand the basics:
 
 - Learn about [core concepts](concepts.md)
+- Try [async/await support](../examples/async.md)
 - Explore [dependency injection](../guide/dependency-injection.md)
 - See more [examples](../examples/basic.md)
 - Read the [user guide](../guide/requests-responses.md)

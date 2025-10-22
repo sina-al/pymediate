@@ -4,7 +4,7 @@ Following pytest best practices by using functions instead of test classes.
 """
 
 from pymediate import Request
-from pymediate.registry import get_all_request_types, get_response_type, has_response_type
+from pymediate._internal.registry import get_all_request_types, get_response_type, has_response_type
 
 
 def test_request_registration():

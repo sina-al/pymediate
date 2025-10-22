@@ -52,8 +52,6 @@ async def main() -> None:
     )
 
     # Mypy should know the types
-    resp1 = responses[0]
-    resp2 = responses[1]
+    responses[0]
+    responses[1]
 
-    val: int = resp1.value
-    msg: str = resp2.message

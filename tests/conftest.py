@@ -2,7 +2,7 @@
 
 import pytest
 
-from pymediate.registry import clear_all_registries
+from pymediate._internal.registry import clear_all_registries
 
 # Check if dependency-injector is available
 try:

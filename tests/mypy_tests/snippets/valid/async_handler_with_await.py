@@ -35,5 +35,4 @@ async def main() -> None:
     resolver.register(ProcessRequest, ProcessHandler())
     mediator = Mediator(resolver)
 
-    response = await mediator.send(ProcessRequest(data="test"))
-    result: str = response.result
+    await mediator.send(ProcessRequest(data="test"))

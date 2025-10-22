@@ -8,7 +8,7 @@ import threading
 from typing import Any
 
 from pymediate import Handler, Request
-from pymediate.registry import (
+from pymediate._internal.registry import (
     clear_all_registries,
     get_all_handler_request_types,
     get_all_request_types,

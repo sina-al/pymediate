@@ -125,6 +125,9 @@ PyMediate now includes first-class async support via `pymediate.aio`. The mypy t
 - **Total mypy tests**: ~33 (all passing)
 - **Valid patterns**: 9 (6 sync + 3 async)
 - **Error scenarios**: 7 (5 sync + 2 async)
-- **Test execution**: ~10 seconds
+- **Test execution**: ~6 seconds
 - **Mypy mode**: Strict (`--strict`)
-- **Total project tests**: 122 (106 runtime + 16 async functionality)
+- **Total project tests**: 127 tests total
+  - 106 core functionality tests
+  - 16 async functionality tests
+  - 5 mypy snippet validation tests (not counted in pytest total)

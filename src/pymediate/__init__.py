@@ -66,7 +66,7 @@ Async Support:
 For more information, see the documentation at https://sina-al.github.io/pymediate/
 """
 
-from pymediate.errors import (
+from .errors import (
     DIContainerError,
     HandlerNotFoundError,
     HandlerTypeMismatchError,
@@ -75,10 +75,10 @@ from pymediate.errors import (
     PyMediateError,
     ResponseTypeMismatchError,
 )
-from pymediate.handler import Handler
-from pymediate.mediator import Mediator
-from pymediate.request import Request
-from pymediate.resolvers import DependencyInjectorResolver, Resolver, SimpleResolver
+from .handler import Handler
+from .mediator import Mediator
+from .request import Request
+from .resolvers import DependencyInjectorResolver, Resolver, SimpleResolver
 
 __all__ = [
     "Request",

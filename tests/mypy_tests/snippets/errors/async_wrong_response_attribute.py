@@ -32,4 +32,4 @@ async def main() -> None:
     response = await mediator.send(GetUserRequest(user_id=1))
 
     # ERROR: UserResponse has no attribute 'email'
-    email = response.email
+    email = response.email  # noqa: F841

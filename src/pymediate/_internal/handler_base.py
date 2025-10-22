@@ -7,20 +7,8 @@ validation, and registration logic that is common between sync and async handler
 import inspect
 from typing import Any, get_args, get_origin
 
-from pymediate.errors import (
-    HandlerNotFoundError,
-    InvalidHandlerSignatureError,
-    InvalidRequestTypeError,
-    ResponseTypeMismatchError,
-)
-from pymediate.registry import (
-    get_all_handler_request_types,
-    get_handler_class,
-    get_response_type,
-    has_handler,
-    has_response_type,
-    register_handler,
-)
+from .. import errors
+from . import registry
 
 
 def _validate_call_signature(
@@ -41,15 +29,17 @@ def _validate_call_signature(
         TypeError: If the signature doesn't match expectations
     """
     if "__call__" not in cls.__dict__:
-        raise InvalidHandlerSignatureError(cls, "must implement __call__ method")
+        raise errors.InvalidHandlerSignatureError(cls, "must implement __call__ method")
 
     call_method = cls.__dict__["__call__"]
 
     # Check if it's async when it should be (or vice versa)
     if is_async and not inspect.iscoroutinefunction(call_method):
-        raise InvalidHandlerSignatureError(cls, "__call__ must be async (use 'async def __call__')")
+        raise errors.InvalidHandlerSignatureError(
+            cls, "__call__ must be async (use 'async def __call__')"
+        )
     elif not is_async and inspect.iscoroutinefunction(call_method):
-        raise InvalidHandlerSignatureError(
+        raise errors.InvalidHandlerSignatureError(
             cls, "__call__ must be sync (remove 'async' from 'def __call__')"
         )
 
@@ -58,14 +48,14 @@ def _validate_call_signature(
     # Validate parameters
     params = list(sig.parameters.values())
     if len(params) != 2:  # self, request
-        raise InvalidHandlerSignatureError(
+        raise errors.InvalidHandlerSignatureError(
             cls,
             f"__call__ must accept exactly one parameter (besides self), got {len(params) - 1}",
         )
 
     request_param = params[1]  # Skip 'self'
     if request_param.annotation == inspect.Parameter.empty:
-        raise InvalidHandlerSignatureError(
+        raise errors.InvalidHandlerSignatureError(
             cls, "__call__ request parameter must have type annotation"
         )
 
@@ -76,17 +66,17 @@ def _validate_call_signature(
             else str(request_param.annotation)
         )
         expected_name = expected_request_type.__name__
-        raise InvalidHandlerSignatureError(
+        raise errors.InvalidHandlerSignatureError(
             cls,
             f"__call__ parameter must be of type {expected_name}, got {param_name}",
         )
 
     # Validate return type
     if sig.return_annotation == inspect.Signature.empty:
-        raise InvalidHandlerSignatureError(cls, "__call__ must have return type annotation")
+        raise errors.InvalidHandlerSignatureError(cls, "__call__ must have return type annotation")
 
     if sig.return_annotation != expected_response_type:
-        raise ResponseTypeMismatchError(cls, expected_response_type, sig.return_annotation)
+        raise errors.ResponseTypeMismatchError(cls, expected_response_type, sig.return_annotation)
 
 
 class HandlerBaseMixin[RequestT]:
@@ -142,8 +132,8 @@ class HandlerBaseMixin[RequestT]:
 
         # Look up response type from request registry
         if cls._request_type is not None:
-            if has_response_type(cls._request_type):
-                cls._response_type = get_response_type(cls._request_type)
+            if registry.has_response_type(cls._request_type):
+                cls._response_type = registry.get_response_type(cls._request_type)
 
                 # Validate the __call__ signature
                 assert cls._response_type is not None, (
@@ -154,11 +144,11 @@ class HandlerBaseMixin[RequestT]:
                 )
 
                 # Register handler
-                register_handler(cls._request_type, cls)
+                registry.register_handler(cls._request_type, cls)
             else:
                 # Only raise if this isn't a base Handler class
                 if cls.__name__ not in ("Handler", "HandlerBaseMixin"):
-                    raise InvalidRequestTypeError(cls._request_type)
+                    raise errors.InvalidRequestTypeError(cls._request_type)
 
     @classmethod
     def get_request_type(cls) -> type | None:
@@ -199,7 +189,7 @@ class HandlerBaseMixin[RequestT]:
         Raises:
             HandlerNotFoundError: If no handler is registered for the request type.
         """
-        if not has_handler(request_type):
-            available = get_all_handler_request_types()
-            raise HandlerNotFoundError(request_type, available)
-        return get_handler_class(request_type)
+        if not registry.has_handler(request_type):
+            available = registry.get_all_handler_request_types()
+            raise errors.HandlerNotFoundError(request_type, available)
+        return registry.get_handler_class(request_type)

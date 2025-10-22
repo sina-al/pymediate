@@ -7,17 +7,17 @@ implementations provide different resolution strategies.
 
 from typing import TYPE_CHECKING
 
-from pymediate.resolvers.base import Resolver
-from pymediate.resolvers.simple import SimpleResolver
+from ._base import Resolver
+from .simple import SimpleResolver
 
 if TYPE_CHECKING:
-    from pymediate.resolvers.dependency_injector import DependencyInjectorResolver
+    from .dependency_injector import DependencyInjectorResolver
 else:
     try:
-        from pymediate.resolvers.dependency_injector import DependencyInjectorResolver
+        from .dependency_injector import DependencyInjectorResolver
     except ImportError:
         # Provide a helpful stub that raises an error with installation instructions
-        from pymediate.resolvers._di_stub import (
+        from ._di_stub import (
             _DependencyInjectorResolverStub as DependencyInjectorResolver,
         )
 

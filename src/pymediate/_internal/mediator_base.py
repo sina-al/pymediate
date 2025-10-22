@@ -1,6 +1,6 @@
 """Base mixin for mediator implementations (sync and async)."""
 
-from pymediate.resolvers import Resolver
+from ..resolvers import Resolver
 
 
 class MediatorBaseMixin:

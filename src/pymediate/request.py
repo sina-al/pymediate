@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pymediate.registry import register_request_response_type
+from ._internal import registry
 
 
 class Request[ResponseT]:
@@ -81,5 +81,5 @@ class Request[ResponseT]:
                 if getattr(base, "__origin__", None) is Request:
                     if args := getattr(base, "__args__", None):
                         response_type = args[0]
-                        register_request_response_type(cls, response_type)
+                        registry.register_request_response_type(cls, response_type)
                         break

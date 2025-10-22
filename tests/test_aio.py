@@ -11,8 +11,8 @@ from pymediate import (
     ResponseTypeMismatchError,
     SimpleResolver,
 )
+from pymediate._internal.registry import get_handler_class, has_handler
 from pymediate.aio import Handler, Mediator
-from pymediate.registry import get_handler_class, has_handler
 
 
 def test_async_handler_extracts_request_type():

@@ -9,8 +9,8 @@ from typing import Any
 
 from dependency_injector import containers
 
-from pymediate.errors import DIContainerError, HandlerNotFoundError
-from pymediate.handler import Handler
+from .. import errors
+from ..handler import Handler
 
 
 class DependencyInjectorResolver:
@@ -191,13 +191,13 @@ class DependencyInjectorResolver:
         # O(1) lookup from pre-built type-based cache
         if request_class not in self._handler_providers:
             available = list(self._handler_providers.keys())
-            raise HandlerNotFoundError(request_class, available)
+            raise errors.HandlerNotFoundError(request_class, available)
 
         # Get the provider and call it to get a handler instance
         try:
             provider = self._handler_providers[request_class]
             return provider()
         except Exception as e:
-            raise DIContainerError(
+            raise errors.DIContainerError(
                 request_class, f"Container failed to provide handler: {e}"
             ) from e

@@ -29,7 +29,6 @@ async def main() -> None:
     mediator = Mediator(resolver)
 
     # ERROR: Missing await - returns coroutine, not Response
-    response = mediator.send(MyRequest(data=10))
+    mediator.send(MyRequest(data=10))
 
     # This should fail - trying to access attribute on coroutine
-    value: int = response.value

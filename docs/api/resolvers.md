@@ -2,7 +2,7 @@
 
 ## Resolver Protocol
 
-::: pymediate.resolvers.base.Resolver
+::: pymediate.resolvers.Resolver
     options:
       show_root_heading: true
       show_source: true
@@ -11,7 +11,16 @@
 
 ## SimpleResolver
 
-::: pymediate.resolvers.simple.SimpleResolver
+::: pymediate.resolvers.SimpleResolver
+    options:
+      show_root_heading: true
+      show_source: true
+      members_order: source
+      heading_level: 3
+
+## DependencyInjectorResolver
+
+::: pymediate.resolvers.DependencyInjectorResolver
     options:
       show_root_heading: true
       show_source: true

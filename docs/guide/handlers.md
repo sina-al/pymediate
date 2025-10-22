@@ -173,13 +173,15 @@ class CreateProductHandler(Handler[CreateProductRequest]):
 
 ## Async Handlers
 
-PyMediate fully supports async handlers for I/O-bound operations.
+PyMediate provides first-class async/await support through the `pymediate.aio` package for I/O-bound operations.
 
 ### Basic Async Handler
 
 ```python
 import asyncio
-from pymediate import Handler, Request
+from dataclasses import dataclass
+from pymediate import Request
+from pymediate.aio import Handler, Mediator
 
 @dataclass
 class FetchDataResponse:
@@ -199,9 +201,19 @@ class AsyncFetchHandler(Handler[FetchDataRequest]):
         return FetchDataResponse(data=data)
 ```
 
+!!! note "Async vs Sync Imports"
+    For async handlers, import from `pymediate.aio`:
+
+    - **Sync**: `from pymediate import Handler, Mediator`
+    - **Async**: `from pymediate.aio import Handler, Mediator`
+
+    Requests are always imported from the main package: `from pymediate import Request`
+
 ### Async Handler with Multiple I/O Operations
 
 ```python
+from pymediate.aio import Handler
+
 class ProcessOrderHandler(Handler[ProcessOrderRequest]):
     def __init__(self, payment_service, inventory_service, email_service):
         self.payment_service = payment_service
@@ -235,11 +247,20 @@ class ProcessOrderHandler(Handler[ProcessOrderRequest]):
 ### Using Async Handlers with Mediator
 
 ```python
-# Mediator automatically detects async handlers
+from pymediate import SimpleResolver
+from pymediate.aio import Mediator
+
+# Setup async mediator
+resolver = SimpleResolver()
+resolver.register(FetchDataRequest, AsyncFetchHandler(http_client))
 mediator = Mediator(resolver)
 
 # Use with asyncio
-response = await mediator.send(FetchDataRequest(url="https://api.example.com/data"))
+async def main():
+    response = await mediator.send(FetchDataRequest(url="https://api.example.com/data"))
+    print(response.data)
+
+asyncio.run(main())
 
 # Or in async context
 async def process():
@@ -247,6 +268,8 @@ async def process():
     result2 = await mediator.send(ProcessOrderRequest(...))
     return result1, result2
 ```
+
+For more async examples, see the [Async/Await guide](../examples/async.md).
 
 ## Deployment Flexibility
 

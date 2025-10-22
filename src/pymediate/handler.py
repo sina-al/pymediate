@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from pymediate._handler_base import HandlerBaseMixin
+from ._internal.handler_base import HandlerBaseMixin
 
 
 class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):

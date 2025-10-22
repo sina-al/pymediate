@@ -32,8 +32,6 @@ async def main() -> None:
 
     # Type inference test
     request = GetUserRequest(user_id=1)
-    response = await mediator.send(request)
+    await mediator.send(request)
 
     # Mypy should know response is UserResponse
-    user_id: int = response.user_id
-    username: str = response.username

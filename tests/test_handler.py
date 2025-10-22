@@ -10,7 +10,7 @@ from pymediate import (
     Request,
     ResponseTypeMismatchError,
 )
-from pymediate.registry import get_handler_class, has_handler
+from pymediate._internal.registry import get_handler_class, has_handler
 
 
 def test_handler_extracts_request_type():
