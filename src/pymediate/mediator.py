@@ -1,6 +1,6 @@
 """Mediator implementation for routing requests to handlers."""
 
-from ._internal.mediator_base import MediatorBaseMixin
+from ._internal.mediator import MediatorBaseMixin
 from .request import Request
 
 
