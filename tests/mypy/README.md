@@ -56,16 +56,16 @@ Tests verifying mypy catches incorrect usage:
 
 ```bash
 # Run all mypy tests
-pytest tests/mypy_tests/ -v
+pytest tests/mypy/ -v
 
 # Show coverage summary
-pytest tests/mypy_tests/test_user_type_safety.py::test_comprehensive_coverage_summary -v -s
+pytest tests/mypy/test_user_type_safety.py::test_comprehensive_coverage_summary -v -s
 
 # Run only valid usage tests
-pytest tests/mypy_tests/ -v -k "TestValidUsagePassesMypy"
+pytest tests/mypy/ -v -k "TestValidUsagePassesMypy"
 
 # Run only error detection tests
-pytest tests/mypy_tests/ -v -k "TestInvalidUsageFailsMypy"
+pytest tests/mypy/ -v -k "TestInvalidUsageFailsMypy"
 ```
 
 ## Implementation
@@ -86,8 +86,8 @@ def run_mypy_on_file(file_path: Path, strict: bool = True) -> tuple[int, str, st
 ## Test Structure
 
 ```
-tests/mypy_tests/
-├── test_user_type_safety.py    # Main test runner (uses mypy API)
+tests/mypy/
+├── test_mypy.py                # Main test runner (uses mypy API)
 ├── snippets/
 │   ├── valid/                  # Code that should pass mypy
 │   └── errors/                 # Code that should fail mypy

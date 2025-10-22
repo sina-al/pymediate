@@ -1,6 +1,7 @@
 """Tests for DependencyInjectorResolver."""
 
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 from dependency_injector import containers, providers
@@ -36,10 +37,10 @@ class SendEmailRequest(Request[EmailSentResponse]):
 class EmailService:
     """Mock email service."""
 
-    def __init__(self, smtp_host: str, smtp_port: int):
+    def __init__(self, smtp_host: str, smtp_port: int) -> None:
         self.smtp_host = smtp_host
         self.smtp_port = smtp_port
-        self.sent_emails: list[dict] = []
+        self.sent_emails: list[dict[str, Any]] = []
 
     def send(self, to: str, subject: str, body: str) -> str:
         """Send an email and return message ID."""
@@ -88,7 +89,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
     )
 
 
-def test_di_resolver_basic():
+def test_di_resolver_basic() -> None:
     """Test basic DI resolver functionality."""
     container = ApplicationContainer()
     container.config.smtp.host.from_value("smtp.example.com")
@@ -102,7 +103,7 @@ def test_di_resolver_basic():
     assert handler.email_service.smtp_port == 587
 
 
-def test_di_resolver_with_mediator():
+def test_di_resolver_with_mediator() -> None:
     """Test using DI resolver with mediator."""
     container = ApplicationContainer()
     container.config.smtp.host.from_value("smtp.test.com")
@@ -123,7 +124,7 @@ def test_di_resolver_with_mediator():
     assert email_service.sent_emails[0]["subject"] == "Test Email"
 
 
-def test_di_resolver_singleton_behavior():
+def test_di_resolver_singleton_behavior() -> None:
     """Test that handler instances are managed by the container."""
     container = ApplicationContainer()
     container.config.smtp.host.from_value("smtp.example.com")
@@ -146,7 +147,7 @@ def test_di_resolver_singleton_behavior():
     assert len(email_service.sent_emails) == 2
 
 
-def test_di_resolver_handler_not_found():
+def test_di_resolver_handler_not_found() -> None:
     """Test error when handler provider is not in container."""
 
     class UnregisteredResponse:
@@ -189,10 +190,10 @@ class SendNotificationRequest(Request[NotificationSentResponse]):
 class NotificationService:
     """Mock notification service."""
 
-    def __init__(self):
-        self.notifications = []
+    def __init__(self) -> None:
+        self.notifications: list[dict[str, Any]] = []
 
-    def send(self, user_id: int, message: str):
+    def send(self, user_id: int, message: str) -> None:
         self.notifications.append({"user_id": user_id, "message": message})
 
 
@@ -227,7 +228,7 @@ class MultiHandlerContainer(containers.DeclarativeContainer):
     )
 
 
-def test_multiple_handlers_with_di():
+def test_multiple_handlers_with_di() -> None:
     """Test multiple different handlers in same container."""
     container = MultiHandlerContainer()
     mediator = container.mediator()
@@ -248,7 +249,7 @@ def test_multiple_handlers_with_di():
     assert len(container.notification_service().notifications) == 1
 
 
-def test_di_resolver_type_inspection():
+def test_di_resolver_type_inspection() -> None:
     """Test that DI resolver uses type inspection, not naming conventions."""
     container = ApplicationContainer()
     container.config.smtp.host.from_value("smtp.example.com")

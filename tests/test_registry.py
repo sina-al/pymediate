@@ -23,7 +23,7 @@ from pymediate._internal.registry import (
 # ========== Request Registry Tests ==========
 
 
-def test_register_and_get_response_type():
+def test_register_and_get_response_type() -> None:
     """Test registering and retrieving response types."""
 
     class MyResponse:
@@ -37,7 +37,7 @@ def test_register_and_get_response_type():
     assert get_response_type(MyRequest) == MyResponse
 
 
-def test_has_response_type():
+def test_has_response_type() -> None:
     """Test checking if request type has a registered response."""
 
     class RegisteredResponse:
@@ -53,7 +53,7 @@ def test_has_response_type():
     assert not has_response_type(UnregisteredRequest)
 
 
-def test_get_response_type_returns_none_for_unregistered():
+def test_get_response_type_returns_none_for_unregistered() -> None:
     """Test that getting unregistered response type returns None."""
 
     class UnregisteredRequest:
@@ -62,7 +62,7 @@ def test_get_response_type_returns_none_for_unregistered():
     assert get_response_type(UnregisteredRequest) is None
 
 
-def test_get_all_request_types():
+def test_get_all_request_types() -> None:
     """Test retrieving all registered request types."""
 
     class Response1:
@@ -86,7 +86,7 @@ def test_get_all_request_types():
 # ========== Handler Registry Tests ==========
 
 
-def test_register_and_get_handler():
+def test_register_and_get_handler() -> None:
     """Test registering and retrieving handlers."""
 
     class TestResponse:
@@ -104,7 +104,7 @@ def test_register_and_get_handler():
     assert get_handler_class(TestRequest) == TestHandler
 
 
-def test_has_handler():
+def test_has_handler() -> None:
     """Test checking if request type has a registered handler."""
 
     class HandledResponse:
@@ -127,7 +127,7 @@ def test_has_handler():
     assert not has_handler(UnhandledRequest)
 
 
-def test_get_handler_class_returns_none_for_unregistered():
+def test_get_handler_class_returns_none_for_unregistered() -> None:
     """Test that getting unregistered handler returns None."""
 
     class UnhandledResponse:
@@ -139,7 +139,7 @@ def test_get_handler_class_returns_none_for_unregistered():
     assert get_handler_class(UnhandledRequest) is None
 
 
-def test_get_all_handler_request_types():
+def test_get_all_handler_request_types() -> None:
     """Test retrieving all request types with registered handlers."""
 
     class Response1:
@@ -171,7 +171,7 @@ def test_get_all_handler_request_types():
 # ========== Registry Management Tests ==========
 
 
-def test_clear_all_registries():
+def test_clear_all_registries() -> None:
     """Test clearing all registries."""
 
     class Response:
@@ -196,7 +196,7 @@ def test_clear_all_registries():
     assert not has_handler(Request1)
 
 
-def test_get_registry_stats():
+def test_get_registry_stats() -> None:
     """Test getting registry statistics."""
     clear_all_registries()
 
@@ -227,14 +227,14 @@ def test_get_registry_stats():
 # ========== Thread Safety Tests ==========
 
 
-def test_concurrent_registrations():
+def test_concurrent_registrations() -> None:
     """Test that concurrent manual registrations are thread-safe."""
     clear_all_registries()
 
     num_threads = 10
     results: list[bool] = []
 
-    def register_types(index: int):
+    def register_types(index: int) -> None:
         # Create unique types for this thread
         response_type = type(f"Response{index}", (), {})
         request_type = type(f"Request{index}", (), {})
@@ -257,7 +257,7 @@ def test_concurrent_registrations():
     assert all(results)
 
 
-def test_concurrent_reads():
+def test_concurrent_reads() -> None:
     """Test that concurrent reads are thread-safe."""
 
     class Response:
@@ -269,7 +269,7 @@ def test_concurrent_reads():
     results: list[Any] = []
     num_threads = 10
 
-    def read_response_type():
+    def read_response_type() -> None:
         results.append(get_response_type(TestRequest))
 
     threads = [threading.Thread(target=read_response_type) for _ in range(num_threads)]
@@ -287,7 +287,7 @@ def test_concurrent_reads():
 # ========== Edge Cases ==========
 
 
-def test_direct_registration_via_api():
+def test_direct_registration_via_api() -> None:
     """Test that direct API registration works (for advanced use cases)."""
 
     class CustomResponse:
@@ -303,7 +303,7 @@ def test_direct_registration_via_api():
     assert get_response_type(CustomRequest) == CustomResponse
 
 
-def test_handler_overwrite():
+def test_handler_overwrite() -> None:
     """Test that registering a new handler overwrites the previous one."""
 
     class Response:

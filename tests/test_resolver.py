@@ -8,6 +8,7 @@ This module tests the core resolver functionality:
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 
@@ -23,13 +24,13 @@ from pymediate import (
 # ========== Basic Functionality Tests ==========
 
 
-def test_simple_resolver_creation():
+def test_simple_resolver_creation() -> None:
     """Test that SimpleResolver can be created."""
     resolver = SimpleResolver()
     assert resolver is not None
 
 
-def test_simple_resolver_with_initial_handlers():
+def test_simple_resolver_with_initial_handlers() -> None:
     """Test SimpleResolver initialization with handlers dict."""
 
     class Resp:
@@ -49,7 +50,7 @@ def test_simple_resolver_with_initial_handlers():
     assert resolved is handler
 
 
-def test_resolver_with_empty_handlers_dict():
+def test_resolver_with_empty_handlers_dict() -> None:
     """Test that SimpleResolver works with empty initial handlers."""
     resolver = SimpleResolver(handlers={})
 
@@ -66,7 +67,7 @@ def test_resolver_with_empty_handlers_dict():
 # ========== Registration and Resolution Tests ==========
 
 
-def test_register_handler():
+def test_register_handler() -> None:
     """Test registering a handler."""
 
     class MyResp:
@@ -87,7 +88,7 @@ def test_register_handler():
     assert resolved is handler
 
 
-def test_resolve_unregistered_request():
+def test_resolve_unregistered_request() -> None:
     """Test that resolving unregistered request raises HandlerNotFoundError."""
 
     class UnregisteredResp:
@@ -102,7 +103,7 @@ def test_resolve_unregistered_request():
         resolver.resolve(UnregisteredReq)
 
 
-def test_register_multiple_handlers():
+def test_register_multiple_handlers() -> None:
     """Test registering multiple handlers for different requests."""
 
     class Resp1:
@@ -138,7 +139,7 @@ def test_register_multiple_handlers():
     assert resolver.resolve(Req2) is h2
 
 
-def test_register_overwrites_existing_handler():
+def test_register_overwrites_existing_handler() -> None:
     """Test that registering same request type overwrites previous handler."""
 
     class Resp:
@@ -166,7 +167,7 @@ def test_register_overwrites_existing_handler():
     assert resolver.resolve(Req) is h2
 
 
-def test_resolver_preserves_handler_state():
+def test_resolver_preserves_handler_state() -> None:
     """Test that resolver preserves handler instance state."""
 
     class CounterResp:
@@ -177,7 +178,7 @@ def test_resolver_preserves_handler_state():
         pass
 
     class StatefulHandler(Handler[CounterReq]):
-        def __init__(self):
+        def __init__(self) -> None:
             self.call_count = 0
 
         def __call__(self, request: CounterReq) -> CounterResp:
@@ -231,7 +232,7 @@ class TypeSafeHandler2(Handler[TypeSafeRequest2]):
         return TypeSafeResponse2(text=str(request.number))
 
 
-def test_type_safe_registration():
+def test_type_safe_registration() -> None:
     """Test that SimpleResolver validates handler types at registration."""
     resolver = SimpleResolver()
 
@@ -243,7 +244,7 @@ def test_type_safe_registration():
     assert resolved is handler1
 
 
-def test_type_mismatch_detection():
+def test_type_mismatch_detection() -> None:
     """Test that SimpleResolver detects handler type mismatches."""
     resolver = SimpleResolver()
 
@@ -254,7 +255,7 @@ def test_type_mismatch_detection():
         resolver.register(TypeSafeRequest2, handler1)
 
 
-def test_multiple_handlers_type_safety():
+def test_multiple_handlers_type_safety() -> None:
     """Test type safety with multiple handlers registered."""
     resolver = SimpleResolver()
 
@@ -269,7 +270,7 @@ def test_multiple_handlers_type_safety():
     assert resolver.resolve(TypeSafeRequest2) is handler2
 
 
-def test_initial_handlers_dict_validation():
+def test_initial_handlers_dict_validation() -> None:
     """Test that handlers passed to __init__ are validated."""
     handler1 = TypeSafeHandler1()
 
@@ -282,7 +283,7 @@ def test_initial_handlers_dict_validation():
         SimpleResolver(handlers={TypeSafeRequest2: handler1})
 
 
-def test_handler_replacement_type_safety():
+def test_handler_replacement_type_safety() -> None:
     """Test that replacing handlers maintains type safety."""
     resolver = SimpleResolver()
 
@@ -305,7 +306,7 @@ def test_handler_replacement_type_safety():
 # ========== Multiple Resolvers Tests ==========
 
 
-def test_multiple_resolvers_independence():
+def test_multiple_resolvers_independence() -> None:
     """Test that multiple resolver instances are independent."""
     resolver1 = SimpleResolver()
     resolver2 = SimpleResolver()
@@ -337,7 +338,7 @@ class CreateUserRequest(Request[UserCreatedResponse]):
 
 
 class CreateUserHandler(Handler[CreateUserRequest]):
-    def __init__(self):
+    def __init__(self) -> None:
         self.next_id = 1
 
     def __call__(self, request: CreateUserRequest) -> UserCreatedResponse:
@@ -346,7 +347,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserCreatedResponse(user_id=user_id, username=request.username)
 
 
-def test_resolver_with_mediator():
+def test_resolver_with_mediator() -> None:
     """Test resolver integration with Mediator."""
     resolver = SimpleResolver()
     handler = CreateUserHandler()
@@ -363,19 +364,20 @@ def test_resolver_with_mediator():
 # ========== Edge Cases ==========
 
 
-def test_resolver_handles_untyped_handler_gracefully():
+def test_resolver_handles_untyped_handler_gracefully() -> None:
     """Test that resolver handles handlers without explicit request types."""
     resolver = SimpleResolver()
 
     # Create a mock handler without proper type metadata
     class UntypedHandler:
-        def __call__(self, request):
+        def __call__(self, request: Any) -> str:
             return "result"
 
     # Should be able to register (no validation if _request_type is None)
     handler = UntypedHandler()
     resolver.register(TypeSafeRequest1, handler)
 
-    # Should resolve
+    # Should resolve (no type checking for untyped handlers)
     resolved = resolver.resolve(TypeSafeRequest1)
-    assert resolved is handler
+    # Type checker can't verify this edge case, but runtime allows it
+    assert resolved == handler  # type: ignore[comparison-overlap]

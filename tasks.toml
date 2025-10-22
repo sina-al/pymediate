@@ -32,7 +32,7 @@ type.help = "Run mypy type checking on source code"
 type.cmd = "mypy src/pymediate/ --strict"
 
 "type:all".help = "Run mypy on source and tests"
-"type:all".cmd = "mypy src/pymediate/ tests/ --strict"
+"type:all".cmd = "mypy src/pymediate/ tests/ --strict --exclude 'tests/mypy/snippets/errors/'"
 
 "type:report".help = "Generate mypy coverage report"
 "type:report".cmd = "mypy src/pymediate/ --strict --html-report mypy-report"

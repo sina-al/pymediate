@@ -3,7 +3,7 @@
 import pytest
 
 
-def test_di_resolver_stub_error_message():
+def test_di_resolver_stub_error_message() -> None:
     """Test that the stub provides a helpful error message when instantiated."""
     # Import the stub directly to test it
     from pymediate.resolvers._di_stub import _DependencyInjectorResolverStub
@@ -22,7 +22,7 @@ def test_di_resolver_stub_error_message():
     assert "uv add 'pymediate[di]'" in error_message
 
 
-def test_di_resolver_stub_repr():
+def test_di_resolver_stub_repr() -> None:
     """Test that the stub class has a helpful repr."""
     from pymediate.resolvers._di_stub import _DependencyInjectorResolverStub
 
@@ -32,7 +32,7 @@ def test_di_resolver_stub_repr():
 
 
 @pytest.mark.requires_di
-def test_di_resolver_available_with_dependency():
+def test_di_resolver_available_with_dependency() -> None:
     """Test that real resolver is available when dependency-injector is installed."""
     # If dependency-injector is available, we should get the real resolver
     from pymediate import DependencyInjectorResolver
@@ -45,7 +45,7 @@ def test_di_resolver_available_with_dependency():
     assert hasattr(DependencyInjectorResolver, "resolve")
 
 
-def test_di_resolver_in_all_exports():
+def test_di_resolver_in_all_exports() -> None:
     """Test that DependencyInjectorResolver is always in __all__."""
     from pymediate import resolvers
 
@@ -57,7 +57,7 @@ def test_di_resolver_in_all_exports():
     assert "DependencyInjectorResolver" in pymediate.__all__
 
 
-def test_stub_has_required_behavior():
+def test_stub_has_required_behavior() -> None:
     """Test that the stub has the expected methods for type hints."""
     from pymediate.resolvers._di_stub import _DependencyInjectorResolverStub
 

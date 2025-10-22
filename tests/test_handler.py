@@ -13,7 +13,7 @@ from pymediate import (
 from pymediate._internal.registry import get_handler_class, has_handler
 
 
-def test_handler_extracts_request_type():
+def test_handler_extracts_request_type() -> None:
     """Test that Handler metaclass extracts request type from generic."""
 
     class TestResponse:
@@ -32,7 +32,7 @@ def test_handler_extracts_request_type():
     assert TestHandler._response_type == TestResponse
 
 
-def test_handler_registration():
+def test_handler_registration() -> None:
     """Test that Handler is registered in handler registry."""
 
     class Response:
@@ -49,7 +49,7 @@ def test_handler_registration():
     assert get_handler_class(Req) == ReqHandler
 
 
-def test_handler_validates_correct_return_type():
+def test_handler_validates_correct_return_type() -> None:
     """Test that Handler with correct return type is accepted."""
 
     class GoodResponse:
@@ -67,7 +67,7 @@ def test_handler_validates_correct_return_type():
     assert GoodHandler._response_type == GoodResponse
 
 
-def test_handler_rejects_wrong_return_type():
+def test_handler_rejects_wrong_return_type() -> None:
     """Test that Handler with wrong return type is rejected."""
 
     class CorrectResponse:
@@ -87,7 +87,7 @@ def test_handler_rejects_wrong_return_type():
                 return WrongResponse()
 
 
-def test_handler_rejects_wrong_parameter_type():
+def test_handler_rejects_wrong_parameter_type() -> None:
     """Test that Handler with wrong parameter type is rejected."""
 
     class Resp:
@@ -106,7 +106,7 @@ def test_handler_rejects_wrong_parameter_type():
                 return Resp()
 
 
-def test_handler_requires_exactly_one_parameter():
+def test_handler_requires_exactly_one_parameter() -> None:
     """Test that Handler __call__ must have exactly one parameter besides self."""
 
     class Resp:
@@ -122,7 +122,7 @@ def test_handler_requires_exactly_one_parameter():
                 return Resp()
 
 
-def test_handler_with_request_not_in_registry():
+def test_handler_with_request_not_in_registry() -> None:
     """Test that Handler with unregistered request type raises error."""
 
     class UnregisteredRequest:
@@ -133,11 +133,11 @@ def test_handler_with_request_not_in_registry():
     with pytest.raises(InvalidRequestTypeError):
 
         class BadHandler(Handler[UnregisteredRequest]):
-            def __call__(self, request: UnregisteredRequest):
+            def __call__(self, request: UnregisteredRequest) -> None:
                 pass
 
 
-def test_handler_call():
+def test_handler_call() -> None:
     """Test that handler can be called."""
 
     class NumResponse:
@@ -160,7 +160,7 @@ def test_handler_call():
     assert response.result == 42
 
 
-def test_get_request_type():
+def test_get_request_type() -> None:
     """Test Handler.get_request_type() method."""
 
     class Resp:
@@ -176,7 +176,7 @@ def test_get_request_type():
     assert TestHandler.get_request_type() == Req
 
 
-def test_get_response_type():
+def test_get_response_type() -> None:
     """Test Handler.get_response_type() method."""
 
     class MyResp:
@@ -192,7 +192,7 @@ def test_get_response_type():
     assert TestHandler.get_response_type() == MyResp
 
 
-def test_get_handler_for_request():
+def test_get_handler_for_request() -> None:
     """Test Handler.get_handler_for_request() class method."""
 
     class Resp:
@@ -209,7 +209,7 @@ def test_get_handler_for_request():
     assert handler_class == ReqHandler
 
 
-def test_get_handler_for_unregistered_request():
+def test_get_handler_for_unregistered_request() -> None:
     """Test that get_handler_for_request raises for unregistered request."""
 
     class UnhandledResp:
@@ -224,7 +224,7 @@ def test_get_handler_for_unregistered_request():
         Handler.get_handler_for_request(UnhandledReq)
 
 
-def test_multiple_handlers_for_different_requests():
+def test_multiple_handlers_for_different_requests() -> None:
     """Test that multiple handlers can coexist."""
 
     class Resp1:

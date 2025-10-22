@@ -15,7 +15,7 @@ from pymediate._internal.registry import get_handler_class, has_handler
 from pymediate.aio import Handler, Mediator
 
 
-def test_async_handler_extracts_request_type():
+def test_async_handler_extracts_request_type() -> None:
     """Test that async Handler extracts request type from generic."""
 
     class TestResponse:
@@ -34,7 +34,7 @@ def test_async_handler_extracts_request_type():
     assert TestHandler._response_type == TestResponse
 
 
-def test_async_handler_registration():
+def test_async_handler_registration() -> None:
     """Test that async Handler is registered in handler registry."""
 
     class Response:
@@ -51,7 +51,7 @@ def test_async_handler_registration():
     assert get_handler_class(Req) == ReqHandler
 
 
-def test_async_handler_validates_correct_return_type():
+def test_async_handler_validates_correct_return_type() -> None:
     """Test that async Handler with correct return type is accepted."""
 
     class GoodResponse:
@@ -69,7 +69,7 @@ def test_async_handler_validates_correct_return_type():
     assert GoodHandler._response_type == GoodResponse
 
 
-def test_async_handler_rejects_wrong_return_type():
+def test_async_handler_rejects_wrong_return_type() -> None:
     """Test that async Handler with wrong return type is rejected."""
 
     class CorrectResponse:
@@ -89,7 +89,7 @@ def test_async_handler_rejects_wrong_return_type():
                 return WrongResponse()
 
 
-def test_async_handler_rejects_sync_call():
+def test_async_handler_rejects_sync_call() -> None:
     """Test that async Handler rejects sync __call__ method."""
 
     class Resp:
@@ -106,7 +106,7 @@ def test_async_handler_rejects_sync_call():
                 return Resp()
 
 
-def test_sync_handler_rejects_async_call():
+def test_sync_handler_rejects_async_call() -> None:
     """Test that sync Handler rejects async __call__ method."""
     from pymediate import Handler as SyncHandler
 
@@ -125,7 +125,7 @@ def test_sync_handler_rejects_async_call():
 
 
 @pytest.mark.asyncio
-async def test_async_handler_call():
+async def test_async_handler_call() -> None:
     """Test that async handler can be called."""
 
     class NumResponse:
@@ -151,7 +151,7 @@ async def test_async_handler_call():
 
 
 @pytest.mark.asyncio
-async def test_async_mediator_creation():
+async def test_async_mediator_creation() -> None:
     """Test that async Mediator can be created with a resolver."""
     resolver = SimpleResolver()
     mediator = Mediator(resolver)
@@ -159,7 +159,7 @@ async def test_async_mediator_creation():
 
 
 @pytest.mark.asyncio
-async def test_async_mediator_send_request():
+async def test_async_mediator_send_request() -> None:
     """Test sending a request through async mediator."""
 
     class GreetingResponse:
@@ -187,7 +187,7 @@ async def test_async_mediator_send_request():
 
 
 @pytest.mark.asyncio
-async def test_async_mediator_send_unregistered_request():
+async def test_async_mediator_send_unregistered_request() -> None:
     """Test that sending unregistered request raises HandlerNotFoundError."""
 
     class UnhandledResp:
@@ -205,7 +205,7 @@ async def test_async_mediator_send_unregistered_request():
 
 
 @pytest.mark.asyncio
-async def test_async_mediator_with_multiple_handlers():
+async def test_async_mediator_with_multiple_handlers() -> None:
     """Test async mediator with multiple request/handler pairs."""
 
     class AddResponse:
@@ -249,7 +249,7 @@ async def test_async_mediator_with_multiple_handlers():
 
 
 @pytest.mark.asyncio
-async def test_async_mediator_with_stateful_handler():
+async def test_async_mediator_with_stateful_handler() -> None:
     """Test async mediator with a handler that maintains state."""
 
     class CountResponse:
@@ -260,7 +260,7 @@ async def test_async_mediator_with_stateful_handler():
         pass
 
     class CounterHandler(Handler[CountRequest]):
-        def __init__(self):
+        def __init__(self) -> None:
             self.count = 0
 
         async def __call__(self, request: CountRequest) -> CountResponse:
@@ -283,7 +283,7 @@ async def test_async_mediator_with_stateful_handler():
 
 
 @pytest.mark.asyncio
-async def test_async_handler_with_actual_async_operations():
+async def test_async_handler_with_actual_async_operations() -> None:
     """Test async handler that performs actual async operations."""
 
     class FetchResponse:
@@ -313,7 +313,7 @@ async def test_async_handler_with_actual_async_operations():
 
 
 @pytest.mark.asyncio
-async def test_async_mediator_error_propagation():
+async def test_async_mediator_error_propagation() -> None:
     """Test that errors in async handlers are propagated through mediator."""
 
     class ErrorResponse:
@@ -336,7 +336,7 @@ async def test_async_mediator_error_propagation():
 
 
 @pytest.mark.asyncio
-async def test_async_mediator_concurrent_requests():
+async def test_async_mediator_concurrent_requests() -> None:
     """Test that async mediator can handle concurrent requests."""
 
     class SlowResponse:
@@ -371,7 +371,7 @@ async def test_async_mediator_concurrent_requests():
 
 
 @pytest.mark.asyncio
-async def test_async_handler_with_complex_async_flow():
+async def test_async_handler_with_complex_async_flow() -> None:
     """Test async handler with complex async control flow."""
 
     class ProcessResponse:

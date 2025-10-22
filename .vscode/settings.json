@@ -35,7 +35,7 @@
   // Excluding them here prevents red squiggles while still allowing
   // the test suite to verify they fail with expected errors
   "python.analysis.exclude": [
-    "tests/mypy_tests/snippets/errors/**"
+    "tests/mypy/snippets/errors/**"
   ],
 
   // File associations

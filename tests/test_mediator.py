@@ -1,18 +1,20 @@
 """Tests for Mediator class."""
 
+from typing import Any
+
 import pytest
 
 from pymediate import Handler, HandlerNotFoundError, Mediator, Request, SimpleResolver
 
 
-def test_mediator_creation():
+def test_mediator_creation() -> None:
     """Test that Mediator can be created with a resolver."""
     resolver = SimpleResolver()
     mediator = Mediator(resolver)
     assert mediator is not None
 
 
-def test_mediator_send_request():
+def test_mediator_send_request() -> None:
     """Test sending a request through mediator."""
 
     class GreetingResponse:
@@ -38,7 +40,7 @@ def test_mediator_send_request():
     assert response.message == "Hello, Alice!"
 
 
-def test_mediator_send_unregistered_request():
+def test_mediator_send_unregistered_request() -> None:
     """Test that sending unregistered request raises ValueError."""
 
     class UnhandledResp:
@@ -55,7 +57,7 @@ def test_mediator_send_unregistered_request():
         mediator.send(UnhandledReq("test"))
 
 
-def test_mediator_with_multiple_handlers():
+def test_mediator_with_multiple_handlers() -> None:
     """Test mediator with multiple request/handler pairs."""
 
     class AddResponse:
@@ -96,15 +98,15 @@ def test_mediator_with_multiple_handlers():
     assert mult_result.result == 15
 
 
-def test_mediator_preserves_request_data():
+def test_mediator_preserves_request_data() -> None:
     """Test that mediator preserves original request data."""
 
     class EchoResponse:
-        def __init__(self, data: dict):
+        def __init__(self, data: dict[str, Any]):
             self.data = data
 
     class EchoRequest(Request[EchoResponse]):
-        def __init__(self, data: dict):
+        def __init__(self, data: dict[str, Any]):
             self.data = data
 
     class EchoHandler(Handler[EchoRequest]):
@@ -123,7 +125,7 @@ def test_mediator_preserves_request_data():
     assert response.data is not original_data  # Should be a copy
 
 
-def test_mediator_with_stateful_handler():
+def test_mediator_with_stateful_handler() -> None:
     """Test mediator with a handler that maintains state."""
 
     class CountResponse:
@@ -134,7 +136,7 @@ def test_mediator_with_stateful_handler():
         pass
 
     class CounterHandler(Handler[CountRequest]):
-        def __init__(self):
+        def __init__(self) -> None:
             self.count = 0
 
         def __call__(self, request: CountRequest) -> CountResponse:
@@ -155,7 +157,7 @@ def test_mediator_with_stateful_handler():
     assert resp3.count == 3
 
 
-def test_mediator_with_complex_request_response():
+def test_mediator_with_complex_request_response() -> None:
     """Test mediator with complex request and response objects."""
 
     class User:
@@ -176,7 +178,7 @@ def test_mediator_with_complex_request_response():
             self.email = email
 
     class CreateUserHandler(Handler[CreateUserRequest]):
-        def __init__(self):
+        def __init__(self) -> None:
             self.next_id = 1
 
         def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
@@ -200,7 +202,7 @@ def test_mediator_with_complex_request_response():
     assert "created successfully" in response.message
 
 
-def test_mediator_error_propagation():
+def test_mediator_error_propagation() -> None:
     """Test that errors in handlers are propagated through mediator."""
 
     class ErrorResponse:
@@ -221,7 +223,7 @@ def test_mediator_error_propagation():
         mediator.send(ErrorRequest())
 
 
-def test_mediator_with_different_resolvers():
+def test_mediator_with_different_resolvers() -> None:
     """Test that different mediator instances can have different resolvers."""
 
     class Resp:

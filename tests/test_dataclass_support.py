@@ -34,7 +34,7 @@ class CreateUserRequest(Request[UserResponse]):
 
 
 class CreateUserHandler(Handler[CreateUserRequest]):
-    def __init__(self):
+    def __init__(self) -> None:
         self.next_id = 1
 
     def __call__(self, request: CreateUserRequest) -> UserResponse:
@@ -43,7 +43,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=user_id, username=request.username, email=request.email)
 
 
-def test_basic_dataclass_with_pymediate():
+def test_basic_dataclass_with_pymediate() -> None:
     """Test basic dataclass request and response with PyMediate.
 
     This is the recommended pattern:
@@ -106,7 +106,7 @@ class ExtendedHandler(Handler[ExtendedRequest]):
         return ExtendedResponse(status="ok", data=request.payload)
 
 
-def test_dataclass_request_inheritance():
+def test_dataclass_request_inheritance() -> None:
     """Test that dataclass requests can have inheritance hierarchies."""
     resolver = SimpleResolver()
     base_handler = BaseHandler()
@@ -159,7 +159,7 @@ class HandlerB(Handler[RequestB]):
         return StatusResponse(result=f"B:{request.value_b}")
 
 
-def test_multiple_dataclass_requests_same_response():
+def test_multiple_dataclass_requests_same_response() -> None:
     """Test that multiple request types can return the same response type."""
     resolver = SimpleResolver()
     resolver.register(RequestA, HandlerA())
@@ -203,7 +203,7 @@ class TimestampedHandler(Handler[TimestampedRequest]):
         return TimestampedResponse(value=len(request.data), timestamp=request.get_timestamp())
 
 
-def test_dataclass_with_mixin():
+def test_dataclass_with_mixin() -> None:
     """Test that dataclasses can use mixins with Request inheritance."""
     resolver = SimpleResolver()
     resolver.register(TimestampedRequest, TimestampedHandler())
@@ -220,7 +220,7 @@ def test_dataclass_with_mixin():
 
 
 @pytest.mark.requires_di
-def test_dataclass_with_dependency_injection():
+def test_dataclass_with_dependency_injection() -> None:
     """Test dataclass requests and responses with dependency injection."""
     from dependency_injector import containers, providers
 
@@ -237,7 +237,7 @@ def test_dataclass_with_dependency_injection():
         email: str
 
     class Database:
-        def __init__(self):
+        def __init__(self) -> None:
             self.next_id = 1
 
         def insert_user(self, username: str, email: str) -> int:
@@ -288,7 +288,7 @@ class EmptyHandler(Handler[EmptyRequest]):
         return EmptyResponse()
 
 
-def test_empty_dataclasses():
+def test_empty_dataclasses() -> None:
     """Test that empty dataclasses work with PyMediate."""
     resolver = SimpleResolver()
     resolver.register(EmptyRequest, EmptyHandler())

@@ -3,11 +3,13 @@
 Following pytest best practices by using functions instead of test classes.
 """
 
+from typing import Any
+
 from pymediate import Request
 from pymediate._internal.registry import get_all_request_types, get_response_type, has_response_type
 
 
-def test_request_registration():
+def test_request_registration() -> None:
     """Test that Request subclass is registered with response type."""
 
     class TestResponse:
@@ -23,12 +25,13 @@ def test_request_registration():
     assert get_response_type(TestRequest) == TestResponse
 
 
-def test_request_without_response_type():
+def test_request_without_response_type() -> None:
     """Test that Request subclass without response type is not registered."""
     initial_registry_size = len(get_all_request_types())
 
     # This should work but not register a response type
-    class TestRequestNoResponse(Request):
+    # Using bare Request (no type parameter) - intentionally testing invalid usage
+    class TestRequestNoResponse(Request):  # type: ignore[type-arg]
         pass
 
     # Should not be registered (no type parameter)
@@ -36,7 +39,7 @@ def test_request_without_response_type():
     assert len(get_all_request_types()) == initial_registry_size
 
 
-def test_multiple_requests_with_different_responses():
+def test_multiple_requests_with_different_responses() -> None:
     """Test multiple request types with different response types."""
 
     class Response1:
@@ -55,7 +58,7 @@ def test_multiple_requests_with_different_responses():
     assert get_response_type(Request2) == Response2
 
 
-def test_request_with_same_response_type():
+def test_request_with_same_response_type() -> None:
     """Test multiple requests can share the same response type."""
 
     class SharedResponse:
@@ -72,7 +75,7 @@ def test_request_with_same_response_type():
     assert get_response_type(Request2) == SharedResponse
 
 
-def test_request_inheritance():
+def test_request_inheritance() -> None:
     """Test that Request subclass inheritance works correctly."""
 
     class BaseResponse:
@@ -90,7 +93,7 @@ def test_request_inheritance():
     # (it doesn't have its own type parameter)
 
 
-def test_request_instantiation():
+def test_request_instantiation() -> None:
     """Test that Request subclass can be instantiated."""
 
     class MyResponse:
@@ -105,7 +108,7 @@ def test_request_instantiation():
     assert request.data == "test_data"
 
 
-def test_request_attributes():
+def test_request_attributes() -> None:
     """Test that Request can have multiple attributes."""
 
     class ComplexResponse:
