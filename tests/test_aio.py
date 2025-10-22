@@ -1,0 +1,401 @@
+"""Tests for async Handler and Mediator classes."""
+
+import asyncio
+
+import pytest
+
+from pymediate import (
+    HandlerNotFoundError,
+    InvalidHandlerSignatureError,
+    Request,
+    ResponseTypeMismatchError,
+    SimpleResolver,
+)
+from pymediate.aio import Handler, Mediator
+from pymediate.registry import get_handler_class, has_handler
+
+
+def test_async_handler_extracts_request_type():
+    """Test that async Handler extracts request type from generic."""
+
+    class TestResponse:
+        def __init__(self, value: int):
+            self.value = value
+
+    class TestRequest(Request[TestResponse]):
+        def __init__(self, data: str):
+            self.data = data
+
+    class TestHandler(Handler[TestRequest]):
+        async def __call__(self, request: TestRequest) -> TestResponse:
+            return TestResponse(42)
+
+    assert TestHandler._request_type == TestRequest
+    assert TestHandler._response_type == TestResponse
+
+
+def test_async_handler_registration():
+    """Test that async Handler is registered in handler registry."""
+
+    class Response:
+        pass
+
+    class Req(Request[Response]):
+        pass
+
+    class ReqHandler(Handler[Req]):
+        async def __call__(self, request: Req) -> Response:
+            return Response()
+
+    assert has_handler(Req)
+    assert get_handler_class(Req) == ReqHandler
+
+
+def test_async_handler_validates_correct_return_type():
+    """Test that async Handler with correct return type is accepted."""
+
+    class GoodResponse:
+        def __init__(self, msg: str):
+            self.msg = msg
+
+    class GoodRequest(Request[GoodResponse]):
+        pass
+
+    # This should not raise
+    class GoodHandler(Handler[GoodRequest]):
+        async def __call__(self, request: GoodRequest) -> GoodResponse:
+            return GoodResponse("ok")
+
+    assert GoodHandler._response_type == GoodResponse
+
+
+def test_async_handler_rejects_wrong_return_type():
+    """Test that async Handler with wrong return type is rejected."""
+
+    class CorrectResponse:
+        pass
+
+    class WrongResponse:
+        pass
+
+    class ReqWithCorrectResponse(Request[CorrectResponse]):
+        pass
+
+    # This should raise ResponseTypeMismatchError
+    with pytest.raises(ResponseTypeMismatchError):
+
+        class BadHandler(Handler[ReqWithCorrectResponse]):
+            async def __call__(self, request: ReqWithCorrectResponse) -> WrongResponse:
+                return WrongResponse()
+
+
+def test_async_handler_rejects_sync_call():
+    """Test that async Handler rejects sync __call__ method."""
+
+    class Resp:
+        pass
+
+    class Req(Request[Resp]):
+        pass
+
+    # This should raise InvalidHandlerSignatureError because __call__ must be async
+    with pytest.raises(InvalidHandlerSignatureError, match="__call__ must be async"):
+
+        class BadHandler(Handler[Req]):
+            def __call__(self, request: Req) -> Resp:  # Missing async!
+                return Resp()
+
+
+def test_sync_handler_rejects_async_call():
+    """Test that sync Handler rejects async __call__ method."""
+    from pymediate import Handler as SyncHandler
+
+    class Resp:
+        pass
+
+    class Req2(Request[Resp]):
+        pass
+
+    # This should raise InvalidHandlerSignatureError because __call__ must be sync
+    with pytest.raises(InvalidHandlerSignatureError, match="__call__ must be sync"):
+
+        class BadSyncHandler(SyncHandler[Req2]):
+            async def __call__(self, request: Req2) -> Resp:  # Should not be async!
+                return Resp()
+
+
+@pytest.mark.asyncio
+async def test_async_handler_call():
+    """Test that async handler can be called."""
+
+    class NumResponse:
+        def __init__(self, result: int):
+            self.result = result
+
+    class NumRequest(Request[NumResponse]):
+        def __init__(self, value: int):
+            self.value = value
+
+    class DoubleHandler(Handler[NumRequest]):
+        async def __call__(self, request: NumRequest) -> NumResponse:
+            # Simulate async operation
+            await asyncio.sleep(0.001)
+            return NumResponse(request.value * 2)
+
+    handler = DoubleHandler()
+    request = NumRequest(21)
+    response = await handler(request)
+
+    assert isinstance(response, NumResponse)
+    assert response.result == 42
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_creation():
+    """Test that async Mediator can be created with a resolver."""
+    resolver = SimpleResolver()
+    mediator = Mediator(resolver)
+    assert mediator is not None
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_send_request():
+    """Test sending a request through async mediator."""
+
+    class GreetingResponse:
+        def __init__(self, message: str):
+            self.message = message
+
+    class GreetingRequest(Request[GreetingResponse]):
+        def __init__(self, name: str):
+            self.name = name
+
+    class GreetingHandler(Handler[GreetingRequest]):
+        async def __call__(self, request: GreetingRequest) -> GreetingResponse:
+            await asyncio.sleep(0.001)
+            return GreetingResponse(f"Hello, {request.name}!")
+
+    resolver = SimpleResolver()
+    resolver.register(GreetingRequest, GreetingHandler())
+    mediator = Mediator(resolver)
+
+    request = GreetingRequest("Alice")
+    response = await mediator.send(request)
+
+    assert isinstance(response, GreetingResponse)
+    assert response.message == "Hello, Alice!"
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_send_unregistered_request():
+    """Test that sending unregistered request raises HandlerNotFoundError."""
+
+    class UnhandledResp:
+        pass
+
+    class UnhandledReq(Request[UnhandledResp]):
+        def __init__(self, data: str):
+            self.data = data
+
+    resolver = SimpleResolver()
+    mediator = Mediator(resolver)
+
+    with pytest.raises(HandlerNotFoundError):
+        await mediator.send(UnhandledReq("test"))
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_with_multiple_handlers():
+    """Test async mediator with multiple request/handler pairs."""
+
+    class AddResponse:
+        def __init__(self, result: int):
+            self.result = result
+
+    class MultiplyResponse:
+        def __init__(self, result: int):
+            self.result = result
+
+    class AddRequest(Request[AddResponse]):
+        def __init__(self, a: int, b: int):
+            self.a = a
+            self.b = b
+
+    class MultiplyRequest(Request[MultiplyResponse]):
+        def __init__(self, a: int, b: int):
+            self.a = a
+            self.b = b
+
+    class AddHandler(Handler[AddRequest]):
+        async def __call__(self, request: AddRequest) -> AddResponse:
+            await asyncio.sleep(0.001)
+            return AddResponse(request.a + request.b)
+
+    class MultiplyHandler(Handler[MultiplyRequest]):
+        async def __call__(self, request: MultiplyRequest) -> MultiplyResponse:
+            await asyncio.sleep(0.001)
+            return MultiplyResponse(request.a * request.b)
+
+    resolver = SimpleResolver()
+    resolver.register(AddRequest, AddHandler())
+    resolver.register(MultiplyRequest, MultiplyHandler())
+    mediator = Mediator(resolver)
+
+    add_result = await mediator.send(AddRequest(5, 3))
+    mult_result = await mediator.send(MultiplyRequest(5, 3))
+
+    assert add_result.result == 8
+    assert mult_result.result == 15
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_with_stateful_handler():
+    """Test async mediator with a handler that maintains state."""
+
+    class CountResponse:
+        def __init__(self, count: int):
+            self.count = count
+
+    class CountRequest(Request[CountResponse]):
+        pass
+
+    class CounterHandler(Handler[CountRequest]):
+        def __init__(self):
+            self.count = 0
+
+        async def __call__(self, request: CountRequest) -> CountResponse:
+            await asyncio.sleep(0.001)
+            self.count += 1
+            return CountResponse(self.count)
+
+    resolver = SimpleResolver()
+    handler = CounterHandler()
+    resolver.register(CountRequest, handler)
+    mediator = Mediator(resolver)
+
+    resp1 = await mediator.send(CountRequest())
+    resp2 = await mediator.send(CountRequest())
+    resp3 = await mediator.send(CountRequest())
+
+    assert resp1.count == 1
+    assert resp2.count == 2
+    assert resp3.count == 3
+
+
+@pytest.mark.asyncio
+async def test_async_handler_with_actual_async_operations():
+    """Test async handler that performs actual async operations."""
+
+    class FetchResponse:
+        def __init__(self, data: str):
+            self.data = data
+
+    class FetchRequest(Request[FetchResponse]):
+        def __init__(self, url: str):
+            self.url = url
+
+    async def mock_fetch(url: str) -> str:
+        """Mock async fetch operation."""
+        await asyncio.sleep(0.01)
+        return f"data from {url}"
+
+    class FetchHandler(Handler[FetchRequest]):
+        async def __call__(self, request: FetchRequest) -> FetchResponse:
+            data = await mock_fetch(request.url)
+            return FetchResponse(data)
+
+    resolver = SimpleResolver()
+    resolver.register(FetchRequest, FetchHandler())
+    mediator = Mediator(resolver)
+
+    response = await mediator.send(FetchRequest("https://example.com"))
+    assert response.data == "data from https://example.com"
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_error_propagation():
+    """Test that errors in async handlers are propagated through mediator."""
+
+    class ErrorResponse:
+        pass
+
+    class ErrorRequest(Request[ErrorResponse]):
+        pass
+
+    class ErrorHandler(Handler[ErrorRequest]):
+        async def __call__(self, request: ErrorRequest) -> ErrorResponse:
+            await asyncio.sleep(0.001)
+            raise RuntimeError("Async handler error")
+
+    resolver = SimpleResolver()
+    resolver.register(ErrorRequest, ErrorHandler())
+    mediator = Mediator(resolver)
+
+    with pytest.raises(RuntimeError, match="Async handler error"):
+        await mediator.send(ErrorRequest())
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_concurrent_requests():
+    """Test that async mediator can handle concurrent requests."""
+
+    class SlowResponse:
+        def __init__(self, value: int):
+            self.value = value
+
+    class SlowRequest(Request[SlowResponse]):
+        def __init__(self, value: int, delay: float):
+            self.value = value
+            self.delay = delay
+
+    class SlowHandler(Handler[SlowRequest]):
+        async def __call__(self, request: SlowRequest) -> SlowResponse:
+            await asyncio.sleep(request.delay)
+            return SlowResponse(request.value * 2)
+
+    resolver = SimpleResolver()
+    resolver.register(SlowRequest, SlowHandler())
+    mediator = Mediator(resolver)
+
+    # Send three concurrent requests
+    results = await asyncio.gather(
+        mediator.send(SlowRequest(1, 0.01)),
+        mediator.send(SlowRequest(2, 0.01)),
+        mediator.send(SlowRequest(3, 0.01)),
+    )
+
+    assert len(results) == 3
+    assert results[0].value == 2
+    assert results[1].value == 4
+    assert results[2].value == 6
+
+
+@pytest.mark.asyncio
+async def test_async_handler_with_complex_async_flow():
+    """Test async handler with complex async control flow."""
+
+    class ProcessResponse:
+        def __init__(self, results: list[int]):
+            self.results = results
+
+    class ProcessRequest(Request[ProcessResponse]):
+        def __init__(self, items: list[int]):
+            self.items = items
+
+    async def process_item(item: int) -> int:
+        """Simulate async processing of an item."""
+        await asyncio.sleep(0.001)
+        return item * item
+
+    class ProcessHandler(Handler[ProcessRequest]):
+        async def __call__(self, request: ProcessRequest) -> ProcessResponse:
+            # Process all items concurrently
+            results = await asyncio.gather(*[process_item(item) for item in request.items])
+            return ProcessResponse(list(results))
+
+    resolver = SimpleResolver()
+    resolver.register(ProcessRequest, ProcessHandler())
+    mediator = Mediator(resolver)
+
+    response = await mediator.send(ProcessRequest([1, 2, 3, 4, 5]))
+    assert response.results == [1, 4, 9, 16, 25]

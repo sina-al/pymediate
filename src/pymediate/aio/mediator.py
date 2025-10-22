@@ -1,15 +1,18 @@
-"""Mediator implementation for routing requests to handlers."""
+"""Asynchronous mediator implementation for routing requests to handlers."""
 
 from pymediate._mediator_base import MediatorBaseMixin
 from pymediate.request import Request
 
 
 class Mediator(MediatorBaseMixin):
-    """Mediator that routes requests to their handlers using a resolver.
+    """Asynchronous mediator that routes requests to their handlers using a resolver.
 
     The mediator is the central coordination point in the mediator pattern.
     It receives requests and uses a resolver to obtain the appropriate handler
     instance, then delegates the actual processing to that handler.
+
+    This async variant is designed to work with async handlers (pymediate.aio.Handler).
+    The send() method is async and will await the handler's execution.
 
     The mediator provides type-safe request routing with automatic response
     type inference. When you call send() with a Request[ResponseT], the return
@@ -21,21 +24,45 @@ class Mediator(MediatorBaseMixin):
     Examples:
         Basic usage with SimpleResolver:
             ```python
-            resolver = SimpleResolver()
-            resolver.register(CreateUserRequest, CreateUserHandler())
+            import asyncio
+            from pymediate import Request, SimpleResolver
+            from pymediate.aio import Handler, Mediator
 
-            mediator = Mediator(resolver)
-            response = mediator.send(CreateUserRequest(username="alice"))
-            # response is correctly typed as UserCreatedResponse
+            @dataclass
+            class UserResponse:
+                user_id: int
+                username: str
+
+            @dataclass
+            class CreateUserRequest(Request[UserResponse]):
+                username: str
+
+            class CreateUserHandler(Handler[CreateUserRequest]):
+                async def __call__(self, request: CreateUserRequest) -> UserResponse:
+                    # Simulate async database operation
+                    await asyncio.sleep(0.1)
+                    return UserResponse(user_id=1, username=request.username)
+
+            async def main():
+                resolver = SimpleResolver()
+                resolver.register(CreateUserRequest, CreateUserHandler())
+
+                mediator = Mediator(resolver)
+                response = await mediator.send(CreateUserRequest(username="alice"))
+                # response is correctly typed as UserResponse
+                print(response.user_id)
+
+            asyncio.run(main())
             ```
 
         Usage with dependency injection:
             ```python
-            container = AppContainer()
-            resolver = DependencyInjectorResolver(container)
-            mediator = Mediator(resolver)
+            async def main():
+                container = AppContainer()
+                resolver = DependencyInjectorResolver(container)
+                mediator = Mediator(resolver)
 
-            response = mediator.send(CreateUserRequest(username="alice"))
+                response = await mediator.send(CreateUserRequest(username="alice"))
             ```
 
     Note:
@@ -43,20 +70,21 @@ class Mediator(MediatorBaseMixin):
         It's completely generic and relies on the resolver to provide the
         correct handler instances.
 
-        For asynchronous mediator, use `pymediate.aio.Mediator` instead.
+        For synchronous mediator, use `pymediate.Mediator` instead.
 
     See Also:
         - Resolver: Protocol for resolving handler instances
         - SimpleResolver: Dict-based resolver implementation
         - DependencyInjectorResolver: DI container-based resolver
-        - pymediate.aio.Mediator: Async mediator variant
+        - pymediate.Mediator: Sync mediator variant
+        - pymediate.aio.Handler: Async handler variant
     """
 
-    def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
-        """Send a request and get the typed response from its handler.
+    async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
+        """Send a request asynchronously and get the typed response from its handler.
 
-        This is the main entry point for the mediator pattern. It takes a request,
-        resolves the appropriate handler, invokes it, and returns the response.
+        This is the main entry point for the async mediator pattern. It takes a request,
+        resolves the appropriate handler, invokes it asynchronously, and returns the response.
 
         The response type is automatically inferred from the request's type parameter,
         providing full type safety from request to response.
@@ -79,8 +107,8 @@ class Mediator(MediatorBaseMixin):
             class CreateUserRequest(Request[UserCreatedResponse]):
                 username: str
 
-            # Send request
-            response = mediator.send(CreateUserRequest(username="alice"))
+            # Send request asynchronously
+            response = await mediator.send(CreateUserRequest(username="alice"))
             # response is typed as UserCreatedResponse
 
             # Type checker knows the return type
@@ -93,4 +121,4 @@ class Mediator(MediatorBaseMixin):
         """
         request_type = type(request)
         handler = self._resolver.resolve(request_type)
-        return handler(request)  # type: ignore[no-any-return]
+        return await handler(request)  # type: ignore[no-any-return]
