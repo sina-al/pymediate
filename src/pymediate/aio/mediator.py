@@ -1,11 +1,11 @@
 """Asynchronous mediator implementation for routing requests to handlers."""
 
 from .._internal import registry
-from .._internal.mediator import MediatorBaseMixin
+from .._internal.mediator import MediatorMixin
 from ..request import Request
 
 
-class Mediator(MediatorBaseMixin):
+class Mediator(MediatorMixin):
     """Asynchronous mediator that routes requests to their handlers using a service provider.
 
     The mediator is the central coordination point in the mediator pattern.
@@ -24,11 +24,11 @@ class Mediator(MediatorBaseMixin):
         _service_provider: The service provider instance used to obtain handler instances.
 
     Examples:
-        Basic usage with ServiceCollection:
+        Basic usage with Services:
             ```python
             import asyncio
             from pymediate import Request
-            from pymediate.service import ServiceCollection
+            from pymediate.service import Services
             from pymediate.aio import Handler, Mediator
 
             @dataclass
@@ -47,9 +47,9 @@ class Mediator(MediatorBaseMixin):
                     return UserResponse(user_id=1, username=request.username)
 
             async def main():
-                services = ServiceCollection()
+                services = Services()
                 services.add(CreateUserHandler())
-                provider = services.build_provider()
+                provider = services.provider()
 
                 mediator = Mediator(provider)
                 response = await mediator.send(CreateUserRequest(username="alice"))
@@ -61,7 +61,7 @@ class Mediator(MediatorBaseMixin):
 
         Usage with dependency injection:
             ```python
-            from pymediate.service_providers import DependencyInjectorServiceProvider
+            from pymediate.providers import DependencyInjectorServiceProvider
 
             async def main():
                 container = AppContainer()
@@ -81,7 +81,7 @@ class Mediator(MediatorBaseMixin):
 
     See Also:
         - ServiceProvider: Protocol for resolving service instances
-        - ServiceCollection: Manual service registration
+        - Services: Manual service registration
         - DependencyInjectorServiceProvider: DI container integration
         - pymediate.Mediator: Sync mediator variant
         - pymediate.aio.Handler: Async handler variant

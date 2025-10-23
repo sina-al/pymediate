@@ -1,4 +1,4 @@
-"""Comprehensive tests for ServiceCollection and ServiceProvider.
+"""Comprehensive tests for Services and ServiceProvider.
 
 Tests cover:
 - Basic registration and resolution
@@ -12,7 +12,7 @@ Tests cover:
 
 import pytest
 
-from pymediate.service import ServiceCollection, ServiceNotFoundError
+from pymediate.service import ServiceNotFoundError, Services
 
 
 # Test fixtures - various service classes for testing
@@ -60,20 +60,20 @@ class GrandchildService(ConcreteServiceA):
         super().__init__(id, extra)
 
 
-# ==================== ServiceCollection Tests ====================
+# ==================== Services Tests ====================
 
 
 def test_collection_initialization() -> None:
-    """Test that ServiceCollection initializes empty."""
-    services = ServiceCollection()
+    """Test that Services initializes empty."""
+    services = Services()
 
     assert len(services) == 0
-    assert repr(services) == "ServiceCollection(services={}, total=0)"
+    assert repr(services) == "Services(services={}, total=0)"
 
 
 def test_add_single_service() -> None:
     """Test adding a single service instance."""
-    services = ServiceCollection()
+    services = Services()
     service_a = ServiceA(42)
 
     result = services.add(service_a)
@@ -84,7 +84,7 @@ def test_add_single_service() -> None:
 
 def test_add_multiple_different_services() -> None:
     """Test adding multiple different service types."""
-    services = ServiceCollection()
+    services = Services()
     service_a = ServiceA(1)
     service_b = ServiceB("test")
 
@@ -96,7 +96,7 @@ def test_add_multiple_different_services() -> None:
 
 def test_add_multiple_same_type() -> None:
     """Test adding multiple instances of the same type."""
-    services = ServiceCollection()
+    services = Services()
     service_a1 = ServiceA(1)
     service_a2 = ServiceA(2)
     service_a3 = ServiceA(3)
@@ -110,7 +110,7 @@ def test_add_multiple_same_type() -> None:
 
 def test_add_none_raises_error() -> None:
     """Test that adding None raises ValueError."""
-    services = ServiceCollection()
+    services = Services()
 
     with pytest.raises(ValueError, match="Cannot register None"):
         services.add(None)
@@ -118,7 +118,7 @@ def test_add_none_raises_error() -> None:
 
 def test_add_method_chaining() -> None:
     """Test that add() supports method chaining."""
-    services = ServiceCollection()
+    services = Services()
     service_a = ServiceA(1)
     service_b = ServiceB("test")
 
@@ -130,7 +130,7 @@ def test_add_method_chaining() -> None:
 
 def test_collection_clear() -> None:
     """Test clearing the collection."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
     services.add(ServiceB("test"))
 
@@ -143,14 +143,14 @@ def test_collection_clear() -> None:
 
 def test_collection_repr() -> None:
     """Test string representation of collection."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
     services.add(ServiceA(2))
     services.add(ServiceB("test"))
 
     repr_str = repr(services)
 
-    assert "ServiceCollection" in repr_str
+    assert "Services" in repr_str
     assert "total=3" in repr_str
     assert "ServiceA" in repr_str
     assert "ServiceB" in repr_str
@@ -159,12 +159,12 @@ def test_collection_repr() -> None:
 # ==================== ServiceProvider Tests ====================
 
 
-def test_build_provider() -> None:
+def test_provider() -> None:
     """Test building a provider from a collection."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(42))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Provider should have all required methods
     assert hasattr(provider, "resolve")
@@ -176,11 +176,11 @@ def test_build_provider() -> None:
 
 def test_provider_immutability() -> None:
     """Test that provider is immutable and not affected by collection changes."""
-    services = ServiceCollection()
+    services = Services()
     service_a = ServiceA(1)
     services.add(service_a)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Modify collection after creating provider
     services.add(ServiceB("test"))
@@ -192,11 +192,11 @@ def test_provider_immutability() -> None:
 
 def test_resolve_single_service() -> None:
     """Test resolving a single registered service."""
-    services = ServiceCollection()
+    services = Services()
     service_a = ServiceA(42)
     services.add(service_a)
 
-    provider = services.build_provider()
+    provider = services.provider()
     resolved = provider.resolve(ServiceA)
 
     assert resolved is service_a
@@ -205,7 +205,7 @@ def test_resolve_single_service() -> None:
 
 def test_resolve_first_of_multiple() -> None:
     """Test that resolve() returns the first registered instance."""
-    services = ServiceCollection()
+    services = Services()
     service_a1 = ServiceA(1)
     service_a2 = ServiceA(2)
     service_a3 = ServiceA(3)
@@ -214,7 +214,7 @@ def test_resolve_first_of_multiple() -> None:
     services.add(service_a2)
     services.add(service_a3)
 
-    provider = services.build_provider()
+    provider = services.provider()
     resolved = provider.resolve(ServiceA)
 
     assert resolved is service_a1
@@ -223,10 +223,10 @@ def test_resolve_first_of_multiple() -> None:
 
 def test_resolve_nonexistent_raises_error() -> None:
     """Test that resolving unregistered type raises ServiceNotFoundError."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
         provider.resolve(ServiceB)
@@ -238,7 +238,7 @@ def test_resolve_nonexistent_raises_error() -> None:
 
 def test_resolve_all_single_type() -> None:
     """Test resolve_all() with single type."""
-    services = ServiceCollection()
+    services = Services()
     service_a1 = ServiceA(1)
     service_a2 = ServiceA(2)
     service_a3 = ServiceA(3)
@@ -247,7 +247,7 @@ def test_resolve_all_single_type() -> None:
     services.add(service_a2)
     services.add(service_a3)
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_services = provider.resolve_all(ServiceA)
 
     assert len(all_services) == 3
@@ -258,10 +258,10 @@ def test_resolve_all_single_type() -> None:
 
 def test_resolve_all_empty() -> None:
     """Test resolve_all() returns empty tuple for unregistered type."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_services = provider.resolve_all(ServiceB)
 
     assert len(all_services) == 0
@@ -270,7 +270,7 @@ def test_resolve_all_empty() -> None:
 
 def test_resolve_all_preserves_registration_order() -> None:
     """Test that resolve_all() preserves global registration order."""
-    services = ServiceCollection()
+    services = Services()
     service_a1 = ServiceA(1)
     service_b1 = ServiceB("first")
     service_a2 = ServiceA(2)
@@ -283,7 +283,7 @@ def test_resolve_all_preserves_registration_order() -> None:
     services.add(service_b2)
     services.add(service_a3)
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_a = provider.resolve_all(ServiceA)
 
     # Should get ServiceA instances in registration order
@@ -295,32 +295,32 @@ def test_resolve_all_preserves_registration_order() -> None:
 
 def test_has_registered_type() -> None:
     """Test has() returns True for registered type."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     assert provider.has(ServiceA) is True
 
 
 def test_has_unregistered_type() -> None:
     """Test has() returns False for unregistered type."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     assert provider.has(ServiceB) is False
 
 
 def test_get_all_types() -> None:
     """Test get_all_types() returns all registered types."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
     services.add(ServiceB("test"))
     services.add(ServiceA(2))  # Second instance
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_types = provider.get_all_types()
 
     assert len(all_types) == 2
@@ -330,24 +330,24 @@ def test_get_all_types() -> None:
 
 def test_provider_len() -> None:
     """Test len() on provider returns total instance count."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
     services.add(ServiceA(2))
     services.add(ServiceB("test"))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     assert len(provider) == 3
 
 
 def test_provider_repr() -> None:
     """Test string representation of provider."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
     services.add(ServiceA(2))
     services.add(ServiceB("test"))
 
-    provider = services.build_provider()
+    provider = services.provider()
     repr_str = repr(provider)
 
     assert "ServiceProvider" in repr_str
@@ -359,14 +359,14 @@ def test_provider_repr() -> None:
 
 def test_resolve_all_with_inheritance() -> None:
     """Test resolve_all() resolves subclass instances when querying base class."""
-    services = ServiceCollection()
+    services = Services()
     concrete_a = ConcreteServiceA(1)
     concrete_b = ConcreteServiceB(2)
 
     services.add(concrete_a)
     services.add(concrete_b)
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_base = provider.resolve_all(BaseService)
 
     assert len(all_base) == 2
@@ -376,7 +376,7 @@ def test_resolve_all_with_inheritance() -> None:
 
 def test_resolve_all_inheritance_order() -> None:
     """Test that inheritance resolution preserves registration order."""
-    services = ServiceCollection()
+    services = Services()
     concrete_a1 = ConcreteServiceA(1, "first")
     concrete_b1 = ConcreteServiceB(2, "B1")
     concrete_a2 = ConcreteServiceA(3, "second")
@@ -385,7 +385,7 @@ def test_resolve_all_inheritance_order() -> None:
     services.add(concrete_b1)
     services.add(concrete_a2)
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_base = provider.resolve_all(BaseService)
 
     assert len(all_base) == 3
@@ -396,7 +396,7 @@ def test_resolve_all_inheritance_order() -> None:
 
 def test_resolve_all_specific_subclass() -> None:
     """Test resolve_all() with specific subclass only returns that subclass."""
-    services = ServiceCollection()
+    services = Services()
     concrete_a1 = ConcreteServiceA(1)
     concrete_b1 = ConcreteServiceB(2)
     concrete_a2 = ConcreteServiceA(3)
@@ -405,7 +405,7 @@ def test_resolve_all_specific_subclass() -> None:
     services.add(concrete_b1)
     services.add(concrete_a2)
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_a = provider.resolve_all(ConcreteServiceA)
 
     assert len(all_a) == 2
@@ -416,14 +416,14 @@ def test_resolve_all_specific_subclass() -> None:
 
 def test_resolve_all_multi_level_inheritance() -> None:
     """Test resolve_all() with multi-level inheritance."""
-    services = ServiceCollection()
+    services = Services()
     concrete_a = ConcreteServiceA(1)
     grandchild = GrandchildService(2)
 
     services.add(concrete_a)
     services.add(grandchild)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Querying base should return all descendants
     all_base = provider.resolve_all(BaseService)
@@ -443,12 +443,12 @@ def test_resolve_all_multi_level_inheritance() -> None:
 
 def test_resolve_exact_type_no_inheritance() -> None:
     """Test that resolve() does NOT match subclasses (exact type only)."""
-    services = ServiceCollection()
+    services = Services()
     concrete_a = ConcreteServiceA(1)
 
     services.add(concrete_a)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # resolve() should fail because it only looks for exact type
     with pytest.raises(ServiceNotFoundError):
@@ -461,12 +461,12 @@ def test_resolve_exact_type_no_inheritance() -> None:
 
 def test_has_exact_type_no_inheritance() -> None:
     """Test that has() does NOT check subclasses (exact type only)."""
-    services = ServiceCollection()
+    services = Services()
     concrete_a = ConcreteServiceA(1)
 
     services.add(concrete_a)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # has() checks exact type only
     assert provider.has(ConcreteServiceA) is True
@@ -481,7 +481,7 @@ def test_has_exact_type_no_inheritance() -> None:
 
 def test_mixed_types_registration_order() -> None:
     """Test registration order is preserved across different types."""
-    services = ServiceCollection()
+    services = Services()
 
     # Register in specific order: A, B, A, B, A
     a1 = ServiceA(1)
@@ -496,7 +496,7 @@ def test_mixed_types_registration_order() -> None:
     services.add(b2)
     services.add(a3)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Verify per-type order
     all_a = provider.resolve_all(ServiceA)
@@ -508,7 +508,7 @@ def test_mixed_types_registration_order() -> None:
 
 def test_complex_registration_scenario() -> None:
     """Test complex scenario with mixed types and inheritance."""
-    services = ServiceCollection()
+    services = Services()
 
     # Mix concrete services, base services, and regular services
     service_a = ServiceA(100)
@@ -525,7 +525,7 @@ def test_complex_registration_scenario() -> None:
     services.add(concrete_a2)
     services.add(grandchild)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Verify various resolutions
     assert len(provider) == 6
@@ -540,8 +540,8 @@ def test_complex_registration_scenario() -> None:
 
 def test_empty_collection_provider() -> None:
     """Test creating provider from empty collection."""
-    services = ServiceCollection()
-    provider = services.build_provider()
+    services = Services()
+    provider = services.provider()
 
     assert len(provider) == 0
     assert provider.get_all_types() == ()
@@ -550,11 +550,11 @@ def test_empty_collection_provider() -> None:
 
 def test_multiple_providers_from_same_collection() -> None:
     """Test that multiple providers can be created from same collection."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
 
-    provider1 = services.build_provider()
-    provider2 = services.build_provider()
+    provider1 = services.provider()
+    provider2 = services.provider()
 
     # Both providers should work independently
     assert provider1.resolve(ServiceA).value == 1
@@ -566,15 +566,15 @@ def test_multiple_providers_from_same_collection() -> None:
 
 def test_provider_snapshot_isolation() -> None:
     """Test that providers are true snapshots isolated from collection."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
 
-    provider1 = services.build_provider()
+    provider1 = services.provider()
 
     services.add(ServiceA(2))
     services.add(ServiceB("test"))
 
-    provider2 = services.build_provider()
+    provider2 = services.provider()
 
     # provider1 should have only first service
     assert len(provider1) == 1
@@ -587,10 +587,10 @@ def test_provider_snapshot_isolation() -> None:
 
 def test_clear_does_not_affect_existing_providers() -> None:
     """Test that clearing collection doesn't affect existing providers."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     services.clear()
 
@@ -601,11 +601,11 @@ def test_clear_does_not_affect_existing_providers() -> None:
 
 def test_service_not_found_error_attributes() -> None:
     """Test ServiceNotFoundError has correct attributes."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
     services.add(ServiceB("test"))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     try:
         provider.resolve(ConcreteServiceA)
@@ -622,11 +622,11 @@ def test_service_not_found_error_attributes() -> None:
 
 def test_resolve_returns_correct_type() -> None:
     """Test that resolve() returns correctly typed instance."""
-    services = ServiceCollection()
+    services = Services()
     service = ServiceA(42)
     services.add(service)
 
-    provider = services.build_provider()
+    provider = services.provider()
     resolved: ServiceA = provider.resolve(ServiceA)
 
     assert isinstance(resolved, ServiceA)
@@ -635,11 +635,11 @@ def test_resolve_returns_correct_type() -> None:
 
 def test_resolve_all_returns_correct_sequence_type() -> None:
     """Test that resolve_all() returns properly typed sequence."""
-    services = ServiceCollection()
+    services = Services()
     services.add(ServiceA(1))
     services.add(ServiceA(2))
 
-    provider = services.build_provider()
+    provider = services.provider()
     all_services = provider.resolve_all(ServiceA)
 
     assert isinstance(all_services, tuple)
@@ -651,13 +651,13 @@ def test_resolve_all_returns_correct_sequence_type() -> None:
 
 def test_large_number_of_services() -> None:
     """Test handling large number of services."""
-    services = ServiceCollection()
+    services = Services()
 
     # Register 1000 services
     for i in range(1000):
         services.add(ServiceA(i))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     assert len(provider) == 1000
     assert len(provider.resolve_all(ServiceA)) == 1000
@@ -666,7 +666,7 @@ def test_large_number_of_services() -> None:
 
 def test_many_different_types() -> None:
     """Test handling many different service types."""
-    services = ServiceCollection()
+    services = Services()
 
     # Create 100 different service types dynamically
     service_types = []
@@ -676,7 +676,7 @@ def test_many_different_types() -> None:
         service_types.append(service_type)
         services.add(service_type())
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     assert len(provider) == 100
     assert len(provider.get_all_types()) == 100

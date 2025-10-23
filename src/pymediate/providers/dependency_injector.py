@@ -31,7 +31,7 @@ class DependencyInjectorServiceProvider:
             ```python
             from dependency_injector import containers, providers
             from pymediate import Mediator, ServiceProvider
-            from pymediate.service_providers import DependencyInjectorServiceProvider
+            from pymediate.providers import DependencyInjectorServiceProvider
 
             class AppContainer(containers.DeclarativeContainer):
                 database = providers.Singleton(Database)
@@ -81,7 +81,7 @@ class DependencyInjectorServiceProvider:
 
     See Also:
         - ServiceProvider: The protocol this class implements
-        - ServiceCollection: Alternative for manual service registration
+        - Services: Alternative for manual service registration
     """
 
     def __init__(self, container: containers.Container) -> None:
@@ -147,7 +147,6 @@ class DependencyInjectorServiceProvider:
 
             # Track registration order
             self._registration_order.append((service_type, provider))
-
 
     def resolve(self, service_type: type[Any]) -> Any:
         """Resolve the first registered instance of the exact type.

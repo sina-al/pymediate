@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from pymediate import Handler, Mediator, Request, ServiceCollection
+from pymediate import Handler, Mediator, Request, Services
 
 
 @dataclass
@@ -44,9 +44,9 @@ class GetCustomerDetailsHandler(Handler[GetCustomerDetailsRequest]):
 
 
 # Usage
-services = ServiceCollection()
+services = Services()
 services.add(GetCustomerDetailsRequest, GetCustomerDetailsHandler())
-provider = services.build_provider()
+provider = services.provider()
 mediator = Mediator(provider)
 
 request = GetCustomerDetailsRequest(customer_id=1)

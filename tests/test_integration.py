@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, ResponseTypeMismatchError, ServiceCollection
+from pymediate import Handler, Mediator, Request, ResponseTypeMismatchError, Services
 
 
 def test_complete_workflow() -> None:
@@ -32,9 +32,9 @@ def test_complete_workflow() -> None:
             return UserCreatedResponse(user_id, request.username)
 
     # Set up mediator
-    services = ServiceCollection()
+    services = Services()
     services.add(CreateUserHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     # Execute request
@@ -86,10 +86,10 @@ def test_multiple_request_types_workflow() -> None:
             return OrderResponse(order_id, total)
 
     # Set up
-    services = ServiceCollection()
+    services = Services()
     services.add(GetUserHandler())
     services.add(CreateOrderHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     # Execute multiple requests
@@ -162,10 +162,10 @@ def test_handler_composition() -> None:
             return PostCreatedResponse(post_id, user_name)
 
     # Set up
-    services = ServiceCollection()
+    services = Services()
     services.add(CreateUserHandler())
     services.add(CreatePostHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     # Create user first
@@ -223,13 +223,13 @@ def test_resolver_switching() -> None:
             return Resp(self.source)
 
     # Create two service providers with different handler instances
-    services1 = ServiceCollection()
+    services1 = Services()
     services1.add(ReqHandler("handler1"))
-    provider1 = services1.build_provider()
+    provider1 = services1.provider()
 
-    services2 = ServiceCollection()
+    services2 = Services()
     services2.add(ReqHandler("handler2"))
-    provider2 = services2.build_provider()
+    provider2 = services2.provider()
 
     # Use first service provider
     mediator1 = Mediator(provider1)

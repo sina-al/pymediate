@@ -16,7 +16,7 @@ Key Features:
 Quick Example:
     ```python
     from dataclasses import dataclass
-    from pymediate import Request, Handler, Mediator, ServiceCollection
+    from pymediate import Request, Handler, Mediator, Services
 
     @dataclass
     class UserCreated:
@@ -32,9 +32,9 @@ Quick Example:
         def __call__(self, req: CreateUser) -> UserCreated:
             return UserCreated(user_id=1, username=req.username)
 
-    services = ServiceCollection()
+    services = Services()
     services.add(CreateUserHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
@@ -46,12 +46,12 @@ Main Components:
     - Handler: Base class for synchronous handlers
     - Mediator: Routes requests to handlers (sync version)
     - ServiceProvider: Protocol for resolving service instances
-    - ServiceCollection: Builder for registering services
+    - Services: Builder for registering services
 
 Async Support:
     For asynchronous operations, use the async variants from pymediate.aio:
     ```python
-    from pymediate import ServiceCollection
+    from pymediate import Services
     from pymediate.aio import Handler, Mediator
 
     class AsyncHandler(Handler[CreateUser]):
@@ -60,9 +60,9 @@ Async Support:
             result = await async_database_operation(req)
             return UserCreated(user_id=result.id, username=req.username)
 
-    services = ServiceCollection()
+    services = Services()
     services.add(AsyncHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
     response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
     ```
@@ -82,7 +82,7 @@ from .errors import (
 from .handler import Handler
 from .mediator import Mediator
 from .request import Request
-from .service import ServiceCollection, ServiceNotFoundError, ServiceProvider
+from .service import ServiceNotFoundError, ServiceProvider, Services
 
 __all__ = [
     "Request",
@@ -90,7 +90,7 @@ __all__ = [
     "Mediator",
     # Service Provider
     "ServiceProvider",
-    "ServiceCollection",
+    "Services",
     "ServiceNotFoundError",
     # Errors
     "PyMediateError",

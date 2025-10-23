@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 
-from pymediate import Request, ServiceCollection
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 
@@ -31,9 +31,9 @@ class ProcessHandler(Handler[ProcessRequest]):
 
 
 async def main() -> None:
-    services = ServiceCollection()
+    services = Services()
     services.add(ProcessRequest, ProcessHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     await mediator.send(ProcessRequest(data="test"))

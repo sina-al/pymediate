@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 
-from pymediate import Request, ServiceCollection
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 
@@ -40,10 +40,10 @@ class Handler2(Handler[Request2]):
 
 
 async def main() -> None:
-    services = ServiceCollection()
+    services = Services()
     services.add(Request1, Handler1())
     services.add(Request2, Handler2())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     # Type inference with asyncio.gather()

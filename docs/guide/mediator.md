@@ -851,7 +851,7 @@ class Query:
 
 ## Next Steps
 
-- Learn about [Resolvers](resolvers.md) - How the mediator finds handlers
+- Learn about [Dependency Injection](dependency-injection.md) - How to wire up handlers
 - Explore [Handlers](handlers.md) - Writing handler implementations
 - See [Error Handling](error-handling.md) - Handling errors gracefully
 - Read [Examples](../examples/basic.md) - Real-world usage examples

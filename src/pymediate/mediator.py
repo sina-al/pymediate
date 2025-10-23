@@ -1,11 +1,11 @@
 """Mediator implementation for routing requests to handlers."""
 
 from ._internal import registry
-from ._internal.mediator import MediatorBaseMixin
+from ._internal.mediator import MediatorMixin
 from .request import Request
 
 
-class Mediator(MediatorBaseMixin):
+class Mediator(MediatorMixin):
     """Mediator that routes requests to their handlers using a service provider.
 
     The mediator is the central coordination point in the mediator pattern.
@@ -21,14 +21,14 @@ class Mediator(MediatorBaseMixin):
         _service_provider: The service provider instance used to obtain handler instances.
 
     Examples:
-        Basic usage with ServiceCollection:
+        Basic usage with Services:
             ```python
             from pymediate import Mediator
-            from pymediate.service import ServiceCollection
+            from pymediate.service import Services
 
-            services = ServiceCollection()
+            services = Services()
             services.add(CreateUserHandler())
-            provider = services.build_provider()
+            provider = services.provider()
 
             mediator = Mediator(provider)
             response = mediator.send(CreateUserRequest(username="alice"))
@@ -37,7 +37,7 @@ class Mediator(MediatorBaseMixin):
 
         Usage with dependency injection:
             ```python
-            from pymediate.service_providers import DependencyInjectorServiceProvider
+            from pymediate.providers import DependencyInjectorServiceProvider
 
             container = AppContainer()
             provider = DependencyInjectorServiceProvider(container)
@@ -56,7 +56,7 @@ class Mediator(MediatorBaseMixin):
 
     See Also:
         - ServiceProvider: Protocol for resolving service instances
-        - ServiceCollection: Manual service registration
+        - Services: Manual service registration
         - DependencyInjectorServiceProvider: DI container integration
         - pymediate.aio.Mediator: Async mediator variant
     """

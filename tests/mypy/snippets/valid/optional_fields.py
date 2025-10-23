@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from pymediate import Handler, Mediator, Request, ServiceCollection
+from pymediate import Handler, Mediator, Request, Services
 
 
 @dataclass
@@ -26,9 +26,9 @@ class GetUserProfileHandler(Handler[GetUserProfileRequest]):
 
 
 # Usage
-services = ServiceCollection()
+services = Services()
 services.add(GetUserProfileRequest, GetUserProfileHandler())
-provider = services.build_provider()
+provider = services.provider()
 mediator = Mediator(provider)
 
 request = GetUserProfileRequest(user_id=1)

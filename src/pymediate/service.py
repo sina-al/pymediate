@@ -1,7 +1,7 @@
 """Service collection and provider for dependency injection.
 
 This module provides a simple but powerful service registration and resolution system
-inspired by .NET's dependency injection, adapted for Python idioms.
+for Python applications.
 
 Key Features:
     - Multiple instances per type
@@ -13,16 +13,16 @@ Key Features:
 
 Example:
     ```python
-    from pymediate.service import ServiceCollection
+    from pymediate.service import Services
 
     # Build collection
-    services = ServiceCollection()
+    services = Services()
     services.add(MyService())
     services.add(AnotherService())
     services.add(MyService())  # Register second instance
 
     # Create immutable provider
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Resolve services
     all_services = provider.resolve_all(MyService)  # [instance1, instance2]
@@ -118,7 +118,7 @@ class ServiceProvider(Protocol):
 
     Standard Implementation:
         The default implementation is _Provider, created by
-        ServiceCollection.build_provider(). Users typically don't
+        Services.provider(). Users typically don't
         construct providers directly.
 
     Custom Implementations:
@@ -187,7 +187,7 @@ class ServiceProvider(Protocol):
         - The order is the global registration order, not per-type
 
     See Also:
-        - ServiceCollection: Builder for registering services
+        - Services: Builder for registering services
         - _Provider: Default immutable implementation
         - resolve(): Get single instance by exact type
         - resolve_all(): Get all instances with inheritance
@@ -324,7 +324,7 @@ class ServiceProvider(Protocol):
             class Concrete(Base): pass
 
             services.add(Concrete())
-            provider = services.build_provider()
+            provider = services.provider()
 
             provider.has(Concrete)  # True (exact match)
             provider.has(Base)      # False (no exact match)
@@ -367,7 +367,7 @@ class ServiceProvider(Protocol):
             services.add(ServiceB())
             services.add(ServiceA())  # Second instance
 
-            provider = services.build_provider()
+            provider = services.provider()
             types = provider.get_all_types()
             # Returns (ServiceA, ServiceB) - order not guaranteed
 
@@ -419,7 +419,7 @@ class ServiceProvider(Protocol):
             services.add(ServiceB())
             services.add(ServiceA())  # Second instance
 
-            provider = services.build_provider()
+            provider = services.provider()
             assert len(provider) == 3  # Total instances, not unique types
             ```
 
@@ -436,15 +436,15 @@ class ServiceProvider(Protocol):
         ...
 
 
-class ServiceCollection:
+class Services:
     """Mutable collection for registering service instances.
 
-    ServiceCollection is a builder for service registrations. Services are stored
+    Services is a builder for service registrations. Services are stored
     by their concrete type, and multiple instances of the same type can be registered.
     Registration order is preserved globally across all types.
 
     The collection is mutable and designed for the registration phase. Once all
-    services are registered, call `build_provider()` to create an immutable
+    services are registered, call `provider()` to create an immutable
     ServiceProvider for resolution.
 
     Data Structure Rationale:
@@ -455,8 +455,8 @@ class ServiceCollection:
         See module docstring for detailed explanation of why both are needed.
 
     Thread Safety:
-        ServiceCollection is NOT thread-safe. All registrations should happen
-        in a single thread before calling build_provider().
+        Services is NOT thread-safe. All registrations should happen
+        in a single thread before calling provider().
 
     Attributes:
         _services: Internal storage mapping types to ordered lists of instances.
@@ -465,7 +465,7 @@ class ServiceCollection:
     Example:
         ```python
         # Register services
-        services = ServiceCollection()
+        services = Services()
         services.add(DatabaseService())
         services.add(EmailService())
         services.add(LoggerService())
@@ -475,13 +475,13 @@ class ServiceCollection:
         services.add(CacheService(ttl=300))
 
         # Build immutable provider
-        provider = services.build_provider()
+        provider = services.provider()
         ```
 
     See Also:
         - ServiceProvider: Protocol for service resolution
         - _Provider: Concrete immutable implementation
-        - build_provider(): Create provider from collection
+        - provider(): Create provider from collection
     """
 
     def __init__(self) -> None:
@@ -495,7 +495,7 @@ class ServiceCollection:
         # when querying by base class (inheritance)
         self._registration_order: list[tuple[type, Any]] = []
 
-    def add(self, instance: object) -> "ServiceCollection":
+    def add(self, instance: object) -> "Services":
         """Register a service instance.
 
         Services are registered by their concrete type (type(instance)). Multiple
@@ -513,7 +513,7 @@ class ServiceCollection:
 
         Example:
             ```python
-            services = ServiceCollection()
+            services = Services()
 
             # Register single instance
             services.add(MyService())
@@ -551,7 +551,7 @@ class ServiceCollection:
 
         return self
 
-    def build_provider(self) -> ServiceProvider:
+    def provider(self) -> ServiceProvider:
         """Create an immutable ServiceProvider from this collection.
 
         Creates a ServiceProvider that contains a snapshot of all currently
@@ -566,18 +566,18 @@ class ServiceCollection:
 
         Example:
             ```python
-            services = ServiceCollection()
+            services = Services()
             services.add(MyService())
 
             # Create provider
-            provider = services.build_provider()
+            provider = services.provider()
 
             # Provider is immutable - changes to collection don't affect it
             services.add(AnotherService())
             provider.has(AnotherService)  # False
 
             # Can create multiple providers
-            provider2 = services.build_provider()
+            provider2 = services.provider()
             provider2.has(AnotherService)  # True
             ```
 
@@ -601,15 +601,15 @@ class ServiceCollection:
 
         Example:
             ```python
-            services = ServiceCollection()
+            services = Services()
             services.add(MyService())
 
-            provider1 = services.build_provider()
+            provider1 = services.provider()
             services.clear()
 
             # provider1 still has MyService
             # but new providers won't
-            provider2 = services.build_provider()
+            provider2 = services.provider()
             ```
         """
         self._services.clear()
@@ -623,7 +623,7 @@ class ServiceCollection:
 
         Example:
             ```python
-            services = ServiceCollection()
+            services = Services()
             services.add(ServiceA())
             services.add(ServiceB())
             services.add(ServiceA())  # Second instance
@@ -635,16 +635,16 @@ class ServiceCollection:
     def __repr__(self) -> str:
         """Return a developer-friendly representation of the collection."""
         type_counts = {t.__name__: len(instances) for t, instances in self._services.items()}
-        return f"ServiceCollection(services={type_counts}, total={len(self)})"
+        return f"Services(services={type_counts}, total={len(self)})"
 
 
 class _Provider:
     """Immutable provider for resolving service instances (private implementation).
 
     This is the concrete implementation of the ServiceProvider protocol.
-    Users should not construct this directly - use ServiceCollection.build_provider().
+    Users should not construct this directly - use Services.provider().
 
-    _Provider is created from a ServiceCollection and provides read-only
+    _Provider is created from a Services and provides read-only
     access to registered services. It supports:
 
     - Exact type matching (resolve)
@@ -653,7 +653,7 @@ class _Provider:
     - Type-safe resolution with generics
 
     The provider is immutable after creation and will not reflect any changes
-    made to the original ServiceCollection.
+    made to the original Services.
 
     Thread Safety:
         _Provider is thread-safe for reading. Multiple threads can safely
@@ -668,20 +668,20 @@ class _Provider:
 
     See Also:
         - ServiceProvider: The protocol this implements
-        - ServiceCollection: Mutable collection for registration
+        - Services: Mutable collection for registration
     """
 
-    def __init__(self, collection: ServiceCollection) -> None:
+    def __init__(self, collection: Services) -> None:
         """Create an immutable provider from a service collection.
 
-        This constructor is called by ServiceCollection.build_provider().
+        This constructor is called by Services.provider().
         Users should not call this directly.
 
         The provider takes a snapshot of the collection's state. Subsequent
         changes to the collection will not affect this provider.
 
         Args:
-            collection: The ServiceCollection to create a provider from.
+            collection: The Services to create a provider from.
         """
         # Create immutable copies of the collection's internal state
         # This ensures the provider is truly immutable and won't be affected

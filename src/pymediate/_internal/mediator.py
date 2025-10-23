@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from ..service import ServiceProvider
 
 
-class MediatorBaseMixin:
+class MediatorMixin:
     """Mixin providing shared logic for both sync and async mediators.
 
     This mixin contains the common initialization and service provider storage logic
@@ -27,24 +27,24 @@ class MediatorBaseMixin:
 
         Args:
             service_provider: Any object implementing the ServiceProvider protocol.
-                This can be a ServiceProvider from ServiceCollection.build_provider(),
+                This can be a ServiceProvider from Services.provider(),
                 a DependencyInjectorServiceProvider, or your own custom implementation.
 
         Examples:
             ```python
             from pymediate import Mediator
-            from pymediate.service import ServiceCollection
+            from pymediate.service import Services
 
-            services = ServiceCollection()
+            services = Services()
             services.add(CreateUserHandler())
-            provider = services.build_provider()
+            provider = services.provider()
 
             mediator = Mediator(provider)
             ```
 
             With dependency injection:
             ```python
-            from pymediate.service_providers import DependencyInjectorServiceProvider
+            from pymediate.providers import DependencyInjectorServiceProvider
 
             container = AppContainer()
             provider = DependencyInjectorServiceProvider(container)

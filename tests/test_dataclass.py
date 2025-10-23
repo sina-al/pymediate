@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, ServiceCollection
+from pymediate import Handler, Mediator, Request, Services
 
 # ========== Basic Dataclass Support ==========
 
@@ -52,9 +52,9 @@ def test_basic_dataclass_with_pymediate() -> None:
     - Full type safety and IDE autocomplete support
     """
     handler = CreateUserHandler()
-    services = ServiceCollection()
+    services = Services()
     services.add(handler)
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     request = CreateUserRequest(username="alice", email="alice@example.com")
@@ -109,14 +109,14 @@ class ExtendedHandler(Handler[ExtendedRequest]):
 
 def test_dataclass_request_inheritance() -> None:
     """Test that dataclass requests can have inheritance hierarchies."""
-    services = ServiceCollection()
+    services = Services()
     base_handler = BaseHandler()
     extended_handler = ExtendedHandler()
 
     services.add(base_handler)
     services.add(extended_handler)
 
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     base_response = mediator.send(BaseRequest(action="test"))
@@ -163,10 +163,10 @@ class HandlerB(Handler[RequestB]):
 
 def test_multiple_dataclass_requests_same_response() -> None:
     """Test that multiple request types can return the same response type."""
-    services = ServiceCollection()
+    services = Services()
     services.add(HandlerA())
     services.add(HandlerB())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     resp_a = mediator.send(RequestA(value_a="test"))
@@ -208,9 +208,9 @@ class TimestampedHandler(Handler[TimestampedRequest]):
 
 def test_dataclass_with_mixin() -> None:
     """Test that dataclasses can use mixins with Request inheritance."""
-    services = ServiceCollection()
+    services = Services()
     services.add(TimestampedHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     request = TimestampedRequest(data="test")
@@ -259,7 +259,7 @@ def test_dataclass_with_dependency_injection() -> None:
         database = providers.Singleton(Database)
         user_handler = providers.Factory(DIHandler, database=database)
 
-    from pymediate.service_providers import DependencyInjectorServiceProvider
+    from pymediate.providers import DependencyInjectorServiceProvider
 
     container = DIContainer()
     provider = DependencyInjectorServiceProvider(container)
@@ -294,9 +294,9 @@ class EmptyHandler(Handler[EmptyRequest]):
 
 def test_empty_dataclasses() -> None:
     """Test that empty dataclasses work with PyMediate."""
-    services = ServiceCollection()
+    services = Services()
     services.add(EmptyHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     response = mediator.send(EmptyRequest())

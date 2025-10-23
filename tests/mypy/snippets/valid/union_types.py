@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from pymediate import Handler, Mediator, Request, ServiceCollection
+from pymediate import Handler, Mediator, Request, Services
 
 
 @dataclass
@@ -33,9 +33,9 @@ class CalculateHandler(Handler[CalculateRequest]):
 
 
 # Usage
-services = ServiceCollection()
+services = Services()
 services.add(CalculateRequest, CalculateHandler())
-provider = services.build_provider()
+provider = services.provider()
 mediator = Mediator(provider)
 
 request = CalculateRequest(numerator=10, denominator=2)

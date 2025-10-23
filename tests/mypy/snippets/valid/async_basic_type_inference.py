@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 
-from pymediate import Request, ServiceCollection
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 
@@ -26,9 +26,9 @@ class GetUserHandler(Handler[GetUserRequest]):
 
 async def main() -> None:
     # Setup
-    services = ServiceCollection()
+    services = Services()
     services.add(GetUserRequest, GetUserHandler())
-    provider = services.build_provider()
+    provider = services.provider()
     mediator = Mediator(provider)
 
     # Type inference test

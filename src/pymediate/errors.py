@@ -182,7 +182,7 @@ class DIContainerError(PyMediateError):
     3. Container resolution fails
 
     Example:
-        >>> from pymediate.service_providers import DependencyInjectorServiceProvider
+        >>> from pymediate.providers import DependencyInjectorServiceProvider
         >>> provider = DependencyInjectorServiceProvider(container)
         >>> mediator.send(MyRequest())
         DIContainerError: Failed to resolve handler from DI container

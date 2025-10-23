@@ -71,14 +71,14 @@ class CreateUserHandler(Handler[CreateUser]):
 Create a service collection, build a provider, and create a mediator:
 
 ```python
-from pymediate import Mediator, ServiceCollection
+from pymediate import Mediator, Services
 
 # Create service collection and add handler
-services = ServiceCollection()
+services = Services()
 services.add(CreateUserHandler())
 
 # Build provider and create mediator
-provider = services.build_provider()
+provider = services.provider()
 mediator = Mediator(provider)
 ```
 
@@ -102,7 +102,7 @@ Here's the complete code in one file:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, ServiceCollection
+from pymediate import Request, Handler, Mediator, Services
 
 # 1. Define response
 @dataclass
@@ -139,9 +139,9 @@ class CreateUserHandler(Handler[CreateUser]):
         )
 
 # 4. Set up mediator
-services = ServiceCollection()
+services = Services()
 services.add(CreateUserHandler())
-provider = services.build_provider()
+provider = services.provider()
 mediator = Mediator(provider)
 
 # 5. Use it!
@@ -166,7 +166,7 @@ class WrongHandler(Handler[CreateUser]):
 PyMediate also supports async/await for asynchronous operations:
 
 ```python
-from pymediate import ServiceCollection
+from pymediate import Services
 from pymediate.aio import Handler, Mediator
 
 class CreateUserHandler(Handler[CreateUser]):
@@ -180,9 +180,9 @@ class CreateUserHandler(Handler[CreateUser]):
         )
 
 # Set up async mediator
-services = ServiceCollection()
+services = Services()
 services.add(CreateUserHandler())
-provider = services.build_provider()
+provider = services.provider()
 mediator = Mediator(provider)
 
 response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))

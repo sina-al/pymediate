@@ -1,4 +1,4 @@
-"""Comprehensive edge case tests for ServiceCollection and ServiceProvider.
+"""Comprehensive edge case tests for Services and ServiceProvider.
 
 Tests cover advanced scenarios including:
 - Diamond inheritance (multiple inheritance problem)
@@ -19,7 +19,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from pymediate.service import ServiceCollection, ServiceNotFoundError
+from pymediate.service import ServiceNotFoundError, Services
 
 # ==================== Inheritance Test Fixtures ====================
 
@@ -180,11 +180,11 @@ class Level5(Level4):
 
 def test_diamond_inheritance_registration() -> None:
     """Test registering services with diamond inheritance."""
-    services = ServiceCollection()
+    services = Services()
     bat = Bat("Batman")
 
     services.add(bat)
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Should be able to resolve by exact type
     assert provider.resolve(Bat) is bat
@@ -202,7 +202,7 @@ def test_diamond_inheritance_registration() -> None:
 
 def test_diamond_inheritance_multiple_instances() -> None:
     """Test diamond inheritance with multiple instances."""
-    services = ServiceCollection()
+    services = Services()
     bat1 = Bat("Bat1")
     bat2 = Bat("Bat2")
     mammal = Mammal("Mammal")
@@ -213,7 +213,7 @@ def test_diamond_inheritance_multiple_instances() -> None:
     services.add(winged)
     services.add(bat2)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Resolve all animals - should get all in order
     all_animals = provider.resolve_all(Animal)
@@ -233,11 +233,11 @@ def test_diamond_inheritance_multiple_instances() -> None:
 
 def test_diamond_inheritance_mro_order() -> None:
     """Test that MRO (Method Resolution Order) is respected."""
-    services = ServiceCollection()
+    services = Services()
     bat = Bat()
 
     services.add(bat)
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Bat should be instance of all types in MRO
     assert isinstance(bat, Bat)
@@ -257,7 +257,7 @@ def test_diamond_inheritance_mro_order() -> None:
 
 def test_mixin_resolution() -> None:
     """Test resolving services with mixins."""
-    services = ServiceCollection()
+    services = Services()
     logged = LoggedService(1)
     timestamped = TimestampedService(2)
     full = FullyDecoratedService(3)
@@ -266,7 +266,7 @@ def test_mixin_resolution() -> None:
     services.add(timestamped)
     services.add(full)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Resolve by exact type
     assert provider.resolve(LoggedService) is logged
@@ -289,7 +289,7 @@ def test_mixin_resolution() -> None:
 
 def test_mixin_registration_order() -> None:
     """Test that registration order is preserved with mixins."""
-    services = ServiceCollection()
+    services = Services()
     s1 = Service(1)
     l1 = LoggedService(2)
     t1 = TimestampedService(3)
@@ -302,7 +302,7 @@ def test_mixin_registration_order() -> None:
     services.add(f1)
     services.add(l2)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Resolve by mixin should preserve global order
     all_logging = provider.resolve_all(LoggingMixin)
@@ -317,7 +317,7 @@ def test_mixin_registration_order() -> None:
 
 def test_primitive_types() -> None:
     """Test registering primitive types."""
-    services = ServiceCollection()
+    services = Services()
     services.add(42)
     services.add(3.14)
     services.add("hello")
@@ -325,7 +325,7 @@ def test_primitive_types() -> None:
     services.add([1, 2, 3])
     services.add({"key": "value"})
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Each primitive type should be resolvable
     assert provider.resolve(int) == 42
@@ -338,11 +338,11 @@ def test_primitive_types() -> None:
 
 def test_bool_int_inheritance() -> None:
     """Test that bool is treated as int subclass (Python quirk)."""
-    services = ServiceCollection()
+    services = Services()
     services.add(True)
     services.add(42)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # bool is subclass of int in Python
     all_ints = provider.resolve_all(int)
@@ -357,12 +357,12 @@ def test_bool_int_inheritance() -> None:
 
 def test_multiple_primitives_same_type() -> None:
     """Test multiple instances of same primitive type."""
-    services = ServiceCollection()
+    services = Services()
     services.add(1)
     services.add(2)
     services.add(3)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     assert provider.resolve(int) == 1  # First one
     all_ints = provider.resolve_all(int)
@@ -374,11 +374,11 @@ def test_multiple_primitives_same_type() -> None:
 
 def test_abstract_base_class() -> None:
     """Test with abstract base classes."""
-    services = ServiceCollection()
+    services = Services()
     impl = ConcreteServiceImpl()
 
     services.add(impl)
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Can resolve by concrete type
     assert provider.resolve(ConcreteServiceImpl) is impl
@@ -395,7 +395,7 @@ def test_abstract_base_class() -> None:
 
 def test_multiple_abc_implementations() -> None:
     """Test multiple implementations of same ABC."""
-    services = ServiceCollection()
+    services = Services()
 
     class Impl1(AbstractService):
         def execute(self) -> str:
@@ -411,7 +411,7 @@ def test_multiple_abc_implementations() -> None:
     services.add(impl1)
     services.add(impl2)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Both should be resolvable via ABC
     all_impls = provider.resolve_all(AbstractService)  # type: ignore[type-abstract]
@@ -425,14 +425,14 @@ def test_multiple_abc_implementations() -> None:
 
 def test_protocol_support() -> None:
     """Test with runtime checkable protocols."""
-    services = ServiceCollection()
+    services = Services()
     circle = Circle()
     square = Square()
 
     services.add(circle)
     services.add(square)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Resolve by protocol
     all_drawable = provider.resolve_all(Drawable)  # type: ignore[type-abstract]
@@ -446,7 +446,7 @@ def test_protocol_support() -> None:
 
 def test_protocol_with_non_protocol_classes() -> None:
     """Test protocol resolution mixed with regular classes."""
-    services = ServiceCollection()
+    services = Services()
 
     class NotDrawable:
         pass
@@ -457,7 +457,7 @@ def test_protocol_with_non_protocol_classes() -> None:
     services.add(circle)
     services.add(not_drawable)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Only protocol implementers should match
     all_drawable = provider.resolve_all(Drawable)  # type: ignore[type-abstract]
@@ -470,14 +470,14 @@ def test_protocol_with_non_protocol_classes() -> None:
 
 def test_same_instance_registered_twice() -> None:
     """Test registering the same instance multiple times."""
-    services = ServiceCollection()
+    services = Services()
     singleton = Service(42)
 
     services.add(singleton)
     services.add(singleton)
     services.add(singleton)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Should have 3 references to same instance
     assert len(provider) == 3
@@ -494,11 +494,11 @@ def test_same_instance_registered_twice() -> None:
 
 def test_same_instance_identity_preserved() -> None:
     """Test that instance identity is preserved through resolution."""
-    services = ServiceCollection()
+    services = Services()
     singleton = Service(42)
 
     services.add(singleton)
-    provider = services.build_provider()
+    provider = services.provider()
 
     resolved = provider.resolve(Service)
     assert resolved is singleton  # Same object, not a copy
@@ -509,11 +509,11 @@ def test_same_instance_identity_preserved() -> None:
 
 def test_deep_inheritance_hierarchy() -> None:
     """Test with very deep inheritance hierarchy."""
-    services = ServiceCollection()
+    services = Services()
     level5 = Level5()
 
     services.add(level5)
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Should resolve through all levels
     assert len(provider.resolve_all(Level0)) == 1
@@ -526,7 +526,7 @@ def test_deep_inheritance_hierarchy() -> None:
 
 def test_deep_inheritance_multiple_levels() -> None:
     """Test resolving instances at different levels."""
-    services = ServiceCollection()
+    services = Services()
     l2 = Level2()
     l4 = Level4()
     l5 = Level5()
@@ -535,7 +535,7 @@ def test_deep_inheritance_multiple_levels() -> None:
     services.add(l4)
     services.add(l5)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Level0: all inherit from it
     assert len(provider.resolve_all(Level0)) == 3
@@ -562,11 +562,11 @@ def test_deep_inheritance_multiple_levels() -> None:
 
 def test_provider_concurrent_reads() -> None:
     """Test that provider can handle concurrent reads safely."""
-    services = ServiceCollection()
+    services = Services()
     for i in range(100):
         services.add(Service(i))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     results = []
     errors = []
@@ -594,10 +594,10 @@ def test_provider_concurrent_reads() -> None:
 
 def test_collection_mutation_during_provider_use() -> None:
     """Test that mutating collection doesn't affect existing provider."""
-    services = ServiceCollection()
+    services = Services()
     services.add(Service(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Mutate collection in different thread
     def mutator() -> None:
@@ -617,7 +617,7 @@ def test_collection_mutation_during_provider_use() -> None:
 
 def test_complex_inheritance_registration_order() -> None:
     """Test complex scenario with mixed inheritance and registration order."""
-    services = ServiceCollection()
+    services = Services()
 
     # Register in specific order: L0, L2, L1, L4, L3, L5
     l0 = Level0()
@@ -634,7 +634,7 @@ def test_complex_inheritance_registration_order() -> None:
     services.add(l3)
     services.add(l5)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # resolve_all(Level0) should return in registration order, not hierarchy order
     all_l0 = provider.resolve_all(Level0)
@@ -649,7 +649,7 @@ def test_complex_inheritance_registration_order() -> None:
 
 def test_interleaved_type_registration() -> None:
     """Test interleaved registration of different type hierarchies."""
-    services = ServiceCollection()
+    services = Services()
 
     # Interleave Animal hierarchy with Service hierarchy
     a1 = Animal("a1")
@@ -666,7 +666,7 @@ def test_interleaved_type_registration() -> None:
     services.add(b1)
     services.add(ts1)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Each hierarchy should maintain its registration order
     all_animals = provider.resolve_all(Animal)
@@ -687,10 +687,10 @@ def test_interleaved_type_registration() -> None:
 
 def test_resolve_all_with_no_matches() -> None:
     """Test resolve_all when no instances match."""
-    services = ServiceCollection()
+    services = Services()
     services.add(Service(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Querying unrelated type returns empty
     result = provider.resolve_all(Animal)
@@ -700,10 +700,10 @@ def test_resolve_all_with_no_matches() -> None:
 
 def test_type_with_no_instances() -> None:
     """Test exact type check when no instances exist."""
-    services = ServiceCollection()
+    services = Services()
     services.add(Service(1))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     assert not provider.has(Animal)
 
@@ -713,7 +713,7 @@ def test_type_with_no_instances() -> None:
 
 def test_none_type_handling() -> None:
     """Test that None is properly rejected."""
-    services = ServiceCollection()
+    services = Services()
 
     with pytest.raises(ValueError, match="Cannot register None"):
         services.add(None)
@@ -724,7 +724,7 @@ def test_none_type_handling() -> None:
 
 def test_type_identity_with_generics() -> None:
     """Test that generic types with same origin are treated as same type."""
-    services = ServiceCollection()
+    services = Services()
 
     # In Python, list[int] and list[str] both resolve to 'list' at runtime
     list_int = [1, 2, 3]
@@ -733,7 +733,7 @@ def test_type_identity_with_generics() -> None:
     services.add(list_int)
     services.add(list_str)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Both are just 'list' at runtime
     assert len(provider.resolve_all(list)) == 2
@@ -741,7 +741,7 @@ def test_type_identity_with_generics() -> None:
 
 def test_object_base_class() -> None:
     """Test resolving by object base class (everything inherits from object)."""
-    services = ServiceCollection()
+    services = Services()
     s1 = Service(1)
     a1 = Animal("test")
     num = 42
@@ -750,7 +750,7 @@ def test_object_base_class() -> None:
     services.add(a1)
     services.add(num)
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     # Everything is an instance of object
     all_objects = provider.resolve_all(object)
@@ -762,11 +762,11 @@ def test_object_base_class() -> None:
 
 def test_error_message_clarity() -> None:
     """Test that error messages are clear and helpful."""
-    services = ServiceCollection()
+    services = Services()
     services.add(Service(1))
     services.add(Animal("test"))
 
-    provider = services.build_provider()
+    provider = services.provider()
 
     try:
         provider.resolve(Mammal)
@@ -788,14 +788,14 @@ def test_error_message_clarity() -> None:
 
 def test_multiple_providers_independence() -> None:
     """Test that multiple providers from same collection are independent."""
-    services = ServiceCollection()
+    services = Services()
     services.add(Service(1))
 
-    provider1 = services.build_provider()
+    provider1 = services.provider()
 
     services.add(Service(2))
 
-    provider2 = services.build_provider()
+    provider2 = services.provider()
 
     # Providers should have different snapshots
     assert len(provider1) == 1
@@ -807,15 +807,15 @@ def test_multiple_providers_independence() -> None:
 
 def test_clear_and_rebuild() -> None:
     """Test clearing collection and building new provider."""
-    services = ServiceCollection()
+    services = Services()
     services.add(Service(1))
 
-    provider1 = services.build_provider()
+    provider1 = services.provider()
 
     services.clear()
     services.add(Animal("test"))
 
-    provider2 = services.build_provider()
+    provider2 = services.provider()
 
     # provider1 should still have original service
     assert provider1.has(Service)

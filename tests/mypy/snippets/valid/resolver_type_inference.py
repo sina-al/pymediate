@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from pymediate import Handler, Request, ServiceCollection
+from pymediate import Handler, Request, Services
 
 
 @dataclass
@@ -21,9 +21,9 @@ class GetUserHandler(Handler[GetUserRequest]):
 
 
 # Setup
-services = ServiceCollection()
+services = Services()
 services.add(GetUserHandler())
-provider = services.build_provider()
+provider = services.provider()
 
 # ServiceProvider should return correctly typed handler
 handler = provider.resolve(GetUserHandler)
