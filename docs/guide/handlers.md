@@ -247,12 +247,12 @@ class ProcessOrderHandler(Handler[ProcessOrderRequest]):
 ### Using Async Handlers with Mediator
 
 ```python
-from pymediate import SimpleResolver
+from pymediate import Services
 from pymediate.aio import Mediator
 
 # Setup async mediator
-resolver = SimpleResolver()
-resolver.register(AsyncFetchHandler(http_client))
+services = Services()
+services.add(AsyncFetchHandler(http_client))
 mediator = Mediator(resolver)
 
 # Use with asyncio
@@ -666,10 +666,10 @@ def test_create_user_handler():
 ```python
 def test_place_order_integration():
     # Setup real resolver with all handlers
-    resolver = SimpleResolver()
-    resolver.register(CheckInventoryHandler(inventory_db))
-    resolver.register(ProcessPaymentHandler(payment_service))
-    resolver.register(EmailHandler(email_service))
+    services = Services()
+    services.add(CheckInventoryHandler(inventory_db))
+    services.add(ProcessPaymentHandler(payment_service))
+    services.add(EmailHandler(email_service))
 
     mediator = Mediator(resolver)
 

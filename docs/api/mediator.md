@@ -29,10 +29,10 @@ For routing asynchronous requests to async handlers:
 ### Sync Mediator
 
 ```python
-from pymediate import Mediator, SimpleResolver
+from pymediate import Mediator, Services
 
-resolver = SimpleResolver()
-resolver.register(MyHandler())
+services = Services()
+services.add(MyHandler())
 mediator = Mediator(resolver)
 
 # Send a request - blocks until handler completes
@@ -44,11 +44,11 @@ response = mediator.send(MyRequest(data="example"))
 ```python
 import asyncio
 from pymediate.aio import Mediator
-from pymediate import SimpleResolver
+from pymediate import Services
 
 async def main():
-    resolver = SimpleResolver()
-    resolver.register(MyAsyncHandler())
+    services = Services()
+    services.add(MyAsyncHandler())
     mediator = Mediator(resolver)
 
     # Send a request - awaits handler completion

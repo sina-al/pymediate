@@ -10,11 +10,11 @@ pip install pymediate[di]
 
 ## Basic Usage
 
-The `DependencyInjectorResolver` uses **type inspection** - no naming conventions required!
+The `DependencyInjectorServiceProvider` uses **type inspection** - no naming conventions required!
 
 ```python
 from dependency_injector import containers, providers
-from pymediate import Handler, Mediator, DependencyInjectorResolver
+from pymediate import Handler, Mediator, DependencyInjectorServiceProvider
 
 class AppContainer(containers.DeclarativeContainer):
     database = providers.Singleton(Database)
@@ -25,7 +25,7 @@ class AppContainer(containers.DeclarativeContainer):
     __self__ = providers.Self()
     mediator = providers.Singleton(
         Mediator,
-        resolver=providers.Singleton(DependencyInjectorResolver, container=__self__)
+        resolver=providers.Singleton(DependencyInjectorServiceProvider, container=__self__)
     )
 ```
 

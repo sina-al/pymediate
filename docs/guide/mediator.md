@@ -21,16 +21,16 @@ The Mediator is the central orchestrator in PyMediate. It receives requests and 
 The Mediator is a simple but powerful class that:
 
 1. **Receives requests** from your application (API, CLI, etc.)
-2. **Finds the appropriate handler** using a resolver
+2. **Finds the appropriate handler** using a service provider
 3. **Executes the handler** with the request
 4. **Returns the response** back to the caller
 
 ```python
-from pymediate import Mediator, SimpleResolver
+from pymediate import Mediator, Services
 
 # Create resolver with handlers
-resolver = SimpleResolver()
-resolver.register(CreateUserHandler(database))
+services = Services()
+services.add(CreateUserHandler(database))
 
 # Create mediator
 mediator = Mediator(resolver)
@@ -125,12 +125,12 @@ Change handler implementations without affecting callers.
 
 ```python
 # Start with simple resolver
-resolver = SimpleResolver()
-resolver.register(SimpleUserHandler(database))
+services = Services()
+services.add(SimpleUserHandler(database))
 
 # Later, switch to DI container
-from pymediate import DependencyInjectorResolver
-resolver = DependencyInjectorResolver(container)
+from pymediate import DependencyInjectorServiceProvider
+provider = DependencyInjectorServiceProvider(container)
 
 # Mediator usage stays the same!
 mediator = Mediator(resolver)
@@ -143,7 +143,7 @@ response = mediator.send(GetUserRequest(user_id=123))
 
 ```python
 from dataclasses import dataclass
-from pymediate import Mediator, SimpleResolver, Handler, Request
+from pymediate import Mediator, Services, Handler, Request
 
 # 1. Define request and response
 @dataclass
@@ -166,8 +166,8 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return CreateUserResponse(user_id=user_id, username=request.username)
 
 # 3. Setup resolver
-resolver = SimpleResolver()
-resolver.register(CreateUserHandler(database))
+services = Services()
+services.add(CreateUserHandler(database))
 
 # 4. Create mediator
 mediator = Mediator(resolver)
@@ -217,13 +217,13 @@ print(response.invalid)   # ❌ Type checker catches this error
 ### Example with Multiple Handlers
 
 ```python
-from pymediate import Mediator, SimpleResolver
+from pymediate import Mediator, Services
 
 # Setup multiple handlers
-resolver = SimpleResolver()
-resolver.register(CreateUserHandler(database))
-resolver.register(GetUserHandler(database))
-resolver.register(DeleteUserHandler(database))
+services = Services()
+services.add(CreateUserHandler(database))
+services.add(GetUserHandler(database))
+services.add(DeleteUserHandler(database))
 
 mediator = Mediator(resolver)
 
@@ -238,11 +238,11 @@ delete_response = mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
 ```python
 class Mediator:
     def __init__(self, resolver: Resolver):
-        self.resolver = resolver
+        self.service_provider = resolver
 
     def send[RequestT](self, request: RequestT):
         # 1. Get handler for this request type
-        handler = self.resolver.resolve(type(request))
+        handler = self.service_provider.resolve(type(request))
 
         # 2. Execute handler
         if inspect.iscoroutinefunction(handler):
@@ -278,9 +278,9 @@ response = await mediator.send(FetchDataRequest(url="https://api.example.com/dat
 
 ```python
 # Same mediator can handle both sync and async handlers
-resolver = SimpleResolver()
-resolver.register(CreateUserHandler(database))  # Sync
-resolver.register(FetchDataHandler(http_client))  # Async
+services = Services()
+services.add(CreateUserHandler(database))  # Sync
+services.add(FetchDataHandler(http_client))  # Async
 
 mediator = Mediator(resolver)
 
@@ -332,7 +332,7 @@ class LoggingMediator(Mediator):
 
 ```python
 # Mediator asks resolver for handler
-handler = self.resolver.resolve(type(request))
+handler = self.service_provider.resolve(type(request))
 ```
 
 ### 4. Handler Execution
@@ -497,7 +497,7 @@ class ScopedMediator(Mediator):
 
     def send[RequestT](self, request: RequestT):
         # Get handler factory instead of instance
-        handler_factory = self.resolver.resolve(type(request))
+        handler_factory = self.service_provider.resolve(type(request))
 
         # Create new handler instance
         handler = handler_factory()
@@ -569,8 +569,8 @@ def test_handler_isolated():
 ```python
 def test_with_mediator():
     # Test full request flow
-    resolver = SimpleResolver()
-    resolver.register(CreateUserHandler(mock_db))
+    services = Services()
+    services.add(CreateUserHandler(mock_db))
 
     mediator = Mediator(resolver)
     response = mediator.send(CreateUserRequest(username="test", email="test@example.com"))
@@ -584,9 +584,9 @@ def test_with_mediator():
 ```python
 def test_handler_composition():
     # Setup all handlers
-    resolver = SimpleResolver()
-    resolver.register(CreateUserHandler(mock_db))
-    resolver.register(EmailHandler(mock_email))
+    services = Services()
+    services.add(CreateUserHandler(mock_db))
+    services.add(EmailHandler(mock_email))
 
     mediator = Mediator(resolver)
 

@@ -22,4 +22,4 @@ The Mediator routes requests to their handlers.
 
 Resolvers find the right handler for each request type.
 
-[More details coming soon]
+[More details 

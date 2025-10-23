@@ -8,7 +8,7 @@ All notable changes to PyMediate will be documented here.
 - Comprehensive test suite with 110+ tests
 - Type inspection-based DI resolver (no naming conventions)
 - Full dataclass support with Request[T] inheritance
-- Type-safe SimpleResolver with runtime validation
+- Type-safe Services with runtime validation
 - MkDocs Material documentation site
 - Poe the Poet task automation
 - Comprehensive error messages with documentation links
@@ -26,5 +26,5 @@ All notable changes to PyMediate will be documented here.
 
 - Basic mediator pattern implementation
 - Request/Handler/Mediator core
-- SimpleResolver for basic use cases
+- Services for basic use cases
 - Type-safe handler registration

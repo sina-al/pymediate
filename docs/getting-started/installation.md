@@ -82,17 +82,17 @@ print(pymediate.__version__)
 
 ## Optional Dependencies
 
-### DependencyInjectorResolver
+### DependencyInjectorServiceProvider
 
-The `DependencyInjectorResolver` is only available when you install PyMediate with the `[di]` extra. If you try to use it without installing the dependency-injector package, you'll get a helpful error message:
+The `DependencyInjectorServiceProvider` is only available when you install PyMediate with the `[di]` extra. If you try to use it without installing the dependency-injector package, you'll get a helpful error message:
 
 ```python
-from pymediate import DependencyInjectorResolver
+from pymediate import DependencyInjectorServiceProvider
 
-resolver = DependencyInjectorResolver(container)
-# ImportError: DependencyInjectorResolver requires the 'dependency-injector' package.
+provider = DependencyInjectorServiceProvider(container)
+# ImportError: DependencyInjectorServiceProvider requires the 'dependency-injector' package.
 #
-# To use DependencyInjectorResolver, install PyMediate with the [di] extra:
+# To use DependencyInjectorServiceProvider, install PyMediate with the [di] extra:
 #   pip install pymediate[di]
 ```
 

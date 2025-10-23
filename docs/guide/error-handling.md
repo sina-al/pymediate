@@ -65,7 +65,7 @@ except HandlerNotFoundError as e:
 No handler registered for request type 'CreateUserRequest'
 
 💡 Possible solutions:
-  1. Register a handler: resolver.register(handler)
+  1. Register a handler: services.add(handler)
   2. Ensure your DI container has a provider for this handler
   3. Verify CreateUserRequest inherits from Request[ResponseType]
 
@@ -169,7 +169,7 @@ Raised when there's an issue with DI container configuration.
 from pymediate import DIContainerError
 
 try:
-    resolver = DependencyInjectorResolver(container)
+    provider = DependencyInjectorServiceProvider(container)
     response = mediator.send(MyRequest())
 except DIContainerError as e:
     print(f"Request: {e.request_type.__name__}")
@@ -219,7 +219,7 @@ except Exception as e:
 from pymediate import HandlerNotFoundError, HandlerTypeMismatchError
 
 try:
-    resolver.register(MyHandler())
+    services.add(MyHandler())
     response = mediator.send(MyRequest())
 except HandlerTypeMismatchError as e:
     # Handler registered for wrong request type
@@ -783,7 +783,7 @@ def test_transfer_insufficient_funds():
 from pymediate import HandlerNotFoundError
 
 def test_handler_not_found():
-    resolver = SimpleResolver()
+    services = Services()
     mediator = Mediator(resolver)
 
     with pytest.raises(HandlerNotFoundError) as exc_info:

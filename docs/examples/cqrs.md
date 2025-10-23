@@ -1,7 +1,6 @@
 # cqrs
 
-Documentation coming soon.
-
+Documentation 
 This page is under construction and will be filled with comprehensive content.
 
 For now, please refer to:

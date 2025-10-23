@@ -4,15 +4,15 @@ This guide covers common issues you might encounter when using PyMediate and how
 
 ## Installation Issues
 
-### DependencyInjectorResolver Not Available
+### DependencyInjectorServiceProvider Not Available
 
-**Problem:** You get an error when trying to use `DependencyInjectorResolver`:
+**Problem:** You get an error when trying to use `DependencyInjectorServiceProvider`:
 
 ```python
-from pymediate import DependencyInjectorResolver
+from pymediate import DependencyInjectorServiceProvider
 
-resolver = DependencyInjectorResolver(container)
-# ImportError: DependencyInjectorResolver requires the 'dependency-injector' package.
+provider = DependencyInjectorServiceProvider(container)
+# ImportError: DependencyInjectorServiceProvider requires the 'dependency-injector' package.
 ```
 
 **Cause:** The `dependency-injector` package is an optional dependency and is not installed by default.
@@ -48,8 +48,8 @@ uv add dependency-injector
 **Verification:** After installation, verify it works:
 
 ```python
-from pymediate import DependencyInjectorResolver
-print("DependencyInjectorResolver is available!")
+from pymediate import DependencyInjectorServiceProvider
+print("DependencyInjectorServiceProvider is available!")
 ```
 
 ### Import Errors After Installation
@@ -92,13 +92,13 @@ response = mediator.send(MyRequest())
 1. **Handler not registered:**
    ```python
    # Problem
-   resolver = SimpleResolver()
+   services = Services()
    mediator = Mediator(resolver)
    response = mediator.send(MyRequest())  # ❌ Handler not registered
 
    # Solution
-   resolver = SimpleResolver()
-   resolver.register(MyHandler())  # ✅ Register the handler
+   services = Services()
+   services.add(MyHandler())  # ✅ Register the handler
    mediator = Mediator(resolver)
    response = mediator.send(MyRequest())
    ```
@@ -114,7 +114,7 @@ response = mediator.send(MyRequest())
        pass
    ```
 
-3. **Using DependencyInjectorResolver but provider is missing:**
+3. **Using DependencyInjectorServiceProvider but provider is missing:**
    ```python
    # Problem
    class AppContainer(containers.DeclarativeContainer):
@@ -139,7 +139,7 @@ Available handlers: CreateUserRequest, UpdateUserRequest, DeleteUserRequest
 **Problem:** You get `HandlerTypeMismatchError` when registering a handler:
 
 ```python
-resolver.register(UpdateUserHandler())
+services.add(UpdateUserHandler())
 # HandlerTypeMismatchError: Handler type mismatch
 ```
 
@@ -149,11 +149,11 @@ resolver.register(UpdateUserHandler())
 
 ```python
 # ❌ Wrong
-resolver.register(UpdateUserHandler())
+services.add(UpdateUserHandler())
 
 # ✅ Correct
-resolver.register(CreateUserHandler())
-resolver.register(UpdateUserHandler())
+services.add(CreateUserHandler())
+services.add(UpdateUserHandler())
 ```
 
 ### InvalidHandlerSignatureError
@@ -224,7 +224,7 @@ class MyHandler(Handler[MyRequest]):
 
 ### DIContainerError
 
-**Problem:** You get `DIContainerError` when using DependencyInjectorResolver:
+**Problem:** You get `DIContainerError` when using DependencyInjectorServiceProvider:
 
 ```python
 handler = resolver.resolve(MyRequest)
@@ -272,7 +272,7 @@ handler = resolver.resolve(MyRequest)
 **Solution:** Ensure you're using the correct type annotations:
 
 ```python
-from pymediate import Request, Handler, Mediator, SimpleResolver
+from pymediate import Request, Handler, Mediator, Services
 
 # ✅ Properly typed
 @dataclass
@@ -290,7 +290,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 # Type inference works correctly
-mediator = Mediator(SimpleResolver())
+mediator = Mediator(Services())
 response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 # response is correctly inferred as UserResponse
 ```
@@ -370,7 +370,7 @@ To avoid common issues:
 2. **Register handlers before using the mediator:**
    ```python
    # ✅ Good
-   resolver.register(MyHandler())
+   services.add(MyHandler())
    mediator = Mediator(resolver)
    response = mediator.send(MyRequest())
 

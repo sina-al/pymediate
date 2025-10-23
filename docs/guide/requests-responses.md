@@ -784,5 +784,5 @@ app/
 ## See Also
 
 - [Handlers](handlers.md) - Implementing business logic
-- [Hexagonal Architecture](../advanced/architecture.md) - Architectural patterns
+- [Hexagonal Architecture](../advanced/best-practices.md) - Architectural patterns
 - [Testing](../advanced/testing.md) - Testing strategies

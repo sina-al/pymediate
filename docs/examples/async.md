@@ -9,7 +9,7 @@ The async API mirrors the synchronous API, with handlers using `async def __call
 ```python
 import asyncio
 from dataclasses import dataclass
-from pymediate import Request, SimpleResolver
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 @dataclass
@@ -29,8 +29,8 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 async def main():
-    resolver = SimpleResolver()
-    resolver.register(CreateUserHandler())
+    services = Services()
+    services.add(CreateUserHandler())
     mediator = Mediator(resolver)
 
     response = await mediator.send(CreateUserRequest(
@@ -49,7 +49,7 @@ asyncio.run(main())
 | Import | `from pymediate import Handler, Mediator` | `from pymediate.aio import Handler, Mediator` |
 | Handler Method | `def __call__(self, request) -> Response` | `async def __call__(self, request) -> Response` |
 | Mediator Send | `response = mediator.send(request)` | `response = await mediator.send(request)` |
-| Request/Resolver | Same - `from pymediate import Request, SimpleResolver` | Same - `from pymediate import Request, SimpleResolver` |
+| Request/Resolver | Same - `from pymediate import Request, Services` | Same - `from pymediate import Request, Services` |
 
 ## Async Database Operations
 
@@ -59,7 +59,7 @@ Here's a realistic example with async database access:
 import asyncio
 from dataclasses import dataclass
 from typing import Optional
-from pymediate import Request, SimpleResolver
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 # Simulated async database
@@ -118,9 +118,9 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 async def main():
     # Setup
     db = AsyncDatabase()
-    resolver = SimpleResolver()
-    resolver.register(GetUserHandler(db))
-    resolver.register(CreateUserHandler(db))
+    services = Services()
+    services.add(GetUserHandler(db))
+    services.add(CreateUserHandler(db))
     mediator = Mediator(resolver)
 
     # Create a user
@@ -144,7 +144,7 @@ One of the key benefits of async is the ability to process multiple requests con
 ```python
 import asyncio
 from dataclasses import dataclass
-from pymediate import Request, SimpleResolver
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 @dataclass
@@ -168,8 +168,8 @@ class FetchApiHandler(Handler[FetchApiRequest]):
         )
 
 async def main():
-    resolver = SimpleResolver()
-    resolver.register(FetchApiHandler())
+    services = Services()
+    services.add(FetchApiHandler())
     mediator = Mediator(resolver)
 
     # Process multiple requests concurrently
@@ -199,7 +199,7 @@ Error handling works the same way in async handlers:
 ```python
 import asyncio
 from dataclasses import dataclass
-from pymediate import Request, SimpleResolver
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 class ValidationError(Exception):
@@ -222,8 +222,8 @@ class ProcessHandler(Handler[ProcessRequest]):
         return ProcessResponse(result=request.value * 2)
 
 async def main():
-    resolver = SimpleResolver()
-    resolver.register(ProcessHandler())
+    services = Services()
+    services.add(ProcessHandler())
     mediator = Mediator(resolver)
 
     try:
@@ -319,13 +319,13 @@ class GoodHandler(Handler[MyRequest]):
 
 ```python
 from fastapi import FastAPI, Depends
-from pymediate import Request, SimpleResolver
+from pymediate import Request, Services
 from pymediate.aio import Handler, Mediator
 
 app = FastAPI()
 
 # Setup mediator (typically done at startup)
-resolver = SimpleResolver()
+services = Services()
 mediator = Mediator(resolver)
 
 # Dependency injection

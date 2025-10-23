@@ -165,7 +165,7 @@ nav:
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quick-start.md
-    - Basic Concepts: getting-started/concepts.md
+    - Core Concepts: getting-started/concepts.md
   - User Guide:
     - Requests & Responses: guide/requests-responses.md
     - Handlers: guide/handlers.md
@@ -177,9 +177,7 @@ nav:
     - Basic Usage: examples/basic.md
     - Async/Await: examples/async.md
     - CQRS Pattern: examples/cqrs.md
-    - Event-Driven: examples/events.md
     - FastAPI Integration: examples/fastapi.md
-    - Complex Workflows: examples/workflows.md
   - API Reference:
     - Request: api/request.md
     - Handler: api/handler.md
@@ -187,14 +185,7 @@ nav:
     - Service Provider: api/service-provider.md
   - Advanced:
     - Type Safety: advanced/type-safety.md
-    - Performance: advanced/performance.md
-    - Architecture: advanced/architecture.md
-    - Best Practices: advanced/best-practices.md
     - Testing: advanced/testing.md
+    - Best Practices: advanced/best-practices.md
     - Troubleshooting: advanced/troubleshooting.md
-  - Development:
-    - Contributing: development/contributing.md
-    - Development Setup: development/setup.md
-    - Running Tests: development/testing.md
-    - Release Process: development/releases.md
   - Changelog: changelog.md

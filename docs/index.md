@@ -45,7 +45,7 @@ PyMediate is a modern, type-safe implementation of the [Mediator Pattern](https:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, SimpleResolver
+from pymediate import Request, Handler, Mediator, Services
 
 # Define response and request as pure dataclasses
 @dataclass
@@ -65,8 +65,8 @@ class CreateUserHandler(Handler[CreateUser]):
         return UserCreated(user_id=user_id, username=req.username)
 
 # Set up and use
-resolver = SimpleResolver()
-resolver.register(CreateUser, CreateUserHandler())
+services = Services()
+services.add(CreateUser, CreateUserHandler())
 mediator = Mediator(resolver)
 
 # Send request - type-safe end-to-end

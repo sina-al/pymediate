@@ -29,7 +29,7 @@
 - **Async/Await Support**: First-class async handlers and mediators via `pymediate.aio`
 - **DI Ready**: Built-in dependency-injector integration
 - **Dataclass Friendly**: Works seamlessly with `@dataclass` and Request[T] inheritance
-- **Well Tested**: 135+ tests with 96%+ coverage
+- **Well Tested**: comprehensive test suite
 
 ## Quick Example
 
