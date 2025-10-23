@@ -35,7 +35,7 @@
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, SimpleResolver
+from pymediate import Request, Handler, Mediator, ServiceCollection
 
 # Define response and request as pure dataclasses
 @dataclass
@@ -54,9 +54,10 @@ class CreateUserHandler(Handler[CreateUser]):
         return UserCreated(user_id=1, username=req.username)
 
 # Set up and use
-resolver = SimpleResolver()
-resolver.register(CreateUserHandler())
-mediator = Mediator(resolver)
+services = ServiceCollection()
+services.add(CreateUserHandler())
+provider = services.build_provider()
+mediator = Mediator(provider)
 
 response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 print(f"User {response.username} created with ID {response.user_id}")
@@ -69,7 +70,7 @@ PyMediate provides first-class async/await support through the `pymediate.aio` p
 ```python
 import asyncio
 from dataclasses import dataclass
-from pymediate import Request, SimpleResolver
+from pymediate import Request, ServiceCollection
 from pymediate.aio import Handler, Mediator
 
 @dataclass
@@ -89,9 +90,10 @@ class CreateUserHandler(Handler[CreateUser]):
         return UserCreated(user_id=1, username=req.username)
 
 async def main():
-    resolver = SimpleResolver()
-    resolver.register(CreateUserHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(CreateUserHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
     print(f"User {response.username} created with ID {response.user_id}")

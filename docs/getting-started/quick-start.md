@@ -68,17 +68,18 @@ class CreateUserHandler(Handler[CreateUser]):
 
 ### Step 4: Set Up the Mediator
 
-Create a mediator and register your handler:
+Create a service collection, build a provider, and create a mediator:
 
 ```python
-from pymediate import Mediator, SimpleResolver
+from pymediate import Mediator, ServiceCollection
 
-# Create resolver and register handler
-resolver = SimpleResolver()
-resolver.register(CreateUserHandler())
+# Create service collection and add handler
+services = ServiceCollection()
+services.add(CreateUserHandler())
 
-# Create mediator
-mediator = Mediator(resolver)
+# Build provider and create mediator
+provider = services.build_provider()
+mediator = Mediator(provider)
 ```
 
 ### Step 5: Use It!
@@ -101,7 +102,7 @@ Here's the complete code in one file:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, SimpleResolver
+from pymediate import Request, Handler, Mediator, ServiceCollection
 
 # 1. Define response
 @dataclass
@@ -138,9 +139,10 @@ class CreateUserHandler(Handler[CreateUser]):
         )
 
 # 4. Set up mediator
-resolver = SimpleResolver()
-resolver.register(CreateUserHandler())
-mediator = Mediator(resolver)
+services = ServiceCollection()
+services.add(CreateUserHandler())
+provider = services.build_provider()
+mediator = Mediator(provider)
 
 # 5. Use it!
 response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
@@ -164,6 +166,7 @@ class WrongHandler(Handler[CreateUser]):
 PyMediate also supports async/await for asynchronous operations:
 
 ```python
+from pymediate import ServiceCollection
 from pymediate.aio import Handler, Mediator
 
 class CreateUserHandler(Handler[CreateUser]):
@@ -176,8 +179,12 @@ class CreateUserHandler(Handler[CreateUser]):
             email=request.email
         )
 
-# Use async mediator
-mediator = Mediator(resolver)
+# Set up async mediator
+services = ServiceCollection()
+services.add(CreateUserHandler())
+provider = services.build_provider()
+mediator = Mediator(provider)
+
 response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
 ```
 

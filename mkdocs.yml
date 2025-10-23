@@ -170,7 +170,6 @@ nav:
     - Requests & Responses: guide/requests-responses.md
     - Handlers: guide/handlers.md
     - Mediator: guide/mediator.md
-    - Resolvers: guide/resolvers.md
     - Dependency Injection: guide/dependency-injection.md
     - Dataclasses: guide/dataclasses.md
     - Error Handling: guide/error-handling.md
@@ -185,8 +184,7 @@ nav:
     - Request: api/request.md
     - Handler: api/handler.md
     - Mediator: api/mediator.md
-    - Resolvers: api/resolvers.md
-    - DI Integration: api/di-resolver.md
+    - Service Provider: api/service-provider.md
   - Advanced:
     - Type Safety: advanced/type-safety.md
     - Performance: advanced/performance.md

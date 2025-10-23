@@ -47,9 +47,6 @@ Main Components:
     - Mediator: Routes requests to handlers (sync version)
     - ServiceProvider: Protocol for resolving service instances
     - ServiceCollection: Builder for registering services
-    - Resolver: Protocol for resolving handler instances (legacy)
-    - SimpleResolver: Dict-based resolver implementation (legacy)
-    - DependencyInjectorResolver: DI container integration (legacy)
 
 Async Support:
     For asynchronous operations, use the async variants from pymediate.aio:
@@ -85,15 +82,11 @@ from .errors import (
 from .handler import Handler
 from .mediator import Mediator
 from .request import Request
-from .resolvers import DependencyInjectorResolver, Resolver, SimpleResolver
 from .service import ServiceCollection, ServiceNotFoundError, ServiceProvider
 
 __all__ = [
     "Request",
     "Handler",
-    "Resolver",
-    "SimpleResolver",
-    "DependencyInjectorResolver",
     "Mediator",
     # Service Provider
     "ServiceProvider",

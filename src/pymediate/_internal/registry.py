@@ -190,7 +190,7 @@ def get_handler_class(request_type: type) -> type | None:
 
     Note:
         This is an internal API for PyMediate developers. For resolving
-        handler instances, use a Resolver instead of calling this directly.
+        handler instances, use a ServiceProvider instead of calling this directly.
     """
     with _handler_lock:
         return _HANDLER_REGISTRY.get(request_type)
