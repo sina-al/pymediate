@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 
-from pymediate import Request, SimpleResolver
+from pymediate import Request, ServiceCollection
 from pymediate.aio import Handler, Mediator
 
 
@@ -24,9 +24,10 @@ class MyHandler(Handler[MyRequest]):
 
 
 async def main() -> None:
-    resolver = SimpleResolver()
-    resolver.register(MyRequest, MyHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(MyRequest, MyHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     # ERROR: Missing await - returns coroutine, not Response
     mediator.send(MyRequest(data=10))

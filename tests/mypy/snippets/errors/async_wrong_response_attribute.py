@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 
-from pymediate import Request, SimpleResolver
+from pymediate import Request, ServiceCollection
 from pymediate.aio import Handler, Mediator
 
 
@@ -25,9 +25,10 @@ class GetUserHandler(Handler[GetUserRequest]):
 
 
 async def main() -> None:
-    resolver = SimpleResolver()
-    resolver.register(GetUserRequest, GetUserHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(GetUserRequest, GetUserHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     response = await mediator.send(GetUserRequest(user_id=1))
 

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from pymediate import Handler, Mediator, Request, SimpleResolver
+from pymediate import Handler, Mediator, Request, ServiceCollection
 
 
 @dataclass
@@ -27,9 +27,10 @@ class GetUserHandler(Handler[GetUserRequest]):
         return UserResponse(user_id=1, username="alice")
 
 
-resolver = SimpleResolver()
-resolver.register(GetUserRequest, GetUserHandler())
-mediator = Mediator(resolver)
+services = ServiceCollection()
+services.add(GetUserRequest, GetUserHandler())
+provider = services.build_provider()
+mediator = Mediator(provider)
 
 request = GetUserRequest(user_id=1)
 

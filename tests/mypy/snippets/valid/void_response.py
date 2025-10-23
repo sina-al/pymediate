@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from pymediate import Handler, Mediator, Request, SimpleResolver
+from pymediate import Handler, Mediator, Request, ServiceCollection
 
 
 @dataclass
@@ -17,9 +17,10 @@ class DeleteUserHandler(Handler[DeleteUserRequest]):
 
 
 # Usage
-resolver = SimpleResolver()
-resolver.register(DeleteUserRequest, DeleteUserHandler())
-mediator = Mediator(resolver)
+services = ServiceCollection()
+services.add(DeleteUserRequest, DeleteUserHandler())
+provider = services.build_provider()
+mediator = Mediator(provider)
 
 request = DeleteUserRequest(user_id=1)
 response = mediator.send(request)

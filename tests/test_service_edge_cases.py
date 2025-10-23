@@ -19,8 +19,7 @@ from typing import Protocol, runtime_checkable
 
 import pytest
 
-from pymediate.service import ServiceCollection, ServiceNotFoundError, _Provider
-
+from pymediate.service import ServiceCollection, ServiceNotFoundError
 
 # ==================== Inheritance Test Fixtures ====================
 

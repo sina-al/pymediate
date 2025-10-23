@@ -80,23 +80,26 @@ class ApplicationContainer(containers.DeclarativeContainer):
     # Handler with injected email service
     send_email_handler = providers.Factory(SendEmailHandler, email_service=email_service)
 
-    # Self-reference for resolver
+    # Self-reference for service provider
     __self__ = providers.Self()
 
     # Mediator
+    from pymediate.service_providers import DependencyInjectorServiceProvider
+
     mediator: providers.Singleton[Mediator] = providers.Singleton(
-        Mediator, resolver=providers.Singleton(DependencyInjectorResolver, container=__self__)
+        Mediator,
+        service_provider=providers.Singleton(DependencyInjectorServiceProvider, container=__self__),
     )
 
 
 def test_di_resolver_basic() -> None:
-    """Test basic DI resolver functionality."""
+    """Test basic DI service provider functionality."""
     container = ApplicationContainer()
     container.config.smtp.host.from_value("smtp.example.com")
     container.config.smtp.port.from_value(587)
 
-    resolver = container.mediator()._resolver
-    handler = resolver.resolve(SendEmailHandler)
+    service_provider = container.mediator()._service_provider
+    handler = service_provider.resolve(SendEmailHandler)
 
     assert isinstance(handler, SendEmailHandler)
     assert handler.email_service.smtp_host == "smtp.example.com"
@@ -227,8 +230,12 @@ class MultiHandlerContainer(containers.DeclarativeContainer):
 
     # Mediator
     __self__ = providers.Self()
+
+    from pymediate.service_providers import DependencyInjectorServiceProvider
+
     mediator: providers.Singleton[Mediator] = providers.Singleton(
-        Mediator, resolver=providers.Singleton(DependencyInjectorResolver, container=__self__)
+        Mediator,
+        service_provider=providers.Singleton(DependencyInjectorServiceProvider, container=__self__),
     )
 
 

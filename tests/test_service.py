@@ -12,7 +12,7 @@ Tests cover:
 
 import pytest
 
-from pymediate.service import ServiceCollection, ServiceNotFoundError, ServiceProvider, _Provider
+from pymediate.service import ServiceCollection, ServiceNotFoundError
 
 
 # Test fixtures - various service classes for testing
@@ -166,7 +166,11 @@ def test_build_provider() -> None:
 
     provider = services.build_provider()
 
-    assert isinstance(provider, _Provider)
+    # Provider should have all required methods
+    assert hasattr(provider, "resolve")
+    assert hasattr(provider, "resolve_all")
+    assert hasattr(provider, "has")
+    assert hasattr(provider, "get_all_types")
     assert len(provider) == 1
 
 

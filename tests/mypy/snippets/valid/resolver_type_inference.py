@@ -1,8 +1,8 @@
-"""Resolver.resolve() returns correctly typed handler - should pass mypy."""
+"""ServiceProvider.resolve() returns correctly typed handler - should pass mypy."""
 
 from dataclasses import dataclass
 
-from pymediate import Handler, Request, SimpleResolver
+from pymediate import Handler, Request, ServiceCollection
 
 
 @dataclass
@@ -21,11 +21,12 @@ class GetUserHandler(Handler[GetUserRequest]):
 
 
 # Setup
-resolver = SimpleResolver()
-resolver.register(GetUserRequest, GetUserHandler())
+services = ServiceCollection()
+services.add(GetUserHandler())
+provider = services.build_provider()
 
-# Resolver should return correctly typed handler
-handler = resolver.resolve(GetUserRequest)
+# ServiceProvider should return correctly typed handler
+handler = provider.resolve(GetUserHandler)
 
 # Mypy should know handler accepts GetUserRequest and returns UserResponse
 request = GetUserRequest(user_id=1)

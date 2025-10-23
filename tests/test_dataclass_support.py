@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, SimpleResolver
+from pymediate import Handler, Mediator, Request, ServiceCollection
 
 # ========== Basic Dataclass Support ==========
 
@@ -52,9 +52,10 @@ def test_basic_dataclass_with_pymediate() -> None:
     - Full type safety and IDE autocomplete support
     """
     handler = CreateUserHandler()
-    resolver = SimpleResolver()
-    resolver.register(handler)
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(handler)
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     request = CreateUserRequest(username="alice", email="alice@example.com")
     response = mediator.send(request)
@@ -108,14 +109,15 @@ class ExtendedHandler(Handler[ExtendedRequest]):
 
 def test_dataclass_request_inheritance() -> None:
     """Test that dataclass requests can have inheritance hierarchies."""
-    resolver = SimpleResolver()
+    services = ServiceCollection()
     base_handler = BaseHandler()
     extended_handler = ExtendedHandler()
 
-    resolver.register(base_handler)
-    resolver.register(extended_handler)
+    services.add(base_handler)
+    services.add(extended_handler)
 
-    mediator = Mediator(resolver)
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     base_response = mediator.send(BaseRequest(action="test"))
     assert base_response.status == "ok"
@@ -161,10 +163,11 @@ class HandlerB(Handler[RequestB]):
 
 def test_multiple_dataclass_requests_same_response() -> None:
     """Test that multiple request types can return the same response type."""
-    resolver = SimpleResolver()
-    resolver.register(HandlerA())
-    resolver.register(HandlerB())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(HandlerA())
+    services.add(HandlerB())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     resp_a = mediator.send(RequestA(value_a="test"))
     resp_b = mediator.send(RequestB(value_b=42))
@@ -205,9 +208,10 @@ class TimestampedHandler(Handler[TimestampedRequest]):
 
 def test_dataclass_with_mixin() -> None:
     """Test that dataclasses can use mixins with Request inheritance."""
-    resolver = SimpleResolver()
-    resolver.register(TimestampedHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(TimestampedHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     request = TimestampedRequest(data="test")
     response = mediator.send(request)
@@ -223,8 +227,6 @@ def test_dataclass_with_mixin() -> None:
 def test_dataclass_with_dependency_injection() -> None:
     """Test dataclass requests and responses with dependency injection."""
     from dependency_injector import containers, providers
-
-    from pymediate import DependencyInjectorResolver
 
     @dataclass
     class DIResponse:
@@ -257,9 +259,11 @@ def test_dataclass_with_dependency_injection() -> None:
         database = providers.Singleton(Database)
         user_handler = providers.Factory(DIHandler, database=database)
 
+    from pymediate.service_providers import DependencyInjectorServiceProvider
+
     container = DIContainer()
-    resolver = DependencyInjectorResolver(container)
-    mediator = Mediator(resolver)
+    provider = DependencyInjectorServiceProvider(container)
+    mediator = Mediator(provider)
 
     response = mediator.send(DIRequest(username="alice", email="alice@example.com"))
     assert response.user_id == 1
@@ -290,9 +294,10 @@ class EmptyHandler(Handler[EmptyRequest]):
 
 def test_empty_dataclasses() -> None:
     """Test that empty dataclasses work with PyMediate."""
-    resolver = SimpleResolver()
-    resolver.register(EmptyHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(EmptyHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     response = mediator.send(EmptyRequest())
     assert isinstance(response, EmptyResponse)

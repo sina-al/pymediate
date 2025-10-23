@@ -20,9 +20,8 @@ from pymediate import (
     SimpleResolver,
 )
 
+
 # ========== Basic Functionality Tests ==========
-
-
 def test_simple_resolver_creation() -> None:
     """Test that SimpleResolver can be created."""
     resolver = SimpleResolver()
@@ -68,8 +67,6 @@ def test_resolver_with_empty_handlers_dict() -> None:
 
 
 # ========== Registration and Resolution Tests ==========
-
-
 def test_register_handler() -> None:
     """Test registering a handler."""
 
@@ -203,8 +200,6 @@ def test_resolver_preserves_handler_state() -> None:
 
 
 # ========== Type Safety Tests ==========
-
-
 @dataclass
 class TypeSafeResponse1:
     value: int
@@ -306,8 +301,6 @@ def test_handler_replacement_type_safety() -> None:
 
 
 # ========== Multiple Resolvers Tests ==========
-
-
 def test_multiple_resolvers_independence() -> None:
     """Test that multiple resolver instances are independent."""
     resolver1 = SimpleResolver()
@@ -325,8 +318,6 @@ def test_multiple_resolvers_independence() -> None:
 
 
 # ========== Integration with Mediator ==========
-
-
 def test_resolver_with_mediator() -> None:
     """Test resolver integration with Mediator."""
 
@@ -344,7 +335,9 @@ def test_resolver_with_mediator() -> None:
         def __init__(self) -> None:
             self.next_id = 1
 
-        def __call__(self, request: MediatorTestCreateUserRequest) -> MediatorTestUserCreatedResponse:
+        def __call__(
+            self, request: MediatorTestCreateUserRequest
+        ) -> MediatorTestUserCreatedResponse:
             user_id = self.next_id
             self.next_id += 1
             return MediatorTestUserCreatedResponse(user_id=user_id, username=request.username)
@@ -355,15 +348,15 @@ def test_resolver_with_mediator() -> None:
     resolver.register(handler)
 
     mediator = Mediator(resolver)
-    response = mediator.send(MediatorTestCreateUserRequest(username="alice", email="alice@example.com"))
+    response = mediator.send(
+        MediatorTestCreateUserRequest(username="alice", email="alice@example.com")
+    )
 
     assert response.user_id == 1
     assert response.username == "alice"
 
 
 # ========== Edge Cases ==========
-
-
 def test_resolver_handles_untyped_handler_gracefully() -> None:
     """Test that resolver can store any handler instance."""
     resolver = SimpleResolver()

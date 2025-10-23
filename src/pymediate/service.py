@@ -402,6 +402,39 @@ class ServiceProvider(Protocol):
         """
         ...
 
+    def __len__(self) -> int:
+        """Return the total number of registered service instances.
+
+        Returns the total count of all registered instances across all types.
+        If the same instance is registered multiple times, it is counted
+        multiple times.
+
+        Returns:
+            Total count of all registered instances. Returns 0 if no
+            services are registered.
+
+        Example:
+            ```python
+            services.add(ServiceA())
+            services.add(ServiceB())
+            services.add(ServiceA())  # Second instance
+
+            provider = services.build_provider()
+            assert len(provider) == 3  # Total instances, not unique types
+            ```
+
+        Thread Safety:
+            This method MUST be thread-safe. Multiple threads can call it
+            concurrently.
+
+        Performance:
+            Implementations SHOULD provide O(1) lookup.
+
+        See Also:
+            - get_all_types(): To get count of unique types
+        """
+        ...
+
 
 class ServiceCollection:
     """Mutable collection for registering service instances.

@@ -9,7 +9,7 @@ from pymediate import (
     InvalidHandlerSignatureError,
     Request,
     ResponseTypeMismatchError,
-    SimpleResolver,
+    ServiceCollection,
 )
 from pymediate._internal.registry import get_handler_class, has_handler
 from pymediate.aio import Handler, Mediator
@@ -153,8 +153,9 @@ async def test_async_handler_call() -> None:
 @pytest.mark.asyncio
 async def test_async_mediator_creation() -> None:
     """Test that async Mediator can be created with a resolver."""
-    resolver = SimpleResolver()
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    provider = services.build_provider()
+    mediator = Mediator(provider)
     assert mediator is not None
 
 
@@ -175,9 +176,10 @@ async def test_async_mediator_send_request() -> None:
             await asyncio.sleep(0.001)
             return GreetingResponse(f"Hello, {request.name}!")
 
-    resolver = SimpleResolver()
-    resolver.register(GreetingHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(GreetingHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     request = GreetingRequest("Alice")
     response = await mediator.send(request)
@@ -197,8 +199,9 @@ async def test_async_mediator_send_unregistered_request() -> None:
         def __init__(self, data: str):
             self.data = data
 
-    resolver = SimpleResolver()
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     with pytest.raises(HandlerNotFoundError):
         await mediator.send(UnhandledReq("test"))
@@ -236,10 +239,11 @@ async def test_async_mediator_with_multiple_handlers() -> None:
             await asyncio.sleep(0.001)
             return MultiplyResponse(request.a * request.b)
 
-    resolver = SimpleResolver()
-    resolver.register(AddHandler())
-    resolver.register(MultiplyHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(AddHandler())
+    services.add(MultiplyHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     add_result = await mediator.send(AddRequest(5, 3))
     mult_result = await mediator.send(MultiplyRequest(5, 3))
@@ -268,10 +272,11 @@ async def test_async_mediator_with_stateful_handler() -> None:
             self.count += 1
             return CountResponse(self.count)
 
-    resolver = SimpleResolver()
+    services = ServiceCollection()
     handler = CounterHandler()
-    resolver.register(handler)
-    mediator = Mediator(resolver)
+    services.add(handler)
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     resp1 = await mediator.send(CountRequest())
     resp2 = await mediator.send(CountRequest())
@@ -304,9 +309,10 @@ async def test_async_handler_with_actual_async_operations() -> None:
             data = await mock_fetch(request.url)
             return FetchResponse(data)
 
-    resolver = SimpleResolver()
-    resolver.register(FetchHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(FetchHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     response = await mediator.send(FetchRequest("https://example.com"))
     assert response.data == "data from https://example.com"
@@ -327,9 +333,10 @@ async def test_async_mediator_error_propagation() -> None:
             await asyncio.sleep(0.001)
             raise RuntimeError("Async handler error")
 
-    resolver = SimpleResolver()
-    resolver.register(ErrorHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(ErrorHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     with pytest.raises(RuntimeError, match="Async handler error"):
         await mediator.send(ErrorRequest())
@@ -353,9 +360,10 @@ async def test_async_mediator_concurrent_requests() -> None:
             await asyncio.sleep(request.delay)
             return SlowResponse(request.value * 2)
 
-    resolver = SimpleResolver()
-    resolver.register(SlowHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(SlowHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     # Send three concurrent requests
     results = await asyncio.gather(
@@ -393,9 +401,10 @@ async def test_async_handler_with_complex_async_flow() -> None:
             results = await asyncio.gather(*[process_item(item) for item in request.items])
             return ProcessResponse(list(results))
 
-    resolver = SimpleResolver()
-    resolver.register(ProcessHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(ProcessHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     response = await mediator.send(ProcessRequest([1, 2, 3, 4, 5]))
     assert response.results == [1, 4, 9, 16, 25]

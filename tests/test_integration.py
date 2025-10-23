@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, ResponseTypeMismatchError, SimpleResolver
+from pymediate import Handler, Mediator, Request, ResponseTypeMismatchError, ServiceCollection
 
 
 def test_complete_workflow() -> None:
@@ -32,9 +32,10 @@ def test_complete_workflow() -> None:
             return UserCreatedResponse(user_id, request.username)
 
     # Set up mediator
-    resolver = SimpleResolver()
-    resolver.register(CreateUserHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(CreateUserHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     # Execute request
     request = CreateUserRequest("alice", "alice@example.com")
@@ -85,10 +86,11 @@ def test_multiple_request_types_workflow() -> None:
             return OrderResponse(order_id, total)
 
     # Set up
-    resolver = SimpleResolver()
-    resolver.register(GetUserHandler())
-    resolver.register(CreateOrderHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(GetUserHandler())
+    services.add(CreateOrderHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     # Execute multiple requests
     user = mediator.send(GetUserRequest(42))
@@ -160,10 +162,11 @@ def test_handler_composition() -> None:
             return PostCreatedResponse(post_id, user_name)
 
     # Set up
-    resolver = SimpleResolver()
-    resolver.register(CreateUserHandler())
-    resolver.register(CreatePostHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(CreateUserHandler())
+    services.add(CreatePostHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     # Create user first
     user_response = mediator.send(CreateUserRequest("Bob"))
@@ -219,19 +222,21 @@ def test_resolver_switching() -> None:
         def __call__(self, request: Req) -> Resp:
             return Resp(self.source)
 
-    # Create two resolvers with different handler instances
-    resolver1 = SimpleResolver()
-    resolver1.register(ReqHandler("handler1"))
+    # Create two service providers with different handler instances
+    services1 = ServiceCollection()
+    services1.add(ReqHandler("handler1"))
+    provider1 = services1.build_provider()
 
-    resolver2 = SimpleResolver()
-    resolver2.register(ReqHandler("handler2"))
+    services2 = ServiceCollection()
+    services2.add(ReqHandler("handler2"))
+    provider2 = services2.build_provider()
 
-    # Use first resolver
-    mediator1 = Mediator(resolver1)
+    # Use first service provider
+    mediator1 = Mediator(provider1)
     resp1 = mediator1.send(Req())
     assert resp1.source == "handler1"
 
-    # Use second resolver
-    mediator2 = Mediator(resolver2)
+    # Use second service provider
+    mediator2 = Mediator(provider2)
     resp2 = mediator2.send(Req())
     assert resp2.source == "handler2"

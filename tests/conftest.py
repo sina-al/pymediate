@@ -4,8 +4,6 @@ from collections.abc import Generator
 
 import pytest
 
-from pymediate._internal.registry import clear_all_registries
-
 # Check if dependency-injector is available
 try:
     import dependency_injector  # noqa: F401
@@ -31,7 +29,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 @pytest.fixture(autouse=True)
-def clear_registries() -> Generator[None, None, None]:
+def clear_registries() -> Generator[None]:
     """Clear registries before each test to ensure test isolation.
 
     This fixture runs automatically before each test to prevent

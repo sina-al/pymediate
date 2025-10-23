@@ -16,7 +16,7 @@ Key Features:
 Quick Example:
     ```python
     from dataclasses import dataclass
-    from pymediate import Request, Handler, Mediator, SimpleResolver
+    from pymediate import Request, Handler, Mediator, ServiceCollection
 
     @dataclass
     class UserCreated:
@@ -32,9 +32,10 @@ Quick Example:
         def __call__(self, req: CreateUser) -> UserCreated:
             return UserCreated(user_id=1, username=req.username)
 
-    resolver = SimpleResolver()
-    resolver.register(CreateUser, CreateUserHandler())
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(CreateUserHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
 
     response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
     print(f"User {response.username} created with ID {response.user_id}")
@@ -44,13 +45,16 @@ Main Components:
     - Request: Base class for all requests
     - Handler: Base class for synchronous handlers
     - Mediator: Routes requests to handlers (sync version)
-    - Resolver: Protocol for resolving handler instances
-    - SimpleResolver: Dict-based resolver implementation
-    - DependencyInjectorResolver: DI container integration
+    - ServiceProvider: Protocol for resolving service instances
+    - ServiceCollection: Builder for registering services
+    - Resolver: Protocol for resolving handler instances (legacy)
+    - SimpleResolver: Dict-based resolver implementation (legacy)
+    - DependencyInjectorResolver: DI container integration (legacy)
 
 Async Support:
     For asynchronous operations, use the async variants from pymediate.aio:
     ```python
+    from pymediate import ServiceCollection
     from pymediate.aio import Handler, Mediator
 
     class AsyncHandler(Handler[CreateUser]):
@@ -59,7 +63,10 @@ Async Support:
             result = await async_database_operation(req)
             return UserCreated(user_id=result.id, username=req.username)
 
-    mediator = Mediator(resolver)
+    services = ServiceCollection()
+    services.add(AsyncHandler())
+    provider = services.build_provider()
+    mediator = Mediator(provider)
     response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
     ```
 
@@ -79,6 +86,7 @@ from .handler import Handler
 from .mediator import Mediator
 from .request import Request
 from .resolvers import DependencyInjectorResolver, Resolver, SimpleResolver
+from .service import ServiceCollection, ServiceNotFoundError, ServiceProvider
 
 __all__ = [
     "Request",
@@ -87,6 +95,10 @@ __all__ = [
     "SimpleResolver",
     "DependencyInjectorResolver",
     "Mediator",
+    # Service Provider
+    "ServiceProvider",
+    "ServiceCollection",
+    "ServiceNotFoundError",
     # Errors
     "PyMediateError",
     "HandlerNotFoundError",

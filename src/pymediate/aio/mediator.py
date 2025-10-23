@@ -6,11 +6,11 @@ from ..request import Request
 
 
 class Mediator(MediatorBaseMixin):
-    """Asynchronous mediator that routes requests to their handlers using a resolver.
+    """Asynchronous mediator that routes requests to their handlers using a service provider.
 
     The mediator is the central coordination point in the mediator pattern.
     It receives requests, looks up the appropriate handler type from the registry,
-    uses a resolver to obtain a handler instance, then delegates the actual
+    uses a service provider to obtain a handler instance, then delegates the actual
     processing to that handler.
 
     This async variant is designed to work with async handlers (pymediate.aio.Handler).
@@ -21,13 +21,14 @@ class Mediator(MediatorBaseMixin):
     type is automatically inferred as ResponseT by the type checker.
 
     Attributes:
-        _resolver: The resolver instance used to obtain handler instances.
+        _service_provider: The service provider instance used to obtain handler instances.
 
     Examples:
-        Basic usage with SimpleResolver:
+        Basic usage with ServiceCollection:
             ```python
             import asyncio
-            from pymediate import Request, SimpleResolver
+            from pymediate import Request
+            from pymediate.service import ServiceCollection
             from pymediate.aio import Handler, Mediator
 
             @dataclass
@@ -46,10 +47,11 @@ class Mediator(MediatorBaseMixin):
                     return UserResponse(user_id=1, username=request.username)
 
             async def main():
-                resolver = SimpleResolver()
-                resolver.register(CreateUserHandler())
+                services = ServiceCollection()
+                services.add(CreateUserHandler())
+                provider = services.build_provider()
 
-                mediator = Mediator(resolver)
+                mediator = Mediator(provider)
                 response = await mediator.send(CreateUserRequest(username="alice"))
                 # response is correctly typed as UserResponse
                 print(response.user_id)
@@ -59,26 +61,28 @@ class Mediator(MediatorBaseMixin):
 
         Usage with dependency injection:
             ```python
+            from pymediate.service_providers import DependencyInjectorServiceProvider
+
             async def main():
                 container = AppContainer()
-                resolver = DependencyInjectorResolver(container)
-                mediator = Mediator(resolver)
+                provider = DependencyInjectorServiceProvider(container)
+                mediator = Mediator(provider)
 
                 response = await mediator.send(CreateUserRequest(username="alice"))
             ```
 
     Note:
         The mediator looks up handler types from the registry (which maps
-        request types to handler types), then uses the resolver to instantiate
-        the handler. This separation of concerns means the resolver only needs
+        request types to handler types), then uses the service provider to instantiate
+        the handler. This separation of concerns means the service provider only needs
         to know about handler instantiation, not request-to-handler mapping.
 
         For synchronous mediator, use `pymediate.Mediator` instead.
 
     See Also:
-        - Resolver: Protocol for resolving handler instances
-        - SimpleResolver: Dict-based resolver implementation
-        - DependencyInjectorResolver: DI container-based resolver
+        - ServiceProvider: Protocol for resolving service instances
+        - ServiceCollection: Manual service registration
+        - DependencyInjectorServiceProvider: DI container integration
         - pymediate.Mediator: Sync mediator variant
         - pymediate.aio.Handler: Async handler variant
     """
@@ -123,11 +127,13 @@ class Mediator(MediatorBaseMixin):
         Type Parameters:
             ResponseT: The response type, inferred from Request[ResponseT].
         """
+        from typing import Any
+
         from .. import errors
 
         request_type = type(request)
         handler_class = registry.get_handler_class(request_type)
         if handler_class is None:
             raise errors.HandlerNotFoundError(request_type, [])
-        handler = self._resolver.resolve(handler_class)
+        handler: Any = self._service_provider.resolve(handler_class)
         return await handler(request)  # type: ignore[no-any-return]
