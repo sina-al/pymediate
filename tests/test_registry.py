@@ -303,8 +303,11 @@ def test_direct_registration_via_api() -> None:
     assert get_response_type(CustomRequest) == CustomResponse
 
 
-def test_handler_overwrite() -> None:
-    """Test that registering a new handler overwrites the previous one."""
+def test_handler_already_registered_error() -> None:
+    """Test that attempting to register a second handler raises HandlerAlreadyRegisteredError."""
+    import pytest
+
+    from pymediate import HandlerAlreadyRegisteredError
 
     class Response:
         pass
@@ -318,9 +321,107 @@ def test_handler_overwrite() -> None:
 
     assert get_handler_class(TestRequest) == Handler1
 
-    class Handler2(Handler[TestRequest]):
+    # Attempting to register a second handler should raise error
+    with pytest.raises(HandlerAlreadyRegisteredError) as exc_info:
+
+        class Handler2(Handler[TestRequest]):
+            def __call__(self, request: TestRequest) -> Response:
+                return Response()
+
+    # Verify error details
+    error = exc_info.value
+    assert error.request_type == TestRequest
+    assert error.existing_handler == Handler1
+    assert "Handler1" in str(error)
+    assert "Handler2" in str(error)
+
+
+def test_handler_registration_error_preserves_first_handler() -> None:
+    """Test that the first handler remains registered after registration error."""
+    import pytest
+
+    from pymediate import HandlerAlreadyRegisteredError
+
+    class Response:
+        pass
+
+    class TestRequest(Request[Response]):
+        pass
+
+    class Handler1(Handler[TestRequest]):
         def __call__(self, request: TestRequest) -> Response:
             return Response()
 
-    # Handler2 should have overwritten Handler1
-    assert get_handler_class(TestRequest) == Handler2
+    # Verify first handler is registered
+    assert get_handler_class(TestRequest) == Handler1
+
+    # Attempt to register second handler
+    with pytest.raises(HandlerAlreadyRegisteredError):
+
+        class Handler2(Handler[TestRequest]):
+            def __call__(self, request: TestRequest) -> Response:
+                return Response()
+
+    # First handler should still be registered
+    assert get_handler_class(TestRequest) == Handler1
+
+
+def test_handler_registration_error_includes_location() -> None:
+    """Test that registration error includes file location when available."""
+    import pytest
+
+    from pymediate import HandlerAlreadyRegisteredError
+
+    class Response:
+        pass
+
+    class TestRequest(Request[Response]):
+        pass
+
+    class Handler1(Handler[TestRequest]):
+        def __call__(self, request: TestRequest) -> Response:
+            return Response()
+
+    # Attempt to register second handler
+    with pytest.raises(HandlerAlreadyRegisteredError) as exc_info:
+
+        class Handler2(Handler[TestRequest]):
+            def __call__(self, request: TestRequest) -> Response:
+                return Response()
+
+    # Error should have location info (may be <frozen abc> due to protocol machinery)
+    error = exc_info.value
+    assert error.existing_location is not None
+    # Location should have format "filename:lineno"
+    assert ":" in error.existing_location
+
+
+def test_handler_registration_error_provides_solutions() -> None:
+    """Test that registration error provides actionable solutions."""
+    import pytest
+
+    from pymediate import HandlerAlreadyRegisteredError
+
+    class Response:
+        pass
+
+    class TestRequest(Request[Response]):
+        pass
+
+    class Handler1(Handler[TestRequest]):
+        def __call__(self, request: TestRequest) -> Response:
+            return Response()
+
+    # Attempt to register second handler
+    with pytest.raises(HandlerAlreadyRegisteredError) as exc_info:
+
+        class Handler2(Handler[TestRequest]):
+            def __call__(self, request: TestRequest) -> Response:
+                return Response()
+
+    # Error message should provide helpful solutions
+    error_message = str(exc_info.value)
+    assert "Solutions:" in error_message or "Solution:" in error_message
+    assert "ONE handler" in error_message
+    # Should suggest using different request types
+    assert "V1" in error_message or "different request types" in error_message.lower()

@@ -263,6 +263,116 @@ handler = resolver.resolve(MyRequest)
        handler_b = providers.Factory(HandlerB, handler_a=handler_a)  # ✅
    ```
 
+### HandlerAlreadyRegisteredError
+
+**Problem:** You get `HandlerAlreadyRegisteredError` when trying to define a second handler for the same request:
+
+```python
+class CreateUserHandler(Handler[CreateUserRequest]):
+    def __call__(self, request: CreateUserRequest) -> UserResponse:
+        return UserResponse(user_id=1, username=request.username)
+
+class CreateUserHandlerV2(Handler[CreateUserRequest]):  # ❌ Error!
+    def __call__(self, request: CreateUserRequest) -> UserResponse:
+        return UserResponse(user_id=2, username=request.username)
+
+# HandlerAlreadyRegisteredError: Handler already registered for 'CreateUserRequest'
+```
+
+**Cause:** PyMediate enforces a strict one-handler-per-request-type policy. Each request type can only have a single handler. This prevents ambiguity about which handler should process a request and helps catch accidental duplicate registrations early.
+
+**Why This Policy Exists:**
+
+1. **Clarity:** Always know exactly which handler will process a request
+2. **Early Detection:** Catch configuration mistakes at class definition time
+3. **Simplicity:** No need to reason about handler precedence or ordering
+
+**Solutions:**
+
+1. **Remove one of the handler definitions (most common):**
+
+   If you accidentally created a duplicate, simply remove or comment out one:
+
+   ```python
+   # ✅ Keep only one handler
+   class CreateUserHandler(Handler[CreateUserRequest]):
+       def __call__(self, request: CreateUserRequest) -> UserResponse:
+           return UserResponse(user_id=1, username=request.username)
+   ```
+
+2. **Use different request types for different behaviors:**
+
+   If you genuinely need multiple handlers, use distinct request types:
+
+   ```python
+   # ✅ Different request types
+   @dataclass
+   class CreateUserRequest(Request[UserResponse]):
+       username: str
+       email: str
+
+   @dataclass
+   class CreateAdminUserRequest(Request[UserResponse]):
+       username: str
+       email: str
+       admin_level: int
+
+   class CreateUserHandler(Handler[CreateUserRequest]):
+       def __call__(self, request: CreateUserRequest) -> UserResponse:
+           return UserResponse(user_id=1, username=request.username)
+
+   class CreateAdminUserHandler(Handler[CreateAdminUserRequest]):
+       def __call__(self, request: CreateAdminUserRequest) -> UserResponse:
+           # Admin-specific logic
+           return UserResponse(user_id=2, username=request.username)
+   ```
+
+3. **Compose multiple behaviors into one handler:**
+
+   If you want to combine behaviors, use composition within a single handler:
+
+   ```python
+   # ✅ Compose behaviors
+   class CreateUserHandler(Handler[CreateUserRequest]):
+       def __init__(self, validator: UserValidator, mailer: EmailService):
+           self.validator = validator
+           self.mailer = mailer
+
+       def __call__(self, request: CreateUserRequest) -> UserResponse:
+           # Combine validation and email sending
+           self.validator.validate(request)
+           user = self.create_user(request)
+           self.mailer.send_welcome_email(user)
+           return UserResponse(user_id=user.id, username=user.username)
+   ```
+
+**Understanding the Error Message:**
+
+The error provides helpful context including:
+
+- The request type that has a conflict
+- The name of the existing handler
+- The name of the new handler attempting to register
+- The file and line number where the first handler was registered (when available)
+
+```
+⚠️  Handler already registered for 'CreateUserRequest'
+
+Existing handler: CreateUserHandler
+Attempting to register: CreateUserHandlerV2
+
+📍 First handler was registered at:
+   /path/to/handlers.py:42
+
+💡 Each request type can only have ONE handler.
+```
+
+**Debugging Tips:**
+
+1. **Check for duplicate imports:** Sometimes the same handler class is imported and defined multiple times
+2. **Review test isolation:** If you see this error in tests, ensure your tests properly clean up registries between runs
+3. **Check module-level definitions:** If handlers are defined at module level and imported multiple times, this can cause issues
+
 ## Type Checking Issues
 
 ### MyPy Errors

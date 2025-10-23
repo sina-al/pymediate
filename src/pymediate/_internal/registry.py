@@ -15,21 +15,38 @@ Thread Safety:
     threads are registering or looking up types concurrently.
 """
 
+import inspect
 import threading
-from typing import Any
+from dataclasses import dataclass
 
 # Module-level locks for thread safety
 _request_lock = threading.RLock()
 _handler_lock = threading.RLock()
+
+
+@dataclass(frozen=True)
+class HandlerRegistration:
+    """Tracks a handler class and where it was registered.
+
+    This groups handler metadata together for cleaner data management.
+
+    Attributes:
+        handler_class: The handler class registered for a request type.
+        location: File path and line number where handler was registered (for error messages).
+    """
+
+    handler_class: type
+    location: str | None
+
 
 # Internal registries - not for direct access
 # Maps request types to their response types
 # Example: {CreateUserRequest: UserCreatedResponse}
 _REQUEST_REGISTRY: dict[type, type] = {}
 
-# Maps request types to their handler classes
-# Example: {CreateUserRequest: CreateUserHandler}
-_HANDLER_REGISTRY: dict[type, Any] = {}
+# Maps request types to their handler registration info
+# Example: {CreateUserRequest: HandlerRegistration(CreateUserHandler, "/path/file.py:42")}
+_HANDLER_REGISTRY: dict[type, HandlerRegistration] = {}
 
 
 # ============================================================================
@@ -142,6 +159,48 @@ def get_all_request_types() -> list[type]:
 # ============================================================================
 
 
+def _get_user_code_location() -> str | None:
+    """Find the user's code location, skipping pymediate internal frames.
+
+    Walks up the call stack to find the first frame that's not inside the
+    pymediate package, which represents the user's handler definition.
+
+    Returns:
+        A string in the format "filename:lineno" or None if not found.
+
+    Note:
+        This is used for providing helpful error messages showing where
+        handlers were registered.
+    """
+    frame = inspect.currentframe()
+    if frame is None:
+        return None
+
+    try:
+        # Skip 2 frames: this function + register_handler
+        for _ in range(2):
+            if frame.f_back is None:
+                return None
+            frame = frame.f_back
+
+        # Walk up to find first non-pymediate frame
+        max_depth = 10
+        for _ in range(max_depth):
+            if frame is None:
+                return None
+
+            filename = frame.f_code.co_filename
+            # Skip pymediate package files (handle both Unix and Windows paths)
+            if "/pymediate/" not in filename and "\\pymediate\\" not in filename:
+                return f"{filename}:{frame.f_lineno}"
+
+            frame = frame.f_back
+
+        return None
+    finally:
+        del frame  # Avoid reference cycles
+
+
 def register_handler(request_type: type, handler_class: type) -> None:
     """Register a handler class for a request type.
 
@@ -149,11 +208,18 @@ def register_handler(request_type: type, handler_class: type) -> None:
     defined via __init_subclass__. It stores the mapping so handlers can be
     looked up by request type.
 
+    PyMediate enforces a one-handler-per-request policy. If a handler is already
+    registered for the given request type, this will raise HandlerAlreadyRegisteredError
+    with helpful information about where the first handler was registered.
+
     Thread-safe: Uses a lock to prevent race conditions in multi-threaded environments.
 
     Args:
         request_type: The request class this handler processes.
         handler_class: The handler class that processes this request type.
+
+    Raises:
+        HandlerAlreadyRegisteredError: If a handler is already registered for this request type.
 
     Examples:
         ```python
@@ -168,7 +234,28 @@ def register_handler(request_type: type, handler_class: type) -> None:
         by the Handler base class.
     """
     with _handler_lock:
-        _HANDLER_REGISTRY[request_type] = handler_class
+        # Check if handler already exists
+        if request_type in _HANDLER_REGISTRY:
+            existing = _HANDLER_REGISTRY[request_type]
+
+            # Import here to avoid circular dependency
+            from ..errors import HandlerAlreadyRegisteredError
+
+            raise HandlerAlreadyRegisteredError(
+                request_type=request_type,
+                existing_handler=existing.handler_class,
+                new_handler=handler_class,
+                existing_location=existing.location,
+            )
+
+        # Track registration location for better error messages
+        location = _get_user_code_location()
+
+        # Register the handler with its metadata
+        _HANDLER_REGISTRY[request_type] = HandlerRegistration(
+            handler_class=handler_class,
+            location=location,
+        )
 
 
 def get_handler_class(request_type: type) -> type | None:
@@ -193,7 +280,8 @@ def get_handler_class(request_type: type) -> type | None:
         handler instances, use a ServiceProvider instead of calling this directly.
     """
     with _handler_lock:
-        return _HANDLER_REGISTRY.get(request_type)
+        registration = _HANDLER_REGISTRY.get(request_type)
+        return registration.handler_class if registration else None
 
 
 def has_handler(request_type: type) -> bool:
@@ -247,6 +335,33 @@ def get_all_handler_request_types() -> list[type]:
 # ============================================================================
 
 
+def clear_handler_registry() -> None:
+    """Clear only handler registrations (for testing purposes only).
+
+    This function clears handler registrations while preserving request-response
+    type mappings. This is useful for test isolation where you want to clear
+    dynamic handler registrations but keep static type relationships.
+
+    Thread-safe: Uses a lock to ensure consistent state during clearing.
+
+    Examples:
+        ```python
+        # In a pytest fixture for test isolation
+        @pytest.fixture(autouse=True)
+        def cleanup():
+            yield
+            clear_handler_registry()
+        ```
+
+    Note:
+        This is an internal API for PyMediate testing. Prefer this over
+        clear_all_registries() for test isolation since request-response
+        type mappings are static relationships that don't need clearing.
+    """
+    with _handler_lock:
+        _HANDLER_REGISTRY.clear()
+
+
 def clear_all_registries() -> None:
     """Clear all registries (for testing purposes only).
 
@@ -269,7 +384,8 @@ def clear_all_registries() -> None:
         ```
 
     Note:
-        This is an internal API for PyMediate testing.
+        This is an internal API for PyMediate testing. For test isolation,
+        prefer clear_handler_registry() which only clears handlers.
     """
     with _request_lock:
         with _handler_lock:

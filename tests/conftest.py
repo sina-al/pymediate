@@ -30,14 +30,19 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 @pytest.fixture(autouse=True)
 def clear_registries() -> Generator[None]:
-    """Clear registries before each test to ensure test isolation.
+    """Clear handler registries after each test to ensure test isolation.
 
-    This fixture runs automatically before each test to prevent
-    test pollution from class registrations.
+    This fixture runs automatically after each test to prevent test pollution
+    from handler registrations. Handler classes should be defined within test
+    functions (not at module level) to work properly with this cleanup.
 
-    Note: We don't clear registries here because handler classes are typically
-    defined at module level and registered during import. Clearing would remove
-    those registrations. Instead, tests should be written to be independent.
+    Note:
+        - Request-response type mappings are NOT cleared (they're static type relationships)
+        - Only handler registrations are cleared to ensure test isolation
+        - Handler classes should be defined inside test functions for proper cleanup
     """
     yield
-    # No-op: Registry clearing disabled to allow module-level handler definitions
+    # Clear only handler registry after test completes (keep request-response mappings)
+    from pymediate._internal.registry import clear_handler_registry
+
+    clear_handler_registry()

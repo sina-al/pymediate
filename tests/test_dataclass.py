@@ -33,16 +33,6 @@ class CreateUserRequest(Request[UserResponse]):
     email: str
 
 
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __init__(self) -> None:
-        self.next_id = 1
-
-    def __call__(self, request: CreateUserRequest) -> UserResponse:
-        user_id = self.next_id
-        self.next_id += 1
-        return UserResponse(user_id=user_id, username=request.username, email=request.email)
-
-
 def test_basic_dataclass_with_pymediate() -> None:
     """Test basic dataclass request and response with PyMediate.
 
@@ -51,6 +41,16 @@ def test_basic_dataclass_with_pymediate() -> None:
     - Request inherits from Request[ResponseType]
     - Full type safety and IDE autocomplete support
     """
+
+    class CreateUserHandler(Handler[CreateUserRequest]):
+        def __init__(self) -> None:
+            self.next_id = 1
+
+        def __call__(self, request: CreateUserRequest) -> UserResponse:
+            user_id = self.next_id
+            self.next_id += 1
+            return UserResponse(user_id=user_id, username=request.username, email=request.email)
+
     handler = CreateUserHandler()
     services = Services()
     services.add(handler)
@@ -97,18 +97,17 @@ class ExtendedRequest(Request[ExtendedResponse]):
     payload: str
 
 
-class BaseHandler(Handler[BaseRequest]):
-    def __call__(self, request: BaseRequest) -> BaseResponse:
-        return BaseResponse(status="ok")
-
-
-class ExtendedHandler(Handler[ExtendedRequest]):
-    def __call__(self, request: ExtendedRequest) -> ExtendedResponse:
-        return ExtendedResponse(status="ok", data=request.payload)
-
-
 def test_dataclass_request_inheritance() -> None:
     """Test that dataclass requests can have inheritance hierarchies."""
+
+    class BaseHandler(Handler[BaseRequest]):
+        def __call__(self, request: BaseRequest) -> BaseResponse:
+            return BaseResponse(status="ok")
+
+    class ExtendedHandler(Handler[ExtendedRequest]):
+        def __call__(self, request: ExtendedRequest) -> ExtendedResponse:
+            return ExtendedResponse(status="ok", data=request.payload)
+
     services = Services()
     base_handler = BaseHandler()
     extended_handler = ExtendedHandler()
@@ -151,18 +150,17 @@ class RequestB(Request[StatusResponse]):
     value_b: int
 
 
-class HandlerA(Handler[RequestA]):
-    def __call__(self, request: RequestA) -> StatusResponse:
-        return StatusResponse(result=f"A:{request.value_a}")
-
-
-class HandlerB(Handler[RequestB]):
-    def __call__(self, request: RequestB) -> StatusResponse:
-        return StatusResponse(result=f"B:{request.value_b}")
-
-
 def test_multiple_dataclass_requests_same_response() -> None:
     """Test that multiple request types can return the same response type."""
+
+    class HandlerA(Handler[RequestA]):
+        def __call__(self, request: RequestA) -> StatusResponse:
+            return StatusResponse(result=f"A:{request.value_a}")
+
+    class HandlerB(Handler[RequestB]):
+        def __call__(self, request: RequestB) -> StatusResponse:
+            return StatusResponse(result=f"B:{request.value_b}")
+
     services = Services()
     services.add(HandlerA())
     services.add(HandlerB())
@@ -201,13 +199,13 @@ class TimestampedRequest(TimestampMixin, Request[TimestampedResponse]):
     data: str
 
 
-class TimestampedHandler(Handler[TimestampedRequest]):
-    def __call__(self, request: TimestampedRequest) -> TimestampedResponse:
-        return TimestampedResponse(value=len(request.data), timestamp=request.get_timestamp())
-
-
 def test_dataclass_with_mixin() -> None:
     """Test that dataclasses can use mixins with Request inheritance."""
+
+    class TimestampedHandler(Handler[TimestampedRequest]):
+        def __call__(self, request: TimestampedRequest) -> TimestampedResponse:
+            return TimestampedResponse(value=len(request.data), timestamp=request.get_timestamp())
+
     services = Services()
     services.add(TimestampedHandler())
     provider = services.provider()
@@ -287,13 +285,13 @@ class EmptyRequest(Request[EmptyResponse]):
     pass
 
 
-class EmptyHandler(Handler[EmptyRequest]):
-    def __call__(self, request: EmptyRequest) -> EmptyResponse:
-        return EmptyResponse()
-
-
 def test_empty_dataclasses() -> None:
     """Test that empty dataclasses work with PyMediate."""
+
+    class EmptyHandler(Handler[EmptyRequest]):
+        def __call__(self, request: EmptyRequest) -> EmptyResponse:
+            return EmptyResponse()
+
     services = Services()
     services.add(EmptyHandler())
     provider = services.provider()

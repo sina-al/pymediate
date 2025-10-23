@@ -250,3 +250,63 @@ class ResponseTypeMismatchError(PyMediateError):
         )
 
         super().__init__(message, docs_path="guide/handlers")
+
+
+class HandlerAlreadyRegisteredError(PyMediateError):
+    """Raised when attempting to register a second handler for a request type.
+
+    PyMediate enforces a strict one-handler-per-request-type policy to prevent
+    ambiguity and accidental registration conflicts. Each request type can only
+    have a single handler.
+
+    Example:
+        >>> class FirstHandler(Handler[MyRequest]):
+        ...     pass
+        >>> class SecondHandler(Handler[MyRequest]):  # ❌ Error!
+        HandlerAlreadyRegisteredError: Handler already registered for 'MyRequest'
+    """
+
+    def __init__(
+        self,
+        request_type: type,
+        existing_handler: type,
+        new_handler: type,
+        existing_location: str | None = None,
+    ):
+        """Initialize handler already registered error.
+
+        Args:
+            request_type: The request type that already has a handler
+            existing_handler: The handler that was registered first
+            new_handler: The handler attempting to register now
+            existing_location: Optional file/line where first handler was registered
+        """
+        self.request_type = request_type
+        self.existing_handler = existing_handler
+        self.new_handler = new_handler
+        self.existing_location = existing_location
+
+        message = (
+            f"⚠️  Handler already registered for '{request_type.__name__}'\n\n"
+            f"Existing handler: {existing_handler.__name__}\n"
+            f"Attempting to register: {new_handler.__name__}\n"
+        )
+
+        if existing_location:
+            message += f"\n📍 First handler was registered at:\n   {existing_location}\n"
+
+        message += (
+            "\n💡 Each request type can only have ONE handler.\n\n"
+            "Solutions:\n"
+            "  1. Remove one of the handler class definitions\n"
+            "  2. Use different request types for different behaviors:\n"
+            f"     class {request_type.__name__}V1(Request[Response]): ...\n"
+            f"     class {request_type.__name__}V2(Request[Response]): ...\n\n"
+            "  3. Compose handlers to combine behaviors:\n"
+            "     class ComposedHandler(Handler[MyRequest]):\n"
+            "         def __call__(self, request):\n"
+            "             # Combine both behaviors here\n"
+            "             ...\n"
+        )
+
+        super().__init__(message, docs_path="advanced/troubleshooting")

@@ -102,7 +102,7 @@ provider = DependencyInjectorServiceProvider(container)
 pip install pymediate[di]
 ```
 
-See the [Troubleshooting guide](../advanced/troubleshooting.md#dependencyinjectorresolver-not-available) for more details.
+See the [Troubleshooting guide](../advanced/troubleshooting.md#dependencyinjectorserviceprovider-not-available) for more details.
 
 ## Next Steps
 

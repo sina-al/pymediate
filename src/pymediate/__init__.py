@@ -72,6 +72,7 @@ For more information, see the documentation at https://sina-al.github.io/pymedia
 
 from .errors import (
     DIContainerError,
+    HandlerAlreadyRegisteredError,
     HandlerNotFoundError,
     HandlerTypeMismatchError,
     InvalidHandlerSignatureError,
@@ -95,6 +96,7 @@ __all__ = [
     # Errors
     "PyMediateError",
     "HandlerNotFoundError",
+    "HandlerAlreadyRegisteredError",
     "HandlerTypeMismatchError",
     "InvalidHandlerSignatureError",
     "InvalidRequestTypeError",
