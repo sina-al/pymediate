@@ -30,7 +30,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 
 async def main():
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequest, CreateUserHandler())
+    resolver.register(CreateUserHandler())
     mediator = Mediator(resolver)
 
     response = await mediator.send(CreateUserRequest(
@@ -119,8 +119,8 @@ async def main():
     # Setup
     db = AsyncDatabase()
     resolver = SimpleResolver()
-    resolver.register(GetUserRequest, GetUserHandler(db))
-    resolver.register(CreateUserRequest, CreateUserHandler(db))
+    resolver.register(GetUserHandler(db))
+    resolver.register(CreateUserHandler(db))
     mediator = Mediator(resolver)
 
     # Create a user
@@ -169,7 +169,7 @@ class FetchApiHandler(Handler[FetchApiRequest]):
 
 async def main():
     resolver = SimpleResolver()
-    resolver.register(FetchApiRequest, FetchApiHandler())
+    resolver.register(FetchApiHandler())
     mediator = Mediator(resolver)
 
     # Process multiple requests concurrently
@@ -223,7 +223,7 @@ class ProcessHandler(Handler[ProcessRequest]):
 
 async def main():
     resolver = SimpleResolver()
-    resolver.register(ProcessRequest, ProcessHandler())
+    resolver.register(ProcessHandler())
     mediator = Mediator(resolver)
 
     try:

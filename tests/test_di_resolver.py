@@ -96,7 +96,7 @@ def test_di_resolver_basic() -> None:
     container.config.smtp.port.from_value(587)
 
     resolver = container.mediator()._resolver
-    handler = resolver.resolve(SendEmailRequest)
+    handler = resolver.resolve(SendEmailHandler)
 
     assert isinstance(handler, SendEmailHandler)
     assert handler.email_service.smtp_host == "smtp.example.com"
@@ -156,16 +156,20 @@ def test_di_resolver_handler_not_found() -> None:
     class UnregisteredRequest(Request[UnregisteredResponse]):
         pass
 
+    class UnregisteredHandler(Handler[UnregisteredRequest]):
+        def __call__(self, request: UnregisteredRequest) -> UnregisteredResponse:
+            return UnregisteredResponse()
+
     container = ApplicationContainer()
     resolver = DependencyInjectorResolver(container)
 
     try:
-        resolver.resolve(UnregisteredRequest)
+        resolver.resolve(UnregisteredHandler)
         raise AssertionError("Should have raised HandlerNotFoundError")
     except HandlerNotFoundError as e:
         # New implementation uses type inspection, not naming conventions
-        assert "UnregisteredRequest" in str(e)
-        assert "SendEmailRequest" in str(e)  # Available handler listed
+        assert "UnregisteredHandler" in str(e)
+        assert "SendEmailHandler" in str(e)  # Available handler listed
 
 
 # Test with multiple handlers
@@ -257,9 +261,9 @@ def test_di_resolver_type_inspection() -> None:
 
     resolver = DependencyInjectorResolver(container)
 
-    # Resolver should have found SendEmailRequest by inspecting handler types
-    assert SendEmailRequest in resolver._handler_providers
+    # Resolver should have found SendEmailHandler by inspecting handler types
+    assert SendEmailHandler in resolver._handler_providers
 
     # Verify we can resolve it
-    handler = resolver.resolve(SendEmailRequest)
+    handler = resolver.resolve(SendEmailHandler)
     assert isinstance(handler, SendEmailHandler)

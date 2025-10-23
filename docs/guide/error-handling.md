@@ -65,7 +65,7 @@ except HandlerNotFoundError as e:
 No handler registered for request type 'CreateUserRequest'
 
 💡 Possible solutions:
-  1. Register a handler: resolver.register(CreateUserRequest, handler)
+  1. Register a handler: resolver.register(handler)
   2. Ensure your DI container has a provider for this handler
   3. Verify CreateUserRequest inherits from Request[ResponseType]
 
@@ -76,32 +76,38 @@ No handler registered for request type 'CreateUserRequest'
 
 ### HandlerTypeMismatchError
 
-Raised when trying to register a handler for the wrong request type.
+Raised at handler class definition time when the handler's `__call__` signature doesn't match its request type.
 
 ```python
-from pymediate import HandlerTypeMismatchError
+from pymediate import HandlerTypeMismatchError, Handler, Request
 
-# Handler1 is designed for Request1
-handler1 = Handler1()
+class MyResponse:
+    pass
 
+class MyRequest(Request[MyResponse]):
+    pass
+
+class OtherResponse:
+    pass
+
+# This will raise HandlerTypeMismatchError at class definition time
 try:
-    # But trying to register for Request2
-    resolver.register(Request2, handler1)
+    class MyHandler(Handler[MyRequest]):
+        # Wrong return type!
+        def __call__(self, request: MyRequest) -> OtherResponse:
+            return OtherResponse()
 except HandlerTypeMismatchError as e:
-    print(f"Handler: {e.handler_type.__name__}")
-    print(f"Expected: {e.expected_request.__name__}")
-    print(f"Got: {e.actual_request.__name__}")
+    print(f"Handler signature invalid: {e}")
 ```
 
 **Error Message Example:**
 ```
-Handler type mismatch: CreateUserHandler is designed to handle 'CreateUserRequest',
-but you're trying to register it for 'UpdateUserRequest'
+Handler type mismatch: MyHandler.__call__ must return MyResponse,
+but signature returns OtherResponse
 
-💡 Solution: Ensure the handler is registered with the correct request type:
-  resolver.register(CreateUserRequest, CreateUserHandler())
+💡 Solution: Ensure the handler's __call__ method signature matches the request/response types
 
-📚 Learn more: https://sina-al.github.io/pymediate/guide/resolvers
+📚 Learn more: https://sina-al.github.io/pymediate/guide/handlers
 ```
 
 ### InvalidHandlerSignatureError
@@ -213,7 +219,7 @@ except Exception as e:
 from pymediate import HandlerNotFoundError, HandlerTypeMismatchError
 
 try:
-    resolver.register(MyRequest, MyHandler())
+    resolver.register(MyHandler())
     response = mediator.send(MyRequest())
 except HandlerTypeMismatchError as e:
     # Handler registered for wrong request type

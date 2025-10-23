@@ -65,7 +65,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 
 # Set up resolver
 resolver = SimpleResolver()
-resolver.register(CreateUserRequest, CreateUserHandler())
+resolver.register(CreateUserHandler())
 
 # Use it
 mediator = Mediator(resolver)
@@ -78,7 +78,7 @@ SimpleResolver validates handlers at registration time:
 
 ```python
 # This will raise HandlerTypeMismatchError!
-resolver.register(CreateUserRequest, WrongHandler())  # Wrong handler type
+resolver.register(WrongHandler())  # Wrong handler type
 ```
 
 **Pre-populating:**

@@ -30,7 +30,7 @@ def test_mediator_send_request() -> None:
             return GreetingResponse(f"Hello, {request.name}!")
 
     resolver = SimpleResolver()
-    resolver.register(GreetingRequest, GreetingHandler())
+    resolver.register(GreetingHandler())
     mediator = Mediator(resolver)
 
     request = GreetingRequest("Alice")
@@ -87,8 +87,8 @@ def test_mediator_with_multiple_handlers() -> None:
             return MultiplyResponse(request.a * request.b)
 
     resolver = SimpleResolver()
-    resolver.register(AddRequest, AddHandler())
-    resolver.register(MultiplyRequest, MultiplyHandler())
+    resolver.register(AddHandler())
+    resolver.register(MultiplyHandler())
     mediator = Mediator(resolver)
 
     add_result = mediator.send(AddRequest(5, 3))
@@ -114,7 +114,7 @@ def test_mediator_preserves_request_data() -> None:
             return EchoResponse(request.data.copy())
 
     resolver = SimpleResolver()
-    resolver.register(EchoRequest, EchoHandler())
+    resolver.register(EchoHandler())
     mediator = Mediator(resolver)
 
     original_data = {"key": "value", "number": 42}
@@ -145,7 +145,7 @@ def test_mediator_with_stateful_handler() -> None:
 
     resolver = SimpleResolver()
     handler = CounterHandler()
-    resolver.register(CountRequest, handler)
+    resolver.register(handler)
     mediator = Mediator(resolver)
 
     resp1 = mediator.send(CountRequest())
@@ -189,7 +189,7 @@ def test_mediator_with_complex_request_response() -> None:
             )
 
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequest, CreateUserHandler())
+    resolver.register(CreateUserHandler())
     mediator = Mediator(resolver)
 
     request = CreateUserRequest("John Doe", "john@example.com")
@@ -216,7 +216,7 @@ def test_mediator_error_propagation() -> None:
             raise RuntimeError("Handler error")
 
     resolver = SimpleResolver()
-    resolver.register(ErrorRequest, ErrorHandler())
+    resolver.register(ErrorHandler())
     mediator = Mediator(resolver)
 
     with pytest.raises(RuntimeError, match="Handler error"):
@@ -233,19 +233,18 @@ def test_mediator_with_different_resolvers() -> None:
     class Req(Request[Resp]):
         pass
 
-    class Handler1(Handler[Req]):
-        def __call__(self, request: Req) -> Resp:
-            return Resp(1)
+    class ReqHandler(Handler[Req]):
+        def __init__(self, value: int):
+            self.value = value
 
-    class Handler2(Handler[Req]):
         def __call__(self, request: Req) -> Resp:
-            return Resp(2)
+            return Resp(self.value)
 
     resolver1 = SimpleResolver()
-    resolver1.register(Req, Handler1())
+    resolver1.register(ReqHandler(1))
 
     resolver2 = SimpleResolver()
-    resolver2.register(Req, Handler2())
+    resolver2.register(ReqHandler(2))
 
     mediator1 = Mediator(resolver1)
     mediator2 = Mediator(resolver2)

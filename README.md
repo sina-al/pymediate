@@ -55,7 +55,7 @@ class CreateUserHandler(Handler[CreateUser]):
 
 # Set up and use
 resolver = SimpleResolver()
-resolver.register(CreateUser, CreateUserHandler())
+resolver.register(CreateUserHandler())
 mediator = Mediator(resolver)
 
 response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
@@ -90,7 +90,7 @@ class CreateUserHandler(Handler[CreateUser]):
 
 async def main():
     resolver = SimpleResolver()
-    resolver.register(CreateUser, CreateUserHandler())
+    resolver.register(CreateUserHandler())
     mediator = Mediator(resolver)
 
     response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))

@@ -252,7 +252,7 @@ from pymediate.aio import Mediator
 
 # Setup async mediator
 resolver = SimpleResolver()
-resolver.register(FetchDataRequest, AsyncFetchHandler(http_client))
+resolver.register(AsyncFetchHandler(http_client))
 mediator = Mediator(resolver)
 
 # Use with asyncio
@@ -667,9 +667,9 @@ def test_create_user_handler():
 def test_place_order_integration():
     # Setup real resolver with all handlers
     resolver = SimpleResolver()
-    resolver.register(CheckInventoryRequest, CheckInventoryHandler(inventory_db))
-    resolver.register(ProcessPaymentRequest, ProcessPaymentHandler(payment_service))
-    resolver.register(SendOrderConfirmationRequest, EmailHandler(email_service))
+    resolver.register(CheckInventoryHandler(inventory_db))
+    resolver.register(ProcessPaymentHandler(payment_service))
+    resolver.register(EmailHandler(email_service))
 
     mediator = Mediator(resolver)
 

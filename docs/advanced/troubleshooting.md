@@ -98,7 +98,7 @@ response = mediator.send(MyRequest())
 
    # Solution
    resolver = SimpleResolver()
-   resolver.register(MyRequest, MyHandler())  # ✅ Register the handler
+   resolver.register(MyHandler())  # ✅ Register the handler
    mediator = Mediator(resolver)
    response = mediator.send(MyRequest())
    ```
@@ -139,7 +139,7 @@ Available handlers: CreateUserRequest, UpdateUserRequest, DeleteUserRequest
 **Problem:** You get `HandlerTypeMismatchError` when registering a handler:
 
 ```python
-resolver.register(CreateUserRequest, UpdateUserHandler())
+resolver.register(UpdateUserHandler())
 # HandlerTypeMismatchError: Handler type mismatch
 ```
 
@@ -149,11 +149,11 @@ resolver.register(CreateUserRequest, UpdateUserHandler())
 
 ```python
 # ❌ Wrong
-resolver.register(CreateUserRequest, UpdateUserHandler())
+resolver.register(UpdateUserHandler())
 
 # ✅ Correct
-resolver.register(CreateUserRequest, CreateUserHandler())
-resolver.register(UpdateUserRequest, UpdateUserHandler())
+resolver.register(CreateUserHandler())
+resolver.register(UpdateUserHandler())
 ```
 
 ### InvalidHandlerSignatureError
@@ -370,7 +370,7 @@ To avoid common issues:
 2. **Register handlers before using the mediator:**
    ```python
    # ✅ Good
-   resolver.register(MyRequest, MyHandler())
+   resolver.register(MyHandler())
    mediator = Mediator(resolver)
    response = mediator.send(MyRequest())
 

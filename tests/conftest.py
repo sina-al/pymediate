@@ -36,8 +36,10 @@ def clear_registries() -> Generator[None, None, None]:
 
     This fixture runs automatically before each test to prevent
     test pollution from class registrations.
+
+    Note: We don't clear registries here because handler classes are typically
+    defined at module level and registered during import. Clearing would remove
+    those registrations. Instead, tests should be written to be independent.
     """
     yield
-
-    # Clear all test registrations after each test
-    clear_all_registries()
+    # No-op: Registry clearing disabled to allow module-level handler definitions

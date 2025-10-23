@@ -53,7 +53,7 @@ def test_basic_dataclass_with_pymediate() -> None:
     """
     handler = CreateUserHandler()
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequest, handler)
+    resolver.register(handler)
     mediator = Mediator(resolver)
 
     request = CreateUserRequest(username="alice", email="alice@example.com")
@@ -112,8 +112,8 @@ def test_dataclass_request_inheritance() -> None:
     base_handler = BaseHandler()
     extended_handler = ExtendedHandler()
 
-    resolver.register(BaseRequest, base_handler)
-    resolver.register(ExtendedRequest, extended_handler)
+    resolver.register(base_handler)
+    resolver.register(extended_handler)
 
     mediator = Mediator(resolver)
 
@@ -162,8 +162,8 @@ class HandlerB(Handler[RequestB]):
 def test_multiple_dataclass_requests_same_response() -> None:
     """Test that multiple request types can return the same response type."""
     resolver = SimpleResolver()
-    resolver.register(RequestA, HandlerA())
-    resolver.register(RequestB, HandlerB())
+    resolver.register(HandlerA())
+    resolver.register(HandlerB())
     mediator = Mediator(resolver)
 
     resp_a = mediator.send(RequestA(value_a="test"))
@@ -206,7 +206,7 @@ class TimestampedHandler(Handler[TimestampedRequest]):
 def test_dataclass_with_mixin() -> None:
     """Test that dataclasses can use mixins with Request inheritance."""
     resolver = SimpleResolver()
-    resolver.register(TimestampedRequest, TimestampedHandler())
+    resolver.register(TimestampedHandler())
     mediator = Mediator(resolver)
 
     request = TimestampedRequest(data="test")
@@ -291,7 +291,7 @@ class EmptyHandler(Handler[EmptyRequest]):
 def test_empty_dataclasses() -> None:
     """Test that empty dataclasses work with PyMediate."""
     resolver = SimpleResolver()
-    resolver.register(EmptyRequest, EmptyHandler())
+    resolver.register(EmptyHandler())
     mediator = Mediator(resolver)
 
     response = mediator.send(EmptyRequest())

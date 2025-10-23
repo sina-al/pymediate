@@ -75,7 +75,7 @@ from pymediate import Mediator, SimpleResolver
 
 # Create resolver and register handler
 resolver = SimpleResolver()
-resolver.register(CreateUser, CreateUserHandler())
+resolver.register(CreateUserHandler())
 
 # Create mediator
 mediator = Mediator(resolver)
@@ -139,7 +139,7 @@ class CreateUserHandler(Handler[CreateUser]):
 
 # 4. Set up mediator
 resolver = SimpleResolver()
-resolver.register(CreateUser, CreateUserHandler())
+resolver.register(CreateUserHandler())
 mediator = Mediator(resolver)
 
 # 5. Use it!

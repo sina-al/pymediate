@@ -1,11 +1,10 @@
 """Dependency Injector integration for PyMediate.
 
 This module provides a resolver that integrates with the dependency-injector library,
-allowing handlers to be resolved from a DI container using type inspection rather than
-naming conventions.
+allowing handlers to be resolved from a DI container using type inspection.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from dependency_injector import containers
 
@@ -17,17 +16,16 @@ class DependencyInjectorResolver:
     """Resolver that integrates with dependency-injector library.
 
     This resolver uses type inspection to automatically discover handlers from a
-    dependency-injector Container, without requiring any naming conventions.
+    dependency-injector Container. It scans all providers in the container at
+    initialization and builds a mapping from handler types to their providers.
 
-    The resolver scans all providers in the container at initialization, identifies
-    Handler instances by checking isinstance(), extracts the request type from
-    Handler._request_type, and builds a direct mapping from request type to provider.
-
-    This means handler providers can have ANY name - no conventions required!
+    The resolver is responsible solely for instantiating handler instances from
+    handler types. The mediator handles request-to-handler-type mapping via the
+    registry.
 
     Attributes:
         _container: The dependency-injector Container instance.
-        _handler_providers: Dict mapping request types to their handler providers.
+        _handler_providers: Dict mapping handler types to their providers.
 
     Examples:
         Basic setup with Factory providers:
@@ -37,8 +35,8 @@ class DependencyInjectorResolver:
             class AppContainer(containers.DeclarativeContainer):
                 database = providers.Singleton(Database)
 
-                # Provider names don't matter - type inspection finds handlers!
-                user_creator = providers.Factory(
+                # Handler providers - type inspection finds them automatically!
+                create_user_handler = providers.Factory(
                     CreateUserHandler,
                     database=database
                 )
@@ -87,9 +85,8 @@ class DependencyInjectorResolver:
     def __init__(self, container: containers.Container) -> None:
         """Initialize resolver with a dependency-injector container.
 
-        Scans the container immediately to build a cache mapping request types
-        to their handler providers using type inspection. This enables O(1)
-        lookups without any naming conventions.
+        Scans the container immediately to build a cache mapping handler types
+        to their providers using type inspection. This enables O(1) lookups.
 
         Args:
             container: Any dependency-injector Container instance (DeclarativeContainer
@@ -112,20 +109,18 @@ class DependencyInjectorResolver:
             initialization won't be discovered.
         """
         self._container = container
-        # Maps request type -> provider that creates the handler
-        self._handler_providers: dict[type, Any] = {}
+        # Maps handler type -> provider that creates the handler
+        self._handler_providers: dict[type[Handler[Any]], Any] = {}
         self._scan_container()
 
     def _scan_container(self) -> None:
-        """Scan container for handler providers and build request type mapping.
+        """Scan container for handler providers and build handler type mapping.
 
         This runs once at initialization. For each provider in the container:
         1. Call the provider to get an instance
         2. Check if it's a Handler subclass using isinstance()
-        3. Extract the request type from Handler._request_type
-        4. Map request_type -> provider for O(1) lookups
-
-        This approach works with ANY provider names - no conventions needed!
+        3. Extract the handler type from type(instance)
+        4. Map handler_type -> provider for O(1) lookups
 
         Note:
             Providers that can't be instantiated (e.g., missing dependencies) are
@@ -143,33 +138,31 @@ class DependencyInjectorResolver:
 
                 # Check if it's a Handler subclass
                 if isinstance(instance, Handler):
-                    # Extract the request type from the Handler class
-                    request_type = type(instance).get_request_type()
-
-                    if request_type is not None:
-                        # Map request type to provider
-                        self._handler_providers[request_type] = provider
+                    # Extract the handler type
+                    handler_type = type(instance)
+                    # Map handler type to provider
+                    self._handler_providers[handler_type] = provider
 
             except Exception:
                 # If provider can't be instantiated yet (missing dependencies, etc.),
                 # skip it silently. This is expected for some providers.
                 pass
 
-    def resolve(self, request_class: type) -> Any:
-        """Resolve a handler instance for the given request type.
+    def resolve(self, handler_class: type[Handler[Any]]) -> Handler[Any]:
+        """Resolve a handler instance for the given handler type.
 
-        Uses type-based lookup from the pre-built cache - NO naming conventions
-        required! Simply calls the appropriate provider to get a handler instance.
+        Uses type-based lookup from the pre-built cache. Simply calls the
+        appropriate provider to get a handler instance.
 
         Args:
-            request_class: The request class to resolve a handler for.
+            handler_class: The handler class to resolve.
 
         Returns:
             The handler instance from the container. Whether you get a new instance
             or a singleton depends on the provider type (Factory vs Singleton).
 
         Raises:
-            HandlerNotFoundError: If no handler is found for the request type.
+            HandlerNotFoundError: If no handler is found for the handler type.
                 The error includes a list of available handlers.
             DIContainerError: If the container fails to provide the handler instance
                 (e.g., due to missing dependencies).
@@ -178,8 +171,8 @@ class DependencyInjectorResolver:
             ```python
             resolver = DependencyInjectorResolver(container)
 
-            # Resolves CreateUserHandler from container
-            handler = resolver.resolve(CreateUserRequest)
+            # Resolves CreateUserHandler from container (called by mediator)
+            handler = resolver.resolve(CreateUserHandler)
             response = handler(CreateUserRequest(username="alice"))
             ```
 
@@ -189,15 +182,15 @@ class DependencyInjectorResolver:
             same instance is returned.
         """
         # O(1) lookup from pre-built type-based cache
-        if request_class not in self._handler_providers:
+        if handler_class not in self._handler_providers:
             available = list(self._handler_providers.keys())
-            raise errors.HandlerNotFoundError(request_class, available)
+            raise errors.HandlerNotFoundError(handler_class, available)
 
         # Get the provider and call it to get a handler instance
         try:
-            provider = self._handler_providers[request_class]
-            return provider()
+            provider = self._handler_providers[handler_class]
+            return cast(Handler[Any], provider())
         except Exception as e:
             raise errors.DIContainerError(
-                request_class, f"Container failed to provide handler: {e}"
+                handler_class, f"Container failed to provide handler: {e}"
             ) from e

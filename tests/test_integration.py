@@ -33,7 +33,7 @@ def test_complete_workflow() -> None:
 
     # Set up mediator
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequest, CreateUserHandler())
+    resolver.register(CreateUserHandler())
     mediator = Mediator(resolver)
 
     # Execute request
@@ -86,8 +86,8 @@ def test_multiple_request_types_workflow() -> None:
 
     # Set up
     resolver = SimpleResolver()
-    resolver.register(GetUserRequest, GetUserHandler())
-    resolver.register(CreateOrderRequest, CreateOrderHandler())
+    resolver.register(GetUserHandler())
+    resolver.register(CreateOrderHandler())
     mediator = Mediator(resolver)
 
     # Execute multiple requests
@@ -161,8 +161,8 @@ def test_handler_composition() -> None:
 
     # Set up
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequest, CreateUserHandler())
-    resolver.register(CreatePostRequest, CreatePostHandler())
+    resolver.register(CreateUserHandler())
+    resolver.register(CreatePostHandler())
     mediator = Mediator(resolver)
 
     # Create user first
@@ -203,7 +203,7 @@ def test_type_safety_at_runtime() -> None:
 
 
 def test_resolver_switching() -> None:
-    """Test switching resolvers on mediator."""
+    """Test switching resolvers on mediator with different handler instances."""
 
     class Resp:
         def __init__(self, source: str) -> None:
@@ -212,20 +212,19 @@ def test_resolver_switching() -> None:
     class Req(Request[Resp]):
         pass
 
-    class Handler1(Handler[Req]):
-        def __call__(self, request: Req) -> Resp:
-            return Resp("handler1")
+    class ReqHandler(Handler[Req]):
+        def __init__(self, source: str):
+            self.source = source
 
-    class Handler2(Handler[Req]):
         def __call__(self, request: Req) -> Resp:
-            return Resp("handler2")
+            return Resp(self.source)
 
-    # Create two resolvers with different handlers
+    # Create two resolvers with different handler instances
     resolver1 = SimpleResolver()
-    resolver1.register(Req, Handler1())
+    resolver1.register(ReqHandler("handler1"))
 
     resolver2 = SimpleResolver()
-    resolver2.register(Req, Handler2())
+    resolver2.register(ReqHandler("handler2"))
 
     # Use first resolver
     mediator1 = Mediator(resolver1)

@@ -32,7 +32,7 @@ For routing asynchronous requests to async handlers:
 from pymediate import Mediator, SimpleResolver
 
 resolver = SimpleResolver()
-resolver.register(MyRequest, MyHandler())
+resolver.register(MyHandler())
 mediator = Mediator(resolver)
 
 # Send a request - blocks until handler completes
@@ -48,7 +48,7 @@ from pymediate import SimpleResolver
 
 async def main():
     resolver = SimpleResolver()
-    resolver.register(MyRequest, MyAsyncHandler())
+    resolver.register(MyAsyncHandler())
     mediator = Mediator(resolver)
 
     # Send a request - awaits handler completion

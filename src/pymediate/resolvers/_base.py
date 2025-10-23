@@ -1,19 +1,21 @@
 """Base resolver protocol for PyMediate."""
 
-from typing import TYPE_CHECKING, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from pymediate.handler import Handler
 
-RequestType = TypeVar("RequestType")
-
 
 class Resolver(Protocol):
-    """Protocol for resolving handler instances from request types.
+    """Protocol for resolving handler instances from handler types.
 
-    This protocol defines the interface for handler resolution, enabling
+    This protocol defines the interface for handler instantiation, enabling
     integration with various dependency injection frameworks, service
-    locators, or custom resolution strategies.
+    locators, or custom instantiation strategies.
+
+    The resolver is responsible solely for instantiating handlers from their
+    types. The mediator handles the mapping from request types to handler types
+    via the registry.
 
     Any class implementing this protocol can be used with the Mediator,
     making PyMediate flexible and framework-agnostic.
@@ -25,8 +27,8 @@ class Resolver(Protocol):
                 def __init__(self):
                     self.handlers = {}
 
-                def resolve(self, request_class: type) -> Handler:
-                    return self.handlers[request_class]
+                def resolve(self, handler_class: type[Handler]) -> Handler:
+                    return self.handlers[handler_class]
             ```
 
         DI container integration:
@@ -35,8 +37,8 @@ class Resolver(Protocol):
                 def __init__(self, container):
                     self.container = container
 
-                def resolve(self, request_class: type) -> Handler:
-                    return self.container.resolve(request_class)
+                def resolve(self, handler_class: type[Handler]) -> Handler:
+                    return self.container.resolve(handler_class)
             ```
 
     See Also:
@@ -44,16 +46,16 @@ class Resolver(Protocol):
         - DependencyInjectorResolver: Integration with dependency-injector library
     """
 
-    def resolve(self, request_class: type[RequestType]) -> "Handler[RequestType]":
-        """Resolve and return a handler instance for the given request type.
+    def resolve(self, handler_class: type["Handler[Any]"]) -> "Handler[Any]":
+        """Resolve and return a handler instance for the given handler type.
 
         Args:
-            request_class: The request type class to resolve a handler for.
+            handler_class: The handler class to instantiate.
 
         Returns:
-            A handler instance capable of processing the given request type.
+            A handler instance of the given handler type.
 
         Raises:
-            HandlerNotFoundError: If no handler can be resolved for the request type.
+            HandlerNotFoundError: If no handler can be resolved for the handler type.
         """
         ...

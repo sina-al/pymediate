@@ -30,7 +30,7 @@ from pymediate import Mediator, SimpleResolver
 
 # Create resolver with handlers
 resolver = SimpleResolver()
-resolver.register(CreateUserRequest, CreateUserHandler(database))
+resolver.register(CreateUserHandler(database))
 
 # Create mediator
 mediator = Mediator(resolver)
@@ -126,7 +126,7 @@ Change handler implementations without affecting callers.
 ```python
 # Start with simple resolver
 resolver = SimpleResolver()
-resolver.register(GetUserRequest, SimpleUserHandler(database))
+resolver.register(SimpleUserHandler(database))
 
 # Later, switch to DI container
 from pymediate import DependencyInjectorResolver
@@ -167,7 +167,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 
 # 3. Setup resolver
 resolver = SimpleResolver()
-resolver.register(CreateUserRequest, CreateUserHandler(database))
+resolver.register(CreateUserHandler(database))
 
 # 4. Create mediator
 mediator = Mediator(resolver)
@@ -221,9 +221,9 @@ from pymediate import Mediator, SimpleResolver
 
 # Setup multiple handlers
 resolver = SimpleResolver()
-resolver.register(CreateUserRequest, CreateUserHandler(database))
-resolver.register(GetUserRequest, GetUserHandler(database))
-resolver.register(DeleteUserRequest, DeleteUserHandler(database))
+resolver.register(CreateUserHandler(database))
+resolver.register(GetUserHandler(database))
+resolver.register(DeleteUserHandler(database))
 
 mediator = Mediator(resolver)
 
@@ -279,8 +279,8 @@ response = await mediator.send(FetchDataRequest(url="https://api.example.com/dat
 ```python
 # Same mediator can handle both sync and async handlers
 resolver = SimpleResolver()
-resolver.register(CreateUserRequest, CreateUserHandler(database))  # Sync
-resolver.register(FetchDataRequest, FetchDataHandler(http_client))  # Async
+resolver.register(CreateUserHandler(database))  # Sync
+resolver.register(FetchDataHandler(http_client))  # Async
 
 mediator = Mediator(resolver)
 
@@ -570,7 +570,7 @@ def test_handler_isolated():
 def test_with_mediator():
     # Test full request flow
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequest, CreateUserHandler(mock_db))
+    resolver.register(CreateUserHandler(mock_db))
 
     mediator = Mediator(resolver)
     response = mediator.send(CreateUserRequest(username="test", email="test@example.com"))
@@ -585,8 +585,8 @@ def test_with_mediator():
 def test_handler_composition():
     # Setup all handlers
     resolver = SimpleResolver()
-    resolver.register(CreateUserRequest, CreateUserHandler(mock_db))
-    resolver.register(SendEmailRequest, EmailHandler(mock_email))
+    resolver.register(CreateUserHandler(mock_db))
+    resolver.register(EmailHandler(mock_email))
 
     mediator = Mediator(resolver)
 

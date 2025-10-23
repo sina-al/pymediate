@@ -1,5 +1,6 @@
 """Asynchronous mediator implementation for routing requests to handlers."""
 
+from .._internal import registry
 from .._internal.mediator import MediatorBaseMixin
 from ..request import Request
 
@@ -8,8 +9,9 @@ class Mediator(MediatorBaseMixin):
     """Asynchronous mediator that routes requests to their handlers using a resolver.
 
     The mediator is the central coordination point in the mediator pattern.
-    It receives requests and uses a resolver to obtain the appropriate handler
-    instance, then delegates the actual processing to that handler.
+    It receives requests, looks up the appropriate handler type from the registry,
+    uses a resolver to obtain a handler instance, then delegates the actual
+    processing to that handler.
 
     This async variant is designed to work with async handlers (pymediate.aio.Handler).
     The send() method is async and will await the handler's execution.
@@ -45,7 +47,7 @@ class Mediator(MediatorBaseMixin):
 
             async def main():
                 resolver = SimpleResolver()
-                resolver.register(CreateUserRequest, CreateUserHandler())
+                resolver.register(CreateUserHandler())
 
                 mediator = Mediator(resolver)
                 response = await mediator.send(CreateUserRequest(username="alice"))
@@ -66,9 +68,10 @@ class Mediator(MediatorBaseMixin):
             ```
 
     Note:
-        The mediator doesn't know anything about specific handlers or requests.
-        It's completely generic and relies on the resolver to provide the
-        correct handler instances.
+        The mediator looks up handler types from the registry (which maps
+        request types to handler types), then uses the resolver to instantiate
+        the handler. This separation of concerns means the resolver only needs
+        to know about handler instantiation, not request-to-handler mapping.
 
         For synchronous mediator, use `pymediate.Mediator` instead.
 
@@ -84,7 +87,8 @@ class Mediator(MediatorBaseMixin):
         """Send a request asynchronously and get the typed response from its handler.
 
         This is the main entry point for the async mediator pattern. It takes a request,
-        resolves the appropriate handler, invokes it asynchronously, and returns the response.
+        looks up the handler type from the registry, resolves the handler instance,
+        invokes it asynchronously, and returns the response.
 
         The response type is automatically inferred from the request's type parameter,
         providing full type safety from request to response.
@@ -119,6 +123,11 @@ class Mediator(MediatorBaseMixin):
         Type Parameters:
             ResponseT: The response type, inferred from Request[ResponseT].
         """
+        from .. import errors
+
         request_type = type(request)
-        handler = self._resolver.resolve(request_type)
+        handler_class = registry.get_handler_class(request_type)
+        if handler_class is None:
+            raise errors.HandlerNotFoundError(request_type, [])
+        handler = self._resolver.resolve(handler_class)
         return await handler(request)  # type: ignore[no-any-return]

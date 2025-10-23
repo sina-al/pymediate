@@ -176,7 +176,7 @@ async def test_async_mediator_send_request() -> None:
             return GreetingResponse(f"Hello, {request.name}!")
 
     resolver = SimpleResolver()
-    resolver.register(GreetingRequest, GreetingHandler())
+    resolver.register(GreetingHandler())
     mediator = Mediator(resolver)
 
     request = GreetingRequest("Alice")
@@ -237,8 +237,8 @@ async def test_async_mediator_with_multiple_handlers() -> None:
             return MultiplyResponse(request.a * request.b)
 
     resolver = SimpleResolver()
-    resolver.register(AddRequest, AddHandler())
-    resolver.register(MultiplyRequest, MultiplyHandler())
+    resolver.register(AddHandler())
+    resolver.register(MultiplyHandler())
     mediator = Mediator(resolver)
 
     add_result = await mediator.send(AddRequest(5, 3))
@@ -270,7 +270,7 @@ async def test_async_mediator_with_stateful_handler() -> None:
 
     resolver = SimpleResolver()
     handler = CounterHandler()
-    resolver.register(CountRequest, handler)
+    resolver.register(handler)
     mediator = Mediator(resolver)
 
     resp1 = await mediator.send(CountRequest())
@@ -305,7 +305,7 @@ async def test_async_handler_with_actual_async_operations() -> None:
             return FetchResponse(data)
 
     resolver = SimpleResolver()
-    resolver.register(FetchRequest, FetchHandler())
+    resolver.register(FetchHandler())
     mediator = Mediator(resolver)
 
     response = await mediator.send(FetchRequest("https://example.com"))
@@ -328,7 +328,7 @@ async def test_async_mediator_error_propagation() -> None:
             raise RuntimeError("Async handler error")
 
     resolver = SimpleResolver()
-    resolver.register(ErrorRequest, ErrorHandler())
+    resolver.register(ErrorHandler())
     mediator = Mediator(resolver)
 
     with pytest.raises(RuntimeError, match="Async handler error"):
@@ -354,7 +354,7 @@ async def test_async_mediator_concurrent_requests() -> None:
             return SlowResponse(request.value * 2)
 
     resolver = SimpleResolver()
-    resolver.register(SlowRequest, SlowHandler())
+    resolver.register(SlowHandler())
     mediator = Mediator(resolver)
 
     # Send three concurrent requests
@@ -394,7 +394,7 @@ async def test_async_handler_with_complex_async_flow() -> None:
             return ProcessResponse(list(results))
 
     resolver = SimpleResolver()
-    resolver.register(ProcessRequest, ProcessHandler())
+    resolver.register(ProcessHandler())
     mediator = Mediator(resolver)
 
     response = await mediator.send(ProcessRequest([1, 2, 3, 4, 5]))
