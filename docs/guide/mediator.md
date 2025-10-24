@@ -316,46 +316,58 @@ async def fetch_dashboard(user_id: int):
 request = CreateUserRequest(username="alice", email="alice@example.com")
 ```
 
-### 2. Pre-Handler (Optional Middleware)
+### 2. Pipeline Behaviors (Optional Middleware)
+
+Pipeline behaviors are automatically discovered and applied to wrap request processing:
 
 ```python
-# Custom mediator with logging
-class LoggingMediator(Mediator):
-    def send[RequestT](self, request: RequestT):
+from pymediate import PipelineBehaviorBase
+
+# Define behaviors
+class LoggingBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
         print(f"Handling {type(request).__name__}")
-        response = super().send(request)
+        response = next()
         print(f"Completed {type(request).__name__}")
         return response
+
+# Register behaviors - they're automatically applied to ALL requests
+services = Services()
+services.add(LoggingBehavior())  # Auto-discovered!
+services.add(CreateUserHandler())
 ```
 
-### 3. Handler Resolution
+### 3. Behavior and Handler Resolution
 
 ```python
-# Mediator asks resolver for handler
-handler = self.service_provider.resolve(type(request))
+# Mediator resolves handler from registry
+handler = self.service_provider.resolve(handler_class)
+
+# Mediator automatically discovers all registered behaviors
+behaviors = self.service_provider.resolve_all(PipelineBehaviorBase)
 ```
 
-### 4. Handler Execution
+### 4. Pipeline Construction
 
 ```python
-# Handler processes request
-response = handler(request)
+# If behaviors exist, mediator constructs a pipeline
+if behaviors:
+    pipeline = Pipeline(behaviors, handler)
+else:
+    # Fast path: call handler directly
+    response = handler(request)
 ```
 
-### 5. Post-Handler (Optional)
+### 5. Request Processing
 
 ```python
-# Can add post-processing in custom mediator
-class ValidationMediator(Mediator):
-    def send[RequestT](self, request: RequestT):
-        response = super().send(request)
-        self.validate_response(response)
-        return response
+# Pipeline executes behaviors in order, then handler
+response = pipeline(request)
 
-    def validate_response(self, response):
-        # Validate response structure
-        if not hasattr(response, '__dataclass_fields__'):
-            raise ValueError("Response must be a dataclass")
+# Execution flow:
+# request → behavior1 → behavior2 → handler → response
+#                                      ↓
+#         behavior1 ← behavior2 ← handler
 ```
 
 ### 6. Response Return
@@ -415,50 +427,92 @@ class ErrorHandlingMediator(Mediator):
 
 ## Advanced Patterns
 
-### Mediator with Middleware
+### Mediator with Pipeline Behaviors
 
+Pipeline behaviors provide a clean, composable way to add middleware to your mediator without subclassing. Behaviors are automatically discovered and applied to every request.
+
+**Simple Example:**
 ```python
-class MiddlewareMediator(Mediator):
-    def __init__(self, resolver, middlewares=None):
-        super().__init__(resolver)
-        self.middlewares = middlewares or []
+from pymediate import PipelineBehaviorBase, Services, Mediator
 
-    def send[RequestT](self, request: RequestT):
-        # Run pre-middlewares
-        for middleware in self.middlewares:
-            middleware.before(request)
-
-        # Execute handler
-        try:
-            response = super().send(request)
-        except Exception as e:
-            # Run error middlewares
-            for middleware in self.middlewares:
-                middleware.on_error(request, e)
-            raise
-
-        # Run post-middlewares
-        for middleware in self.middlewares:
-            middleware.after(request, response)
-
+class LoggingBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        print(f"Before: {type(request).__name__}")
+        response = next()
+        print(f"After: {type(request).__name__}")
         return response
 
-# Usage
-class LoggingMiddleware:
-    def before(self, request):
-        print(f"Before: {type(request).__name__}")
+class TimingBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        import time
+        start = time.time()
+        response = next()
+        duration = time.time() - start
+        print(f"Took {duration:.3f}s")
+        return response
 
-    def after(self, request, response):
-        print(f"After: {type(response).__name__}")
+# Register behaviors - they apply to ALL requests automatically
+services = Services()
+services.add(LoggingBehavior())     # Outermost
+services.add(TimingBehavior())      # Inner
+services.add(CreateUserHandler())
+services.add(GetUserHandler())
 
-    def on_error(self, request, error):
-        print(f"Error in {type(request).__name__}: {error}")
+mediator = Mediator(services.provider())
 
-mediator = MiddlewareMediator(
-    resolver,
-    middlewares=[LoggingMiddleware(), MetricsMiddleware()]
-)
+# Every request goes through: Logging → Timing → Handler
+response = mediator.send(CreateUserRequest(username="alice"))
 ```
+
+**With Error Handling:**
+```python
+class ErrorHandlingBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        try:
+            return next()
+        except Exception as e:
+            print(f"Error in {type(request).__name__}: {e}")
+            # Log to monitoring system, send alert, etc.
+            raise  # Re-raise for caller to handle
+
+class ValidationBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        # Pre-processing: validate request
+        if hasattr(request, 'validate'):
+            request.validate()
+        return next()
+
+services = Services()
+services.add(ErrorHandlingBehavior())  # Catches all errors
+services.add(ValidationBehavior())      # Validates requests
+services.add(LoggingBehavior())         # Logs processing
+services.add(CreateUserHandler())
+
+mediator = Mediator(services.provider())
+```
+
+**Why This Approach?**
+- ✅ No subclassing required
+- ✅ Behaviors are reusable across projects
+- ✅ Clear separation of concerns
+- ✅ Easy to test behaviors in isolation
+- ✅ Works with DI container scopes
+- ✅ Zero overhead when no behaviors registered
+
+**Execution Order:**
+```
+Request
+  → ErrorHandling (outermost)
+    → Validation
+      → Logging
+        → Handler (innermost)
+          → Response
+      ← Logging
+    ← Validation
+  ← ErrorHandling (catches any errors)
+```
+
+See [Pipeline Behaviors Guide](pipeline-behaviors.md) for comprehensive documentation.
 
 ### Request Context
 

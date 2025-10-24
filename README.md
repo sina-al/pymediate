@@ -107,6 +107,44 @@ asyncio.run(main())
 - Use `await mediator.send(...)` instead of `mediator.send(...)`
 - Supports concurrent request handling with `asyncio.gather()`
 
+### Pipeline Behaviors
+
+PyMediate supports pipeline behaviors (middleware) that automatically wrap request processing for cross-cutting concerns like logging, validation, caching, and more:
+
+```python
+from pymediate import PipelineBehaviorBase
+
+class LoggingBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        print(f"Handling: {type(request).__name__}")
+        response = next()
+        print(f"Completed: {type(request).__name__}")
+        return response
+
+class ValidationBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        # Validate before processing
+        if not hasattr(request, 'username') or not request.username:
+            raise ValueError("Username is required")
+        return next()
+
+# Register behaviors and handlers
+services = Services()
+services.add(LoggingBehavior())       # Applied first (outermost)
+services.add(ValidationBehavior())    # Applied second
+services.add(CreateUserHandler())
+
+mediator = Mediator(services.provider())
+
+# Behaviors automatically wrap every request
+response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
+# Output:
+# Handling: CreateUser
+# Completed: CreateUser
+```
+
+Behaviors are resolved per request, respecting DI container scopes (Transient, Scoped, Singleton). See the [Pipeline Behaviors Guide](https://sina-al.github.io/pymediate/guide/pipeline-behaviors/) for more examples.
+
 ## Installation
 
 ```bash

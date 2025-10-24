@@ -51,31 +51,61 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 
 ## Pipeline Behaviors
 
-**Pipeline Behaviors are middleware** that wrap around request processing. They enable cross-cutting concerns like logging, validation, caching, and error handling without modifying your handlers.
+**Pipeline Behaviors are middleware** that automatically wrap around request processing. They enable cross-cutting concerns like logging, validation, caching, and error handling without modifying your handlers.
+
+### Why Pipeline Behaviors?
+
+Without behaviors, you'd need to add logging, validation, timing, etc. to **every handler**. This leads to:
+- Duplicated code across handlers
+- Difficult to maintain consistency
+- Hard to add new cross-cutting concerns
+
+Behaviors solve this by **automatically applying** to all requests:
 
 ```python
-from pymediate.pipeline import Pipeline
+from pymediate import PipelineBehaviorBase
 
-class LoggingBehavior:
+class LoggingBehavior(PipelineBehaviorBase):
     def __call__(self, request, next):
         print(f"Processing: {type(request).__name__}")
         response = next()
         print(f"Completed: {type(request).__name__}")
         return response
+
+# Register behavior once - it applies to ALL requests
+services = Services()
+services.add(LoggingBehavior())  # Auto-discovered by mediator!
+services.add(CreateUserHandler())
+services.add(GetUserHandler())
+# ... add more handlers
+
+mediator = Mediator(services.provider())
 ```
+
+### How Behaviors Work
 
 Behaviors form a chain where each behavior wraps the next:
 
 ```
-Request → Behavior 1 → Behavior 2 → Behavior 3 → Handler → Response
+Request → Logging → Validation → Timing → Handler → Response
+                                             ↓
+        Logging ← Validation ← Timing ← Handler
 ```
 
-Each behavior can:
+**Execution flow:**
+1. Request enters the first behavior (Logging)
+2. Logging executes pre-processing, calls `next()`
+3. Next behavior (Validation) executes, calls `next()`
+4. Continue until Handler executes
+5. Handler returns response
+6. Each behavior's post-processing executes in reverse order
+
+**Each behavior can:**
 - Execute logic **before** the handler (pre-processing)
 - Execute logic **after** the handler (post-processing)
 - Modify the request or response
-- Short-circuit the pipeline
-- Handle errors
+- Short-circuit the pipeline (skip handler)
+- Handle/wrap errors
 
 ## Service Provider
 
@@ -109,18 +139,24 @@ class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> UserCreatedResponse:
         return UserCreatedResponse(user_id=1)
 
-# 3. Optional: Add pipeline behaviors
-logging = LoggingBehavior()
-timing = TimingBehavior()
-pipeline = Pipeline([logging, timing], CreateUserHandler())
+# 3. Optional: Add pipeline behaviors (automatically applied)
+class LoggingBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        print(f"Before: {type(request).__name__}")
+        response = next()
+        print(f"After: {type(request).__name__}")
+        return response
 
-# 4. Setup mediator
+# 4. Setup mediator with behaviors and handlers
 services = Services()
-services.add(CreateUserRequest, pipeline)  # or just the handler
+services.add(LoggingBehavior())      # Applied to ALL requests automatically
+services.add(CreateUserHandler())
 mediator = Mediator(services.provider())
 
-# 5. Send requests
+# 5. Send requests - behaviors automatically wrap the handler
 response = mediator.send(CreateUserRequest(username="alice"))
+# Output: Before: CreateUserRequest
+#         After: CreateUserRequest
 ```
 
 ---

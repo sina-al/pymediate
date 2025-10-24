@@ -973,53 +973,132 @@ class CachingBehavior:
 
 ## Integration with Mediator
 
-Pipeline behaviors can be used directly with handlers or integrated into the mediator's service configuration:
+PyMediate automatically discovers and applies pipeline behaviors registered with the service provider. Behaviors that inherit from `PipelineBehaviorBase` are automatically resolved and applied to **every request** processed by the mediator.
 
-### Option 1: Wrap Individual Handlers
+### Automatic Behavior Discovery
+
+The simplest way to use behaviors is to register them with your services - the mediator handles the rest:
 
 ```python
-from pymediate import Services, Mediator
-from pymediate.pipeline import Pipeline
+from pymediate import Services, Mediator, PipelineBehaviorBase
 
-# Create handler with pipeline
-handler = GetUserHandler(database)
-pipeline = Pipeline([LoggingBehavior(logger)], handler)
+class LoggingBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        print(f"Handling: {type(request).__name__}")
+        response = next()
+        print(f"Completed: {type(request).__name__}")
+        return response
 
-# Register pipeline instead of handler
+class ValidationBehavior(PipelineBehaviorBase):
+    def __call__(self, request, next):
+        if not hasattr(request, 'validate') or not request.validate():
+            raise ValueError("Invalid request")
+        return next()
+
+# Register behaviors and handlers
 services = Services()
-services.add(GetUserRequest, pipeline)
+services.add(LoggingBehavior())       # Will be auto-discovered
+services.add(ValidationBehavior())    # Will be auto-discovered
+services.add(GetUserHandler())
+services.add(CreateUserHandler())
 
 mediator = Mediator(services.provider())
+
+# Every request automatically goes through behaviors
 response = mediator.send(GetUserRequest(user_id=123))
+# Output: Handling: GetUserRequest
+#         Completed: GetUserRequest
 ```
 
-### Option 2: Create Reusable Pipeline Factory
+**Key Points:**
+- Behaviors must inherit from `PipelineBehaviorBase`
+- Registration order determines execution order (first registered = outermost)
+- Behaviors are resolved per request from the service provider
+- Zero overhead when no behaviors are registered
+
+### Behavior Execution Order
+
+Behaviors execute in registration order, with the first registered behavior being the outermost:
 
 ```python
-def create_pipeline(handler, behaviors=None):
-    """Factory for creating pipelines with standard behaviors."""
-    default_behaviors = [
+services = Services()
+services.add(LoggingBehavior())      # Executes first (outermost)
+services.add(ValidationBehavior())   # Executes second
+services.add(TimingBehavior())       # Executes third (innermost, closest to handler)
+services.add(GetUserHandler())
+
+# Execution flow:
+# Request → Logging → Validation → Timing → Handler → Response
+#                                            ↓
+#         Logging ← Validation ← Timing ← Handler
+```
+
+### DI Container Integration
+
+Behaviors work seamlessly with dependency injection containers, respecting lifecycle scopes:
+
+```python
+from dependency_injector import containers, providers
+from pymediate.providers import DependencyInjectorServiceProvider
+
+class Container(containers.DeclarativeContainer):
+    # Transient = new instance per request
+    logging = providers.Transient(
+        LoggingBehavior,
+        logger=providers.Dependency()
+    )
+
+    # Singleton = shared across all requests
+    cache = providers.Singleton(
+        CacheBehavior,
+        ttl=300
+    )
+
+    # Scoped = new instance per scope (e.g., per web request)
+    transaction = providers.Scoped(
+        TransactionBehavior,
+        db=providers.Dependency()
+    )
+
+    # Handlers
+    get_user = providers.Factory(GetUserHandler, db=...)
+    create_user = providers.Factory(CreateUserHandler, db=...)
+
+# Create mediator with DI
+container = Container()
+provider = DependencyInjectorServiceProvider(container)
+mediator = Mediator(provider)
+
+# Behaviors resolved per request, respecting their scopes
+response = await mediator.send(GetUserRequest(user_id=123))
+```
+
+### Manual Pipeline Construction (Advanced)
+
+For fine-grained control, you can still construct pipelines manually:
+
+```python
+from pymediate.pipeline import Pipeline
+
+# Manual pipeline construction
+handler = GetUserHandler(database)
+pipeline = Pipeline(
+    behaviors=[
         LoggingBehavior(logger),
-        TimingBehavior(metrics),
         ValidationBehavior(),
-    ]
+        TimingBehavior(metrics),
+    ],
+    handler=handler
+)
 
-    all_behaviors = default_behaviors + (behaviors or [])
-    return Pipeline(all_behaviors, handler)
-
-# Use factory
-services.add(GetUserRequest, create_pipeline(GetUserHandler(db)))
-services.add(CreateUserRequest, create_pipeline(CreateUserHandler(db)))
+# Use pipeline directly (without mediator)
+response = pipeline(GetUserRequest(user_id=123))
 ```
 
-### Option 3: Apply Behaviors to Multiple Handlers
-
-```python
-# Standard behaviors for all handlers
-standard_behaviors = [
-    LoggingBehavior(logger),
-    TimingBehavior(metrics),
-]
+This is useful for:
+- Testing behaviors in isolation
+- One-off pipelines with specific behavior combinations
+- Custom request processing workflows
 
 # Specific behaviors for commands
 command_behaviors = standard_behaviors + [

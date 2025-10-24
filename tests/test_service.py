@@ -691,6 +691,8 @@ def test_many_different_types() -> None:
 
     assert len(provider) == 100
     assert len(provider.get_all_types()) == 100
+
+
 # ==================== Inheritance Test Fixtures ====================
 
 
