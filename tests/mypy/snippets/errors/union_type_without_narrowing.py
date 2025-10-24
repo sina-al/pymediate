@@ -29,7 +29,7 @@ class CalculateHandler(Handler[CalculateRequest]):
 
 
 services = Services()
-services.add(CalculateRequest, CalculateHandler())
+services.add(CalculateHandler())
 provider = services.provider()
 mediator = Mediator(provider)
 
