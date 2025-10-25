@@ -112,38 +112,40 @@ asyncio.run(main())
 PyMediate supports pipeline behaviors (middleware) that automatically wrap request processing for cross-cutting concerns like logging, validation, caching, and more:
 
 ```python
-from pymediate import PipelineBehavior
+from pymediate import Request, PipelineBehavior
 
-class LoggingBehavior(PipelineBehavior):
+# Universal behavior - applies to all requests
+class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         print(f"Handling: {type(request).__name__}")
         response = next()
         print(f"Completed: {type(request).__name__}")
         return response
 
-class ValidationBehavior(PipelineBehavior):
+# Selective behavior - only applies to CreateUser requests
+class ValidationBehavior(PipelineBehavior[CreateUser]):
     def __call__(self, request, next):
         # Validate before processing
-        if not hasattr(request, 'username') or not request.username:
+        if not request.username:
             raise ValueError("Username is required")
         return next()
 
 # Register behaviors and handlers
 services = Services()
-services.add(LoggingBehavior())       # Applied first (outermost)
-services.add(ValidationBehavior())    # Applied second
+services.add(LoggingBehavior())       # Applied to ALL requests
+services.add(ValidationBehavior())    # Only applied to CreateUser
 services.add(CreateUserHandler())
 
 mediator = Mediator(services.provider())
 
-# Behaviors automatically wrap every request
+# Behaviors automatically wrap matching requests
 response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 # Output:
 # Handling: CreateUser
 # Completed: CreateUser
 ```
 
-Behaviors are resolved per request, respecting DI container scopes (Transient, Scoped, Singleton). See the [Pipeline Behaviors Guide](https://sina-al.github.io/pymediate/guide/pipeline-behaviors/) for more examples.
+Behaviors can be **universal** (`PipelineBehavior[Request]`) or **selective** (`PipelineBehavior[SpecificRequest]`), applying only to matching request types or mixins. They are resolved per request, respecting DI container scopes (Transient, Scoped, Singleton). See the [Pipeline Behaviors Guide](https://sina-al.github.io/pymediate/guide/pipeline-behaviors/) for more examples.
 
 ## Installation
 

@@ -7,8 +7,16 @@ API documentation for pipeline behaviors and the Pipeline class.
 The pipeline module provides middleware-like functionality for wrapping request processing with cross-cutting concerns.
 
 - **Module**: `pymediate.pipeline` (sync) / `pymediate.aio.pipeline` (async)
-- **Protocol**: `PipelineBehavior[RequestT, ResponseT]`
+- **ABC**: `PipelineBehavior[RequestT: Request]`
 - **Class**: `Pipeline[RequestT, ResponseT]`
+
+## Selective Behaviors
+
+Behaviors can selectively apply to specific request types or mixins using the type parameter:
+
+- `PipelineBehavior[Request]` - Universal (applies to all requests)
+- `PipelineBehavior[CreateUserRequest]` - Specific request type
+- `PipelineBehavior[AuthMixin]` - Requests with mixin
 
 ## Synchronous Pipeline
 

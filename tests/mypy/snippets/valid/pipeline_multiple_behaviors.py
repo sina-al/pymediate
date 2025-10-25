@@ -23,7 +23,7 @@ class CreateOrderHandler(Handler[CreateOrderRequest]):
         return OrderResponse(order_id=100, total=50.0)
 
 
-class LoggingBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
+class LoggingBehavior(PipelineBehavior[CreateOrderRequest]):
     def __call__(
         self,
         request: CreateOrderRequest,
@@ -33,7 +33,7 @@ class LoggingBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
         return next()
 
 
-class TimingBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
+class TimingBehavior(PipelineBehavior[CreateOrderRequest]):
     def __call__(
         self,
         request: CreateOrderRequest,
@@ -45,7 +45,7 @@ class TimingBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
         return response
 
 
-class ValidationBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
+class ValidationBehavior(PipelineBehavior[CreateOrderRequest]):
     def __call__(
         self,
         request: CreateOrderRequest,

@@ -60,12 +60,13 @@ Without behaviors, you'd need to add logging, validation, timing, etc. to **ever
 - Difficult to maintain consistency
 - Hard to add new cross-cutting concerns
 
-Behaviors solve this by **automatically applying** to all requests:
+Behaviors solve this by **automatically applying** to requests. They can be **universal** (apply to all requests) or **selective** (apply only to specific request types or mixins):
 
 ```python
-from pymediate import PipelineBehavior
+from pymediate import Request, PipelineBehavior
 
-class LoggingBehavior(PipelineBehavior):
+# Universal behavior - applies to all requests
+class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         print(f"Processing: {type(request).__name__}")
         response = next()
@@ -140,7 +141,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserCreatedResponse(user_id=1)
 
 # 3. Optional: Add pipeline behaviors (automatically applied)
-class LoggingBehavior(PipelineBehavior):
+class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         print(f"Before: {type(request).__name__}")
         response = next()

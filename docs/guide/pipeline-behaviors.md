@@ -65,18 +65,20 @@ Use pipeline behaviors for **cross-cutting concerns** - functionality that appli
 
 ## Basic Behavior Structure
 
-A pipeline behavior is any class that implements the `PipelineBehavior` protocol:
+A pipeline behavior inherits from the `PipelineBehavior` ABC and specifies which requests it applies to:
 
 ```python
 from collections.abc import Callable
+from pymediate import Request
 from pymediate.pipeline import PipelineBehavior
 
-class MyBehavior:
+# Universal behavior - applies to all requests
+class MyBehavior(PipelineBehavior[Request]):
     def __call__(
         self,
-        request: RequestT,
-        next: Callable[[], ResponseT],
-    ) -> ResponseT:
+        request: Request,
+        next: Callable[[], Any],
+    ) -> Any:
         # Code before handler (pre-processing)
         print(f"Before: {type(request).__name__}")
 
@@ -98,6 +100,60 @@ The `next` parameter is a callable that represents the next step in the pipeline
 
 **You must call `next()` to continue the pipeline!** If you don't, the handler never executes.
 
+### Selective Behaviors
+
+Behaviors can be **universal** (apply to all requests) or **selective** (apply only to specific request types or mixins):
+
+```python
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
+
+# Universal - applies to ALL requests
+class LoggingBehavior(PipelineBehavior[Request]):
+    def __call__(self, request, next):
+        print(f"Processing: {type(request).__name__}")
+        return next()
+
+# Selective - only applies to CreateUserRequest
+class CreateUserValidation(PipelineBehavior[CreateUserRequest]):
+    def __call__(self, request, next):
+        if not request.username:
+            raise ValueError("Username required")
+        return next()
+
+# Mixin-based - applies to any request with AuthMixin
+class AuthMixin:
+    principal: Principal
+
+class AuthenticationBehavior(PipelineBehavior[AuthMixin]):
+    def __call__(self, request, next):
+        if not request.principal.is_authenticated:
+            raise Unauthorized()
+        return next()
+
+# Usage with mixin
+class CreateUserRequest(Request[UserResponse], AuthMixin):
+    username: str
+    principal: Principal
+
+# AuthenticationBehavior will automatically apply to CreateUserRequest
+# because it has AuthMixin, but not to requests without AuthMixin
+```
+
+**Behavior Selection:**
+- The mediator automatically filters behaviors using `isinstance()` checks
+- Only applicable behaviors are executed for each request
+- Custom matching logic can be implemented by overriding `should_apply()`:
+
+```python
+class BusinessHoursOnlyBehavior(PipelineBehavior[Request]):
+    @classmethod
+    def should_apply(cls, request: Request) -> bool:
+        from datetime import datetime
+        # Only apply during business hours
+        return 9 <= datetime.now().hour < 17
+```
+
 ## Creating Behaviors
 
 ### Logging Behavior
@@ -106,8 +162,10 @@ Track all requests passing through your system:
 
 ```python
 from datetime import datetime
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
 
-class LoggingBehavior:
+class LoggingBehavior(PipelineBehavior[Request]):
     """Logs all requests with timestamps."""
 
     def __init__(self, logger):
@@ -140,9 +198,10 @@ Measure execution time for all handlers:
 
 ```python
 import time
-from collections.abc import Callable
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
 
-class TimingBehavior:
+class TimingBehavior(PipelineBehavior[Request]):
     """Measures and reports execution time."""
 
     def __init__(self, metrics_collector):
@@ -178,7 +237,10 @@ class TimingBehavior:
 Apply common validation rules:
 
 ```python
-class ValidationBehavior:
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
+
+class ValidationBehavior(PipelineBehavior[Request]):
     """Validates requests before processing."""
 
     def __call__(self, request, next):
@@ -198,8 +260,10 @@ Cache responses to avoid redundant work:
 ```python
 import hashlib
 import json
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
 
-class CachingBehavior:
+class CachingBehavior(PipelineBehavior[Request]):
     """Caches responses based on request data."""
 
     def __init__(self, cache_store, ttl=300):
@@ -237,7 +301,10 @@ class CachingBehavior:
 Wrap handler execution in a database transaction:
 
 ```python
-class TransactionBehavior:
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
+
+class TransactionBehavior(PipelineBehavior[Request]):
     """Wraps handler execution in a database transaction."""
 
     def __init__(self, session_factory):
@@ -270,8 +337,10 @@ Automatically retry failed operations:
 
 ```python
 import time
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
 
-class RetryBehavior:
+class RetryBehavior(PipelineBehavior[Request]):
     """Retries failed operations with exponential backoff."""
 
     def __init__(self, max_attempts=3, base_delay=0.1):
@@ -398,9 +467,10 @@ For async handlers, use `pymediate.aio.pipeline`:
 
 ```python
 import asyncio
+from pymediate import Request
 from pymediate.aio.pipeline import Pipeline, PipelineBehavior
 
-class AsyncLoggingBehavior:
+class AsyncLoggingBehavior(PipelineBehavior[Request]):
     """Async logging behavior."""
 
     def __init__(self, logger):
@@ -420,7 +490,10 @@ class AsyncLoggingBehavior:
 ### Async Transaction Behavior
 
 ```python
-class AsyncTransactionBehavior:
+from pymediate import Request
+from pymediate.aio.pipeline import PipelineBehavior
+
+class AsyncTransactionBehavior(PipelineBehavior[Request]):
     """Async transaction management."""
 
     def __init__(self, async_session):
@@ -437,7 +510,10 @@ class AsyncTransactionBehavior:
 ### Async Caching Behavior
 
 ```python
-class AsyncCachingBehavior:
+from pymediate import Request
+from pymediate.aio.pipeline import PipelineBehavior
+
+class AsyncCachingBehavior(PipelineBehavior[Request]):
     """Async caching with Redis."""
 
     def __init__(self, redis_client):
@@ -980,41 +1056,47 @@ PyMediate automatically discovers and applies pipeline behaviors registered with
 The simplest way to use behaviors is to register them with your services - the mediator handles the rest:
 
 ```python
-from pymediate import Services, Mediator, PipelineBehavior
+from pymediate import Request, Services, Mediator
+from pymediate.pipeline import PipelineBehavior
 
-class LoggingBehavior(PipelineBehavior):
+# Universal behavior - applies to all requests
+class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         print(f"Handling: {type(request).__name__}")
         response = next()
         print(f"Completed: {type(request).__name__}")
         return response
 
-class ValidationBehavior(PipelineBehavior):
+# Selective behavior - only applies to CreateUserRequest
+class ValidationBehavior(PipelineBehavior[CreateUserRequest]):
     def __call__(self, request, next):
-        if not hasattr(request, 'validate') or not request.validate():
+        if not request.validate():
             raise ValueError("Invalid request")
         return next()
 
 # Register behaviors and handlers
 services = Services()
-services.add(LoggingBehavior())       # Will be auto-discovered
-services.add(ValidationBehavior())    # Will be auto-discovered
+services.add(LoggingBehavior())       # Will be auto-discovered - applies to all requests
+services.add(ValidationBehavior())    # Will be auto-discovered - applies to CreateUserRequest only
 services.add(GetUserHandler())
 services.add(CreateUserHandler())
 
 mediator = Mediator(services.provider())
 
-# Every request automatically goes through behaviors
+# Every request automatically goes through matching behaviors
 response = mediator.send(GetUserRequest(user_id=123))
 # Output: Handling: GetUserRequest
 #         Completed: GetUserRequest
 ```
 
 **Key Points:**
-- Behaviors must inherit from `PipelineBehavior`
+- Behaviors must inherit from `PipelineBehavior[RequestT]`
+- `PipelineBehavior[Request]` creates **universal** behaviors (apply to all requests)
+- `PipelineBehavior[SpecificRequest]` creates **selective** behaviors (apply only to that type)
+- Behaviors can also use mixins: `PipelineBehavior[AuthMixin]` applies to all requests with AuthMixin
 - Registration order determines execution order (first registered = outermost)
-- Behaviors are resolved per request from the service provider
-- Zero overhead when no behaviors are registered
+- Behaviors are filtered per request using `should_apply()` type matching
+- Zero overhead when no applicable behaviors exist
 
 ### Behavior Execution Order
 

@@ -23,7 +23,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 
-class LoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
     def __call__(
         self, request: CreateUserRequest, next: Callable[[], UserResponse]
     ) -> UserResponse:

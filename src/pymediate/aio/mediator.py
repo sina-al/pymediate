@@ -203,13 +203,19 @@ class Mediator(MediatorMixin):
         # Resolve handler instance
         handler: Any = self._service_provider.resolve(handler_class)
 
-        # Resolve all registered pipeline behaviors (if any)
-        behaviors: Sequence[Any] = self._service_provider.resolve_all(PipelineBehavior)
+        # Resolve all registered pipeline behaviors
+        all_behaviors: Sequence[Any] = self._service_provider.resolve_all(PipelineBehavior)
 
-        # Fast path: if no behaviors, call handler directly (zero overhead)
-        if not behaviors:
+        # Filter behaviors to only those that apply to this request
+        applicable_behaviors = [
+            behavior for behavior in all_behaviors
+            if type(behavior).should_apply(request)
+        ]
+
+        # Fast path: if no applicable behaviors, call handler directly (zero overhead)
+        if not applicable_behaviors:
             return await handler(request)  # type: ignore[no-any-return]
 
-        # Construct and execute async pipeline with behaviors
-        pipeline: Pipeline[Any, ResponseT] = Pipeline(behaviors, handler)
+        # Construct and execute async pipeline with applicable behaviors
+        pipeline: Pipeline[Any, ResponseT] = Pipeline(applicable_behaviors, handler)
         return await pipeline(request)

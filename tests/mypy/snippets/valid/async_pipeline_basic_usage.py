@@ -26,7 +26,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 
-class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest]):
     async def __call__(
         self,
         request: CreateUserRequest,

@@ -23,7 +23,7 @@ class ProcessHandler(Handler[ProcessRequest]):
         return ProcessedResponse(value=42, processed=False)
 
 
-class ProcessingBehavior(PipelineBehavior[ProcessRequest, ProcessedResponse]):
+class ProcessingBehavior(PipelineBehavior[ProcessRequest]):
     """Behavior that modifies the response."""
 
     def __call__(

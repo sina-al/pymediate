@@ -321,19 +321,19 @@ request = CreateUserRequest(username="alice", email="alice@example.com")
 Pipeline behaviors are automatically discovered and applied to wrap request processing:
 
 ```python
-from pymediate import PipelineBehavior
+from pymediate import Request, PipelineBehavior
 
-# Define behaviors
-class LoggingBehavior(PipelineBehavior):
+# Define universal behavior - applies to all requests
+class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         print(f"Handling {type(request).__name__}")
         response = next()
         print(f"Completed {type(request).__name__}")
         return response
 
-# Register behaviors - they're automatically applied to ALL requests
+# Register behaviors - they're automatically applied to matching requests
 services = Services()
-services.add(LoggingBehavior())  # Auto-discovered!
+services.add(LoggingBehavior())  # Auto-discovered! Applies to all requests
 services.add(CreateUserHandler())
 ```
 
@@ -433,16 +433,17 @@ Pipeline behaviors provide a clean, composable way to add middleware to your med
 
 **Simple Example:**
 ```python
-from pymediate import PipelineBehavior, Services, Mediator
+from pymediate import Request, PipelineBehavior, Services, Mediator
 
-class LoggingBehavior(PipelineBehavior):
+# Universal behaviors apply to all requests
+class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         print(f"Before: {type(request).__name__}")
         response = next()
         print(f"After: {type(request).__name__}")
         return response
 
-class TimingBehavior(PipelineBehavior):
+class TimingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         import time
         start = time.time()
@@ -466,7 +467,7 @@ response = mediator.send(CreateUserRequest(username="alice"))
 
 **With Error Handling:**
 ```python
-class ErrorHandlingBehavior(PipelineBehavior):
+class ErrorHandlingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         try:
             return next()
@@ -475,7 +476,7 @@ class ErrorHandlingBehavior(PipelineBehavior):
             # Log to monitoring system, send alert, etc.
             raise  # Re-raise for caller to handle
 
-class ValidationBehavior(PipelineBehavior):
+class ValidationBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         # Pre-processing: validate request
         if hasattr(request, 'validate'):

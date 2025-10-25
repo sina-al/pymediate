@@ -17,108 +17,178 @@ behavior can execute logic before and after the next behavior (or final handler)
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
+from typing import Any, get_args, get_origin
 
 from .handler import Handler
+from .request import Request
 
 
-class PipelineBehavior[RequestT, ResponseT](ABC):
+class PipelineBehavior[RequestT: Request[Any]](ABC):
     """Abstract base class for pipeline behaviors that wrap request processing.
 
     A pipeline behavior is middleware that sits between the mediator and the handler,
     allowing you to execute logic before and after the handler processes the request.
 
+    Behaviors can be selective - they only apply to specific request types or mixins.
+    The type parameter indicates which requests this behavior applies to.
+
     Behaviors receive:
-    - The request being processed
-    - A 'next' callable that represents the next step in the pipeline (either the
-      next behavior or the final handler)
+    - The request being processed (typed as RequestT)
+    - A 'next' callable that represents the next step in the pipeline
 
     By calling next(), the behavior passes control to the next step. The behavior
     can execute code before calling next() (pre-processing), after calling next()
     (post-processing), or both.
 
     Type Parameters:
-        RequestT: The request type this behavior handles (must extend Request)
-        ResponseT: The response type returned by the handler
+        RequestT: The request type (or mixin) this behavior applies to.
+                  Can be Request (universal), a specific request class, or a mixin.
 
     Examples:
-        Simple logging behavior:
+        Universal behavior (applies to all requests):
             ```python
             from pymediate import Request
             from pymediate.pipeline import PipelineBehavior
 
-            class LoggingBehavior[RequestT: Request, ResponseT]:
+            class LoggingBehavior(PipelineBehavior[Request]):
                 def __call__(
                     self,
-                    request: RequestT,
-                    next: Callable[[], ResponseT]
-                ) -> ResponseT:
+                    request: Request,
+                    next: Callable[[], Any]
+                ) -> Any:
                     print(f"Handling: {type(request).__name__}")
                     response = next()
                     print(f"Handled: {type(request).__name__}")
                     return response
             ```
 
-        Timing behavior:
+        Selective behavior for authenticated requests:
             ```python
-            import time
+            class AuthMixin:
+                principal: Principal
 
-            class TimingBehavior[RequestT: Request, ResponseT]:
+            class AuthBehavior(PipelineBehavior[AuthMixin]):
                 def __call__(
                     self,
-                    request: RequestT,
-                    next: Callable[[], ResponseT]
-                ) -> ResponseT:
-                    start = time.time()
-                    response = next()
-                    duration = time.time() - start
-                    print(f"Request handled in {duration:.4f}s")
-                    return response
-            ```
-
-        Validation behavior:
-            ```python
-            class ValidationBehavior[RequestT: Request, ResponseT]:
-                def __call__(
-                    self,
-                    request: RequestT,
-                    next: Callable[[], ResponseT]
-                ) -> ResponseT:
-                    # Validate request before processing
-                    if hasattr(request, 'validate'):
-                        request.validate()
+                    request: AuthMixin,
+                    next: Callable[[], Any]
+                ) -> Any:
+                    if not request.principal.is_authenticated:
+                        raise Unauthorized()
                     return next()
             ```
 
+        Specific request type:
+            ```python
+            class ValidationBehavior(PipelineBehavior[CreateUserRequest]):
+                def __call__(
+                    self,
+                    request: CreateUserRequest,
+                    next: Callable[[], Any]
+                ) -> Any:
+                    if not request.username:
+                        raise ValueError("Username required")
+                    return next()
+            ```
+
+    Attributes:
+        apply_to_subclasses: If True (default), applies to subclasses of RequestT.
+                            If False, only applies to exact type match.
+
     Note:
-        The behavior must call next() to continue the pipeline. If next() is not
-        called, the request will not be processed by subsequent behaviors or the
-        handler.
+        The response type is not statically known because selective behaviors can
+        apply to requests with different response types. If you need response type
+        safety, manually annotate in your implementation:
+
+            ```python
+            def __call__(self, request: MyRequest, next) -> MyResponse:
+                result: MyResponse = next()  # Manual type assertion
+                return result
+            ```
 
         For async behaviors, use `pymediate.aio.pipeline.PipelineBehavior` instead.
 
     See Also:
         - Pipeline: Chains multiple behaviors together
+        - should_apply: Override to customize behavior selection logic
         - pymediate.aio.pipeline.PipelineBehavior: Async version
     """
+
+    apply_to_subclasses: bool = True
+
+    @classmethod
+    def should_apply(cls, request: Request[Any]) -> bool:
+        """Determine if this behavior should apply to the given request.
+
+        Default implementation uses isinstance() check against the type parameter.
+        Override for custom matching logic.
+
+        Args:
+            request: The request to check
+
+        Returns:
+            True if this behavior should apply to the request
+
+        Examples:
+            Custom matching logic:
+                ```python
+                class BusinessHoursBehavior(PipelineBehavior[Request]):
+                    @classmethod
+                    def should_apply(cls, request: Request) -> bool:
+                        from datetime import datetime
+                        return 9 <= datetime.now().hour < 17
+                ```
+
+            Multiple type matching:
+                ```python
+                class MultiTypeBehavior(PipelineBehavior[Request]):
+                    @classmethod
+                    def should_apply(cls, request: Request) -> bool:
+                        return isinstance(request, (CreateRequest, UpdateRequest))
+                ```
+        """
+        request_type = cls.__get_request_type__()
+        if request_type is Request:
+            return True  # Universal behavior
+        return isinstance(request, request_type)
+
+    @classmethod
+    def __get_request_type__(cls) -> type:
+        """Extract RequestT from PipelineBehavior[RequestT].
+
+        Returns:
+            The request type this behavior is parameterized with,
+            or Request if no type parameter specified.
+        """
+        for base in getattr(cls, "__orig_bases__", []):
+            if get_origin(base) is PipelineBehavior:
+                args = get_args(base)
+                if args:
+                    return args[0]  # type: ignore[no-any-return]
+        return Request  # Fallback to universal  # type: ignore[return-value]
 
     @abstractmethod
     def __call__(
         self,
         request: RequestT,
-        next: Callable[[], ResponseT],
-    ) -> ResponseT:
+        next: Callable[[], Any],
+    ) -> Any:
         """Execute the behavior's logic and call next to continue the pipeline.
 
         Args:
-            request: The request being processed
+            request: The request being processed (typed as RequestT)
             next: Callable that invokes the next behavior or handler in the chain
 
         Returns:
-            The response from the handler (potentially modified by this behavior)
+            The response from the handler (type not statically known)
 
         Note:
             This method should call next() to continue the pipeline execution.
             Code before next() runs before the handler, code after runs after.
+
+            The response type is Any because selective behaviors can apply to
+            requests with different response types. If you need type safety,
+            manually annotate the return type in your implementation.
         """
         ...
 
@@ -210,7 +280,7 @@ class Pipeline[RequestT, ResponseT]:
 
     def __init__(
         self,
-        behaviors: Sequence[PipelineBehavior[RequestT, ResponseT]],
+        behaviors: Sequence[Any],
         handler: Handler[RequestT],
     ) -> None:
         """Initialize a pipeline with behaviors and a handler.
@@ -263,11 +333,11 @@ class Pipeline[RequestT, ResponseT]:
             current_next = next_call
 
             def create_behavior_call(
-                b: PipelineBehavior[RequestT, ResponseT],
+                b: Any,
                 n: Callable[[], ResponseT],
             ) -> Callable[[], ResponseT]:
                 def behavior_call() -> ResponseT:
-                    return b(request, n)
+                    return b(request, n)  # type: ignore[no-any-return]
 
                 return behavior_call
 

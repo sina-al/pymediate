@@ -53,7 +53,7 @@ def test_mediator_with_single_behavior() -> None:
 
     log: list[str] = []
 
-    class LoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("logging:before")
             response = next()
@@ -91,14 +91,14 @@ def test_mediator_with_multiple_behaviors_executes_in_order() -> None:
 
     log: list[str] = []
 
-    class LoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("logging:before")
             response = next()
             log.append("logging:after")
             return response
 
-    class TimingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class TimingBehavior(PipelineBehavior[CreateUserRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("timing:before")
             response = next()
@@ -140,7 +140,7 @@ def test_mediator_behaviors_can_modify_response() -> None:
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
-    class ResponseModifyingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class ResponseModifyingBehavior(PipelineBehavior[CreateUserRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             response = next()
             response.username = response.username + "_modified"
@@ -174,7 +174,7 @@ def test_mediator_behavior_can_short_circuit() -> None:
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
-    class ShortCircuitBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class ShortCircuitBehavior(PipelineBehavior[CreateUserRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             # Don't call next - return early
             return UserResponse(user_id=-1, username="short-circuited")
@@ -208,7 +208,7 @@ def test_mediator_validation_behavior() -> None:
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
-    class ValidationBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class ValidationBehavior(PipelineBehavior[CreateUserRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             if hasattr(request, "username") and not request.username:
                 raise ValueError("Username cannot be empty")
@@ -246,7 +246,7 @@ def test_mediator_behaviors_are_stateful() -> None:
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
-    class StatefulBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class StatefulBehavior(PipelineBehavior[CreateUserRequest]):
         def __init__(self) -> None:
             self.call_count = 0
 
@@ -286,7 +286,7 @@ def test_mediator_behavior_exception_propagates() -> None:
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
-    class ExceptionBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    class ExceptionBehavior(PipelineBehavior[CreateUserRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             raise RuntimeError("Behavior error")
 
@@ -317,7 +317,7 @@ def test_mediator_behavior_can_wrap_handler_exception() -> None:
         def __call__(self, request: FailingRequest) -> UserResponse:
             raise ValueError("Handler failed")
 
-    class ExceptionHandlingBehavior(PipelineBehavior[FailingRequest, UserResponse]):
+    class ExceptionHandlingBehavior(PipelineBehavior[FailingRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             try:
                 return next()
@@ -364,14 +364,14 @@ def test_mediator_registration_order_matters() -> None:
 
     log: list[str] = []
 
-    class LoggingBehavior(PipelineBehavior[Any, UserResponse]):
+    class LoggingBehavior(PipelineBehavior[Request[Any]]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("logging:before")
             response = next()
             log.append("logging:after")
             return response
 
-    class TimingBehavior(PipelineBehavior[Any, UserResponse]):
+    class TimingBehavior(PipelineBehavior[Request[Any]]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("timing:before")
             response = next()
