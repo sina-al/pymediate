@@ -25,7 +25,7 @@ class AppContainer(containers.DeclarativeContainer):
     __self__ = providers.Self()
     mediator = providers.Singleton(
         Mediator,
-        resolver=providers.Singleton(DependencyInjectorServiceProvider, container=__self__)
+        services=providers.Singleton(DependencyInjectorServiceProvider, container=__self__)
     )
 ```
 

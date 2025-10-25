@@ -215,7 +215,7 @@ class PipelineBehavior[TRequest: Request](ABC):
 class Mediator:
     def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
         # Resolve all behaviors
-        all_behaviors = self._service_provider.resolve_all(PipelineBehavior)
+        all_behaviors = self._services.get_all(PipelineBehavior)
 
         # Filter to only applicable behaviors
         applicable_behaviors = [

@@ -93,13 +93,13 @@ response = mediator.send(MyRequest())
    ```python
    # Problem
    services = Services()
-   mediator = Mediator(resolver)
+   mediator = Mediator(services.provider())
    response = mediator.send(MyRequest())  # ❌ Handler not registered
 
    # Solution
    services = Services()
    services.add(MyHandler())  # ✅ Register the handler
-   mediator = Mediator(resolver)
+   mediator = Mediator(services.provider())
    response = mediator.send(MyRequest())
    ```
 
@@ -481,11 +481,11 @@ To avoid common issues:
    ```python
    # ✅ Good
    services.add(MyHandler())
-   mediator = Mediator(resolver)
+   mediator = Mediator(services.provider())
    response = mediator.send(MyRequest())
 
    # ❌ Bad
-   mediator = Mediator(resolver)
+   mediator = Mediator(services.provider())
    response = mediator.send(MyRequest())  # Handler not registered yet!
    ```
 

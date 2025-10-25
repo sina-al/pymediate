@@ -33,7 +33,7 @@ services = Services()
 services.add(CreateUserHandler(database))
 
 # Create mediator
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 
 # Send request
 response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
@@ -133,7 +133,7 @@ from pymediate import DependencyInjectorServiceProvider
 provider = DependencyInjectorServiceProvider(container)
 
 # Mediator usage stays the same!
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 response = mediator.send(GetUserRequest(user_id=123))
 ```
 
@@ -170,7 +170,7 @@ services = Services()
 services.add(CreateUserHandler(database))
 
 # 4. Create mediator
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 ```
 
 ### Sending Requests
@@ -225,7 +225,7 @@ services.add(CreateUserHandler(database))
 services.add(GetUserHandler(database))
 services.add(DeleteUserHandler(database))
 
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 
 # Mediator routes to correct handler based on request type
 create_response = mediator.send(CreateUserRequest(...))  # → CreateUserHandler
@@ -237,12 +237,12 @@ delete_response = mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
 
 ```python
 class Mediator:
-    def __init__(self, resolver: Resolver):
-        self.service_provider = resolver
+    def __init__(self, services: ServiceProvider):
+        self.services = resolver
 
     def send[RequestT](self, request: RequestT):
         # 1. Get handler for this request type
-        handler = self.service_provider.resolve(type(request))
+        handler = self.services.get(type(request))
 
         # 2. Execute handler
         if inspect.iscoroutinefunction(handler):
@@ -282,7 +282,7 @@ services = Services()
 services.add(CreateUserHandler(database))  # Sync
 services.add(FetchDataHandler(http_client))  # Async
 
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 
 # Sync request
 user = mediator.send(CreateUserRequest(...))
@@ -341,10 +341,10 @@ services.add(CreateUserHandler())
 
 ```python
 # Mediator resolves handler from registry
-handler = self.service_provider.resolve(handler_class)
+handler = self.services.get(handler_class)
 
 # Mediator automatically discovers all registered behaviors
-behaviors = self.service_provider.resolve_all(PipelineBehavior)
+behaviors = self.services.get_all(PipelineBehavior)
 ```
 
 ### 4. Pipeline Construction
@@ -552,7 +552,7 @@ class ScopedMediator(Mediator):
 
     def send[RequestT](self, request: RequestT):
         # Get handler factory instead of instance
-        handler_factory = self.service_provider.resolve(type(request))
+        handler_factory = self.services.get(type(request))
 
         # Create new handler instance
         handler = handler_factory()
@@ -627,7 +627,7 @@ def test_with_mediator():
     services = Services()
     services.add(CreateUserHandler(mock_db))
 
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
     response = mediator.send(CreateUserRequest(username="test", email="test@example.com"))
 
     assert response.user_id > 0
@@ -643,7 +643,7 @@ def test_handler_composition():
     services.add(CreateUserHandler(mock_db))
     services.add(EmailHandler(mock_email))
 
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     # Handler that calls other handlers through mediator
     class CreateUserWithEmailHandler(Handler[CreateUserWithEmailRequest]):
@@ -706,14 +706,14 @@ def test_with_mock_mediator():
 ```python
 # ✅ GOOD: Single mediator instance
 # app.py
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 
 # Use same instance throughout application
 app.state.mediator = mediator
 
 # ❌ BAD: Creating multiple mediators
 def handle_request():
-    mediator = Mediator(resolver)  # Don't create per request
+    mediator = Mediator(services.provider())  # Don't create per request
     return mediator.send(...)
 ```
 
@@ -727,7 +727,7 @@ class CreateOrderHandler(Handler[CreateOrderRequest]):
         self.database = database
 
 # ❌ BAD: Global mediator
-global_mediator = Mediator(resolver)
+global_mediator = Mediator(services.provider())
 
 class CreateOrderHandler(Handler[CreateOrderRequest]):
     def __call__(self, request):
@@ -761,7 +761,7 @@ class OrderHandler(Handler[CreateOrderRequest]):
 
 ```python
 # ✅ GOOD: Simple mediator, complex logic in handlers
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 
 # ❌ BAD: Complex mediator with business logic
 class BusinessLogicMediator(Mediator):
