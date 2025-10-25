@@ -973,23 +973,23 @@ class CachingBehavior:
 
 ## Integration with Mediator
 
-PyMediate automatically discovers and applies pipeline behaviors registered with the service provider. Behaviors that inherit from `PipelineBehaviorBase` are automatically resolved and applied to **every request** processed by the mediator.
+PyMediate automatically discovers and applies pipeline behaviors registered with the service provider. Behaviors that inherit from `PipelineBehavior` are automatically resolved and applied to **every request** processed by the mediator.
 
 ### Automatic Behavior Discovery
 
 The simplest way to use behaviors is to register them with your services - the mediator handles the rest:
 
 ```python
-from pymediate import Services, Mediator, PipelineBehaviorBase
+from pymediate import Services, Mediator, PipelineBehavior
 
-class LoggingBehavior(PipelineBehaviorBase):
+class LoggingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         print(f"Handling: {type(request).__name__}")
         response = next()
         print(f"Completed: {type(request).__name__}")
         return response
 
-class ValidationBehavior(PipelineBehaviorBase):
+class ValidationBehavior(PipelineBehavior):
     def __call__(self, request, next):
         if not hasattr(request, 'validate') or not request.validate():
             raise ValueError("Invalid request")
@@ -1011,7 +1011,7 @@ response = mediator.send(GetUserRequest(user_id=123))
 ```
 
 **Key Points:**
-- Behaviors must inherit from `PipelineBehaviorBase`
+- Behaviors must inherit from `PipelineBehavior`
 - Registration order determines execution order (first registered = outermost)
 - Behaviors are resolved per request from the service provider
 - Zero overhead when no behaviors are registered

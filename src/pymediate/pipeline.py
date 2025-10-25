@@ -15,14 +15,14 @@ Behaviors are executed in the order they are registered, forming a chain where e
 behavior can execute logic before and after the next behavior (or final handler) runs.
 """
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
-from typing import Protocol
 
 from .handler import Handler
 
 
-class PipelineBehavior[RequestT, ResponseT](Protocol):
-    """Protocol for pipeline behaviors that wrap request processing.
+class PipelineBehavior[RequestT, ResponseT](ABC):
+    """Abstract base class for pipeline behaviors that wrap request processing.
 
     A pipeline behavior is middleware that sits between the mediator and the handler,
     allowing you to execute logic before and after the handler processes the request.
@@ -101,6 +101,7 @@ class PipelineBehavior[RequestT, ResponseT](Protocol):
         - pymediate.aio.pipeline.PipelineBehavior: Async version
     """
 
+    @abstractmethod
     def __call__(
         self,
         request: RequestT,
@@ -120,91 +121,6 @@ class PipelineBehavior[RequestT, ResponseT](Protocol):
             Code before next() runs before the handler, code after runs after.
         """
         ...
-
-
-class PipelineBehaviorBase:
-    """Base class for pipeline behaviors to enable automatic discovery by the mediator.
-
-    This is an optional marker base class that behaviors can inherit from to be
-    automatically discovered and applied by the Mediator. Behaviors registered
-    with the service provider that inherit from this class will be automatically
-    resolved and applied to all requests.
-
-    Behaviors do NOT need to inherit from this class if you're manually constructing
-    pipelines. This class is only needed for automatic mediator integration.
-
-    Examples:
-        Behavior with auto-discovery (inherits from PipelineBehaviorBase):
-            ```python
-            from pymediate.pipeline import PipelineBehaviorBase
-
-            class LoggingBehavior(PipelineBehaviorBase):
-                def __call__(self, request, next):
-                    print(f"Before: {type(request).__name__}")
-                    response = next()
-                    print(f"After: {type(request).__name__}")
-                    return response
-
-            # Register with services
-            services = Services()
-            services.add(LoggingBehavior())  # Will be auto-discovered by mediator
-            services.add(CreateUserHandler())
-
-            mediator = Mediator(services.provider())
-            response = mediator.send(CreateUserRequest(...))
-            # LoggingBehavior automatically wraps the handler
-            ```
-
-        Manual pipeline (no inheritance needed):
-            ```python
-            # If building pipelines manually, no need to inherit from base class
-            class CustomBehavior:
-                def __call__(self, request, next):
-                    return next()
-
-            pipeline = Pipeline([CustomBehavior()], handler)
-            response = pipeline(request)  # Works fine
-            ```
-
-    Registration Order:
-        Behaviors are executed in the order they are registered with the service
-        provider. The first registered behavior is the outermost (executes first):
-
-        ```python
-        services.add(LoggingBehavior())    # Executes first (outermost)
-        services.add(ValidationBehavior()) # Executes second
-        services.add(TimingBehavior())     # Executes third (innermost, before handler)
-        ```
-
-    DI Container Support:
-        When using a DI container (like dependency-injector), behaviors can be
-        registered with different lifetime scopes:
-
-        ```python
-        # With dependency-injector
-        class Container(containers.DeclarativeContainer):
-            logging = providers.Transient(LoggingBehavior)  # New instance per request
-            cache = providers.Singleton(CacheBehavior)      # Shared instance
-
-        # Behaviors are resolved per request, respecting their scopes
-        ```
-
-    Note:
-        This class has no methods or attributes. It exists purely as a marker
-        for runtime type checking using isinstance(). This design allows the
-        mediator to discover registered behaviors without requiring a specific
-        interface or protocol at runtime.
-
-        For async behaviors, use `pymediate.aio.pipeline.PipelineBehaviorBase` instead.
-
-    See Also:
-        - PipelineBehavior: Protocol defining the behavior interface
-        - Pipeline: Chains behaviors together
-        - Mediator: Automatically discovers and applies behaviors
-        - pymediate.aio.pipeline.PipelineBehaviorBase: Async version
-    """
-
-    pass
 
 
 class Pipeline[RequestT, ResponseT]:
@@ -363,6 +279,5 @@ class Pipeline[RequestT, ResponseT]:
 
 __all__ = [
     "PipelineBehavior",
-    "PipelineBehaviorBase",
     "Pipeline",
 ]

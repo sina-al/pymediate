@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline
+from pymediate.pipeline import Pipeline, PipelineBehavior
 
 
 @dataclass
@@ -23,7 +23,7 @@ class ProcessHandler(Handler[ProcessRequest]):
         return ProcessedResponse(value=42, processed=False)
 
 
-class ProcessingBehavior:
+class ProcessingBehavior(PipelineBehavior[ProcessRequest, ProcessedResponse]):
     """Behavior that modifies the response."""
 
     def __call__(
@@ -40,7 +40,7 @@ class ProcessingBehavior:
 
 handler = ProcessHandler()
 behavior = ProcessingBehavior()
-pipeline = Pipeline([behavior], handler)
+pipeline: Pipeline[ProcessRequest, ProcessedResponse] = Pipeline([behavior], handler)
 
 response = pipeline(ProcessRequest(data="test"))
 

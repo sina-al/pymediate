@@ -1,9 +1,10 @@
 """Basic pipeline behavior type inference - should pass mypy."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline
+from pymediate.pipeline import Pipeline, PipelineBehavior
 
 
 @dataclass
@@ -22,8 +23,10 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 
-class LoggingBehavior:
-    def __call__(self, request: CreateUserRequest, next):  # type: ignore[no-untyped-def]
+class LoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
+    def __call__(
+        self, request: CreateUserRequest, next: Callable[[], UserResponse]
+    ) -> UserResponse:
         print(f"Before: {request.username}")
         response = next()
         print(f"After: {response.user_id}")
@@ -33,7 +36,7 @@ class LoggingBehavior:
 # Pipeline type inference test
 handler = CreateUserHandler()
 logging = LoggingBehavior()
-pipeline = Pipeline([logging], handler)
+pipeline: Pipeline[CreateUserRequest, UserResponse] = Pipeline([logging], handler)
 
 request = CreateUserRequest(username="alice")
 response = pipeline(request)

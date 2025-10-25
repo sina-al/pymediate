@@ -82,7 +82,7 @@ from .errors import (
 )
 from .handler import Handler
 from .mediator import Mediator
-from .pipeline import PipelineBehaviorBase
+from .pipeline import PipelineBehavior
 from .request import Request
 from .service import ServiceNotFoundError, ServiceProvider, Services
 
@@ -95,7 +95,7 @@ __all__ = [
     "Services",
     "ServiceNotFoundError",
     # Pipeline
-    "PipelineBehaviorBase",
+    "PipelineBehavior",
     # Errors
     "PyMediateError",
     "HandlerNotFoundError",

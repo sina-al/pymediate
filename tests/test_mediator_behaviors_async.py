@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import pytest
 
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator, PipelineBehaviorBase
+from pymediate.aio import Handler, Mediator, PipelineBehavior
 
 
 @pytest.mark.asyncio
@@ -58,7 +58,7 @@ async def test_async_mediator_with_single_behavior() -> None:
 
     log: list[str] = []
 
-    class AsyncLoggingBehavior(PipelineBehaviorBase):
+    class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("logging:before")
             response = await next()
@@ -98,14 +98,14 @@ async def test_async_mediator_with_multiple_behaviors() -> None:
 
     log: list[str] = []
 
-    class AsyncLoggingBehavior(PipelineBehaviorBase):
+    class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("logging:before")
             response = await next()
             log.append("logging:after")
             return response
 
-    class AsyncTimingBehavior(PipelineBehaviorBase):
+    class AsyncTimingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("timing:before")
             response = await next()
@@ -148,7 +148,7 @@ async def test_async_mediator_behaviors_can_modify_response() -> None:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
 
-    class AsyncResponseModifyingBehavior(PipelineBehaviorBase):
+    class AsyncResponseModifyingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             response = await next()
             await asyncio.sleep(0.001)
@@ -185,7 +185,7 @@ async def test_async_mediator_behavior_can_short_circuit() -> None:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
 
-    class AsyncShortCircuitBehavior(PipelineBehaviorBase):
+    class AsyncShortCircuitBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             await asyncio.sleep(0.001)
             # Don't call next - return early
@@ -222,7 +222,7 @@ async def test_async_mediator_validation_behavior() -> None:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
 
-    class AsyncValidationBehavior(PipelineBehaviorBase):
+    class AsyncValidationBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             await asyncio.sleep(0.001)
             if hasattr(request, "username") and not request.username:
@@ -263,7 +263,7 @@ async def test_async_mediator_behaviors_are_stateful() -> None:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
 
-    class AsyncStatefulBehavior(PipelineBehaviorBase):
+    class AsyncStatefulBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         def __init__(self) -> None:
             self.call_count = 0
 
@@ -306,7 +306,7 @@ async def test_async_mediator_behavior_exception_propagates() -> None:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
 
-    class AsyncExceptionBehavior(PipelineBehaviorBase):
+    class AsyncExceptionBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             raise RuntimeError("Async behavior error")
 
@@ -338,7 +338,7 @@ async def test_async_mediator_behavior_can_wrap_handler_exception() -> None:
         async def __call__(self, request: FailingRequest) -> UserResponse:
             raise ValueError("Handler failed")
 
-    class AsyncExceptionHandlingBehavior(PipelineBehaviorBase):
+    class AsyncExceptionHandlingBehavior(PipelineBehavior[FailingRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             try:
                 return await next()
@@ -379,7 +379,7 @@ async def test_async_mediator_concurrent_requests_with_behaviors() -> None:
 
     log: list[str] = []
 
-    class AsyncLoggingBehavior(PipelineBehaviorBase):
+    class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             log.append("logging:before")
             response = await next()

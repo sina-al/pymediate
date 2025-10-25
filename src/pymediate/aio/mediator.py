@@ -6,7 +6,7 @@ from typing import Any
 from .._internal import registry
 from .._internal.mediator import MediatorMixin
 from ..request import Request
-from .pipeline import Pipeline, PipelineBehaviorBase
+from .pipeline import Pipeline, PipelineBehavior
 
 
 class Mediator(MediatorMixin):
@@ -101,7 +101,7 @@ class Mediator(MediatorMixin):
         the response.
 
         Pipeline behaviors are automatically discovered by resolving all services
-        that inherit from PipelineBehaviorBase. Behaviors are applied in registration
+        that inherit from PipelineBehavior. Behaviors are applied in registration
         order, with the first registered behavior being the outermost wrapper.
 
         The response type is automatically inferred from the request's type parameter,
@@ -137,9 +137,9 @@ class Mediator(MediatorMixin):
 
             Automatic async behavior application:
                 ```python
-                from pymediate.aio.pipeline import PipelineBehaviorBase
+                from pymediate.aio.pipeline import PipelineBehavior
 
-                class AsyncLoggingBehavior(PipelineBehaviorBase):
+                class AsyncLoggingBehavior(PipelineBehavior):
                     async def __call__(self, request, next):
                         await log_to_db(f"Before: {type(request).__name__}")
                         response = await next()
@@ -187,7 +187,7 @@ class Mediator(MediatorMixin):
             ResponseT: The response type, inferred from Request[ResponseT].
 
         See Also:
-            - PipelineBehaviorBase: Base class for auto-discovered async behaviors
+            - PipelineBehavior: Base class for auto-discovered async behaviors
             - Pipeline: Manual async pipeline construction
             - ServiceProvider.resolve_all(): How behaviors are discovered
             - pymediate.Mediator: Sync mediator variant
@@ -204,7 +204,7 @@ class Mediator(MediatorMixin):
         handler: Any = self._service_provider.resolve(handler_class)
 
         # Resolve all registered pipeline behaviors (if any)
-        behaviors: Sequence[Any] = self._service_provider.resolve_all(PipelineBehaviorBase)
+        behaviors: Sequence[Any] = self._service_provider.resolve_all(PipelineBehavior)
 
         # Fast path: if no behaviors, call handler directly (zero overhead)
         if not behaviors:

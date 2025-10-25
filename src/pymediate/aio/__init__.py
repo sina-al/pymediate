@@ -31,6 +31,6 @@ Note:
 
 from .handler import Handler
 from .mediator import Mediator
-from .pipeline import PipelineBehaviorBase
+from .pipeline import PipelineBehavior
 
-__all__ = ["Handler", "Mediator", "PipelineBehaviorBase"]
+__all__ = ["Handler", "Mediator", "PipelineBehavior"]

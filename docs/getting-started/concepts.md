@@ -63,9 +63,9 @@ Without behaviors, you'd need to add logging, validation, timing, etc. to **ever
 Behaviors solve this by **automatically applying** to all requests:
 
 ```python
-from pymediate import PipelineBehaviorBase
+from pymediate import PipelineBehavior
 
-class LoggingBehavior(PipelineBehaviorBase):
+class LoggingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         print(f"Processing: {type(request).__name__}")
         response = next()
@@ -140,7 +140,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserCreatedResponse(user_id=1)
 
 # 3. Optional: Add pipeline behaviors (automatically applied)
-class LoggingBehavior(PipelineBehaviorBase):
+class LoggingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         print(f"Before: {type(request).__name__}")
         response = next()

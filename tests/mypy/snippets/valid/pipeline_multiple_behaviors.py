@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline
+from pymediate.pipeline import Pipeline, PipelineBehavior
 
 
 @dataclass
@@ -23,7 +23,7 @@ class CreateOrderHandler(Handler[CreateOrderRequest]):
         return OrderResponse(order_id=100, total=50.0)
 
 
-class LoggingBehavior:
+class LoggingBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
     def __call__(
         self,
         request: CreateOrderRequest,
@@ -33,7 +33,7 @@ class LoggingBehavior:
         return next()
 
 
-class TimingBehavior:
+class TimingBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
     def __call__(
         self,
         request: CreateOrderRequest,
@@ -45,7 +45,7 @@ class TimingBehavior:
         return response
 
 
-class ValidationBehavior:
+class ValidationBehavior(PipelineBehavior[CreateOrderRequest, OrderResponse]):
     def __call__(
         self,
         request: CreateOrderRequest,

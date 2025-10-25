@@ -112,16 +112,16 @@ asyncio.run(main())
 PyMediate supports pipeline behaviors (middleware) that automatically wrap request processing for cross-cutting concerns like logging, validation, caching, and more:
 
 ```python
-from pymediate import PipelineBehaviorBase
+from pymediate import PipelineBehavior
 
-class LoggingBehavior(PipelineBehaviorBase):
+class LoggingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         print(f"Handling: {type(request).__name__}")
         response = next()
         print(f"Completed: {type(request).__name__}")
         return response
 
-class ValidationBehavior(PipelineBehaviorBase):
+class ValidationBehavior(PipelineBehavior):
     def __call__(self, request, next):
         # Validate before processing
         if not hasattr(request, 'username') or not request.username:

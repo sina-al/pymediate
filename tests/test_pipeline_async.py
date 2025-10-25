@@ -7,7 +7,7 @@ import pytest
 
 from pymediate import Request
 from pymediate.aio import Handler
-from pymediate.aio.pipeline import Pipeline
+from pymediate.aio.pipeline import Pipeline, PipelineBehavior
 
 
 # Test fixtures: Request and Response types
@@ -30,7 +30,7 @@ class SampleHandler(Handler[SampleRequest]):
 
 
 # Test behaviors
-class AsyncLoggingBehavior:
+class AsyncLoggingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Async behavior that logs before and after execution."""
 
     def __init__(self, log_list: list[str]) -> None:
@@ -47,7 +47,7 @@ class AsyncLoggingBehavior:
         return response
 
 
-class AsyncTimingBehavior:
+class AsyncTimingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Async behavior that tracks execution."""
 
     def __init__(self, log_list: list[str]) -> None:
@@ -64,7 +64,7 @@ class AsyncTimingBehavior:
         return response
 
 
-class AsyncModifyingBehavior:
+class AsyncModifyingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Async behavior that modifies the response."""
 
     def __init__(self, multiplier: int) -> None:
@@ -81,7 +81,7 @@ class AsyncModifyingBehavior:
         return response
 
 
-class AsyncValidationBehavior:
+class AsyncValidationBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Async behavior that validates the request before processing."""
 
     async def __call__(
@@ -96,7 +96,7 @@ class AsyncValidationBehavior:
         return await next()
 
 
-class AsyncShortCircuitBehavior:
+class AsyncShortCircuitBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Async behavior that can short-circuit the pipeline."""
 
     def __init__(self, should_short_circuit: bool) -> None:
@@ -114,7 +114,7 @@ class AsyncShortCircuitBehavior:
         return await next()
 
 
-class AsyncExceptionBehavior:
+class AsyncExceptionBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Async behavior that handles exceptions."""
 
     def __init__(self, log_list: list[str]) -> None:
@@ -132,7 +132,7 @@ class AsyncExceptionBehavior:
             raise
 
 
-class AsyncCachingBehavior:
+class AsyncCachingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Async behavior that caches responses."""
 
     def __init__(self) -> None:
@@ -207,7 +207,7 @@ async def test_async_pipeline_behavior_execution_order() -> None:
     log: list[str] = []
     handler = SampleHandler()
 
-    class FirstBehavior:
+    class FirstBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         async def __call__(
             self,
             request: SampleRequest,
@@ -218,7 +218,7 @@ async def test_async_pipeline_behavior_execution_order() -> None:
             log.append("first_after")
             return response
 
-    class SecondBehavior:
+    class SecondBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         async def __call__(
             self,
             request: SampleRequest,
@@ -229,7 +229,7 @@ async def test_async_pipeline_behavior_execution_order() -> None:
             log.append("second_after")
             return response
 
-    class ThirdBehavior:
+    class ThirdBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         async def __call__(
             self,
             request: SampleRequest,
@@ -416,7 +416,7 @@ async def test_async_pipeline_complex_scenario() -> None:
 async def test_async_pipeline_with_stateful_behavior() -> None:
     """Test that async behaviors can maintain state across multiple calls."""
 
-    class AsyncCountingBehavior:
+    class AsyncCountingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __init__(self) -> None:
             self.call_count = 0
 
@@ -461,7 +461,7 @@ async def test_async_pipeline_type_safety() -> None:
 async def test_async_pipeline_behavior_accessing_request() -> None:
     """Test that async behaviors can access and use request data."""
 
-    class AsyncRequestInspectingBehavior:
+    class AsyncRequestInspectingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __init__(self, log_list: list[str]) -> None:
             self.log_list = log_list
 
@@ -534,7 +534,7 @@ async def test_async_pipeline_with_different_request_response_types() -> None:
             await asyncio.sleep(0.001)
             return StringResponse(message=request.text.upper())
 
-    class AsyncUppercaseBehavior:
+    class AsyncUppercaseBehavior(PipelineBehavior[StringRequest, StringResponse]):
         async def __call__(
             self,
             request: StringRequest,
@@ -556,7 +556,7 @@ async def test_async_pipeline_with_different_request_response_types() -> None:
 async def test_async_pipeline_behavior_with_async_io_operations() -> None:
     """Test async behavior that performs actual async I/O operations."""
 
-    class AsyncIOBehavior:
+    class AsyncIOBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __init__(self, log_list: list[str]) -> None:
             self.log_list = log_list
 

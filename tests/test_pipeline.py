@@ -5,7 +5,7 @@ from collections.abc import Callable
 import pytest
 
 from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline
+from pymediate.pipeline import Pipeline, PipelineBehavior
 
 
 # Fixtures: Request and Response types
@@ -26,7 +26,7 @@ class SampleHandler(Handler[SampleRequest]):
 
 
 # Test behaviors
-class LoggingBehavior:
+class LoggingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Behavior that logs before and after execution."""
 
     def __init__(self, log_list: list[str]) -> None:
@@ -43,7 +43,7 @@ class LoggingBehavior:
         return response
 
 
-class TimingBehavior:
+class TimingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Behavior that tracks execution."""
 
     def __init__(self, log_list: list[str]) -> None:
@@ -60,7 +60,7 @@ class TimingBehavior:
         return response
 
 
-class ModifyingBehavior:
+class ModifyingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Behavior that modifies the response."""
 
     def __init__(self, multiplier: int) -> None:
@@ -76,7 +76,7 @@ class ModifyingBehavior:
         return response
 
 
-class ValidationBehavior:
+class ValidationBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Behavior that validates the request before processing."""
 
     def __call__(
@@ -89,7 +89,7 @@ class ValidationBehavior:
         return next()
 
 
-class ShortCircuitBehavior:
+class ShortCircuitBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Behavior that can short-circuit the pipeline."""
 
     def __init__(self, should_short_circuit: bool) -> None:
@@ -106,7 +106,7 @@ class ShortCircuitBehavior:
         return next()
 
 
-class ExceptionBehavior:
+class ExceptionBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
     """Behavior that handles exceptions."""
 
     def __init__(self, log_list: list[str]) -> None:
@@ -174,7 +174,7 @@ def test_pipeline_behavior_execution_order() -> None:
     log: list[str] = []
     handler = SampleHandler()
 
-    class FirstBehavior:
+    class FirstBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __call__(
             self,
             request: SampleRequest,
@@ -185,7 +185,7 @@ def test_pipeline_behavior_execution_order() -> None:
             log.append("first_after")
             return response
 
-    class SecondBehavior:
+    class SecondBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __call__(
             self,
             request: SampleRequest,
@@ -196,7 +196,7 @@ def test_pipeline_behavior_execution_order() -> None:
             log.append("second_after")
             return response
 
-    class ThirdBehavior:
+    class ThirdBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __call__(
             self,
             request: SampleRequest,
@@ -356,7 +356,7 @@ def test_pipeline_complex_scenario() -> None:
 def test_pipeline_with_stateful_behavior() -> None:
     """Test that behaviors can maintain state across multiple calls."""
 
-    class CountingBehavior:
+    class CountingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __init__(self) -> None:
             self.call_count = 0
 
@@ -396,7 +396,7 @@ def test_pipeline_type_safety() -> None:
 def test_pipeline_behavior_accessing_request() -> None:
     """Test that behaviors can access and use request data."""
 
-    class RequestInspectingBehavior:
+    class RequestInspectingBehavior(PipelineBehavior[SampleRequest, SampleResponse]):
         def __init__(self, log_list: list[str]) -> None:
             self.log_list = log_list
 
@@ -421,7 +421,7 @@ def test_pipeline_behavior_accessing_request() -> None:
 def test_pipeline_behavior_modifying_response_object() -> None:
     """Test that behaviors can modify response object properties."""
 
-    class ResponseLogInjector:
+    class ResponseLogInjector(PipelineBehavior[SampleRequest, SampleResponse]):
         def __call__(
             self,
             request: SampleRequest,
@@ -464,7 +464,7 @@ def test_pipeline_with_different_request_response_types() -> None:
         def __call__(self, request: StringRequest) -> StringResponse:
             return StringResponse(message=request.text.upper())
 
-    class UppercaseBehavior:
+    class UppercaseBehavior(PipelineBehavior[StringRequest, StringResponse]):
         def __call__(
             self,
             request: StringRequest,
@@ -476,7 +476,7 @@ def test_pipeline_with_different_request_response_types() -> None:
 
     handler = StringHandler()
     behavior = UppercaseBehavior()
-    pipeline = Pipeline([behavior], handler)
+    pipeline: Pipeline[StringRequest, StringResponse] = Pipeline([behavior], handler)
 
     response = pipeline(StringRequest(text="hello"))
     assert response.message == "HELLO!"

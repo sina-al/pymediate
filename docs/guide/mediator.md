@@ -321,10 +321,10 @@ request = CreateUserRequest(username="alice", email="alice@example.com")
 Pipeline behaviors are automatically discovered and applied to wrap request processing:
 
 ```python
-from pymediate import PipelineBehaviorBase
+from pymediate import PipelineBehavior
 
 # Define behaviors
-class LoggingBehavior(PipelineBehaviorBase):
+class LoggingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         print(f"Handling {type(request).__name__}")
         response = next()
@@ -344,7 +344,7 @@ services.add(CreateUserHandler())
 handler = self.service_provider.resolve(handler_class)
 
 # Mediator automatically discovers all registered behaviors
-behaviors = self.service_provider.resolve_all(PipelineBehaviorBase)
+behaviors = self.service_provider.resolve_all(PipelineBehavior)
 ```
 
 ### 4. Pipeline Construction
@@ -433,16 +433,16 @@ Pipeline behaviors provide a clean, composable way to add middleware to your med
 
 **Simple Example:**
 ```python
-from pymediate import PipelineBehaviorBase, Services, Mediator
+from pymediate import PipelineBehavior, Services, Mediator
 
-class LoggingBehavior(PipelineBehaviorBase):
+class LoggingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         print(f"Before: {type(request).__name__}")
         response = next()
         print(f"After: {type(request).__name__}")
         return response
 
-class TimingBehavior(PipelineBehaviorBase):
+class TimingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         import time
         start = time.time()
@@ -466,7 +466,7 @@ response = mediator.send(CreateUserRequest(username="alice"))
 
 **With Error Handling:**
 ```python
-class ErrorHandlingBehavior(PipelineBehaviorBase):
+class ErrorHandlingBehavior(PipelineBehavior):
     def __call__(self, request, next):
         try:
             return next()
@@ -475,7 +475,7 @@ class ErrorHandlingBehavior(PipelineBehaviorBase):
             # Log to monitoring system, send alert, etc.
             raise  # Re-raise for caller to handle
 
-class ValidationBehavior(PipelineBehaviorBase):
+class ValidationBehavior(PipelineBehavior):
     def __call__(self, request, next):
         # Pre-processing: validate request
         if hasattr(request, 'validate'):

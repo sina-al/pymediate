@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from pymediate import Request
 from pymediate.aio import Handler
-from pymediate.aio.pipeline import Pipeline
+from pymediate.aio.pipeline import Pipeline, PipelineBehavior
 
 
 @dataclass
@@ -26,7 +26,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 
-class AsyncLoggingBehavior:
+class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
     async def __call__(
         self,
         request: CreateUserRequest,
@@ -42,7 +42,7 @@ async def main() -> None:
     # Async pipeline type inference test
     handler = CreateUserHandler()
     logging = AsyncLoggingBehavior()
-    pipeline = Pipeline([logging], handler)
+    pipeline: Pipeline[CreateUserRequest, UserResponse] = Pipeline([logging], handler)
 
     request = CreateUserRequest(username="alice")
     response = await pipeline(request)
