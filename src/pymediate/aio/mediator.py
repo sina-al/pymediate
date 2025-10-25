@@ -1,9 +1,5 @@
 """Asynchronous mediator implementation for routing requests to handlers."""
 
-from collections.abc import Sequence
-from typing import Any
-
-from .._internal import registry
 from .._internal.mediator import MediatorMixin
 from ..request import Request
 from .pipeline import Pipeline, PipelineBehavior
@@ -192,30 +188,10 @@ class Mediator(MediatorMixin):
             - ServiceProvider.resolve_all(): How behaviors are discovered
             - pymediate.Mediator: Sync mediator variant
         """
-        from .. import errors
+        # Resolve handler and behaviors
+        handler = self._resolve_handler(request)
+        behaviors = self._resolve_behaviors(request, PipelineBehavior)
 
-        # Look up handler type from registry
-        request_type = type(request)
-        handler_class = registry.get_handler_class(request_type)
-        if handler_class is None:
-            raise errors.HandlerNotFoundError(request_type, [])
-
-        # Resolve handler instance
-        handler: Any = self._service_provider.resolve(handler_class)
-
-        # Resolve all registered pipeline behaviors
-        all_behaviors: Sequence[Any] = self._service_provider.resolve_all(PipelineBehavior)
-
-        # Filter behaviors to only those that apply to this request
-        applicable_behaviors = [
-            behavior for behavior in all_behaviors
-            if type(behavior).should_apply(request)
-        ]
-
-        # Fast path: if no applicable behaviors, call handler directly (zero overhead)
-        if not applicable_behaviors:
-            return await handler(request)  # type: ignore[no-any-return]
-
-        # Construct and execute async pipeline with applicable behaviors
-        pipeline: Pipeline[Any, ResponseT] = Pipeline(applicable_behaviors, handler)
-        return await pipeline(request)
+        # Get dispatch callable and execute asynchronously
+        dispatch = self._get_dispatch(request, handler, behaviors, Pipeline)
+        return await dispatch()  # type: ignore[no-any-return]

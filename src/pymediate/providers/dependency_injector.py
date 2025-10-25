@@ -148,13 +148,13 @@ class DependencyInjectorServiceProvider:
             # Track registration order
             self._registration_order.append((service_type, provider))
 
-    def resolve(self, service_type: type[Any]) -> Any:
-        """Resolve the first registered instance of the exact type.
+    def get(self, service_type: type[Any]) -> Any:
+        """Get the first registered instance of the exact type.
 
         Uses exact type matching only. Will NOT return instances of subclasses.
 
         Args:
-            service_type: The exact type of service to resolve.
+            service_type: The exact type of service to get.
 
         Returns:
             The first registered instance of the exact type.
@@ -164,7 +164,7 @@ class DependencyInjectorServiceProvider:
 
         Example:
             ```python
-            handler = service_provider.resolve(CreateUserHandler)
+            handler = services.get(CreateUserHandler)
             response = handler(request)
             ```
 
@@ -182,14 +182,14 @@ class DependencyInjectorServiceProvider:
         providers_list = self._type_providers[service_type]
         return providers_list[0]()
 
-    def resolve_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Resolve all instances of the type, including subclasses.
+    def get_all(self, service_type: type[Any]) -> Sequence[Any]:
+        """Get all instances of the type, including subclasses.
 
         Uses inheritance-aware resolution via isinstance() checks.
         Returns instances in registration order.
 
         Args:
-            service_type: The type of services to resolve.
+            service_type: The type of services to get.
 
         Returns:
             Sequence of all registered instances that are instances of the type,
@@ -197,7 +197,7 @@ class DependencyInjectorServiceProvider:
 
         Example:
             ```python
-            all_handlers = service_provider.resolve_all(Handler)
+            all_handlers = services.get_all(Handler)
             for handler in all_handlers:
                 # Process handler
                 pass
@@ -234,8 +234,8 @@ class DependencyInjectorServiceProvider:
 
         Example:
             ```python
-            if service_provider.has(CreateUserHandler):
-                handler = service_provider.resolve(CreateUserHandler)
+            if services.has(CreateUserHandler):
+                handler = services.get(CreateUserHandler)
             ```
 
         Thread Safety:

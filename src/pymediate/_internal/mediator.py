@@ -1,15 +1,20 @@
 """Base mixin for mediator implementations (sync and async)."""
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
+
+from .. import errors
+from . import registry
 
 if TYPE_CHECKING:
+    from ..request import Request
     from ..service import ServiceProvider
 
 
 class MediatorMixin:
     """Mixin providing shared logic for both sync and async mediators.
 
-    This mixin contains the common initialization and service provider storage logic
+    This mixin contains the common initialization and request processing logic
     that is shared between the synchronous Mediator and asynchronous Mediator.
 
     The actual send() method is implemented differently in each variant:
@@ -17,16 +22,16 @@ class MediatorMixin:
     - Asynchronous: async def send(...) -> ResponseT
 
     Attributes:
-        _service_provider: The service provider instance used to obtain handler instances.
+        _services: The services instance used to obtain handler and behavior instances.
     """
 
-    _service_provider: "ServiceProvider"
+    _services: "ServiceProvider"
 
-    def __init__(self, service_provider: "ServiceProvider") -> None:
-        """Initialize mediator with a service provider for obtaining handler instances.
+    def __init__(self, services: "ServiceProvider") -> None:
+        """Initialize mediator with services for obtaining handler and behavior instances.
 
         Args:
-            service_provider: Any object implementing the ServiceProvider protocol.
+            services: Any object implementing the ServiceProvider protocol.
                 This can be a ServiceProvider from Services.provider(),
                 a DependencyInjectorServiceProvider, or your own custom implementation.
 
@@ -51,4 +56,73 @@ class MediatorMixin:
             mediator = Mediator(provider)
             ```
         """
-        self._service_provider = service_provider
+        self._services = services
+
+    def _resolve_handler(self, request: "Request[Any]") -> Any:
+        """Resolve the handler for a request.
+
+        Args:
+            request: The request instance to process
+
+        Returns:
+            Handler instance for the request
+
+        Raises:
+            HandlerNotFoundError: If no handler is registered for the request type
+        """
+        # Look up handler type from registry
+        request_type = type(request)
+        handler_class = registry.get_handler_class(request_type)
+        if handler_class is None:
+            raise errors.HandlerNotFoundError(request_type, [])
+
+        # Get handler instance
+        return self._services.get(handler_class)
+
+    def _resolve_behaviors(
+        self, request: "Request[Any]", pipeline_behavior_type: type
+    ) -> list[Any]:
+        """Resolve applicable behaviors for a request.
+
+        Args:
+            request: The request instance to process
+            pipeline_behavior_type: The PipelineBehavior type (sync or async variant)
+
+        Returns:
+            List of applicable behavior instances
+        """
+        # Get all registered pipeline behaviors
+        all_behaviors: Sequence[Any] = self._services.get_all(pipeline_behavior_type)
+
+        # Filter behaviors to only those that apply to this request
+        return [behavior for behavior in all_behaviors if type(behavior).should_apply(request)]
+
+    def _get_dispatch(
+        self,
+        request: "Request[Any]",
+        handler: Any,
+        behaviors: list[Any],
+        pipeline_class: type,
+    ) -> Callable[[], Any]:
+        """Get a dispatch callable for executing the request through behaviors and handler.
+
+        This method creates a callable that, when invoked, will execute the request
+        through the pipeline of behaviors and the handler. The callable can be called
+        synchronously or asynchronously depending on the pipeline class.
+
+        Args:
+            request: The request instance to process
+            handler: The handler instance
+            behaviors: List of applicable behaviors
+            pipeline_class: The Pipeline class (sync or async variant)
+
+        Returns:
+            Callable that executes the pipeline
+        """
+        # Fast path: if no behaviors, return handler directly
+        if not behaviors:
+            return lambda: handler(request)
+
+        # Construct and return pipeline callable
+        pipeline: Any = pipeline_class(behaviors, handler)
+        return lambda: pipeline(request)

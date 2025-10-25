@@ -1,4 +1,4 @@
-"""ServiceProvider.resolve() returns correctly typed handler - should pass mypy."""
+"""ServiceProvider.get() returns correctly typed handler - should pass mypy."""
 
 from dataclasses import dataclass
 
@@ -26,7 +26,7 @@ services.add(GetUserHandler())
 provider = services.provider()
 
 # ServiceProvider should return correctly typed handler
-handler = provider.resolve(GetUserHandler)
+handler = provider.get(GetUserHandler)
 
 # Mypy should know handler accepts GetUserRequest and returns UserResponse
 request = GetUserRequest(user_id=1)

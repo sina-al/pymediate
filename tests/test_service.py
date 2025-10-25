@@ -178,8 +178,8 @@ def test_provider() -> None:
     provider = services.provider()
 
     # Provider should have all required methods
-    assert hasattr(provider, "resolve")
-    assert hasattr(provider, "resolve_all")
+    assert hasattr(provider, "get")
+    assert hasattr(provider, "get_all")
     assert hasattr(provider, "has")
     assert hasattr(provider, "get_all_types")
     assert len(provider) == 1
@@ -208,7 +208,7 @@ def test_resolve_single_service() -> None:
     services.add(service_a)
 
     provider = services.provider()
-    resolved = provider.resolve(ServiceA)
+    resolved = provider.get(ServiceA)
 
     assert resolved is service_a
     assert resolved.value == 42
@@ -226,7 +226,7 @@ def test_resolve_first_of_multiple() -> None:
     services.add(service_a3)
 
     provider = services.provider()
-    resolved = provider.resolve(ServiceA)
+    resolved = provider.get(ServiceA)
 
     assert resolved is service_a1
     assert resolved.value == 1
@@ -240,7 +240,7 @@ def test_resolve_nonexistent_raises_error() -> None:
     provider = services.provider()
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.resolve(ServiceB)
+        provider.get(ServiceB)
 
     assert exc_info.value.service_type == ServiceB
     assert ServiceA in exc_info.value.available_types
@@ -259,7 +259,7 @@ def test_resolve_all_single_type() -> None:
     services.add(service_a3)
 
     provider = services.provider()
-    all_services = provider.resolve_all(ServiceA)
+    all_services = provider.get_all(ServiceA)
 
     assert len(all_services) == 3
     assert all_services[0] is service_a1
@@ -273,7 +273,7 @@ def test_resolve_all_empty() -> None:
     services.add(ServiceA(1))
 
     provider = services.provider()
-    all_services = provider.resolve_all(ServiceB)
+    all_services = provider.get_all(ServiceB)
 
     assert len(all_services) == 0
     assert all_services == ()
@@ -295,7 +295,7 @@ def test_resolve_all_preserves_registration_order() -> None:
     services.add(service_a3)
 
     provider = services.provider()
-    all_a = provider.resolve_all(ServiceA)
+    all_a = provider.get_all(ServiceA)
 
     # Should get ServiceA instances in registration order
     assert len(all_a) == 3
@@ -378,7 +378,7 @@ def test_resolve_all_with_inheritance() -> None:
     services.add(concrete_b)
 
     provider = services.provider()
-    all_base = provider.resolve_all(BaseService)
+    all_base = provider.get_all(BaseService)
 
     assert len(all_base) == 2
     assert concrete_a in all_base
@@ -397,7 +397,7 @@ def test_resolve_all_inheritance_order() -> None:
     services.add(concrete_a2)
 
     provider = services.provider()
-    all_base = provider.resolve_all(BaseService)
+    all_base = provider.get_all(BaseService)
 
     assert len(all_base) == 3
     assert all_base[0] is concrete_a1
@@ -417,7 +417,7 @@ def test_resolve_all_specific_subclass() -> None:
     services.add(concrete_a2)
 
     provider = services.provider()
-    all_a = provider.resolve_all(ConcreteServiceA)
+    all_a = provider.get_all(ConcreteServiceA)
 
     assert len(all_a) == 2
     assert concrete_a1 in all_a
@@ -437,17 +437,17 @@ def test_resolve_all_multi_level_inheritance() -> None:
     provider = services.provider()
 
     # Querying base should return all descendants
-    all_base = provider.resolve_all(BaseService)
+    all_base = provider.get_all(BaseService)
     assert len(all_base) == 2
 
     # Querying middle level should return it and its children
-    all_concrete_a = provider.resolve_all(ConcreteServiceA)
+    all_concrete_a = provider.get_all(ConcreteServiceA)
     assert len(all_concrete_a) == 2
     assert concrete_a in all_concrete_a
     assert grandchild in all_concrete_a
 
     # Querying leaf level should return only that level
-    all_grandchild = provider.resolve_all(GrandchildService)
+    all_grandchild = provider.get_all(GrandchildService)
     assert len(all_grandchild) == 1
     assert grandchild in all_grandchild
 
@@ -463,10 +463,10 @@ def test_resolve_exact_type_no_inheritance() -> None:
 
     # resolve() should fail because it only looks for exact type
     with pytest.raises(ServiceNotFoundError):
-        provider.resolve(BaseService)
+        provider.get(BaseService)
 
     # But resolve_all() should work with inheritance
-    all_base = provider.resolve_all(BaseService)
+    all_base = provider.get_all(BaseService)
     assert len(all_base) == 1
 
 
@@ -484,7 +484,7 @@ def test_has_exact_type_no_inheritance() -> None:
     assert provider.has(BaseService) is False
 
     # But we can check subclasses with resolve_all
-    assert len(provider.resolve_all(BaseService)) > 0
+    assert len(provider.get_all(BaseService)) > 0
 
 
 # ==================== Mixed Type Registration Tests ====================
@@ -510,10 +510,10 @@ def test_mixed_types_registration_order() -> None:
     provider = services.provider()
 
     # Verify per-type order
-    all_a = provider.resolve_all(ServiceA)
+    all_a = provider.get_all(ServiceA)
     assert [s.value for s in all_a] == [1, 2, 3]
 
-    all_b = provider.resolve_all(ServiceB)
+    all_b = provider.get_all(ServiceB)
     assert [s.name for s in all_b] == ["first", "second"]
 
 
@@ -540,10 +540,10 @@ def test_complex_registration_scenario() -> None:
 
     # Verify various resolutions
     assert len(provider) == 6
-    assert provider.resolve(ServiceA) is service_a
-    assert len(provider.resolve_all(BaseService)) == 4  # All base service descendants
-    assert len(provider.resolve_all(ConcreteServiceA)) == 3  # ConcreteServiceA + GrandchildService
-    assert len(provider.resolve_all(ServiceA)) == 1
+    assert provider.get(ServiceA) is service_a
+    assert len(provider.get_all(BaseService)) == 4  # All base service descendants
+    assert len(provider.get_all(ConcreteServiceA)) == 3  # ConcreteServiceA + GrandchildService
+    assert len(provider.get_all(ServiceA)) == 1
 
 
 # ==================== Edge Cases and Error Handling ====================
@@ -556,7 +556,7 @@ def test_empty_collection_provider() -> None:
 
     assert len(provider) == 0
     assert provider.get_all_types() == ()
-    assert provider.resolve_all(ServiceA) == ()
+    assert provider.get_all(ServiceA) == ()
 
 
 def test_multiple_providers_from_same_collection() -> None:
@@ -568,8 +568,8 @@ def test_multiple_providers_from_same_collection() -> None:
     provider2 = services.provider()
 
     # Both providers should work independently
-    assert provider1.resolve(ServiceA).value == 1
-    assert provider2.resolve(ServiceA).value == 1
+    assert provider1.get(ServiceA).value == 1
+    assert provider2.get(ServiceA).value == 1
 
     # They should be different instances
     assert provider1 is not provider2
@@ -589,11 +589,11 @@ def test_provider_snapshot_isolation() -> None:
 
     # provider1 should have only first service
     assert len(provider1) == 1
-    assert len(provider1.resolve_all(ServiceA)) == 1
+    assert len(provider1.get_all(ServiceA)) == 1
 
     # provider2 should have all services
     assert len(provider2) == 3
-    assert len(provider2.resolve_all(ServiceA)) == 2
+    assert len(provider2.get_all(ServiceA)) == 2
 
 
 def test_clear_does_not_affect_existing_providers() -> None:
@@ -619,7 +619,7 @@ def test_service_not_found_error_attributes() -> None:
     provider = services.provider()
 
     try:
-        provider.resolve(ConcreteServiceA)
+        provider.get(ConcreteServiceA)
         pytest.fail("Should have raised ServiceNotFoundError")
     except ServiceNotFoundError as e:
         assert e.service_type == ConcreteServiceA
@@ -638,7 +638,7 @@ def test_resolve_returns_correct_type() -> None:
     services.add(service)
 
     provider = services.provider()
-    resolved: ServiceA = provider.resolve(ServiceA)
+    resolved: ServiceA = provider.get(ServiceA)
 
     assert isinstance(resolved, ServiceA)
     assert resolved.value == 42
@@ -651,7 +651,7 @@ def test_resolve_all_returns_correct_sequence_type() -> None:
     services.add(ServiceA(2))
 
     provider = services.provider()
-    all_services = provider.resolve_all(ServiceA)
+    all_services = provider.get_all(ServiceA)
 
     assert isinstance(all_services, tuple)
     assert all(isinstance(s, ServiceA) for s in all_services)
@@ -671,8 +671,8 @@ def test_large_number_of_services() -> None:
     provider = services.provider()
 
     assert len(provider) == 1000
-    assert len(provider.resolve_all(ServiceA)) == 1000
-    assert provider.resolve(ServiceA).value == 0  # First one
+    assert len(provider.get_all(ServiceA)) == 1000
+    assert provider.get(ServiceA).value == 0  # First one
 
 
 def test_many_different_types() -> None:
@@ -859,16 +859,16 @@ def test_diamond_inheritance_registration() -> None:
     provider = services.provider()
 
     # Should be able to resolve by exact type
-    assert provider.resolve(Bat) is bat
+    assert provider.get(Bat) is bat
 
     # Should resolve through all inheritance paths
-    all_mammals = provider.resolve_all(Mammal)
+    all_mammals = provider.get_all(Mammal)
     assert bat in all_mammals
 
-    all_winged = provider.resolve_all(WingedAnimal)
+    all_winged = provider.get_all(WingedAnimal)
     assert bat in all_winged
 
-    all_animals = provider.resolve_all(Animal)
+    all_animals = provider.get_all(Animal)
     assert bat in all_animals
 
 
@@ -888,7 +888,7 @@ def test_diamond_inheritance_multiple_instances() -> None:
     provider = services.provider()
 
     # Resolve all animals - should get all in order
-    all_animals = provider.resolve_all(Animal)
+    all_animals = provider.get_all(Animal)
     assert len(all_animals) == 4
     assert all_animals[0] is bat1
     assert all_animals[1] is mammal
@@ -896,7 +896,7 @@ def test_diamond_inheritance_multiple_instances() -> None:
     assert all_animals[3] is bat2
 
     # Resolve all mammals - should get bats and mammal
-    all_mammals = provider.resolve_all(Mammal)
+    all_mammals = provider.get_all(Mammal)
     assert len(all_mammals) == 3
     assert bat1 in all_mammals
     assert bat2 in all_mammals
@@ -918,10 +918,10 @@ def test_diamond_inheritance_mro_order() -> None:
     assert isinstance(bat, Animal)
 
     # resolve_all should work for any type in MRO
-    assert len(provider.resolve_all(Bat)) == 1
-    assert len(provider.resolve_all(Mammal)) == 1
-    assert len(provider.resolve_all(WingedAnimal)) == 1
-    assert len(provider.resolve_all(Animal)) == 1
+    assert len(provider.get_all(Bat)) == 1
+    assert len(provider.get_all(Mammal)) == 1
+    assert len(provider.get_all(WingedAnimal)) == 1
+    assert len(provider.get_all(Animal)) == 1
 
 
 # ==================== Mixin Tests ====================
@@ -941,19 +941,19 @@ def test_mixin_resolution() -> None:
     provider = services.provider()
 
     # Resolve by exact type
-    assert provider.resolve(LoggedService) is logged
+    assert provider.get(LoggedService) is logged
 
     # Resolve by base service
-    all_services = provider.resolve_all(Service)
+    all_services = provider.get_all(Service)
     assert len(all_services) == 3
 
     # Resolve by mixin - mixins are classes too!
-    all_logged = provider.resolve_all(LoggingMixin)
+    all_logged = provider.get_all(LoggingMixin)
     assert len(all_logged) == 2
     assert logged in all_logged
     assert full in all_logged
 
-    all_timestamped = provider.resolve_all(TimestampMixin)
+    all_timestamped = provider.get_all(TimestampMixin)
     assert len(all_timestamped) == 2
     assert timestamped in all_timestamped
     assert full in all_timestamped
@@ -977,7 +977,7 @@ def test_mixin_registration_order() -> None:
     provider = services.provider()
 
     # Resolve by mixin should preserve global order
-    all_logging = provider.resolve_all(LoggingMixin)
+    all_logging = provider.get_all(LoggingMixin)
     assert len(all_logging) == 3
     assert all_logging[0] is l1  # Registered 2nd
     assert all_logging[1] is f1  # Registered 4th
@@ -1000,12 +1000,12 @@ def test_primitive_types() -> None:
     provider = services.provider()
 
     # Each primitive type should be resolvable
-    assert provider.resolve(int) == 42
-    assert provider.resolve(float) == 3.14
-    assert provider.resolve(str) == "hello"
-    assert provider.resolve(bool) is True  # Note: bool is subclass of int!
-    assert provider.resolve(list) == [1, 2, 3]
-    assert provider.resolve(dict) == {"key": "value"}
+    assert provider.get(int) == 42
+    assert provider.get(float) == 3.14
+    assert provider.get(str) == "hello"
+    assert provider.get(bool) is True  # Note: bool is subclass of int!
+    assert provider.get(list) == [1, 2, 3]
+    assert provider.get(dict) == {"key": "value"}
 
 
 def test_bool_int_inheritance() -> None:
@@ -1017,14 +1017,14 @@ def test_bool_int_inheritance() -> None:
     provider = services.provider()
 
     # bool is subclass of int in Python
-    all_ints = provider.resolve_all(int)
+    all_ints = provider.get_all(int)
     assert len(all_ints) == 2
     assert True in all_ints
     assert 42 in all_ints
 
     # Exact type matching: bool and int are separate types
-    assert provider.resolve(bool) is True
-    assert provider.resolve(int) == 42  # First instance of exact type int
+    assert provider.get(bool) is True
+    assert provider.get(int) == 42  # First instance of exact type int
 
 
 def test_multiple_primitives_same_type() -> None:
@@ -1036,8 +1036,8 @@ def test_multiple_primitives_same_type() -> None:
 
     provider = services.provider()
 
-    assert provider.resolve(int) == 1  # First one
-    all_ints = provider.resolve_all(int)
+    assert provider.get(int) == 1  # First one
+    all_ints = provider.get_all(int)
     assert all_ints == (1, 2, 3)
 
 
@@ -1053,16 +1053,16 @@ def test_abstract_base_class() -> None:
     provider = services.provider()
 
     # Can resolve by concrete type
-    assert provider.resolve(ConcreteServiceImpl) is impl
+    assert provider.get(ConcreteServiceImpl) is impl
 
     # Can resolve by abstract base class
-    all_abstract = provider.resolve_all(AbstractService)  # type: ignore[type-abstract]
+    all_abstract = provider.get_all(AbstractService)  # type: ignore[type-abstract]
     assert len(all_abstract) == 1
     assert impl in all_abstract
 
     # Cannot resolve abstract class directly (not registered)
     with pytest.raises(ServiceNotFoundError):
-        provider.resolve(AbstractService)  # type: ignore[type-abstract]
+        provider.get(AbstractService)  # type: ignore[type-abstract]
 
 
 def test_multiple_abc_implementations() -> None:
@@ -1086,7 +1086,7 @@ def test_multiple_abc_implementations() -> None:
     provider = services.provider()
 
     # Both should be resolvable via ABC
-    all_impls = provider.resolve_all(AbstractService)  # type: ignore[type-abstract]
+    all_impls = provider.get_all(AbstractService)  # type: ignore[type-abstract]
     assert len(all_impls) == 2
     assert impl1 in all_impls
     assert impl2 in all_impls
@@ -1107,13 +1107,13 @@ def test_protocol_support() -> None:
     provider = services.provider()
 
     # Resolve by protocol
-    all_drawable = provider.resolve_all(Drawable)  # type: ignore[type-abstract]
+    all_drawable = provider.get_all(Drawable)  # type: ignore[type-abstract]
     assert len(all_drawable) == 2
     assert circle in all_drawable
     assert square in all_drawable
 
     # Exact type still works
-    assert provider.resolve(Circle) is circle
+    assert provider.get(Circle) is circle
 
 
 def test_protocol_with_non_protocol_classes() -> None:
@@ -1132,7 +1132,7 @@ def test_protocol_with_non_protocol_classes() -> None:
     provider = services.provider()
 
     # Only protocol implementers should match
-    all_drawable = provider.resolve_all(Drawable)  # type: ignore[type-abstract]
+    all_drawable = provider.get_all(Drawable)  # type: ignore[type-abstract]
     assert len(all_drawable) == 1
     assert circle in all_drawable
 
@@ -1154,14 +1154,14 @@ def test_same_instance_registered_twice() -> None:
     # Should have 3 references to same instance
     assert len(provider) == 3
 
-    all_services = provider.resolve_all(Service)
+    all_services = provider.get_all(Service)
     assert len(all_services) == 3
     assert all_services[0] is singleton
     assert all_services[1] is singleton
     assert all_services[2] is singleton
 
     # Resolve returns first (which is the singleton)
-    assert provider.resolve(Service) is singleton
+    assert provider.get(Service) is singleton
 
 
 def test_same_instance_identity_preserved() -> None:
@@ -1172,7 +1172,7 @@ def test_same_instance_identity_preserved() -> None:
     services.add(singleton)
     provider = services.provider()
 
-    resolved = provider.resolve(Service)
+    resolved = provider.get(Service)
     assert resolved is singleton  # Same object, not a copy
 
 
@@ -1188,12 +1188,12 @@ def test_deep_inheritance_hierarchy() -> None:
     provider = services.provider()
 
     # Should resolve through all levels
-    assert len(provider.resolve_all(Level0)) == 1
-    assert len(provider.resolve_all(Level1)) == 1
-    assert len(provider.resolve_all(Level2)) == 1
-    assert len(provider.resolve_all(Level3)) == 1
-    assert len(provider.resolve_all(Level4)) == 1
-    assert len(provider.resolve_all(Level5)) == 1
+    assert len(provider.get_all(Level0)) == 1
+    assert len(provider.get_all(Level1)) == 1
+    assert len(provider.get_all(Level2)) == 1
+    assert len(provider.get_all(Level3)) == 1
+    assert len(provider.get_all(Level4)) == 1
+    assert len(provider.get_all(Level5)) == 1
 
 
 def test_deep_inheritance_multiple_levels() -> None:
@@ -1210,23 +1210,23 @@ def test_deep_inheritance_multiple_levels() -> None:
     provider = services.provider()
 
     # Level0: all inherit from it
-    assert len(provider.resolve_all(Level0)) == 3
+    assert len(provider.get_all(Level0)) == 3
 
     # Level2: only l2, l4, l5 inherit
-    all_l2 = provider.resolve_all(Level2)
+    all_l2 = provider.get_all(Level2)
     assert len(all_l2) == 3
     assert l2 in all_l2
     assert l4 in all_l2
     assert l5 in all_l2
 
     # Level4: only l4 and l5
-    all_l4 = provider.resolve_all(Level4)
+    all_l4 = provider.get_all(Level4)
     assert len(all_l4) == 2
     assert l4 in all_l4
     assert l5 in all_l4
 
     # Level5: only l5
-    assert len(provider.resolve_all(Level5)) == 1
+    assert len(provider.get_all(Level5)) == 1
 
 
 # ==================== Thread Safety Tests ====================
@@ -1246,7 +1246,7 @@ def test_provider_concurrent_reads() -> None:
     def reader() -> None:
         try:
             for _ in range(10):
-                all_services = provider.resolve_all(Service)
+                all_services = provider.get_all(Service)
                 results.append(len(all_services))
         except Exception as e:
             errors.append(e)
@@ -1309,7 +1309,7 @@ def test_complex_inheritance_registration_order() -> None:
     provider = services.provider()
 
     # resolve_all(Level0) should return in registration order, not hierarchy order
-    all_l0 = provider.resolve_all(Level0)
+    all_l0 = provider.get_all(Level0)
     assert len(all_l0) == 6
     assert all_l0[0] is l0
     assert all_l0[1] is l2
@@ -1341,13 +1341,13 @@ def test_interleaved_type_registration() -> None:
     provider = services.provider()
 
     # Each hierarchy should maintain its registration order
-    all_animals = provider.resolve_all(Animal)
+    all_animals = provider.get_all(Animal)
     assert len(all_animals) == 3
     assert all_animals[0] is a1
     assert all_animals[1] is m1
     assert all_animals[2] is b1
 
-    all_services = provider.resolve_all(Service)
+    all_services = provider.get_all(Service)
     assert len(all_services) == 3
     assert all_services[0] is s1
     assert all_services[1] is ls1
@@ -1365,7 +1365,7 @@ def test_resolve_all_with_no_matches() -> None:
     provider = services.provider()
 
     # Querying unrelated type returns empty
-    result = provider.resolve_all(Animal)
+    result = provider.get_all(Animal)
     assert result == ()
     assert len(result) == 0
 
@@ -1380,7 +1380,7 @@ def test_type_with_no_instances() -> None:
     assert not provider.has(Animal)
 
     with pytest.raises(ServiceNotFoundError):
-        provider.resolve(Animal)
+        provider.get(Animal)
 
 
 def test_none_type_handling() -> None:
@@ -1408,7 +1408,7 @@ def test_type_identity_with_generics() -> None:
     provider = services.provider()
 
     # Both are just 'list' at runtime
-    assert len(provider.resolve_all(list)) == 2
+    assert len(provider.get_all(list)) == 2
 
 
 def test_object_base_class() -> None:
@@ -1425,7 +1425,7 @@ def test_object_base_class() -> None:
     provider = services.provider()
 
     # Everything is an instance of object
-    all_objects = provider.resolve_all(object)
+    all_objects = provider.get_all(object)
     assert len(all_objects) == 3
 
 
@@ -1441,7 +1441,7 @@ def test_error_message_clarity() -> None:
     provider = services.provider()
 
     try:
-        provider.resolve(Mammal)
+        provider.get(Mammal)
         pytest.fail("Should have raised ServiceNotFoundError")
     except ServiceNotFoundError as e:
         # Error should include requested type

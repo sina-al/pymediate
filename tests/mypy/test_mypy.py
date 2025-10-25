@@ -161,7 +161,7 @@ class TestTypeSafetyScenarios:
         )
 
     def test_resolver_type_inference(self) -> None:
-        """Resolver.resolve() should return correctly typed handler."""
+        """Resolver.get() should return correctly typed handler."""
         file_path = VALID_DIR / "resolver_type_inference.py"
         exit_code, stdout, stderr = run_mypy_on_file(file_path, strict=True)
 

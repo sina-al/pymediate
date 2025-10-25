@@ -25,8 +25,8 @@ Example:
     provider = services.provider()
 
     # Resolve services
-    all_services = provider.resolve_all(MyService)  # [instance1, instance2]
-    first_service = provider.resolve(MyService)     # instance1
+    all_services = provider.get_all(MyService)  # [instance1, instance2]
+    first_service = provider.get(MyService)     # instance1
     has_service = provider.has(MyService)           # True
     ```
 
@@ -193,15 +193,15 @@ class ServiceProvider(Protocol):
         - resolve_all(): Get all instances with inheritance
     """
 
-    def resolve(self, service_type: type[ServiceT]) -> ServiceT:
-        """Resolve the first registered instance of the exact type.
+    def get(self, service_type: type[ServiceT]) -> ServiceT:
+        """Get the first registered instance of the exact type.
 
         This method performs EXACT type matching only. It will NOT return
         instances of subclasses. For inheritance-aware resolution, use
-        resolve_all().
+        get_all().
 
         Args:
-            service_type: The exact type of service to resolve.
+            service_type: The exact type of service to get.
 
         Returns:
             The first registered instance of the exact type.
@@ -213,10 +213,10 @@ class ServiceProvider(Protocol):
         Example:
             ```python
             # Exact type matching
-            service = provider.resolve(ConcreteService)  # Returns ConcreteService
+            service = provider.get(ConcreteService)  # Returns ConcreteService
 
             # Does NOT match subclasses
-            provider.resolve(BaseService)  # Raises if only ConcreteService registered
+            provider.get(BaseService)  # Raises if only ConcreteService registered
             ```
 
         Thread Safety:
@@ -227,13 +227,13 @@ class ServiceProvider(Protocol):
             Implementations SHOULD provide O(1) lookup for exact type matching.
 
         See Also:
-            - resolve_all(): For inheritance-aware resolution
-            - has(): To check before resolving
+            - get_all(): For inheritance-aware resolution
+            - has(): To check before getting
         """
         ...
 
-    def resolve_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
-        """Resolve all instances of the type, including subclasses.
+    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
+        """Get all instances of the type, including subclasses.
 
         This method performs INHERITANCE-AWARE resolution. It returns all
         registered instances that are instances of the given type, including
@@ -262,12 +262,12 @@ class ServiceProvider(Protocol):
             services.add(ConcreteB())  # B1
             services.add(ConcreteA())  # A2
 
-            # Resolve all Base instances (includes subclasses)
-            all_base = provider.resolve_all(Base)
+            # Get all Base instances (includes subclasses)
+            all_base = provider.get_all(Base)
             # Returns [A1, B1, A2] in registration order
 
-            # Resolve specific subclass
-            all_a = provider.resolve_all(ConcreteA)
+            # Get specific subclass
+            all_a = provider.get_all(ConcreteA)
             # Returns [A1, A2]
             ```
 
@@ -283,10 +283,10 @@ class ServiceProvider(Protocol):
         Registration Order:
             The returned sequence MUST preserve GLOBAL registration order,
             not per-type order. If services were registered as [A, B, A],
-            resolve_all(Base) must return [A, B, A], not [A, A, B].
+            get_all(Base) must return [A, B, A], not [A, A, B].
 
         Empty Results:
-            Unlike resolve(), this method does NOT raise an exception when
+            Unlike get(), this method does NOT raise an exception when
             no instances are found. It returns an empty sequence instead.
             Use has() if you need to distinguish "not registered" from
             "registered but empty".
@@ -300,7 +300,7 @@ class ServiceProvider(Protocol):
             as inheritance checking requires isinstance() on each instance.
 
         See Also:
-            - resolve(): For exact type matching (no inheritance)
+            - get(): For exact type matching (no inheritance)
             - has(): To check exact type registration
         """
         ...
@@ -330,13 +330,13 @@ class ServiceProvider(Protocol):
             provider.has(Base)      # False (no exact match)
 
             # To check if any subclasses exist:
-            len(provider.resolve_all(Base)) > 0  # True
+            len(provider.get_all(Base)) > 0  # True
             ```
 
         Inheritance:
             This method does NOT check subclasses. To check if any instances
             matching a base type exist (including subclasses), use:
-            `len(provider.resolve_all(BaseType)) > 0`
+            `len(provider.get_all(BaseType)) > 0`
 
         Thread Safety:
             This method MUST be thread-safe. Multiple threads can call it
@@ -373,7 +373,7 @@ class ServiceProvider(Protocol):
 
             # Can iterate over all registered types
             for service_type in provider.get_all_types():
-                instances = provider.resolve_all(service_type)
+                instances = provider.get_all(service_type)
                 print(f"{service_type.__name__}: {len(instances)} instance(s)")
             ```
 
@@ -398,7 +398,7 @@ class ServiceProvider(Protocol):
 
         See Also:
             - has(): To check for specific type
-            - resolve_all(): To get instances of a type
+            - get_all(): To get instances of a type
         """
         ...
 
@@ -698,15 +698,15 @@ class _Provider:
             collection._registration_order
         )
 
-    def resolve(self, service_type: type[ServiceT]) -> ServiceT:
-        """Resolve the first registered instance of the given type.
+    def get(self, service_type: type[ServiceT]) -> ServiceT:
+        """Get the first registered instance of the given type.
 
         Returns the first instance registered for the exact type. This does NOT
         perform inheritance matching. If you need all instances including
-        subclasses, use resolve_all().
+        subclasses, use get_all().
 
         Args:
-            service_type: The type of service to resolve.
+            service_type: The type of service to get.
 
         Returns:
             The first registered instance of the requested type.
@@ -715,8 +715,8 @@ class _Provider:
             ServiceNotFoundError: If no instance of the requested type is registered.
 
         See Also:
-            - resolve_all(): Get all instances including subclasses
-            - has(): Check if type is registered before resolving
+            - get_all(): Get all instances including subclasses
+            - has(): Check if type is registered before getting
         """
         if service_type not in self._services:
             raise ServiceNotFoundError(service_type, list(self._services.keys()))
@@ -724,8 +724,8 @@ class _Provider:
         # Return first instance of the exact type
         return cast(ServiceT, self._services[service_type][0])
 
-    def resolve_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
-        """Resolve all instances of the given type, including subclasses.
+    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
+        """Get all instances of the given type, including subclasses.
 
         Returns all registered instances that are instances of the given type,
         respecting the global registration order. This includes:
@@ -772,7 +772,7 @@ class _Provider:
 
         Note:
             This only checks for exact type matches. To check if any subclasses
-            are registered, use: `len(provider.resolve_all(BaseType)) > 0`
+            are registered, use: `len(provider.get_all(BaseType)) > 0`
         """
         return service_type in self._services
 

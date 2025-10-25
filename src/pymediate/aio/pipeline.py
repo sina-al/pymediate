@@ -156,6 +156,16 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         request_type = cls.__get_request_type__()
         if request_type is Request:
             return True  # Universal behavior
+
+        # Handle subscripted generics (e.g., Request[Any])
+        # Extract the origin type (Request) and use that for isinstance check
+        origin = get_origin(request_type)
+        if origin is not None:
+            # If request_type is a subscripted generic like Request[Any],
+            # check against the origin (Request)
+            return isinstance(request, origin)
+
+        # Non-generic type (e.g., CreateUserRequest or a mixin)
         return isinstance(request, request_type)
 
     @classmethod

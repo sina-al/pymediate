@@ -1,9 +1,5 @@
 """Mediator implementation for routing requests to handlers."""
 
-from collections.abc import Sequence
-from typing import Any
-
-from ._internal import registry
 from ._internal.mediator import MediatorMixin
 from .pipeline import Pipeline, PipelineBehavior
 from .request import Request
@@ -166,30 +162,10 @@ class Mediator(MediatorMixin):
             - Pipeline: Manual pipeline construction
             - ServiceProvider.resolve_all(): How behaviors are discovered
         """
-        from . import errors
+        # Resolve handler and behaviors
+        handler = self._resolve_handler(request)
+        behaviors = self._resolve_behaviors(request, PipelineBehavior)
 
-        # Look up handler type from registry
-        request_type = type(request)
-        handler_class = registry.get_handler_class(request_type)
-        if handler_class is None:
-            raise errors.HandlerNotFoundError(request_type, [])
-
-        # Resolve handler instance
-        handler: Any = self._service_provider.resolve(handler_class)
-
-        # Resolve all registered pipeline behaviors
-        all_behaviors: Sequence[Any] = self._service_provider.resolve_all(PipelineBehavior)
-
-        # Filter behaviors to only those that apply to this request
-        applicable_behaviors = [
-            behavior for behavior in all_behaviors
-            if type(behavior).should_apply(request)
-        ]
-
-        # Fast path: if no applicable behaviors, call handler directly (zero overhead)
-        if not applicable_behaviors:
-            return handler(request)  # type: ignore[no-any-return]
-
-        # Construct and execute pipeline with applicable behaviors
-        pipeline: Pipeline[Any, ResponseT] = Pipeline(applicable_behaviors, handler)
-        return pipeline(request)
+        # Get dispatch callable and execute
+        dispatch = self._get_dispatch(request, handler, behaviors, Pipeline)
+        return dispatch()  # type: ignore[no-any-return]
