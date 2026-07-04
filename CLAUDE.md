@@ -17,6 +17,8 @@ if you change one, check whether the other needs the equivalent change.
 - `src/pymediate/providers/dependency_injector.py` — optional DI integration (`di` extra).
 - `tests/mypy/snippets/{valid,errors}/` — type-level tests, see below. Not ordinary code.
 - `docs/adr/` — architecture decision records for nontrivial design changes.
+- `scripts/` — standalone maintenance scripts (e.g. `update_uv.py`), invoked via `poe` tasks,
+  not part of the package. Still linted/formatted (`poe lint`/`format`/`format:check` cover it).
 
 ## Dev workflow — use `poe`, not raw tool invocations
 

@@ -43,16 +43,16 @@ type.cmd = "mypy src/pymediate/ --strict"
 # ========== Linting & Formatting ==========
 
 lint.help = "Run ruff linter (check only)"
-lint.cmd = "ruff check src/ tests/"
+lint.cmd = "ruff check src/ tests/ scripts/"
 
 "lint:fix".help = "Run ruff linter and auto-fix issues"
-"lint:fix".cmd = "ruff check --fix src/ tests/"
+"lint:fix".cmd = "ruff check --fix src/ tests/ scripts/"
 
 format.help = "Run ruff formatter"
-format.cmd = "ruff format src/ tests/"
+format.cmd = "ruff format src/ tests/ scripts/"
 
 "format:check".help = "Check formatting without making changes"
-"format:check".cmd = "ruff format --check src/ tests/"
+"format:check".cmd = "ruff format --check src/ tests/ scripts/"
 
 fix.help = "Run linter with fixes and formatter (full cleanup)"
 fix.sequence = ["lint:fix", "format"]
@@ -86,6 +86,12 @@ ci.sequence = ["check:all"]
 
 install.help = "Install package in editable mode with dev dependencies"
 install.cmd = "uv sync --all-extras --group test"
+
+"update-uv".help = "Bump the pinned uv version (pyproject.toml + local install) to the latest release"
+"update-uv".cmd = "python3 scripts/update_uv.py"
+
+"update-uv:check".help = "Check whether the pinned uv version is behind the latest release"
+"update-uv:check".cmd = "python3 scripts/update_uv.py --check"
 
 clean.help = "Clean build artifacts, cache files, and coverage reports"
 clean.cmd = """

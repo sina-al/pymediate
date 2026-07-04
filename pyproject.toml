@@ -50,5 +50,11 @@ docs = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.uv]
+# Single source of truth for the uv version: read locally by `uv` itself (errors on mismatch)
+# and automatically by astral-sh/setup-uv in CI (falls back to pyproject.toml when no `version:`
+# input is given). Bump with `uv run poe update-uv` — don't hand-edit.
+required-version = "==0.11.26"
+
 [tool.poe]
 include = "tasks.toml"
