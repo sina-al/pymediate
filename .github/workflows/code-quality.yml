@@ -30,12 +30,12 @@ jobs:
 
       - name: Format
         run: |
-          uv run ruff format --check src/ tests/
+          uv run poe format:check
 
       - name: Lint
         run: |
-          uv run ruff check src/ tests/ --output-format=github
+          uv run poe lint --output-format=github
 
       - name: Type check
         run: |
-          uv run mypy src
+          uv run poe type

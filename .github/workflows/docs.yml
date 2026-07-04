@@ -43,7 +43,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          uv run mkdocs build --strict
+          uv run poe docs:build
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

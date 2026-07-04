@@ -26,6 +26,9 @@ test.cmd = "pytest tests/"
     { name = "test_file", positional = true, required = true },
 ]
 
+"test:release".help = "Run tests with coverage, gated at the release coverage floor (95%)"
+"test:release".cmd = "pytest --cov=pymediate --cov-report=term-missing --cov-fail-under=95"
+
 # ========== Type Checking ==========
 
 type.help = "Run mypy type checking on source code"
@@ -71,7 +74,7 @@ ci.sequence = ["check:all"]
 "docs:serve".cmd = "mkdocs serve"
 
 "docs:build".help = "Build documentation site"
-"docs:build".cmd = "mkdocs build"
+"docs:build".cmd = "mkdocs build --strict"
 
 "docs:deploy".help = "Deploy documentation to GitHub Pages"
 "docs:deploy".cmd = "mkdocs gh-deploy --force"
