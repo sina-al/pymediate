@@ -75,7 +75,19 @@ breaking changes. Use the `/adr` skill to scaffold a new one.
 
 Tag-triggered (`v*.*.*`) via `release.yml`. The workflow hard-fails if the tag version doesn't
 match both `pyproject.toml`'s `version` and `src/pymediate/__init__.py`'s `__version__` — bump
-both together before tagging.
+both together before tagging. `uv_build` (the build backend) has no dynamic-versioning support,
+unlike Hatchling, so this dual bump is a deliberate accepted trade-off, not an oversight.
+
+Before tagging, run `uv run poe changelog` to regenerate `CHANGELOG.md` (via
+[git-cliff](https://git-cliff.org/), config in `cliff.toml`) from Conventional Commits, and
+commit it alongside the version bump. `release.yml` separately generates the GitHub Release
+body for just the new tag's commits — the persisted `CHANGELOG.md` and the per-release notes
+are two different git-cliff invocations, not duplicated effort.
+
+Publishing to PyPI (`publish-pypi` job) uses `uv publish` with Trusted Publishing (OIDC) —
+no stored credentials. Requires: a `pypi` GitHub environment and a Trusted Publisher
+registered on PyPI for this repo/workflow (register a *pending* publisher before the first
+release, since the project doesn't exist on PyPI until then).
 
 ## Docs
 

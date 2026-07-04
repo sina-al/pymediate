@@ -80,23 +80,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build twine
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
 
       - name: Build package
         run: |
-          python -m build
+          uv build
 
       - name: Check package with twine
         run: |
-          twine check dist/*
+          uvx twine check dist/*
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
@@ -156,57 +149,49 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
 
-      - name: Generate changelog
-        id: changelog
+      - name: Generate release notes
         run: |
-          VERSION="${{ github.ref_name }}"
-          echo "Generating changelog for $VERSION"
-
-          # Get the previous tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
-          if [ -z "$PREV_TAG" ]; then
-            # First release
-            CHANGELOG=$(git log --pretty=format:"* %s (%h)" --no-merges)
-          else
-            # Generate changelog from previous tag
-            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"* %s (%h)" --no-merges)
-          fi
-
-          # Save to file
-          echo "$CHANGELOG" > CHANGELOG.txt
+          uvx git-cliff --current --strip header -o RELEASE_NOTES.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
           files: dist/*
-          body_path: CHANGELOG.txt
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # NOTE: Publishing to PyPI is commented out - uncomment when ready
-  # publish-pypi:
-  #   name: Publish to PyPI
-  #   runs-on: ubuntu-latest
-  #   needs: create-release
-  #   environment: release
-  #   permissions:
-  #     id-token: write
-  #
-  #   steps:
-  #     - name: Download artifacts
-  #       uses: actions/download-artifact@v8
-  #       with:
-  #         name: dist
-  #         path: dist/
-  #
-  #     - name: Publish to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: create-release
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pymediate/
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        run: |
+          uv publish

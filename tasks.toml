@@ -82,6 +82,11 @@ ci.sequence = ["check:all"]
 "docs:clean".help = "Clean built documentation"
 "docs:clean".cmd = "rm -rf site/"
 
+# ========== Release ==========
+
+changelog.help = "Regenerate CHANGELOG.md from Conventional Commits (git-cliff)"
+changelog.cmd = "uvx git-cliff --output CHANGELOG.md"
+
 # ========== Development ==========
 
 install.help = "Install package in editable mode with dev dependencies"

@@ -10,15 +10,26 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = []
+keywords = ["mediator", "cqrs", "dependency-injection", "type-safe", "request-dispatch"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/sina-al/pymediate"
+Documentation = "https://sina-al.github.io/pymediate/"
+Repository = "https://github.com/sina-al/pymediate"
+Issues = "https://github.com/sina-al/pymediate/issues"
+Changelog = "https://github.com/sina-al/pymediate/releases"
 
 [project.optional-dependencies]
 di = [
