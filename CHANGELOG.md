@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Generated from Conventional
 Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the first entry.
-## [Unreleased]
+## [0.1.0] - 2026-07-04
 
 ### Build system
 
@@ -33,6 +33,8 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 
 - Update docs ([8163302](https://github.com/sina-al/pymediate/commit/81633020e1f8aec94eded670fff6cb3490d593eb))
 
+- Add /release skill with the full release checklist ([1d0b860](https://github.com/sina-al/pymediate/commit/1d0b8608a9d22202a3dc043e346e9dcf8b8c0cb6))
+
 
 ### Features
 
@@ -47,6 +49,10 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 - Integrate pipeline behaviours in mediator ([c8c3c26](https://github.com/sina-al/pymediate/commit/c8c3c268eaee4b40dbf2ffb7bd3d7f671d056249))
 
 - Pin uv version and add a scripted, parameterized way to bump it ([2ab794a](https://github.com/sina-al/pymediate/commit/2ab794a76f87a27d5348f5ed4e093d62a654fe2c))
+
+- Implement packaging audit findings — metadata, publish pipeline, community files ([f29e858](https://github.com/sina-al/pymediate/commit/f29e8580392657020a2c9971154d507f9dd1a993))
+
+- Modernize release pipeline per PyPA + uv publishing guidance ([783cec7](https://github.com/sina-al/pymediate/commit/783cec79c66f44bd7c1780774717b1777bf043fd))
 
 
 ### Fixes
@@ -115,6 +121,8 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 - Bump GitHub Actions to versions running on Node 24 ([63f159e](https://github.com/sina-al/pymediate/commit/63f159eafee729a23c926d8a1bea0f099d07f7d4))
 
 - Add Dependabot config for github-actions ecosystem ([760484b](https://github.com/sina-al/pymediate/commit/760484bb62abcaaf01f6b99a23e38474cc91982f))
+
+- Rename Pages deployment environment github-pages -> documentation ([3759f29](https://github.com/sina-al/pymediate/commit/3759f29265c53d47a7e3b5c020670ca944188853))
 
 
 ### Refactoring
