@@ -54,12 +54,12 @@ jobs:
           path: site/
 
   deploy:
-    name: Deploy to GitHub Pages
+    name: Deploy documentation
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
-      name: github-pages
+      name: documentation
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
