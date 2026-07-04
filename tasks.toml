@@ -82,7 +82,7 @@ ci.sequence = ["check:all"]
 # ========== Development ==========
 
 install.help = "Install package in editable mode with dev dependencies"
-install.cmd = "uv sync --all-extras"
+install.cmd = "uv sync --all-extras --group test"
 
 clean.help = "Clean build artifacts, cache files, and coverage reports"
 clean.cmd = """

@@ -174,7 +174,7 @@ pip install pymediate[di]
 # Clone and install
 git clone https://github.com/sina-al/pymediate.git
 cd pymediate
-uv sync --all-extras
+uv sync --all-extras --group test
 
 # Run tests
 poe test
@@ -189,6 +189,11 @@ poe
 ### Available Commands
 
 PyMediate uses [Poe the Poet](https://poethepoet.natn.io/) for task running. Run `poe` to see all commands, or check [`tasks.toml`](tasks.toml).
+
+> **Note:** `uv sync` alone only installs the default `dev` dependency group (ruff, mypy,
+> poethepoet). Test dependencies (pytest and friends) live in the separate `test` group and
+> won't be installed unless you pass `--group test` (or `--all-groups`) — otherwise `poe test`
+> fails with `Failed to spawn: pytest`.
 
 ## Requirements
 

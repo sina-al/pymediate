@@ -20,6 +20,15 @@ if you change one, check whether the other needs the equivalent change.
 
 ## Dev workflow — use `poe`, not raw tool invocations
 
+Before running any `poe` task, sync deps with `uv sync --all-extras --group test` (or
+`poe install`). Plain `uv sync` only installs the default `dev` group (ruff, mypy, poethepoet) —
+pytest and friends live in the separate `test` dependency-group and won't be present without
+`--group test`/`--all-groups`, so `poe test` fails with `Failed to spawn: pytest`. `uv.lock` is
+gitignored in this repo, so there's no persisted lock to fall back on — every sync re-resolves
+against the loose `>=` bounds in `pyproject.toml`, meaning dependency versions (e.g. mypy) can
+silently drift between syncs done months apart. See `mypy.ini` history for a concrete case where
+a mypy upgrade changed diagnostic output and broke `tests/mypy/test_mypy.py` assertions.
+
 All dev commands go through `poethepoet` (`tasks.toml`) so behavior matches CI exactly:
 
 - `uv run poe test` / `test:fast` / `test:cov` / `test:verbose`
