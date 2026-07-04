@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run poe *)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr diff*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys,subprocess\nd=json.load(sys.stdin)\nf=d.get('tool_input',{}).get('file_path','')\nif f.endswith('.py'):\n    subprocess.run(['uv','run','ruff','format',f])\n    subprocess.run(['uv','run','ruff','check','--fix',f])\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

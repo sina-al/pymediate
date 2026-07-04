@@ -4,7 +4,7 @@
 **Date:** 2025-01-XX
 **Author:** Claude
 **Context:** Supersedes ADR-0001 based on future vision for selective behaviors
-**Reviewers:** @saleyaasin
+**Reviewers:** @sina-al
 
 ## Context
 
