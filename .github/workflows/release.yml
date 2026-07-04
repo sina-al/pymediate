@@ -133,7 +133,8 @@ jobs:
       - name: Install with DI extra
         shell: bash
         run: |
-          pip install "dist/*.whl[di]"
+          wheel=$(ls dist/*.whl)
+          pip install "${wheel}[di]"
 
       - name: Test DI import
         run: |
