@@ -43,7 +43,11 @@ jobs:
           uv run pytest tests/ --tb=short --cov=pymediate --cov-report=xml --cov-report=term-missing
 
       - name: Report coverage
-        uses: orgoro/coverage@v3
+        # PR-comment action; a no-op on plain pushes (e.g. to main), so skip it there.
+        # Pinned to an exact release rather than a floating major tag: v3 has moved past
+        # v3.3.1 to an unreleased commit that turns this skip into a hard failure.
+        if: github.event_name == 'pull_request'
+        uses: orgoro/coverage@v3.3.1
         with:
           coverageFile: ./coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
