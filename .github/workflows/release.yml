@@ -111,7 +111,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.13", "3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
 
     steps:
       - name: Set up Python ${{ matrix.python-version }}
@@ -132,7 +132,7 @@ jobs:
 
       - name: Test import
         run: |
-          python -c "from pymediate import Request, Handler, Mediator, SimpleResolver; print('Core import successful')"
+          python -c "from pymediate import Request, Handler, Mediator, Services; print('Core import successful')"
 
       - name: Install with DI extra
         shell: bash
@@ -141,7 +141,7 @@ jobs:
 
       - name: Test DI import
         run: |
-          python -c "from pymediate import DependencyInjectorResolver; print('DI import successful')"
+          python -c "from pymediate.providers import DependencyInjectorServiceProvider; print('DI import successful')"
 
   create-release:
     name: Create GitHub Release

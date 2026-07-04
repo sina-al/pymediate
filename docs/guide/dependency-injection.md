@@ -14,7 +14,8 @@ The `DependencyInjectorServiceProvider` uses **type inspection** - no naming con
 
 ```python
 from dependency_injector import containers, providers
-from pymediate import Handler, Mediator, DependencyInjectorServiceProvider
+from pymediate import Handler, Mediator
+from pymediate.providers import DependencyInjectorServiceProvider
 
 class AppContainer(containers.DeclarativeContainer):
     database = providers.Singleton(Database)

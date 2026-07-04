@@ -129,7 +129,7 @@ services = Services()
 services.add(SimpleUserHandler(database))
 
 # Later, switch to DI container
-from pymediate import DependencyInjectorServiceProvider
+from pymediate.providers import DependencyInjectorServiceProvider
 provider = DependencyInjectorServiceProvider(container)
 
 # Mediator usage stays the same!
