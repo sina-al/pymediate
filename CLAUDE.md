@@ -74,9 +74,10 @@ breaking changes. Use the `/adr` skill to scaffold a new one.
 ## Release process
 
 Tag-triggered (`v*.*.*`) via `release.yml`. The workflow hard-fails if the tag version doesn't
-match both `pyproject.toml`'s `version` and `src/pymediate/__init__.py`'s `__version__` — bump
-both together before tagging. `uv_build` (the build backend) has no dynamic-versioning support,
-unlike Hatchling, so this dual bump is a deliberate accepted trade-off, not an oversight.
+match both `pyproject.toml`'s `version` and `src/pymediate/__init__.py`'s `__version__`. Bump
+both together with `uv run poe version:bump patch|minor|major` (or an explicit `X.Y.Z`) —
+it wraps `uv version` (which only touches `pyproject.toml`; `uv_build` has no dynamic-versioning
+support unlike Hatchling) and syncs `__init__.py` to match. Add `--dry-run` to preview.
 
 Before tagging, run `uv run poe changelog` to regenerate `CHANGELOG.md` (via
 [git-cliff](https://git-cliff.org/), config in `cliff.toml`) from Conventional Commits, and
@@ -84,10 +85,12 @@ commit it alongside the version bump. `release.yml` separately generates the Git
 body for just the new tag's commits — the persisted `CHANGELOG.md` and the per-release notes
 are two different git-cliff invocations, not duplicated effort.
 
-Publishing to PyPI (`publish-pypi` job) uses `uv publish` with Trusted Publishing (OIDC) —
-no stored credentials. Requires: a `pypi` GitHub environment and a Trusted Publisher
-registered on PyPI for this repo/workflow (register a *pending* publisher before the first
-release, since the project doesn't exist on PyPI until then).
+Publishing uses `uv publish` with Trusted Publishing (OIDC) — no stored credentials — staged
+through TestPyPI first (`publish-testpypi` job) and gating the real `publish-pypi` job on that
+succeeding. Requires: `pypi` and `testpypi` GitHub environments (already created) and a Trusted
+Publisher registered on **both** pypi.org and test.pypi.org for this repo/workflow — they're
+separate services with separate registrations. Register a *pending* publisher on each before
+the first release, since the project doesn't exist on either index yet.
 
 ## Docs
 

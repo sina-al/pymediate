@@ -67,5 +67,13 @@ build-backend = "uv_build"
 # input is given). Bump with `uv run poe update-uv` — don't hand-edit.
 required-version = "==0.11.26"
 
+# TestPyPI staging index — release.yml publishes here (`uv publish --index testpypi`) before
+# the real PyPI publish, as a dry run against the exact same Trusted Publishing mechanism.
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
 [tool.poe]
 include = "tasks.toml"
