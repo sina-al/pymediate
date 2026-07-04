@@ -22,13 +22,22 @@ When you open this project in VSCode, you'll be prompted to install recommended 
 - **Python Test Adapter** - Test explorer integration
 - **Test Explorer UI** - Visual test runner
 
-### 2. Select Python Interpreter
+### 2. Install dependencies
+
+`uv sync` alone only installs the default `dev` group (ruff, mypy, poethepoet). Test
+dependencies live in a separate `test` dependency-group:
+
+```bash
+uv sync --all-extras --group test
+```
+
+### 3. Select Python Interpreter
 
 1. Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
 2. Type "Python: Select Interpreter"
 3. Choose the interpreter at `.venv/bin/python`
 
-### 3. Running Tests
+### 4. Running Tests
 
 #### Option A: Using Test Explorer (Recommended)
 
@@ -53,21 +62,20 @@ When you open this project in VSCode, you'll be prompted to install recommended 
 
 #### Option D: Using Terminal
 
+Use the `poe` tasks so local results match CI (see root `CLAUDE.md`):
+
 ```bash
 # Run all tests
-uv run pytest
+uv run poe test
 
 # Run with coverage
-uv run pytest --cov=pymediate --cov-report=term-missing
+uv run poe test:cov
 
 # Run specific file
-uv run pytest tests/test_handler.py -v
-
-# Run specific test
-uv run pytest tests/test_handler.py::TestHandler::test_handler_call -v
+uv run poe test:specific test_handler.py
 ```
 
-### 4. Debugging Tests
+### 5. Debugging Tests
 
 1. Set breakpoints in your test or source code (click left of line number)
 2. Open the test file
@@ -81,37 +89,37 @@ uv run pytest tests/test_handler.py::TestHandler::test_handler_call -v
 - **Python: Debug All Tests** - Debug all tests
 - **Python: Debug Specific Test** - Debug a specific test (will prompt for name)
 
-### 5. Type Checking
+### 6. Type Checking
 
-Type checking runs automatically on save. You'll see:
+Type checking runs continuously via the mypy extension. You'll see:
 - Red squiggly lines for errors
 - Yellow squiggly lines for warnings
 
-To manually run mypy:
+To manually run mypy (matches CI, uses `--strict`):
 ```bash
-uv run mypy src/pymediate/
+uv run poe type
 ```
 
 Or use the task: "Type Check (mypy)"
 
-### 6. Code Formatting
+### 7. Code Formatting
 
 Code is automatically formatted on save using Ruff.
 
 To manually format:
 ```bash
-uv run ruff format src/ tests/
+uv run poe format
 ```
 
 Or use the task: "Format (ruff)"
 
-### 7. Linting
+### 8. Linting
 
 Linting runs automatically on save.
 
 To manually lint:
 ```bash
-uv run ruff check src/ tests/
+uv run poe lint
 ```
 
 Or use the task: "Lint (ruff)"
@@ -139,12 +147,15 @@ Automatically discovers new tests when you save files.
 
 ### Mypy Settings
 
-```json
-"python.linting.mypyEnabled": true
-```
-Enables mypy type checking.
+Type checking is provided by the `ms-python.mypy-type-checker` extension, which runs real
+`mypy` in the background — separate from Pylance's own basic analysis
+(`python.analysis.typeCheckingMode`). The mypy configuration lives in `mypy.ini` at the repo
+root, not `pyproject.toml`.
 
-The mypy configuration is in `pyproject.toml` under `[tool.mypy]`.
+`mypy-type-checker.ignorePatterns` excludes `tests/mypy/snippets/errors/**` from the extension's
+diagnostics — those files are deliberately type-invalid (see `CLAUDE.md`). Pylance may still
+flag them under its own basic analysis; that's a separate setting (`python.analysis.exclude`)
+if you want to suppress those too.
 
 ### File Exclusions
 
@@ -155,7 +166,7 @@ The following are excluded from search and file watching to improve performance:
 - `.ruff_cache/`
 - `__pycache__/`
 - `.coverage`
-- `uv.lock`
+- `uv.lock` (committed, but large/generated — rarely useful in search)
 
 ## Troubleshooting
 
@@ -169,8 +180,8 @@ The following are excluded from search and file watching to improve performance:
 
 If you see "Cannot find implementation or library stub for module named 'pytest'":
 
-1. Make sure mypy is installed in your venv: `uv add --dev mypy`
-2. Check that `pyproject.toml` has the mypy configuration
+1. Make sure you've synced with the `test` group: `uv sync --all-extras --group test`
+2. Check `mypy.ini` at the repo root for the mypy configuration
 3. Reload VSCode
 
 ### Auto-formatting Not Working

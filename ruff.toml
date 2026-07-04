@@ -3,7 +3,7 @@
 
 # Line length and Python version
 line-length = 100
-target-version = "py313"
+target-version = "py312"
 
 # Exclude directories
 extend-exclude = [

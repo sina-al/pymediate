@@ -18,7 +18,8 @@
   // Testing configuration
   "python.testing.pytestEnabled": true,
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestArgs": ["tests", "-v", "--tb=short"],
+  // pytest.ini already sets testpaths=tests and addopts (-v, --tb=short); no need to duplicate here
+  "python.testing.pytestArgs": [],
 
   // Test discovery
   "python.testing.autoTestDiscoverOnSaveEnabled": true,
@@ -30,13 +31,23 @@
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.autoImportCompletions": true,
   "python.analysis.inlayHints.pytestParameters": true,
-  // Exclude deliberate mypy error snippets from type checking in IDE
-  // These files are DESIGNED to fail mypy for testing purposes
-  // Excluding them here prevents red squiggles while still allowing
-  // the test suite to verify they fail with expected errors
+  // Exclude deliberate mypy error snippets (see CLAUDE.md) plus generated/cache dirs from
+  // Pylance's own analysis, so nothing inadvertently gets indexed or squiggled.
   "python.analysis.exclude": [
-    "tests/mypy/snippets/errors/**"
+    "tests/mypy/snippets/errors/**",
+    "**/__pycache__",
+    "**/.venv",
+    "**/.mypy_cache",
+    "**/.pytest_cache",
+    "**/.ruff_cache",
+    "build",
+    "dist",
+    "site"
   ],
+
+  // The ms-python.mypy-type-checker extension runs mypy separately from Pylance and needs its
+  // own exclude setting for the deliberately type-invalid snippets (see CLAUDE.md).
+  "mypy-type-checker.ignorePatterns": ["tests/mypy/snippets/errors/**"],
 
   // File associations
   "files.associations": {
@@ -55,7 +66,11 @@
     "**/.pytest_cache/**": true,
     "**/.ruff_cache/**": true,
     "**/__pycache__/**": true,
-    "**/.coverage": true
+    "**/.coverage": true,
+    "**/build/**": true,
+    "**/dist/**": true,
+    "**/site/**": true,
+    "**/htmlcov/**": true
   },
 
   // Exclude from search
@@ -64,6 +79,11 @@
     "**/.mypy_cache": true,
     "**/.pytest_cache": true,
     "**/.ruff_cache": true,
-    "**/uv.lock": true
+    "**/uv.lock": true,
+    "**/__pycache__": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/site": true,
+    "**/htmlcov": true
   }
 }

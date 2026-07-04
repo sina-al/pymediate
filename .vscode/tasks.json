@@ -4,7 +4,7 @@
     {
       "label": "Run Tests",
       "type": "shell",
-      "command": "uv run pytest tests/ -v",
+      "command": "uv run poe test",
       "group": {
         "kind": "test",
         "isDefault": true
@@ -18,7 +18,7 @@
     {
       "label": "Run Tests with Coverage",
       "type": "shell",
-      "command": "uv run pytest tests/ --cov=pymediate --cov-report=term-missing",
+      "command": "uv run poe test:cov",
       "group": "test",
       "presentation": {
         "reveal": "always",
@@ -40,7 +40,7 @@
     {
       "label": "Type Check (mypy)",
       "type": "shell",
-      "command": "uv run mypy src/pymediate/",
+      "command": "uv run poe type",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -51,7 +51,7 @@
     {
       "label": "Lint (ruff)",
       "type": "shell",
-      "command": "uv run ruff check src/ tests/",
+      "command": "uv run poe lint",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -62,7 +62,7 @@
     {
       "label": "Format (ruff)",
       "type": "shell",
-      "command": "uv run ruff format src/ tests/",
+      "command": "uv run poe format",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -72,15 +72,15 @@
     },
     {
       "label": "Run All Checks",
-      "dependsOn": [
-        "Type Check (mypy)",
-        "Lint (ruff)",
-        "Run Tests with Coverage"
-      ],
-      "dependsOrder": "sequence",
+      "type": "shell",
+      "command": "uv run poe check:all",
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
       },
       "problemMatcher": []
     }

@@ -7,10 +7,7 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "justMyCode": true,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
-      }
+      "justMyCode": true
     },
     {
       "name": "Python: Debug Tests",
@@ -23,10 +20,7 @@
         "${file}"
       ],
       "console": "integratedTerminal",
-      "justMyCode": false,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
-      }
+      "justMyCode": false
     },
     {
       "name": "Python: Debug All Tests",
@@ -39,10 +33,7 @@
         "tests/"
       ],
       "console": "integratedTerminal",
-      "justMyCode": false,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
-      }
+      "justMyCode": false
     },
     {
       "name": "Python: Debug Specific Test",
@@ -55,10 +46,7 @@
         "${file}::${input:testName}"
       ],
       "console": "integratedTerminal",
-      "justMyCode": false,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
-      }
+      "justMyCode": false
     }
   ],
   "inputs": [
