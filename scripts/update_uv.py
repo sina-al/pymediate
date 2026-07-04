@@ -2,8 +2,9 @@
 """Bump the pinned uv version.
 
 Updates `required-version` under `[tool.uv]` in pyproject.toml — the single source of truth
-also read automatically by astral-sh/setup-uv in CI (see comment in pyproject.toml) — and
-upgrades the local `uv` install to match.
+also read automatically by astral-sh/setup-uv in CI (see comment in pyproject.toml) — plus the
+`uv_build` requirement in `[build-system]` (same release train as `uv` itself), and upgrades the
+local `uv` install to match.
 
 Usage:
     python3 scripts/update_uv.py                # bump to the latest uv release
@@ -24,7 +25,14 @@ from pathlib import Path
 
 PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 REQUIRED_VERSION_PATTERN = re.compile(r'required-version\s*=\s*"==([^"]+)"')
+BUILD_BACKEND_PATTERN = re.compile(r"uv_build>=[0-9.]+,<[0-9.]+")
 GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/astral-sh/uv/releases/latest"
+
+
+def next_minor_ceiling(version: str) -> str:
+    """0.11.26 -> 0.12, the exclusive upper bound uv's docs recommend for uv_build."""
+    major, minor, *_ = version.split(".")
+    return f"{major}.{int(minor) + 1}"
 
 
 def latest_uv_version() -> str:
@@ -52,6 +60,16 @@ def set_pinned_version(version: str) -> None:
     else:
         text = text.rstrip("\n") + f"\n\n[tool.uv]\n{new_line}\n"
     PYPROJECT.write_text(text)
+
+
+def set_build_backend_version(version: str) -> bool:
+    """Update the uv_build requirement in [build-system]. Returns whether it was present."""
+    text = PYPROJECT.read_text()
+    if not BUILD_BACKEND_PATTERN.search(text):
+        return False
+    new_requirement = f"uv_build>={version},<{next_minor_ceiling(version)}"
+    PYPROJECT.write_text(BUILD_BACKEND_PATTERN.sub(new_requirement, text, count=1))
+    return True
 
 
 def main() -> None:
@@ -87,6 +105,8 @@ def main() -> None:
     else:
         set_pinned_version(target)
         print(f"pyproject.toml: required-version {current or '(none)'} -> {target}")
+        if set_build_backend_version(target):
+            print(f"pyproject.toml: [build-system] uv_build requirement -> >={target},<...")
 
     if not args.skip_self_update:
         subprocess.run(["uv", "self", "update", target], check=True)
