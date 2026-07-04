@@ -73,6 +73,8 @@ breaking changes. Use the `/adr` skill to scaffold a new one.
 
 ## Release process
 
+Use the `/release` skill for the full step-by-step checklist. Summary below.
+
 Tag-triggered (`v*.*.*`) via `release.yml`. The workflow hard-fails if the tag version doesn't
 match both `pyproject.toml`'s `version` and `src/pymediate/__init__.py`'s `__version__`. Bump
 both together with `uv run poe version:bump patch|minor|major` (or an explicit `X.Y.Z`) —
