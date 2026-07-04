@@ -112,7 +112,6 @@ class Mediator(MediatorMixin):
 
         Raises:
             HandlerNotFoundError: If no handler is registered for the request type.
-            DIContainerError: If using DI and the container fails to provide a handler.
 
         Examples:
             Basic usage without behaviors:

@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 import pytest
 
@@ -586,3 +587,41 @@ async def test_async_pipeline_behavior_with_async_io_operations() -> None:
 
     assert response.value == 6
     assert log == ["io_before", "io_after"]
+
+
+def test_should_apply_universal_behavior_via_bare_request() -> None:
+    """PipelineBehavior[Request] (unsubscripted) should apply to any request."""
+
+    class UniversalBehavior(PipelineBehavior[Request]):  # type: ignore[type-arg]
+        async def __call__(self, request: Request[Any], next: Callable[[], Awaitable[Any]]) -> Any:
+            return await next()
+
+    assert UniversalBehavior.__get_request_type__() is Request
+    assert UniversalBehavior.should_apply(SampleRequest(value=1)) is True
+
+
+def test_should_apply_subscripted_generic_request_type() -> None:
+    """PipelineBehavior[Request[Any]] checks isinstance against the generic's origin."""
+
+    class SubscriptedBehavior(PipelineBehavior[Request[Any]]):
+        async def __call__(self, request: Request[Any], next: Callable[[], Awaitable[Any]]) -> Any:
+            return await next()
+
+    assert SubscriptedBehavior.__get_request_type__() == Request[Any]
+    assert SubscriptedBehavior.should_apply(SampleRequest(value=1)) is True
+
+
+def test_get_request_type_fallback_when_not_parameterized() -> None:
+    """Subclassing PipelineBehavior directly (no [X] at all) falls back to Request.
+
+    __orig_bases__ is still populated in this case (as (ABC, Generic[RequestT])),
+    but none of those bases have PipelineBehavior as their origin, so the lookup
+    loop never matches and falls through to the Request fallback.
+    """
+
+    class BareBehavior(PipelineBehavior):  # type: ignore[type-arg]
+        async def __call__(self, request: Request[Any], next: Callable[[], Awaitable[Any]]) -> Any:
+            return await next()
+
+    assert BareBehavior.__get_request_type__() is Request
+    assert BareBehavior.should_apply(SampleRequest(value=1)) is True

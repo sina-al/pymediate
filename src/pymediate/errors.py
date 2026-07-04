@@ -64,40 +64,6 @@ class HandlerNotFoundError(PyMediateError):
         super().__init__(message, docs_path="guide/handlers")
 
 
-class HandlerTypeMismatchError(PyMediateError):
-    """Raised when a handler is registered for the wrong request type.
-
-    This is a type-safety feature that prevents runtime errors by validating
-    that handlers are registered with the correct request types.
-
-    Example:
-        >>> resolver.register(Request1, Handler2())  # Handler2 handles Request2!
-        HandlerTypeMismatchError: Handler type mismatch
-    """
-
-    def __init__(self, handler_type: type, expected_request: type, actual_request: type):
-        """Initialize handler type mismatch error.
-
-        Args:
-            handler_type: The handler class
-            expected_request: The request type the handler actually handles
-            actual_request: The request type it's being registered for
-        """
-        self.handler_type = handler_type
-        self.expected_request = expected_request
-        self.actual_request = actual_request
-
-        message = (
-            f"Handler type mismatch: {handler_type.__name__} is designed to handle "
-            f"'{expected_request.__name__}', but you're trying to register it for "
-            f"'{actual_request.__name__}'\n\n"
-            "💡 Solution: Ensure the handler is registered with the correct request type:\n"
-            f"  resolver.register({expected_request.__name__}, {handler_type.__name__}())"
-        )
-
-        super().__init__(message, docs_path="guide/resolvers")
-
-
 class InvalidHandlerSignatureError(PyMediateError):
     """Raised when a handler has an invalid __call__ signature.
 
@@ -171,45 +137,6 @@ class InvalidRequestTypeError(PyMediateError):
         )
 
         super().__init__(message, docs_path="guide/requests-responses")
-
-
-class DIContainerError(PyMediateError):
-    """Raised when there's an issue with the DI container configuration.
-
-    This can happen when:
-    1. A provider is missing from the container
-    2. Provider type inspection fails
-    3. Container resolution fails
-
-    Example:
-        >>> from pymediate.providers import DependencyInjectorServiceProvider
-        >>> provider = DependencyInjectorServiceProvider(container)
-        >>> mediator.send(MyRequest())
-        DIContainerError: Failed to resolve handler from DI container
-    """
-
-    def __init__(self, request_type: type, reason: str):
-        """Initialize DI container error.
-
-        Args:
-            request_type: The request type being resolved
-            reason: Why the container failed to resolve the handler
-        """
-        self.request_type = request_type
-        self.reason = reason
-
-        message = (
-            f"Failed to resolve handler for '{request_type.__name__}' from DI container\n\n"
-            f"Reason: {reason}\n\n"
-            "💡 Common solutions:\n"
-            "  1. Add a provider to your container:\n"
-            "     container = Container()\n"
-            "     container.my_handler = providers.Factory(MyHandler, ...)\n\n"
-            "  2. Ensure the provider returns a Handler instance\n\n"
-            "  3. Check that dependencies are properly configured"
-        )
-
-        super().__init__(message, docs_path="guide/di-integration")
 
 
 class ResponseTypeMismatchError(PyMediateError):

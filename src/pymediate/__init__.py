@@ -11,7 +11,7 @@ Key Features:
     - Async/await support: Built-in async handlers and mediators via pymediate.aio
     - DI ready: Built-in dependency-injector integration
     - Dataclass friendly: Works seamlessly with @dataclass and Request[T]
-    - Well tested: 122+ tests with 96%+ coverage
+    - Well tested: 95%+ coverage enforced in CI
 
 Quick Example:
     ```python
@@ -71,10 +71,8 @@ For more information, see the documentation at https://sina-al.github.io/pymedia
 """
 
 from .errors import (
-    DIContainerError,
     HandlerAlreadyRegisteredError,
     HandlerNotFoundError,
-    HandlerTypeMismatchError,
     InvalidHandlerSignatureError,
     InvalidRequestTypeError,
     PyMediateError,
@@ -100,10 +98,8 @@ __all__ = [
     "PyMediateError",
     "HandlerNotFoundError",
     "HandlerAlreadyRegisteredError",
-    "HandlerTypeMismatchError",
     "InvalidHandlerSignatureError",
     "InvalidRequestTypeError",
-    "DIContainerError",
     "ResponseTypeMismatchError",
 ]
 

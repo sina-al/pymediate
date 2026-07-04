@@ -19,6 +19,7 @@ exclude_lines =
     @abc.abstractmethod
     def main
     ^def main\(\):
+    class .*\(Protocol\):
 
 # Report settings
 precision = 2

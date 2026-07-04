@@ -122,6 +122,53 @@ def test_handler_requires_exactly_one_parameter() -> None:
                 return Resp()
 
 
+def test_handler_requires_call_method() -> None:
+    """Test that a Handler subclass without a __call__ override is rejected."""
+
+    class Resp:
+        pass
+
+    class Req(Request[Resp]):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="must implement __call__"):
+
+        class NoCallHandler(Handler[Req]):
+            pass
+
+
+def test_handler_requires_request_parameter_annotation() -> None:
+    """Test that Handler __call__'s request parameter must have a type annotation."""
+
+    class Resp:
+        pass
+
+    class Req(Request[Resp]):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="type annotation"):
+
+        class UnannotatedParamHandler(Handler[Req]):
+            def __call__(self, request) -> Resp:  # type: ignore[no-untyped-def]
+                return Resp()
+
+
+def test_handler_requires_return_type_annotation() -> None:
+    """Test that Handler __call__ must have a return type annotation."""
+
+    class Resp:
+        pass
+
+    class Req(Request[Resp]):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="return type annotation"):
+
+        class UnannotatedReturnHandler(Handler[Req]):
+            def __call__(self, request: Req):  # type: ignore[no-untyped-def]
+                return Resp()
+
+
 def test_handler_with_request_not_in_registry() -> None:
     """Test that Handler with unregistered request type raises error."""
 
@@ -222,6 +269,57 @@ def test_get_handler_for_unregistered_request() -> None:
 
     with pytest.raises(HandlerNotFoundError):
         Handler.get_handler_for_request(UnhandledReq)
+
+
+def test_get_handler_for_unregistered_request_lists_available_handlers() -> None:
+    """HandlerNotFoundError's message includes other registered request types, if any."""
+
+    class RegisteredResp:
+        pass
+
+    class RegisteredReq(Request[RegisteredResp]):
+        pass
+
+    class RegisteredHandler(Handler[RegisteredReq]):
+        def __call__(self, request: RegisteredReq) -> RegisteredResp:
+            return RegisteredResp()
+
+    class UnhandledResp:
+        pass
+
+    class UnhandledReq(Request[UnhandledResp]):
+        pass
+
+    with pytest.raises(HandlerNotFoundError) as exc_info:
+        Handler.get_handler_for_request(UnhandledReq)
+
+    assert exc_info.value.available_handlers == [RegisteredReq]
+    assert "RegisteredReq" in str(exc_info.value)
+
+
+def test_get_handler_for_unregistered_request_truncates_many_available_handlers() -> None:
+    """HandlerNotFoundError truncates the available-handlers list beyond 5, with a count."""
+
+    class Resp:
+        pass
+
+    for _ in range(6):
+
+        class RegisteredReq(Request[Resp]):
+            pass
+
+        class RegisteredHandler(Handler[RegisteredReq]):
+            def __call__(self, request: RegisteredReq) -> Resp:
+                return Resp()
+
+    class UnhandledReq(Request[Resp]):
+        pass
+
+    with pytest.raises(HandlerNotFoundError) as exc_info:
+        Handler.get_handler_for_request(UnhandledReq)
+
+    assert len(exc_info.value.available_handlers) == 6
+    assert "... and 1 more" in str(exc_info.value)
 
 
 def test_multiple_handlers_for_different_requests() -> None:

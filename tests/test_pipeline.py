@@ -1,6 +1,7 @@
 """Tests for synchronous pipeline behaviors."""
 
 from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -480,3 +481,30 @@ def test_pipeline_with_different_request_response_types() -> None:
 
     response = pipeline(StringRequest(text="hello"))
     assert response.message == "HELLO!"
+
+
+def test_should_apply_universal_behavior_via_bare_request() -> None:
+    """PipelineBehavior[Request] (unsubscripted) should apply to any request."""
+
+    class UniversalBehavior(PipelineBehavior[Request]):  # type: ignore[type-arg]
+        def __call__(self, request: Request[Any], next: Callable[[], Any]) -> Any:
+            return next()
+
+    assert UniversalBehavior.__get_request_type__() is Request
+    assert UniversalBehavior.should_apply(SampleRequest(value=1)) is True
+
+
+def test_get_request_type_fallback_when_not_parameterized() -> None:
+    """Subclassing PipelineBehavior directly (no [X] at all) falls back to Request.
+
+    __orig_bases__ is still populated in this case (as (ABC, Generic[RequestT])),
+    but none of those bases have PipelineBehavior as their origin, so the lookup
+    loop never matches and falls through to the Request fallback.
+    """
+
+    class BareBehavior(PipelineBehavior):  # type: ignore[type-arg]
+        def __call__(self, request: Request[Any], next: Callable[[], Any]) -> Any:
+            return next()
+
+    assert BareBehavior.__get_request_type__() is Request
+    assert BareBehavior.should_apply(SampleRequest(value=1)) is True

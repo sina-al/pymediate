@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import Handler, Mediator, PipelineBehavior, Request
+from pymediate import Handler, Mediator, PipelineBehavior, Request, ServiceNotFoundError
 from pymediate.providers import DependencyInjectorServiceProvider
 
 # ============================================================================
@@ -1166,3 +1166,59 @@ def test_di_no_behaviors_registered() -> None:
 
     assert response.value == 123
     assert response.execution_log == ["Handler"]
+
+
+# ============================================================================
+# Tests: DependencyInjectorServiceProvider direct API
+# ============================================================================
+
+
+def test_di_provider_get_raises_service_not_found() -> None:
+    """DependencyInjectorServiceProvider.get() raises ServiceNotFoundError for an
+    unregistered type, listing whatever service types *are* registered."""
+
+    class CounterHandler(Handler[CounterRequest]):
+        def __call__(self, request: CounterRequest) -> CounterResponse:
+            return CounterResponse(value=request.value, execution_log=["Handler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        handler = providers.Factory(CounterHandler)
+
+    provider = DependencyInjectorServiceProvider(TestContainer())
+
+    with pytest.raises(ServiceNotFoundError) as exc_info:
+        provider.get(IncrementBehavior)
+
+    assert exc_info.value.service_type is IncrementBehavior
+    assert CounterHandler in exc_info.value.available_types
+
+
+def test_di_provider_has_get_all_types_and_len() -> None:
+    """Exercise has(), get_all_types(), and __len__() directly on the DI provider."""
+
+    class CounterHandler(Handler[CounterRequest]):
+        def __call__(self, request: CounterRequest) -> CounterResponse:
+            return CounterResponse(value=request.value, execution_log=["Handler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        increment = providers.Factory(IncrementBehavior, amount=1)
+        handler = providers.Factory(CounterHandler)
+
+    provider = DependencyInjectorServiceProvider(TestContainer())
+
+    assert provider.has(CounterHandler) is True
+    assert provider.has(MultiplyBehavior) is False
+    assert set(provider.get_all_types()) == {IncrementBehavior, CounterHandler}
+    assert len(provider) == 2
+
+
+def test_di_provider_scan_container_without_providers_attribute() -> None:
+    """_scan_container silently no-ops for a container lacking a `.providers` attribute."""
+
+    class NotAContainer:
+        pass
+
+    provider = DependencyInjectorServiceProvider(NotAContainer())
+
+    assert len(provider) == 0
+    assert provider.get_all_types() == ()

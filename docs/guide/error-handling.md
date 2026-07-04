@@ -74,42 +74,6 @@ No handler registered for request type 'CreateUserRequest'
 📚 Learn more: https://sina-al.github.io/pymediate/guide/handlers
 ```
 
-### HandlerTypeMismatchError
-
-Raised at handler class definition time when the handler's `__call__` signature doesn't match its request type.
-
-```python
-from pymediate import HandlerTypeMismatchError, Handler, Request
-
-class MyResponse:
-    pass
-
-class MyRequest(Request[MyResponse]):
-    pass
-
-class OtherResponse:
-    pass
-
-# This will raise HandlerTypeMismatchError at class definition time
-try:
-    class MyHandler(Handler[MyRequest]):
-        # Wrong return type!
-        def __call__(self, request: MyRequest) -> OtherResponse:
-            return OtherResponse()
-except HandlerTypeMismatchError as e:
-    print(f"Handler signature invalid: {e}")
-```
-
-**Error Message Example:**
-```
-Handler type mismatch: MyHandler.__call__ must return MyResponse,
-but signature returns OtherResponse
-
-💡 Solution: Ensure the handler's __call__ method signature matches the request/response types
-
-📚 Learn more: https://sina-al.github.io/pymediate/guide/handlers
-```
-
 ### InvalidHandlerSignatureError
 
 Raised when a handler has an invalid `__call__` signature.
@@ -161,21 +125,6 @@ except InvalidRequestTypeError as e:
     print(f"Invalid request: {e.request_type.__name__}")
 ```
 
-### DIContainerError
-
-Raised when there's an issue with DI container configuration.
-
-```python
-from pymediate import DIContainerError
-
-try:
-    provider = DependencyInjectorServiceProvider(container)
-    response = mediator.send(MyRequest())
-except DIContainerError as e:
-    print(f"Request: {e.request_type.__name__}")
-    print(f"Reason: {e.reason}")
-```
-
 ### ResponseTypeMismatchError
 
 Raised when a handler returns the wrong response type.
@@ -216,14 +165,10 @@ except Exception as e:
 ### Specific Error Handling
 
 ```python
-from pymediate import HandlerNotFoundError, HandlerTypeMismatchError
+from pymediate import HandlerNotFoundError
 
 try:
-    services.add(MyHandler())
     response = mediator.send(MyRequest())
-except HandlerTypeMismatchError as e:
-    # Handler registered for wrong request type
-    print(f"Type mismatch: {e}")
 except HandlerNotFoundError as e:
     # Handler not found
     print(f"Handler not found: {e}")

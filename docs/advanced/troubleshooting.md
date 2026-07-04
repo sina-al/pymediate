@@ -9,10 +9,8 @@ This guide covers common issues you might encounter when using PyMediate and how
 **Problem:** You get an error when trying to use `DependencyInjectorServiceProvider`:
 
 ```python
-from pymediate import DependencyInjectorServiceProvider
-
-provider = DependencyInjectorServiceProvider(container)
-# ImportError: DependencyInjectorServiceProvider requires the 'dependency-injector' package.
+from pymediate.providers import DependencyInjectorServiceProvider
+# ModuleNotFoundError: No module named 'dependency_injector'
 ```
 
 **Cause:** The `dependency-injector` package is an optional dependency and is not installed by default.
@@ -48,7 +46,7 @@ uv add dependency-injector
 **Verification:** After installation, verify it works:
 
 ```python
-from pymediate import DependencyInjectorServiceProvider
+from pymediate.providers import DependencyInjectorServiceProvider
 print("DependencyInjectorServiceProvider is available!")
 ```
 
@@ -134,28 +132,6 @@ HandlerNotFoundError: No handler registered for request type 'MyRequest'
 Available handlers: CreateUserRequest, UpdateUserRequest, DeleteUserRequest
 ```
 
-### HandlerTypeMismatchError
-
-**Problem:** You get `HandlerTypeMismatchError` when registering a handler:
-
-```python
-services.add(UpdateUserHandler())
-# HandlerTypeMismatchError: Handler type mismatch
-```
-
-**Cause:** You're trying to register a handler for the wrong request type.
-
-**Solution:** Make sure the handler matches the request:
-
-```python
-# ❌ Wrong
-services.add(UpdateUserHandler())
-
-# ✅ Correct
-services.add(CreateUserHandler())
-services.add(UpdateUserHandler())
-```
-
 ### InvalidHandlerSignatureError
 
 **Problem:** You get `InvalidHandlerSignatureError` when defining a handler:
@@ -222,14 +198,11 @@ class MyHandler(Handler[MyRequest]):
            return MyResponse()
    ```
 
-### DIContainerError
+### DI Container Resolution Failures
 
-**Problem:** You get `DIContainerError` when using DependencyInjectorServiceProvider:
-
-```python
-handler = resolver.resolve(MyRequest)
-# DIContainerError: Failed to resolve handler for 'MyRequest' from DI container
-```
+**Problem:** Calling a provider through `DependencyInjectorServiceProvider` raises an error from
+the `dependency-injector` container itself (e.g. a missing dependency or a circular reference),
+rather than a PyMediate-specific exception.
 
 **Causes and Solutions:**
 
