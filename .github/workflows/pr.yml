@@ -54,8 +54,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Check PR title format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
           if [[ ! "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: ]]; then
             echo "Error: PR title must follow conventional commits format"
             echo "Examples: 'feat: add async support', 'fix(handler): correct type validation'"
@@ -63,8 +64,9 @@ jobs:
           fi
 
       - name: Check PR has description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          PR_BODY="${{ github.event.pull_request.body }}"
           if [ -z "$PR_BODY" ]; then
             echo "Error: PR must have a description"
             exit 1

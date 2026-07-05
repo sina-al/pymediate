@@ -44,6 +44,13 @@ All dev commands go through `poethepoet` (`tasks.toml`) so behavior matches CI e
 Don't invent bespoke `pytest`/`ruff`/`mypy` invocations — use the `poe` task so local results
 match `.github/workflows/*.yml`.
 
+## GitHub Actions workflows
+
+Before adding a new file under `.github/workflows/**` or editing an existing one, apply the
+`github-actions-security` skill (action pinning, least-privilege `permissions:`, script-injection
+prevention, OIDC over long-lived secrets, safe trigger scoping). This applies any time the task
+touches a workflow file, not only when security is mentioned explicitly.
+
 ## Quality bar (all enforced in CI, not optional)
 
 - `mypy --strict` on `src/pymediate/` — zero untyped defs in library code. Tests are looser
