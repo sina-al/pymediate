@@ -34,16 +34,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: false
 
@@ -60,7 +60,7 @@ jobs:
         # Pinned to an exact release rather than a floating major tag: v3 has moved past
         # v3.3.1 to an unreleased commit that turns this skip into a hard failure.
         if: github.event_name == 'pull_request'
-        uses: orgoro/coverage@v3.3.1
+        uses: orgoro/coverage@53d6a49e69e38cf1606ea91ee3f4e64e2754fabb # v3.3.1
         with:
           coverageFile: ./coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
