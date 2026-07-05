@@ -13,145 +13,73 @@ from ..service import ServiceNotFoundError
 
 
 class DependencyInjectorServiceProvider:
-    """ServiceProvider that integrates with dependency-injector library.
+    """ServiceProvider backed by a dependency-injector container.
 
-    This provider wraps a dependency-injector Container and implements the
-    ServiceProvider protocol, enabling seamless integration between PyMediate's
-    mediator pattern and the dependency-injector library.
+    Scans every provider in the container once, at construction time, building a
+    type-keyed cache for O(1) lookups. Works with any provider type - `Factory`,
+    `Singleton`, and so on - since it only cares about the type of instance each
+    provider produces, not how that provider manages the instance's lifetime.
 
-    The provider scans all providers in the container at initialization and builds
-    a mapping from service types to their providers for efficient O(1) lookups.
-
-    Attributes:
-        _container: The dependency-injector Container instance.
-        _type_providers: Dict mapping service types to their providers.
+    Build it from a container you've already constructed - not from a provider
+    declared inside that same container, which would require the container to
+    resolve this provider while still scanning itself.
 
     Examples:
-        Basic setup with Factory providers:
-            ```python
-            from dependency_injector import containers, providers
-            from pymediate import Mediator, ServiceProvider
-            from pymediate.providers import DependencyInjectorServiceProvider
+        ```python
+        from dependency_injector import containers, providers
+        from pymediate import Mediator
+        from pymediate.providers import DependencyInjectorServiceProvider
 
-            class AppContainer(containers.DeclarativeContainer):
-                database = providers.Singleton(Database)
+        class AppContainer(containers.DeclarativeContainer):
+            database = providers.Singleton(Database)
+            create_user_handler = providers.Factory(CreateUserHandler, database=database)
 
-                # Handler providers
-                create_user_handler = providers.Factory(
-                    CreateUserHandler,
-                    database=database
-                )
+        container = AppContainer()
+        provider = DependencyInjectorServiceProvider(container)
+        mediator = Mediator(provider)
 
-                __self__ = providers.Self()
-                service_provider = providers.Singleton(
-                    DependencyInjectorServiceProvider,
-                    container=__self__
-                )
-                mediator = providers.Singleton(
-                    Mediator,
-                    services=service_provider
-                )
-
-            container = AppContainer()
-            mediator = container.mediator()
-            response = mediator.send(CreateUserRequest(...))
-            ```
-
-        Using Singleton providers:
-            ```python
-            class AppContainer(containers.DeclarativeContainer):
-                # Singleton handler - same instance every time
-                create_user_handler = providers.Singleton(CreateUserHandler)
-
-                __self__ = providers.Self()
-                service_provider = providers.Singleton(
-                    DependencyInjectorServiceProvider,
-                    container=__self__
-                )
-            ```
-
-    Performance:
-        - Initialization: O(n) where n is number of providers (one-time cost)
-        - Resolution: O(1) lookup from pre-built cache
-        - resolve_all: O(n) where n is matching instances
+        response = mediator.send(CreateUserRequest(...))
+        ```
 
     Note:
-        The container is scanned once at initialization. If you add providers
-        after creating the service provider, you'll need to create a new instance.
+        The container is scanned once, in `__init__`. Providers added to the
+        container afterward won't be picked up - construct a new
+        `DependencyInjectorServiceProvider` instead.
 
     See Also:
-        - ServiceProvider: The protocol this class implements
-        - Services: Alternative for manual service registration
+        - ServiceProvider: The protocol this class implements.
+        - Services: A DI-container-free alternative for manual service registration.
     """
 
     def __init__(self, container: containers.Container) -> None:
-        """Initialize service provider with a dependency-injector container.
-
-        Scans the container immediately to build a cache mapping service types
-        to their providers. This enables O(1) lookups.
+        """Scan a dependency-injector container and cache its providers by type.
 
         Args:
-            container: Any dependency-injector Container instance (DeclarativeContainer
-                or DynamicContainer).
-
-        Examples:
-            ```python
-            from dependency_injector import containers
-
-            class AppContainer(containers.DeclarativeContainer):
-                # ... providers ...
-                pass
-
-            container = AppContainer()
-            service_provider = DependencyInjectorServiceProvider(container)
-            ```
-
-        Note:
-            The container scan happens in __init__, so any services added after
-            initialization won't be discovered.
+            container: Any dependency-injector Container instance
+                (`DeclarativeContainer` or `DynamicContainer`).
         """
         self._container = container
-        # Maps service type -> list of providers that create instances of that type
         self._type_providers: dict[type, list[Any]] = {}
-        # List of (type, provider) tuples in registration order
         self._registration_order: list[tuple[type, Any]] = []
         self._scan_container()
 
     def _scan_container(self) -> None:
-        """Scan container for providers and build service type mapping.
-
-        For each provider in the container:
-        1. Call the provider to get an instance
-        2. Extract the service type from type(instance)
-        3. Map service_type -> provider for O(1) lookups
-        4. Track registration order globally
-
-        Note:
-            Providers that can't be instantiated (e.g., missing dependencies) are
-            silently skipped.
-        """
+        """Call every provider once to learn its instance type, then index by type."""
         if not hasattr(self._container, "providers"):
             return
 
         for _provider_name, provider in self._container.providers.items():
-            # Try to get an instance from the provider
             instance = provider()
-
-            # Extract the service type
             service_type = type(instance)
 
-            # Add to type mapping
             if service_type not in self._type_providers:
                 self._type_providers[service_type] = []
             self._type_providers[service_type].append(provider)
 
-            # Track registration order
             self._registration_order.append((service_type, provider))
 
     def get(self, service_type: type[Any]) -> Any:
         """Get the first registered instance of the exact type.
-
-        Uses exact type matching only. Will NOT return instances of subclasses.
 
         Args:
             service_type: The exact type of service to get.
@@ -161,128 +89,49 @@ class DependencyInjectorServiceProvider:
 
         Raises:
             ServiceNotFoundError: If no instance of the exact type is registered.
-
-        Example:
-            ```python
-            handler = services.get(CreateUserHandler)
-            response = handler(request)
-            ```
-
-        Thread Safety:
-            This method is thread-safe for read operations.
-
-        Performance:
-            O(1) lookup from pre-built cache.
         """
         if service_type not in self._type_providers:
             available = list(self._type_providers.keys())
             raise ServiceNotFoundError(service_type, available)
 
-        # Get the first provider and call it to get an instance
         providers_list = self._type_providers[service_type]
         return providers_list[0]()
 
     def get_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Get all instances of the type, including subclasses.
-
-        Uses inheritance-aware resolution via isinstance() checks.
-        Returns instances in registration order.
+        """Get all instances of the type, including subclasses, in registration order.
 
         Args:
-            service_type: The type of services to get.
+            service_type: The type (or base type) of services to resolve.
 
         Returns:
-            Sequence of all registered instances that are instances of the type,
-            in registration order. Returns empty sequence if no matches.
-
-        Example:
-            ```python
-            all_handlers = services.get_all(Handler)
-            for handler in all_handlers:
-                # Process handler
-                pass
-            ```
-
-        Thread Safety:
-            This method is thread-safe for read operations.
-
-        Performance:
-            O(n) where n is total number of registered services.
+            All matching instances in registration order, or an empty sequence.
         """
         result: list[Any] = []
-
-        # Iterate through registration order to maintain order
         for _reg_type, provider in self._registration_order:
             instance = provider()
-            # Check if instance is of the requested type (including subclasses)
             if isinstance(instance, service_type):
                 result.append(instance)
-
         return result
 
     def has(self, service_type: type) -> bool:
-        """Check if any instance of the exact type is registered.
-
-        Uses exact type matching only (no inheritance).
+        """Check whether any instance of the exact type is registered.
 
         Args:
             service_type: The type to check for.
 
         Returns:
-            True if at least one instance of the exact type is registered,
-            False otherwise.
-
-        Example:
-            ```python
-            if services.has(CreateUserHandler):
-                handler = services.get(CreateUserHandler)
-            ```
-
-        Thread Safety:
-            This method is thread-safe for read operations.
-
-        Performance:
-            O(1) lookup.
+            True if at least one instance of the exact type is registered.
         """
         return service_type in self._type_providers
 
     def get_all_types(self) -> tuple[type, ...]:
-        """Get all registered service types (exact types only).
+        """Get every exact type that has at least one registered instance.
 
         Returns:
-            Tuple of all registered service types. Order is not guaranteed.
-
-        Example:
-            ```python
-            types = service_provider.get_all_types()
-            for service_type in types:
-                print(f"Found: {service_type.__name__}")
-            ```
-
-        Thread Safety:
-            This method is thread-safe for read operations.
-
-        Performance:
-            O(1) or O(k) where k is number of unique types.
+            All registered service types, in no particular order.
         """
         return tuple(self._type_providers.keys())
 
     def __len__(self) -> int:
-        """Return the total number of registered service instances.
-
-        Returns:
-            Total count of all registered instances across all types.
-
-        Example:
-            ```python
-            count = len(service_provider)
-            print(f"Total services: {count}")
-            ```
-
-        Thread Safety:
-            This method is thread-safe for read operations.
-
-        Performance:
-            O(1) lookup.
-        """
+        """Return the total number of registered service instances."""
         return len(self._registration_order)

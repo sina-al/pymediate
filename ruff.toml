@@ -26,8 +26,22 @@ select = [
     "B",   # flake8-bugbear
     "C4",  # flake8-comprehensions
     "UP",  # pyupgrade
+    "D",   # pydocstyle - enforces docstrings on the public API surface (see below)
 ]
-ignore = []
+ignore = [
+    "D203",  # incompatible with D211 (no-blank-line-before-class); D211 wins
+    "D212",  # incompatible with D213 (multi-line summary starts on second line); D213 wins
+]
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.per-file-ignores]
+# _internal/ has no public API contract (see CLAUDE.md) and its docstrings are never
+# rendered by mkdocstrings, so D isn't worth enforcing there.
+"src/pymediate/_internal/**/*.py" = ["D"]
+"tests/**/*.py" = ["D"]
+"scripts/**/*.py" = ["D"]
 
 # Formatting
 [format]

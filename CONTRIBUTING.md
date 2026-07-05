@@ -40,6 +40,10 @@ Run `uv run poe` with no arguments to see every available task.
   class, or the `ServiceProvider` protocol are treated as potential breaking changes.
   Nontrivial design or API changes should include an ADR in `docs/adr/` (see existing
   ones for the template).
+- **Docstrings**: `src/pymediate/` docstrings (outside `_internal/`) are rendered into the
+  public API docs — see [`CLAUDE.md`](CLAUDE.md#docstrings) for what belongs in them (and
+  what doesn't), which sections actually render, and why every example needs to be verified
+  to run, not just look plausible.
 
 ## The mypy-snippet tests
 

@@ -24,21 +24,17 @@ class AppContainer(containers.DeclarativeContainer):
 
     # The provider name can be anything - PyMediate matches by type, not by name
     user_service = providers.Factory(CreateUserHandler, database=database)
-
-    __self__ = providers.Self()
-    mediator = providers.Singleton(
-        Mediator,
-        services=providers.Singleton(DependencyInjectorServiceProvider, container=__self__)
-    )
 ```
 
 ```python
 container = AppContainer()
-mediator = container.mediator()
+provider = DependencyInjectorServiceProvider(container)
+mediator = Mediator(provider)
+
 response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 ```
 
-The `providers.Self()` / `__self__` pattern lets the container pass itself to `DependencyInjectorServiceProvider`, so the provider can scan every registration in the same container it belongs to.
+Build `DependencyInjectorServiceProvider` from a container you've already constructed, not from a provider declared inside that same container. Registering it as one of the container's own providers (for example, via a `providers.Self()` reference) makes the container try to resolve it while still scanning itself, which recurses until Python's recursion limit is hit.
 
 ## Factory vs. Singleton providers
 
@@ -76,7 +72,8 @@ def test_create_user_with_container():
     container = AppContainer()
     container.database.override(providers.Singleton(InMemoryDatabase))
 
-    mediator = container.mediator()
+    provider = DependencyInjectorServiceProvider(container)
+    mediator = Mediator(provider)
     response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 
     assert response.username == "alice"

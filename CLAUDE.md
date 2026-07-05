@@ -26,10 +26,11 @@ Before running any `poe` task, sync deps with `uv sync --all-extras --group test
 `poe install`). Plain `uv sync` only installs the default `dev` group (ruff, mypy, poethepoet) —
 pytest and friends live in the separate `test` dependency-group and won't be present without
 `--group test`/`--all-groups`, so `poe test` fails with `Failed to spawn: pytest`. `uv.lock` is
-gitignored in this repo, so there's no persisted lock to fall back on — every sync re-resolves
-against the loose `>=` bounds in `pyproject.toml`, meaning dependency versions (e.g. mypy) can
-silently drift between syncs done months apart. See `mypy.ini` history for a concrete case where
-a mypy upgrade changed diagnostic output and broke `tests/mypy/test_mypy.py` assertions.
+committed to the repo, so `uv sync` resolves against pinned versions, not the loose `>=` bounds
+in `pyproject.toml` — run `uv lock --upgrade` (or `--upgrade-package <name>`) deliberately when you
+want to bump a dependency, and commit the updated lockfile. See `mypy.ini` history for a concrete
+case, before the lockfile was committed, where an unpinned mypy upgrade changed diagnostic output
+and broke `tests/mypy/test_mypy.py` assertions.
 
 All dev commands go through `poethepoet` (`tasks.toml`) so behavior matches CI exactly:
 
@@ -47,12 +48,45 @@ match `.github/workflows/*.yml`.
 
 - `mypy --strict` on `src/pymediate/` — zero untyped defs in library code. Tests are looser
   (see `mypy.ini` `[mypy-tests.*]`).
-- ruff: `E, W, F, I, B, C4, UP`, line length 100, double quotes.
+- ruff: `E, W, F, I, B, C4, UP, D`, line length 100, double quotes. `D` (pydocstyle, Google
+  convention) is scoped to `src/pymediate/` excluding `_internal/` — see "Docstrings" below.
 - Coverage floor: 95% (`--cov-fail-under=95` in `release.yml`, checked on PR diff too).
 - PR titles must follow Conventional Commits (`feat:`, `fix:`, `docs:`, etc.) — enforced by
   `pr-checks.yml`, will hard-fail otherwise.
-- CI flags diffs to `__all__` in `__init__.py`, the `Handler` class, or the resolver protocol
-  as potential breaking changes — treat those as places requiring extra care and, likely, an ADR.
+- CI flags diffs to `__all__` in `__init__.py`, the `Handler` class, or the `ServiceProvider`
+  protocol as potential breaking changes — treat those as places requiring extra care and,
+  likely, an ADR.
+
+## Docstrings
+
+Docstrings in `src/pymediate/` (except `_internal/`) are rendered into the public API docs via
+mkdocstrings (`docs/api/*.md`, `docstring_style: google` in `mkdocs.yml`) — write them for that
+reader, not for someone reading the source in an editor.
+
+- **No internal implementation rationale.** Design tradeoffs ("why a dict and a list," "why not
+  weak references," historical two-parameter designs) belong in an ADR or a commit message, not
+  a docstring — they don't help someone calling the API, and they rot silently once the
+  implementation moves on. This bit us once: `service.py`'s module docstring carried a 40-line
+  "Architecture Notes" section that a docs audit had to strip out.
+- **No private attributes.** Don't document `_leading_underscore` attributes in a class
+  docstring's `Attributes:` section — they're not part of the contract, and mkdocstrings'
+  `filters: ["!^_"]` won't render them anyway.
+- **Stick to sections griffe's Google parser actually recognizes**: `Args`, `Returns`, `Raises`,
+  `Yields`, `Attributes`, `Examples` (plural), `Note`, `Warning`, `Type Parameters`. Anything
+  else (`Thread Safety:`, `Performance:`, `See Also:`, `Use Cases:`, ...) still renders — griffe
+  falls back to a generic admonition box for unrecognized headers — but repeating one on every
+  method produces a wall of low-value callout boxes rather than useful docs. Prefer folding a
+  real constraint into prose or a single `Note:`, and use `See Also:` sparingly.
+- **Every code example must actually run.** Verify it in a scratch shell before committing it,
+  the same way you'd verify one in `docs/`. This project has shipped broken examples before -
+  missing `@dataclass` decorators, an undefined `resolver` variable, a `providers.Self()`
+  self-registration pattern that recurses infinitely - all inside docstrings, none caught until
+  someone ran them.
+- Sync (`pymediate`) and async (`pymediate.aio`) docstrings are structural mirrors, same as the
+  code — if you fix or reword one, check the other side for the identical issue.
+- `poe lint` enforces docstring presence/formatting (ruff's `D` rules, Google convention) on
+  `src/pymediate/` excluding `_internal/`; it won't catch stale content or broken examples, so
+  don't rely on it as the only check.
 
 ## The mypy-snippet test system — do not "fix" these
 

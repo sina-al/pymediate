@@ -6,29 +6,21 @@ from .pipeline import Pipeline, PipelineBehavior
 
 
 class Mediator(MediatorMixin):
-    """Asynchronous mediator that routes requests to their handlers using a service provider.
+    """Routes requests to their async handlers using a service provider.
 
-    The mediator is the central coordination point in the mediator pattern.
-    It receives requests, looks up the appropriate handler type from the registry,
-    uses a service provider to obtain a handler instance, then delegates the actual
-    processing to that handler.
+    The async mirror of `pymediate.Mediator`: it works the same way, but `send()`
+    is a coroutine that awaits the resolved handler, so it's built to work with
+    `pymediate.aio.Handler` subclasses.
 
-    This async variant is designed to work with async handlers (pymediate.aio.Handler).
-    The send() method is async and will await the handler's execution.
-
-    The mediator provides type-safe request routing with automatic response
-    type inference. When you call send() with a Request[ResponseT], the return
-    type is automatically inferred as ResponseT by the type checker.
-
-    Attributes:
-        _service_provider: The service provider instance used to obtain handler instances.
+    `send()` infers its return type from the request's `Request[ResponseT]` type
+    parameter, so the response is fully typed at the call site with no casts needed.
 
     Examples:
         Basic usage with Services:
             ```python
             import asyncio
-            from pymediate import Request
-            from pymediate.service import Services
+            from dataclasses import dataclass
+            from pymediate import Request, Services
             from pymediate.aio import Handler, Mediator
 
             @dataclass
@@ -42,16 +34,14 @@ class Mediator(MediatorMixin):
 
             class CreateUserHandler(Handler[CreateUserRequest]):
                 async def __call__(self, request: CreateUserRequest) -> UserResponse:
-                    # Simulate async database operation
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.1)  # Simulate an async database call
                     return UserResponse(user_id=1, username=request.username)
 
             async def main():
                 services = Services()
                 services.add(CreateUserHandler())
-                provider = services.provider()
+                mediator = Mediator(services.provider())
 
-                mediator = Mediator(provider)
                 response = await mediator.send(CreateUserRequest(username="alice"))
                 # response is correctly typed as UserResponse
                 print(response.user_id)
@@ -72,125 +62,81 @@ class Mediator(MediatorMixin):
             ```
 
     Note:
-        The mediator looks up handler types from the registry (which maps
-        request types to handler types), then uses the service provider to instantiate
-        the handler. This separation of concerns means the service provider only needs
-        to know about handler instantiation, not request-to-handler mapping.
-
-        For synchronous mediator, use `pymediate.Mediator` instead.
+        For a synchronous mediator, use `pymediate.Mediator` instead.
 
     See Also:
-        - ServiceProvider: Protocol for resolving service instances
-        - Services: Manual service registration
-        - DependencyInjectorServiceProvider: DI container integration
-        - pymediate.Mediator: Sync mediator variant
-        - pymediate.aio.Handler: Async handler variant
+        - Services: Build a ServiceProvider by hand.
+        - DependencyInjectorServiceProvider: Build one from a DI container instead.
+        - pymediate.Mediator: Sync mediator variant.
+        - pymediate.aio.Handler: Async handler base class.
     """
 
     async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
-        """Send a request asynchronously and get the typed response from its handler.
+        """Send a request and await the typed response from its handler.
 
-        This is the main entry point for the async mediator pattern. It takes a request,
-        looks up the handler type from the registry, resolves the handler instance,
-        automatically discovers and applies any registered async pipeline behaviors,
-        invokes the handler (wrapped by behaviors if any) asynchronously, and returns
-        the response.
-
-        Pipeline behaviors are automatically discovered by resolving all services
-        that inherit from PipelineBehavior. Behaviors are applied in registration
-        order, with the first registered behavior being the outermost wrapper.
-
-        The response type is automatically inferred from the request's type parameter,
-        providing full type safety from request to response.
+        Resolves the handler registered for the request's type, discovers any
+        registered async `PipelineBehavior` instances that apply to this request,
+        and awaits the handler - wrapped by those behaviors, if any - returning its
+        response.
 
         Args:
-            request: The request instance to send. Must be a subclass of Request[ResponseT].
+            request: The request instance to send.
 
         Returns:
-            The response from the handler, with type ResponseT matching the request's
-            type parameter.
+            The response from the handler, typed as ResponseT.
 
         Raises:
             HandlerNotFoundError: If no handler is registered for the request type.
 
         Examples:
-            Basic usage without behaviors:
+            Basic usage, no behaviors:
                 ```python
                 @dataclass
                 class CreateUserRequest(Request[UserCreatedResponse]):
                     username: str
 
-                # Register handler only
                 services = Services()
                 services.add(AsyncCreateUserHandler())
                 mediator = Mediator(services.provider())
 
-                # Send request
                 response = await mediator.send(CreateUserRequest(username="alice"))
                 # response is typed as UserCreatedResponse
                 ```
 
-            Automatic async behavior application:
+            With pipeline behaviors:
                 ```python
-                from pymediate.aio.pipeline import PipelineBehavior
+                from pymediate import Request
+                from pymediate.aio import PipelineBehavior
 
-                class AsyncLoggingBehavior(PipelineBehavior):
+                class AsyncLoggingBehavior(PipelineBehavior[Request]):
                     async def __call__(self, request, next):
-                        await log_to_db(f"Before: {type(request).__name__}")
+                        print(f"Before: {type(request).__name__}")
                         response = await next()
-                        await log_to_db(f"After: {type(request).__name__}")
+                        print(f"After: {type(request).__name__}")
                         return response
 
-                # Register behaviors and handler
                 services = Services()
                 services.add(AsyncLoggingBehavior())      # Registered first = outermost
-                services.add(AsyncValidationBehavior())   # Registered second
                 services.add(AsyncCreateUserHandler())
-
                 mediator = Mediator(services.provider())
 
-                # Send request - behaviors automatically wrap handler
                 response = await mediator.send(CreateUserRequest(username="alice"))
                 ```
 
-            With DI container (respects scopes):
-                ```python
-                from dependency_injector import containers, providers
-
-                class Container(containers.DeclarativeContainer):
-                    # Transient = new instance per request
-                    logging = providers.Transient(AsyncLoggingBehavior)
-                    # Singleton = shared instance
-                    cache = providers.Singleton(AsyncCacheBehavior, ttl=300)
-                    # Handler
-                    create_user = providers.Factory(AsyncCreateUserHandler, db=...)
-
-                provider = DependencyInjectorServiceProvider(container)
-                mediator = Mediator(provider)
-
-                # Behaviors resolved per request, respecting their scopes
-                response = await mediator.send(CreateUserRequest(username="alice"))
-                ```
-
-        Performance Notes:
-            - If no behaviors are registered, the handler is called directly (zero overhead)
-            - Behaviors are resolved per request, respecting DI container scopes
-            - The async pipeline is constructed once per request, then executed
-            - All behaviors must be async (use async def __call__)
-
-        Type Parameters:
-            ResponseT: The response type, inferred from Request[ResponseT].
+        Note:
+            If no behaviors apply to a request, the handler is awaited directly -
+            there's no pipeline-construction overhead. Otherwise, one is built per
+            request from every applicable behavior, in registration order (first
+            registered is outermost), then the request's handler. Every behavior in
+            the pipeline must itself be async (`async def __call__`).
 
         See Also:
-            - PipelineBehavior: Base class for auto-discovered async behaviors
-            - Pipeline: Manual async pipeline construction
-            - ServiceProvider.resolve_all(): How behaviors are discovered
-            - pymediate.Mediator: Sync mediator variant
+            - PipelineBehavior: Base class for behaviors auto-discovered by send().
+            - Pipeline: Compose behaviors and a handler manually, without a mediator.
+            - pymediate.Mediator: Sync mediator variant.
         """
-        # Resolve handler and behaviors
         handler = self._resolve_handler(request)
         behaviors = self._resolve_behaviors(request, PipelineBehavior)
 
-        # Get dispatch callable and execute asynchronously
         dispatch = self._get_dispatch(request, handler, behaviors, Pipeline)
         return await dispatch()  # type: ignore[no-any-return]

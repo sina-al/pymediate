@@ -33,8 +33,10 @@ class HandlerNotFoundError(PyMediateError):
     3. The request type doesn't inherit from Request[ResponseType]
 
     Example:
-        >>> mediator.send(MyRequest())
-        HandlerNotFoundError: No handler registered for request type 'MyRequest'
+        ```python
+        mediator.send(MyRequest())
+        # HandlerNotFoundError: No handler registered for request type 'MyRequest'
+        ```
     """
 
     def __init__(self, request_type: type, available_handlers: list[type] | None = None):
@@ -71,10 +73,12 @@ class InvalidHandlerSignatureError(PyMediateError):
     and a return type annotation matching the expected response type.
 
     Example:
-        >>> class BadHandler(Handler[MyRequest]):
-        ...     def __call__(self):  # Missing request parameter!
-        ...         pass
-        InvalidHandlerSignatureError: Invalid handler signature
+        ```python
+        class BadHandler(Handler[MyRequest]):
+            def __call__(self):  # Missing request parameter!
+                pass
+        # InvalidHandlerSignatureError: Invalid handler signature
+        ```
     """
 
     def __init__(self, handler_type: type, issue: str):
@@ -110,11 +114,14 @@ class InvalidRequestTypeError(PyMediateError):
     their expected response type.
 
     Example:
-        >>> class MyRequest:  # Missing Request[ResponseType] inheritance!
-        ...     pass
-        >>> class MyHandler(Handler[MyRequest]):
-        ...     pass
-        InvalidRequestTypeError: Invalid request type
+        ```python
+        class MyRequest:  # Missing Request[ResponseType] inheritance!
+            pass
+
+        class MyHandler(Handler[MyRequest]):
+            pass
+        # InvalidRequestTypeError: Invalid request type
+        ```
     """
 
     def __init__(self, request_type: type):
@@ -146,10 +153,12 @@ class ResponseTypeMismatchError(PyMediateError):
     but can also occur at runtime if response types are incorrect.
 
     Example:
-        >>> class MyHandler(Handler[MyRequest]):
-        ...     def __call__(self, request: MyRequest) -> WrongResponse:  # Should be MyResponse!
-        ...         return WrongResponse()
-        ResponseTypeMismatchError: Response type mismatch
+        ```python
+        class MyHandler(Handler[MyRequest]):
+            def __call__(self, request: MyRequest) -> WrongResponse:  # Should be MyResponse
+                return WrongResponse()
+        # ResponseTypeMismatchError: Response type mismatch
+        ```
     """
 
     def __init__(self, handler_type: type, expected_type: type, actual_type: type):
@@ -187,10 +196,14 @@ class HandlerAlreadyRegisteredError(PyMediateError):
     have a single handler.
 
     Example:
-        >>> class FirstHandler(Handler[MyRequest]):
-        ...     pass
-        >>> class SecondHandler(Handler[MyRequest]):  # ❌ Error!
-        HandlerAlreadyRegisteredError: Handler already registered for 'MyRequest'
+        ```python
+        class FirstHandler(Handler[MyRequest]):
+            pass
+
+        class SecondHandler(Handler[MyRequest]):  # Error!
+            pass
+        # HandlerAlreadyRegisteredError: Handler already registered for 'MyRequest'
+        ```
     """
 
     def __init__(

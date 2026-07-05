@@ -22,9 +22,9 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
     This validation happens at class definition time (import time), catching
     errors early in the development cycle rather than at runtime.
 
-    As an abstract base class, Handler cannot be instantiated directly and
-    subclasses must implement the __call__ method. This ensures mypy will
-    catch missing or incorrect __call__ implementations.
+    As an abstract base class, Handler cannot be instantiated directly - subclasses
+    must implement `__call__`, and mypy flags subclasses that omit it or type its
+    request parameter incorrectly.
 
     Type Parameters:
         RequestT: The type of request this handler processes.
@@ -92,20 +92,21 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
         """Handle the request asynchronously and return a response.
 
         This is an abstract method that must be implemented by all async Handler
-        subclasses. Mypy will enforce that subclasses properly override this method
-        with the correct type signature.
+        subclasses, with the signature
+        `async def __call__(self, request: RequestType) -> ResponseType: ...`
 
         Args:
-            request: The request to handle
+            request: The request to handle.
 
         Returns:
-            The response (type determined by the request's response type)
+            The response, of the type declared by the request's `Request[ResponseType]`.
 
         Note:
-            Subclasses must implement this with the signature:
-            `async def __call__(self, request: RequestType) -> ResponseType: ...`
-
-            This must be an asynchronous method (async def). For sync handlers,
-            use `pymediate.Handler` instead.
+            mypy checks that `request`'s type matches `Handler[RequestT]`'s type
+            argument, but not that the return type matches the request's declared
+            response type - that mismatch is caught at runtime instead, when the
+            class is defined (see `ResponseTypeMismatchError`). This method must
+            also be asynchronous (`async def`); for sync handlers, use
+            `pymediate.Handler`.
         """
         ...

@@ -5,22 +5,26 @@ use with async/await syntax.
 
 Example:
     ```python
+    from dataclasses import dataclass
+    from pymediate import Request, Services
     from pymediate.aio import Handler, Mediator
-    from pymediate import Request
 
+    @dataclass
     class MyResponse:
         value: str
 
+    @dataclass
     class MyRequest(Request[MyResponse]):
         data: str
 
     class MyHandler(Handler[MyRequest]):
         async def __call__(self, request: MyRequest) -> MyResponse:
-            # Can use await here
             result = await some_async_operation(request.data)
             return MyResponse(value=result)
 
-    mediator = Mediator(resolver)
+    services = Services()
+    services.add(MyHandler())
+    mediator = Mediator(services.provider())
     response = await mediator.send(MyRequest(data="test"))
     ```
 
