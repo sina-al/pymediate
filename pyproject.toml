@@ -1,6 +1,6 @@
 [project]
 name = "pymediate"
-version = "0.1.0"
+version = "0.1.1"
 description = "A type-safe mediator pattern implementation for Python 3.12+"
 readme = "README.md"
 authors = [

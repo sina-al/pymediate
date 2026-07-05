@@ -2,7 +2,23 @@
 
 All notable changes to this project are documented here. Generated from Conventional
 Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the first entry.
-## [0.1.0] - 2026-07-04
+## [Unreleased]
+
+### Documentation
+
+- Rewrite entire docs/ site in Microsoft style, fix broken examples ([bec767f](https://github.com/sina-al/pymediate/commit/bec767fa98480faca25791f00a499a32f591faca))
+
+
+### Fixes
+
+- Correct broken HandlerNotFoundError message and docstring inaccuracies ([6688e7c](https://github.com/sina-al/pymediate/commit/6688e7caa2dc486631cc16ceb79fdfcc6badcf70))
+
+
+### Miscellaneous
+
+- Scope Documentation workflow to docs-relevant path changes ([011b46f](https://github.com/sina-al/pymediate/commit/011b46f63c4742567ca38c8dd99f2a07c77e5584))
+
+## [0.1.0] - 2026-07-05
 
 ### Build system
 
@@ -85,6 +101,12 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 
 - Close coverage gap to 95% floor, remove dead error classes ([d5d5e06](https://github.com/sina-al/pymediate/commit/d5d5e06e08de7d2a67abe3e6fcddfc0edb8c2af3))
 
+- Expand wheel glob before appending [di] extra in release.yml ([e872e39](https://github.com/sina-al/pymediate/commit/e872e397c32069a160fc65d02e4e0364d4bb6e8a))
+
+- Checkout repo in publish-testpypi/publish-pypi jobs ([575f960](https://github.com/sina-al/pymediate/commit/575f960cbf8d445b226e27cfff8eef802ef32871))
+
+- Force --trusted-publishing always on both publish steps ([2d36650](https://github.com/sina-al/pymediate/commit/2d366501f5609f1186fb1fe64f2044e85a7c2021))
+
 
 ### Miscellaneous
 
@@ -123,6 +145,8 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 - Add Dependabot config for github-actions ecosystem ([760484b](https://github.com/sina-al/pymediate/commit/760484bb62abcaaf01f6b99a23e38474cc91982f))
 
 - Rename Pages deployment environment github-pages -> documentation ([3759f29](https://github.com/sina-al/pymediate/commit/3759f29265c53d47a7e3b5c020670ca944188853))
+
+- *(release)* V0.1.0 ([5cb6394](https://github.com/sina-al/pymediate/commit/5cb63947b22e4d67959e87f24419876e2cb7153a))
 
 
 ### Refactoring
