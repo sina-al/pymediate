@@ -1,6 +1,6 @@
 # git-cliff configuration for pymediate.
 # Generates CHANGELOG.md from Conventional Commits (already enforced on PR titles by
-# .github/workflows/pr-checks.yml). Regenerate with `uv run poe changelog`.
+# .github/workflows/pr.yml). Regenerate with `uv run poe changelog`.
 # https://git-cliff.org/docs/configuration
 
 [changelog]

@@ -1,10 +1,49 @@
-name: PR Checks
+name: PR
 
 on:
   pull_request:
+    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: "pr-${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    # Skipping here also skips every job below that depends on its outputs, which is how
+    # draft PRs avoid running the heavy jobs (test-coverage-diff, breaking-changes,
+    # dependency-review, security-scan) until marked ready for review.
+    if: github.event.pull_request.draft == false
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      deps: ${{ steps.filter.outputs.deps }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: filter
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "$CHANGED"
+
+          if echo "$CHANGED" | grep -qE '^(src/|tests/)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED" | grep -qE '^(pyproject\.toml|uv\.lock)$'; then
+            echo "deps=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deps=false" >> "$GITHUB_OUTPUT"
+          fi
+
   pr-metadata:
     name: PR Metadata Check
     runs-on: ubuntu-latest
@@ -60,6 +99,8 @@ jobs:
   test-coverage-diff:
     name: Test Coverage Diff
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
 
     steps:
       - name: Checkout PR code
@@ -101,6 +142,8 @@ jobs:
   breaking-changes:
     name: Check for Breaking Changes
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
 
     steps:
       - name: Checkout code
@@ -117,9 +160,9 @@ jobs:
             echo "Warning: Changes detected in __all__ exports - potential breaking change"
           fi
 
-          # Check if core protocols changed
-          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/resolvers/base.py | grep -E "^[-+].*class Resolver"; then
-            echo "Warning: Changes detected in Resolver protocol - potential breaking change"
+          # Check if the ServiceProvider protocol changed
+          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/service.py | grep -E "^[-+].*class ServiceProvider"; then
+            echo "Warning: Changes detected in ServiceProvider protocol - potential breaking change"
           fi
 
           # Check if handler signature changed
@@ -130,7 +173,8 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    needs: changes
+    if: needs.changes.outputs.deps == 'true'
 
     steps:
       - name: Checkout code
@@ -144,6 +188,8 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.deps == 'true'
 
     steps:
       - name: Checkout code
@@ -169,7 +215,7 @@ jobs:
           safety check --json || true
 
   all-checks-passed:
-    name: All PR Checks Passed
+    name: All Checks Passed
     runs-on: ubuntu-latest
     needs: [pr-metadata, size-check, test-coverage-diff, breaking-changes, dependency-review, security-scan]
     if: always()
@@ -178,7 +224,9 @@ jobs:
       - name: Check all jobs
         run: |
           if [[ "${{ needs.pr-metadata.result }}" == "failure" ]] || \
+             [[ "${{ needs.size-check.result }}" == "failure" ]] || \
              [[ "${{ needs.test-coverage-diff.result }}" == "failure" ]] || \
+             [[ "${{ needs.breaking-changes.result }}" == "failure" ]] || \
              [[ "${{ needs.dependency-review.result }}" == "failure" ]] || \
              [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
             echo "One or more required checks failed"

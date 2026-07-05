@@ -19,7 +19,7 @@ tag. Don't do it silently as part of a larger task.
 ## Pre-flight
 
 - Confirm you're on `main`, the working tree is clean (`git status`), and the latest commit on
-  `origin/main` has green CI (Tests / Code Quality / Documentation) — check with `gh run list`.
+  `origin/main` has green CI (Tests / Checks / Documentation) — check with `gh run list`.
 - If this is the **first-ever release**: a Trusted Publisher must already be registered on both
   pypi.org and test.pypi.org for `sina-al/pymediate`, workflow `release.yml`, environments
   `pypi` / `testpypi` respectively (one-time, manual, on PyPI's own site — nothing in this repo

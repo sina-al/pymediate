@@ -52,7 +52,7 @@ match `.github/workflows/*.yml`.
   convention) is scoped to `src/pymediate/` excluding `_internal/` — see "Docstrings" below.
 - Coverage floor: 95% (`--cov-fail-under=95` in `release.yml`, checked on PR diff too).
 - PR titles must follow Conventional Commits (`feat:`, `fix:`, `docs:`, etc.) — enforced by
-  `pr-checks.yml`, will hard-fail otherwise.
+  `pr.yml`, will hard-fail otherwise.
 - CI flags diffs to `__all__` in `__init__.py`, the `Handler` class, or the `ServiceProvider`
   protocol as potential breaking changes — treat those as places requiring extra care and,
   likely, an ADR. These are also the surfaces "Versioning" below uses to decide minor vs. patch.

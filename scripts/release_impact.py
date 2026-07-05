@@ -9,7 +9,7 @@ during `/release`.
 
 Neither signal alone is reliable enough to trust on its own:
 
-- Commit messages (Conventional Commits, already enforced on PR titles by pr-checks.yml) are
+- Commit messages (Conventional Commits, already enforced on PR titles by pr.yml) are
   cheap to read and usually right, but they're only as accurate as whoever wrote them - a
   `fix:` commit can still remove a public method by accident, and `feat:` doesn't always mean
   "breaking" (plenty of new features are purely additive).

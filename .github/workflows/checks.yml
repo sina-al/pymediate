@@ -1,15 +1,30 @@
-name: Code Quality
+name: Checks
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
+    paths: &code-paths
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "tasks.toml"
+      - "ruff.toml"
+      - "mypy.ini"
+      - ".github/workflows/checks.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+    paths: *code-paths
   workflow_dispatch:
+
+concurrency:
+  group: "checks-${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   check:
-    name: Check Code Quality
+    name: Checks
     runs-on: ubuntu-latest
 
     steps:

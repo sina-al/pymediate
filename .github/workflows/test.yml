@@ -2,10 +2,23 @@ name: Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
+    paths: &code-paths
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "tasks.toml"
+      - "pytest.ini"
+      - ".github/workflows/test.yml"
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+    paths: *code-paths
   workflow_dispatch:
+
+concurrency:
+  group: "test-${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 jobs:
   test:
