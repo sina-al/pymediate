@@ -625,3 +625,40 @@ def test_get_request_type_fallback_when_not_parameterized() -> None:
 
     assert BareBehavior.__get_request_type__() is Request
     assert BareBehavior.should_apply(SampleRequest(value=1)) is True
+
+
+class BaseSampleRequest(Request[SampleResponse]):
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+
+class SubSampleRequest(BaseSampleRequest):
+    pass
+
+
+def test_should_apply_matches_subclasses_by_default() -> None:
+    """apply_to_subclasses defaults to True, so a subclass instance matches too."""
+
+    class InheritingBehavior(PipelineBehavior[BaseSampleRequest]):
+        async def __call__(
+            self, request: BaseSampleRequest, next: Callable[[], Awaitable[Any]]
+        ) -> Any:
+            return await next()
+
+    assert InheritingBehavior.apply_to_subclasses is True
+    assert InheritingBehavior.should_apply(SubSampleRequest(value=1)) is True
+
+
+def test_should_apply_respects_apply_to_subclasses_false() -> None:
+    """apply_to_subclasses=False restricts matching to the exact registered type."""
+
+    class ExactOnlyBehavior(PipelineBehavior[BaseSampleRequest]):
+        apply_to_subclasses = False
+
+        async def __call__(
+            self, request: BaseSampleRequest, next: Callable[[], Awaitable[Any]]
+        ) -> Any:
+            return await next()
+
+    assert ExactOnlyBehavior.should_apply(BaseSampleRequest(value=1)) is True
+    assert ExactOnlyBehavior.should_apply(SubSampleRequest(value=1)) is False

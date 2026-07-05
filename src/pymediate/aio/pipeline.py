@@ -157,16 +157,15 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         if request_type is Request:
             return True  # Universal behavior
 
-        # Handle subscripted generics (e.g., Request[Any])
-        # Extract the origin type (Request) and use that for isinstance check
+        # A subscripted generic like Request[Any] has no isinstance()/type() meaning of
+        # its own - match against its origin (Request) instead.
         origin = get_origin(request_type)
         if origin is not None:
-            # If request_type is a subscripted generic like Request[Any],
-            # check against the origin (Request)
-            return isinstance(request, origin)
+            request_type = origin
 
-        # Non-generic type (e.g., CreateUserRequest or a mixin)
-        return isinstance(request, request_type)
+        if cls.apply_to_subclasses:
+            return isinstance(request, request_type)
+        return type(request) is request_type
 
     @classmethod
     def __get_request_type__(cls) -> type:
@@ -223,10 +222,6 @@ class Pipeline[RequestT, ResponseT]:
         RequestT: The request type (must extend Request)
         ResponseT: The response type returned by the handler
 
-    Attributes:
-        _behaviors: Sequence of async behaviors to execute in order
-        _handler: The final async handler that processes the request
-
     Examples:
         Basic async pipeline:
             ```python
@@ -246,20 +241,22 @@ class Pipeline[RequestT, ResponseT]:
                 async def __call__(
                     self, request: CreateUserRequest
                 ) -> UserCreatedResponse:
-                    user_id = await async_generate_id()
-                    return UserCreatedResponse(user_id=user_id)
+                    return UserCreatedResponse(user_id=1)
 
-            # Create async behaviors
-            logging = AsyncLoggingBehavior()
-            timing = AsyncTimingBehavior()
+            class AsyncLoggingBehavior:
+                async def __call__(self, request, next):
+                    print(f"Handling: {type(request).__name__}")
+                    response = await next()
+                    print(f"Handled: {type(request).__name__}")
+                    return response
 
-            # Build async pipeline
             handler = CreateUserHandler()
-            pipeline = Pipeline([logging, timing], handler)
+            pipeline = Pipeline([AsyncLoggingBehavior()], handler)
 
-            # Execute request through pipeline
-            request = CreateUserRequest(username="alice")
-            response = await pipeline(request)
+            response = await pipeline(CreateUserRequest(username="alice"))
+            # Output:
+            # Handling: CreateUserRequest
+            # Handled: CreateUserRequest
             ```
 
         Pipeline with database transactions:

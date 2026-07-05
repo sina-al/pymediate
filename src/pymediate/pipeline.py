@@ -151,16 +151,15 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         if request_type is Request:
             return True  # Universal behavior
 
-        # Handle subscripted generics (e.g., Request[Any])
-        # Extract the origin type (Request) and use that for isinstance check
+        # A subscripted generic like Request[Any] has no isinstance()/type() meaning of
+        # its own - match against its origin (Request) instead.
         origin = get_origin(request_type)
         if origin is not None:
-            # If request_type is a subscripted generic like Request[Any],
-            # check against the origin (Request)
-            return isinstance(request, origin)
+            request_type = origin
 
-        # Non-generic type (e.g., CreateUserRequest or a mixin)
-        return isinstance(request, request_type)
+        if cls.apply_to_subclasses:
+            return isinstance(request, request_type)
+        return type(request) is request_type
 
     @classmethod
     def __get_request_type__(cls) -> type:
@@ -216,10 +215,6 @@ class Pipeline[RequestT, ResponseT]:
         RequestT: The request type (must extend Request)
         ResponseT: The response type returned by the handler
 
-    Attributes:
-        _behaviors: Sequence of behaviors to execute in order
-        _handler: The final handler that processes the request
-
     Examples:
         Basic pipeline with logging and timing:
             ```python
@@ -238,43 +233,26 @@ class Pipeline[RequestT, ResponseT]:
                 def __call__(self, request: CreateUserRequest) -> UserCreatedResponse:
                     return UserCreatedResponse(user_id=1)
 
-            # Create behaviors
-            logging = LoggingBehavior()
-            timing = TimingBehavior()
+            class LoggingBehavior:
+                def __call__(self, request, next):
+                    print(f"Handling: {type(request).__name__}")
+                    response = next()
+                    print(f"Handled: {type(request).__name__}")
+                    return response
 
-            # Build pipeline
             handler = CreateUserHandler()
-            pipeline = Pipeline([logging, timing], handler)
+            pipeline = Pipeline([LoggingBehavior()], handler)
 
-            # Execute request through pipeline
-            request = CreateUserRequest(username="alice")
-            response = pipeline(request)
+            response = pipeline(CreateUserRequest(username="alice"))
             # Output:
             # Handling: CreateUserRequest
-            # Request handled in 0.0001s
             # Handled: CreateUserRequest
             ```
 
-        Pipeline without behaviors (just handler):
+        Pipeline without behaviors (equivalent to calling the handler directly):
             ```python
-            # Pipeline with no behaviors is equivalent to calling handler directly
             pipeline = Pipeline([], handler)
             response = pipeline(request)
-            ```
-
-        Reusable pipeline factory:
-            ```python
-            def create_pipeline[Req: Request, Resp](
-                handler: Handler[Req]
-            ) -> Pipeline[Req, Resp]:
-                return Pipeline(
-                    behaviors=[
-                        LoggingBehavior(),
-                        ValidationBehavior(),
-                        TimingBehavior(),
-                    ],
-                    handler=handler
-                )
             ```
 
     Note:
