@@ -38,9 +38,10 @@ di = [
 
 [dependency-groups]
 dev = [
-    "ruff>=0.8.4", 
+    "ruff>=0.8.4",
     "poethepoet>=0.31.1",
     "mypy>=1.13.0",
+    "griffelib>=2.1.0",
 ]
 test = [
     "mypy>=1.13.0",

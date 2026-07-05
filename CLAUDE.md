@@ -12,13 +12,23 @@ if you change one, check whether the other needs the equivalent change.
 ## Layout
 
 - `src/pymediate/` — public package. `__init__.py`'s `__all__` is the public API contract.
-- `src/pymediate/_internal/` — implementation details, not public API, no back-compat guarantees.
-- `src/pymediate/aio/` — async mirror of the sync API.
-- `src/pymediate/providers/dependency_injector.py` — optional DI integration (`di` extra).
-- `tests/mypy/snippets/{valid,errors}/` — type-level tests, see below. Not ordinary code.
-- `docs/adr/` — architecture decision records for nontrivial design changes.
+  - `_internal/` — implementation details, not public API, no back-compat guarantees.
+  - `aio/` — async mirror of the sync API.
+  - `providers/dependency_injector.py` — optional DI integration (`di` extra).
+- `tests/` — pytest suite, roughly one `test_*.py` per `src/pymediate/` module (e.g.
+  `test_handler.py`, `test_mediator.py`); `conftest.py` holds shared fixtures.
+  - `tests/mypy/snippets/{valid,errors}/` — type-level tests, see "The mypy-snippet test
+    system" below. Not ordinary code.
+- `docs/` — MkDocs source; see "Docs" below.
+  - `docs/adr/` — architecture decision records for nontrivial design changes; see "ADRs" below.
 - `scripts/` — standalone maintenance scripts (e.g. `update_uv.py`), invoked via `poe` tasks,
   not part of the package. Still linted/formatted (`poe lint`/`format`/`format:check` cover it).
+- `assets/` — static files referenced elsewhere (currently just `logo.svg`, used in
+  `README.md`); not part of the package, not built or published.
+- `.github/workflows/` — CI pipelines; see "GitHub Actions workflows" below.
+- `.claude/` — Claude Code config for this repo: `settings.json`, project-specific skills
+  (`adr`, `release`, `update-uv`), and `.claude/context/*.md` — generated files imported into
+  this CLAUDE.md (see "API Signatures" and "ADRs" below); regenerate, don't hand-edit.
 
 ## Dev workflow — use `poe`, not raw tool invocations
 
@@ -112,6 +122,13 @@ Existing ADRs (0001, 0002) were authored by Claude and reviewed by @sina-al (rep
 handle) — continue that pattern for anything touching public API shape, generics design, or
 breaking changes. Use the `/adr` skill to scaffold a new one.
 
+@.claude/context/adr-index.md
+
+Generated from `docs/adr/*.md` by `uv run poe context:update` (`scripts/update_context.py`); run
+`uv run poe context:check` to confirm it isn't stale. Don't hand-edit that file. Note ADR 0002
+revisits and overturns part of ADR 0001's decision — read both before assuming either alone is
+current.
+
 ## Versioning
 
 PyMediate follows [ZeroVer](https://0ver.org/): the major version stays at `0` indefinitely —
@@ -160,3 +177,10 @@ the first release, since the project doesn't exist on either index yet.
 MkDocs + Material, deployed to GitHub Pages from `main` via `docs.yml`. Structure under `docs/`
 mirrors `getting-started/ → guide/ → advanced/ → api/ → examples/ → adr/`. Built with `--strict`
 (warnings fail the build), so keep internal links and mkdocstrings refs valid when moving code.
+
+## API Signatures
+
+@.claude/context/api-signatures.md
+
+Generated from source by `uv run poe context:update` (`scripts/update_context.py`); run
+`uv run poe context:check` to confirm it isn't stale. Don't hand-edit that file.

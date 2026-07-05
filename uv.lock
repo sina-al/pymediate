@@ -774,6 +774,7 @@ di = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "griffelib" },
     { name = "mypy" },
     { name = "poethepoet" },
     { name = "ruff" },
@@ -799,6 +800,7 @@ provides-extras = ["di"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "griffelib", specifier = ">=2.1.0" },
     { name = "mypy", specifier = ">=1.13.0" },
     { name = "poethepoet", specifier = ">=0.31.1" },
     { name = "ruff", specifier = ">=0.8.4" },
