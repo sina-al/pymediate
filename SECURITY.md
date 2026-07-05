@@ -2,8 +2,9 @@
 
 ## Supported versions
 
-PyMediate is pre-1.0 (`0.x`). Security fixes are made against the latest release on the
-`main` branch; older `0.x` releases are not backported.
+PyMediate follows [ZeroVer](https://0ver.org/) and stays pre-1.0 (`0.x`) indefinitely. Security
+fixes are made against the latest release on the `main` branch; older `0.x` releases are not
+backported.
 
 ## Reporting a vulnerability
 

@@ -199,6 +199,12 @@ PyMediate uses [Poe the Poet](https://poethepoet.natn.io/) for task running. Run
 - Python 3.12+.
 - Optional: `dependency-injector>=4.41.0` for DI support.
 
+## Versioning
+
+PyMediate follows [ZeroVer](https://0ver.org/) — the major version stays at `0` indefinitely,
+with no planned 1.0. Expect the public API to keep evolving: a minor release (`0.X.0`) can
+include breaking changes, while a patch release (`0.1.X`) is backward-compatible.
+
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

@@ -55,7 +55,7 @@ match `.github/workflows/*.yml`.
   `pr-checks.yml`, will hard-fail otherwise.
 - CI flags diffs to `__all__` in `__init__.py`, the `Handler` class, or the `ServiceProvider`
   protocol as potential breaking changes — treat those as places requiring extra care and,
-  likely, an ADR.
+  likely, an ADR. These are also the surfaces "Versioning" below uses to decide minor vs. patch.
 
 ## Docstrings
 
@@ -105,13 +105,33 @@ Existing ADRs (0001, 0002) were authored by Claude and reviewed by @sina-al (rep
 handle) — continue that pattern for anything touching public API shape, generics design, or
 breaking changes. Use the `/adr` skill to scaffold a new one.
 
+## Versioning
+
+PyMediate follows [ZeroVer](https://0ver.org/): the major version stays at `0` indefinitely —
+there's no planned 1.0. This is consistent with, not a workaround of, SemVer itself: SemVer's
+own clause 4 says "Major version zero (0.y.z) is for initial development. Anything MAY change
+at any time. The public API SHOULD NOT be considered stable."
+
+Since major can never carry a signal, minor and patch split that job between them:
+
+- **Minor** (`0.X.0`) — a breaking change to the public API, or a new backward-compatible
+  feature. "Breaking" here means the same surfaces already called out in "Quality bar" below:
+  a removed/changed name in `__init__.py`'s `__all__`, or a removed/changed public symbol in
+  `Handler` or the `ServiceProvider` protocol.
+- **Patch** (`0.1.X`) — bug fixes, docs, refactors, tooling — anything with no public API impact.
+
+`scripts/release_impact.py` (via `poe release:impact`) automates this assessment by diffing
+commits and the flagged API surface since the last tag, and the `/release` skill runs it and
+asks you to confirm the recommendation before bumping.
+
 ## Release process
 
 Use the `/release` skill for the full step-by-step checklist. Summary below.
 
 Tag-triggered (`v*.*.*`) via `release.yml`. The workflow hard-fails if the tag version doesn't
 match both `pyproject.toml`'s `version` and `src/pymediate/__init__.py`'s `__version__`. Bump
-both together with `uv run poe version:bump patch|minor|major` (or an explicit `X.Y.Z`) —
+both together with `uv run poe version:bump patch|minor` (or an explicit `X.Y.Z` — see
+"Versioning" above for why `major` isn't part of the normal flow) —
 it wraps `uv version` (which only touches `pyproject.toml`; `uv_build` has no dynamic-versioning
 support unlike Hatchling) and syncs `__init__.py` to match. Add `--dry-run` to preview.
 

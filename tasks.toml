@@ -84,6 +84,9 @@ ci.sequence = ["check:all"]
 
 # ========== Release ==========
 
+"release:impact".help = "Recommend minor vs. patch by diffing commits/API surface since the last tag (usage: poe release:impact --from vX.Y.Z --to REV)"
+"release:impact".cmd = "python3 scripts/release_impact.py"
+
 changelog.help = "Regenerate CHANGELOG.md from Conventional Commits (git-cliff)"
 changelog.cmd = "python3 scripts/generate_changelog.py"
 
