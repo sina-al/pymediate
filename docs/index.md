@@ -70,7 +70,7 @@ print(f"Created user {response.username} with ID {response.user_id}")
 
 ### Async support
 
-PyMediate provides first-class async/await support:
+PyMediate provides first-class async/await support.
 
 ```python
 import asyncio

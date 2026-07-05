@@ -29,7 +29,7 @@ class CreateUserRequest(Request[CreateUserResponse]):
     email: str
 ```
 
-Compare to manual class definition:
+Compare to manual class definition.
 
 ```python
 # Without dataclasses - verbose and error-prone
@@ -182,38 +182,6 @@ class OperationResponse:
     data: dict | None = None
 ```
 
-## Advanced features
-
-### Slots for performance
-
-```python
-@dataclass(slots=True)
-class HighPerformanceRequest(Request[Response]):
-    user_id: int
-    action: str
-```
-
-This trades off:
-
-- Faster attribute access.
-- Lower memory usage (no `__dict__`).
-- Prevents adding attributes after initialization.
-- Can't use with weak references.
-
-### Order comparison
-
-```python
-@dataclass(order=True)
-class PriorityRequest(Request[Response]):
-    priority: int
-    task_id: int
-
-# Can now compare requests
-req1 = PriorityRequest(priority=1, task_id=1)
-req2 = PriorityRequest(priority=2, task_id=2)
-assert req1 < req2  # Compares by priority, then task_id
-```
-
 ### Exclude from repr
 
 ```python
@@ -226,21 +194,6 @@ class LoginRequest(Request[LoginResponse]):
 
 print(LoginRequest(username="alice", password="secret123"))
 # Output: LoginRequest(username='alice')
-```
-
-### Exclude from comparison
-
-```python
-@dataclass
-class EventRequest(Request[EventResponse]):
-    event_type: str
-    data: dict
-    timestamp: datetime = field(compare=False)  # Don't compare timestamps
-
-# Two events with different timestamps are still equal if data matches
-event1 = EventRequest(event_type="login", data={"user": "alice"}, timestamp=now())
-event2 = EventRequest(event_type="login", data={"user": "alice"}, timestamp=later())
-assert event1 == event2  # True (timestamp excluded from comparison)
 ```
 
 ## Validation
@@ -314,7 +267,7 @@ class SearchRequest(Request[SearchResponse]):
         self.filters = list(set(self.filters))
 ```
 
-**For a frozen dataclass**, plain attribute assignment in `__post_init__` raises `FrozenInstanceError` — a frozen dataclass overrides `__setattr__` to block it. Use `object.__setattr__` to bypass that check for the one-time normalization:
+**For a frozen dataclass**, plain attribute assignment in `__post_init__` raises `FrozenInstanceError` — a frozen dataclass overrides `__setattr__` to block it. Use `object.__setattr__` to bypass that check for the one-time normalization.
 
 ```python
 @dataclass(frozen=True)
@@ -602,103 +555,6 @@ class SearchUsersRequest(PaginationMixin, Request[SearchResponse]):
 req = SearchUsersRequest(query="alice", page=2, per_page=20)
 ```
 
-### Metadata mixin
-
-```python
-@dataclass
-class MetadataMixin:
-    metadata: dict = field(default_factory=dict)
-
-    def add_metadata(self, key: str, value: Any) -> None:
-        self.metadata[key] = value
-
-@dataclass
-class TrackableRequest(MetadataMixin, Request[Response]):
-    action: str
-
-# Can add metadata dynamically
-req = TrackableRequest(action="create")
-req.add_metadata("user_agent", "Mozilla/5.0")
-req.add_metadata("ip_address", "192.168.1.1")
-```
-
-## Testing with dataclasses
-
-### Easy test data creation
-
-```python
-import pytest
-from dataclasses import replace
-
-@pytest.fixture
-def base_user_request():
-    return CreateUserRequest(
-        username="testuser",
-        email="test@example.com",
-        age=25
-    )
-
-def test_create_user(base_user_request):
-    # Use base request as-is
-    handler = CreateUserHandler(database=mock_db)
-    response = handler(base_user_request)
-    assert response.user_id > 0
-
-def test_create_user_different_age(base_user_request):
-    # Create variation with replace
-    request = replace(base_user_request, age=30)
-    assert request.username == "testuser"  # Unchanged
-    assert request.age == 30  # Changed
-```
-
-### Parametrized testing
-
-```python
-@pytest.mark.parametrize("username,email,expected_valid", [
-    ("alice", "alice@example.com", True),
-    ("bob", "bob@test.com", True),
-    ("", "test@example.com", False),  # Empty username
-    ("alice", "invalid-email", False),  # Invalid email
-    ("ab", "test@example.com", False),  # Username too short
-])
-def test_user_validation(username, email, expected_valid):
-    if expected_valid:
-        req = CreateUserRequest(username=username, email=email)
-        assert req.username == username
-    else:
-        with pytest.raises(ValueError):
-            CreateUserRequest(username=username, email=email)
-```
-
-### Equality testing
-
-```python
-def test_request_equality():
-    req1 = GetUserRequest(user_id=123)
-    req2 = GetUserRequest(user_id=123)
-    req3 = GetUserRequest(user_id=456)
-
-    assert req1 == req2  # Equal values
-    assert req1 != req3  # Different values
-```
-
-### Serialization testing
-
-```python
-from dataclasses import asdict
-
-def test_request_serialization():
-    req = CreateUserRequest(username="alice", email="alice@example.com")
-
-    # Convert to dict
-    data = asdict(req)
-    assert data == {"username": "alice", "email": "alice@example.com"}
-
-    # Recreate from dict
-    req2 = CreateUserRequest(**data)
-    assert req == req2
-```
-
 ## Best practices
 
 ### 1. Always use type hints
@@ -925,6 +781,31 @@ class SMSNotificationRequest(BaseNotificationRequest):
 class PushNotificationRequest(BaseNotificationRequest):
     device_token: str
 ```
+
+A shared base class like `BaseNotificationRequest` is also what makes [selective pipeline behaviors](pipeline-behaviors.md#selective-behaviors) powerful: a single `PipelineBehavior[BaseNotificationRequest]` automatically applies to every request in the hierarchy, without listing each subclass.
+
+```python
+from pymediate.pipeline import PipelineBehavior
+
+class NotificationMetricsBehavior(PipelineBehavior[BaseNotificationRequest]):
+    """Emits delivery latency and channel counters for any notification request."""
+
+    def __init__(self, metrics):
+        self.metrics = metrics
+
+    def __call__(self, request, next):
+        start = time.perf_counter()
+        response = next()
+        self.metrics.histogram(
+            "notification.delivery_seconds",
+            time.perf_counter() - start,
+            tags={"channel": type(request).__name__},
+        )
+        self.metrics.increment(f"notification.sent.{type(request).__name__}")
+        return response
+```
+
+Register it once and it covers `EmailNotificationRequest`, `SMSNotificationRequest`, and `PushNotificationRequest` alike — add a new notification channel later and it's covered automatically, with no behavior-side changes.
 
 ---
 

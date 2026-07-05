@@ -4,7 +4,7 @@ PyMediate's type safety comes from two different mechanisms working together, an
 
 ## Static checking with mypy
 
-`mediator.send()` infers its return type from the request's `Request[ResponseT]` type parameter, so mypy (and your editor) know the exact response type at the call site — no casts, no `Any`:
+`mediator.send()` infers its return type from the request's `Request[ResponseT]` type parameter, so mypy (and your editor) know the exact response type at the call site — no casts, no `Any`.
 
 ```python
 from dataclasses import dataclass
@@ -32,7 +32,7 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 reveal_type(response)  # note: Revealed type is "UserResponse"
 ```
 
-mypy also enforces that a handler's `__call__` accepts the request type declared in `Handler[RequestT]` — get this wrong and mypy reports a Liskov substitution violation, the same way it would for any incompatible method override:
+mypy also enforces that a handler's `__call__` accepts the request type declared in `Handler[RequestT]` — get this wrong and mypy reports a Liskov substitution violation, the same way it would for any incompatible method override.
 
 ```python
 class BadHandler(Handler[CreateUserRequest]):
@@ -44,7 +44,7 @@ class BadHandler(Handler[CreateUserRequest]):
 
 ## Runtime checking at class-definition time
 
-A handler's **return** type isn't checked by mypy the same way — mismatched return types are a `ResponseTypeMismatchError`, but it's raised by PyMediate's own `__init_subclass__` validation, not caught statically:
+A handler's **return** type isn't checked by mypy the same way — mismatched return types are a `ResponseTypeMismatchError`, but it's raised by PyMediate's own `__init_subclass__` validation, not caught statically.
 
 ```python
 class BadHandler(Handler[CreateUserRequest]):
@@ -60,7 +60,7 @@ In short: **wrong parameter type → mypy catches it. Wrong return type or malfo
 
 ## Running mypy on your own code
 
-This project itself is checked with `mypy --strict` (see `mypy.ini`), and the same settings work well for application code built on PyMediate:
+This project itself is checked with `mypy --strict` (see `mypy.ini`), and the same settings work well for application code built on PyMediate.
 
 ```ini
 [mypy]

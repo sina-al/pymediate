@@ -6,7 +6,7 @@ This guide covers common issues you might encounter when using PyMediate and how
 
 ### `DependencyInjectorServiceProvider` not available
 
-**Problem:** You get an error when trying to use `DependencyInjectorServiceProvider`:
+**Problem:** You get an error when trying to use `DependencyInjectorServiceProvider`.
 
 ```python
 from pymediate.providers import DependencyInjectorServiceProvider
@@ -35,7 +35,7 @@ from pymediate.providers import DependencyInjectorServiceProvider
     poetry add pymediate[di]
     ```
 
-**Alternative Solution:** Install `dependency-injector` separately:
+**Alternative Solution:** Install `dependency-injector` separately.
 
 ```bash
 pip install dependency-injector
@@ -43,7 +43,7 @@ pip install dependency-injector
 uv add dependency-injector
 ```
 
-**Verification:** After installation, verify it works:
+**Verification:** After installation, verify it works.
 
 ```python
 from pymediate.providers import DependencyInjectorServiceProvider
@@ -58,18 +58,18 @@ print("DependencyInjectorServiceProvider is available!")
 
 **Solution:**
 
-1. Verify the installation:
+1. Verify the installation.
    ```bash
    pip show pymediate
    ```
 
-2. Reinstall PyMediate:
+2. Reinstall PyMediate.
    ```bash
    pip uninstall pymediate
    pip install pymediate
    ```
 
-3. Check Python version (PyMediate requires Python 3.12+):
+3. Check Python version (PyMediate requires Python 3.12+).
    ```python
    python --version  # Should be 3.12 or higher
    ```
@@ -78,7 +78,7 @@ print("DependencyInjectorServiceProvider is available!")
 
 ### `HandlerNotFoundError`
 
-**Problem:** You get `HandlerNotFoundError` when sending a request:
+**Problem:** You get `HandlerNotFoundError` when sending a request.
 
 ```python
 response = mediator.send(MyRequest())
@@ -124,7 +124,7 @@ response = mediator.send(MyRequest())
        my_handler = providers.Factory(MyHandler)  # ✅ Add provider
    ```
 
-**Debugging:** The error message includes a list of available handlers:
+**Debugging:** The error message includes a list of available handlers.
 
 ```
 No handler registered for request type 'MyRequest'
@@ -141,7 +141,7 @@ No handler registered for request type 'MyRequest'
 
 ### `InvalidHandlerSignatureError`
 
-**Problem:** You get `InvalidHandlerSignatureError` when defining a handler:
+**Problem:** You get `InvalidHandlerSignatureError` when defining a handler.
 
 ```python
 class MyHandler(Handler[MyRequest]):
@@ -245,7 +245,7 @@ rather than a PyMediate-specific exception.
 
 ### `HandlerAlreadyRegisteredError`
 
-**Problem:** You get `HandlerAlreadyRegisteredError` when trying to define a second handler for the same request:
+**Problem:** You get `HandlerAlreadyRegisteredError` when trying to define a second handler for the same request.
 
 ```python
 class CreateUserHandler(Handler[CreateUserRequest]):
@@ -271,7 +271,7 @@ class CreateUserHandlerV2(Handler[CreateUserRequest]):  # ❌ Error!
 
 1. **Remove one of the handler definitions (most common):**
 
-   If you accidentally created a duplicate, simply remove or comment out one:
+   If you accidentally created a duplicate, simply remove or comment out one.
 
    ```python
    # ✅ Keep only one handler
@@ -282,7 +282,7 @@ class CreateUserHandlerV2(Handler[CreateUserRequest]):  # ❌ Error!
 
 2. **Use different request types for different behaviors:**
 
-   If you genuinely need multiple handlers, use distinct request types:
+   If you genuinely need multiple handlers, use distinct request types.
 
    ```python
    # ✅ Different request types
@@ -309,7 +309,7 @@ class CreateUserHandlerV2(Handler[CreateUserRequest]):  # ❌ Error!
 
 3. **Compose multiple behaviors into one handler:**
 
-   If you want to combine behaviors, use composition within a single handler:
+   If you want to combine behaviors, use composition within a single handler.
 
    ```python
    # ✅ Compose behaviors
@@ -373,7 +373,7 @@ Solutions:
 
 **Problem:** MyPy reports type errors with PyMediate code.
 
-**Solution:** Ensure you're using the correct type annotations:
+**Solution:** Ensure you're using the correct type annotations.
 
 ```python
 from pymediate import Request, Handler, Mediator, Services
@@ -405,7 +405,7 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 
 **Problem:** Your IDE or type checker doesn't infer the response type correctly.
 
-**Solution:** Make sure you're using the generic type parameter:
+**Solution:** Make sure you're using the generic type parameter.
 
 ```python
 # ❌ Wrong - no type parameter
@@ -425,12 +425,12 @@ class CreateUserRequest(Request[UserResponse]):
 
 **Solution:**
 
-1. Install documentation dependencies:
+1. Install documentation dependencies.
    ```bash
    pip install mkdocs mkdocs-material "mkdocstrings[python]"
    ```
 
-2. Build with verbose output to see the error:
+2. Build with verbose output to see the error.
    ```bash
    mkdocs build --verbose
    ```

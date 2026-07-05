@@ -10,7 +10,7 @@
 
 ### Future vision: Selective behaviors based on request mixins
 
-The long-term goal is to support **selective behaviors** that only apply to specific request types or mixins:
+The long-term goal is to support **selective behaviors** that only apply to specific request types or mixins.
 
 ```python
 from dataclasses import dataclass
@@ -385,7 +385,7 @@ class BusinessHoursBehavior(PipelineBehavior[Request]):
 
 1. **Documentation** - Clearly explain response type is not statically checked
 2. **Convention** - Behaviors typically don't modify responses, just pass through
-3. **Manual annotation** - When needed, easy to add:
+3. **Manual annotation** - When needed, easy to add.
    ```python
    def __call__(self, request: MyRequest, next) -> MyResponse:
        result: MyResponse = next()
@@ -429,7 +429,7 @@ This would be a **breaking change** requiring major version bump.
 
 ### Step 1: Deprecation (v2.x)
 
-Support both signatures:
+Support both signatures.
 ```python
 # Old way (deprecated)
 class Behavior(PipelineBehavior[Request, Response]):
@@ -442,7 +442,7 @@ class Behavior(PipelineBehavior[Request]):
 
 ### Step 2: Migration (v3.0)
 
-Only support single parameter:
+Only support single parameter.
 ```python
 class Behavior(PipelineBehavior[Request]):
     ...
@@ -450,7 +450,7 @@ class Behavior(PipelineBehavior[Request]):
 
 ### Migration tool
 
-Provide codemod script:
+Provide codemod script.
 ```python
 # Before
 PipelineBehavior[CreateUserRequest, UserResponse]

@@ -4,7 +4,7 @@ PyMediate has no FastAPI-specific integration code — it doesn't need one. Fast
 
 ## Setup
 
-Build the mediator once, at import time, and expose it through a dependency:
+Build the mediator once, at import time, and expose it through a dependency.
 
 ```python
 from dataclasses import dataclass
@@ -75,7 +75,7 @@ def create_user(body: CreateUserBody, mediator: Mediator = Depends(get_mediator)
 
 ## A query endpoint
 
-Path and query parameters map directly onto request fields:
+Path and query parameters map directly onto request fields.
 
 ```python
 @dataclass
@@ -112,7 +112,7 @@ Catch `HandlerNotFoundError` separately from your domain's own exceptions: it me
 
 ## Async routes
 
-If your handlers do real I/O, use `pymediate.aio` and `async def` routes — FastAPI awaits them the same way. A sync and an async handler can't both be registered for the *same* request type (each request type has exactly one handler, sync or async, fixed at class-definition time) — so an async route needs its own request/handler pair, and typically its own `Services`/`Mediator` too, kept separate from the sync ones set up above:
+If your handlers do real I/O, use `pymediate.aio` and `async def` routes — FastAPI awaits them the same way. A sync and an async handler can't both be registered for the *same* request type (each request type has exactly one handler, sync or async, fixed at class-definition time) — so an async route needs its own request/handler pair, and typically its own `Services`/`Mediator` too, kept separate from the sync ones set up above.
 
 ```python
 from pymediate import Services

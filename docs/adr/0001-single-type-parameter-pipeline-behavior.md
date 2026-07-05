@@ -7,7 +7,7 @@
 
 ## Context
 
-Currently, `PipelineBehavior` takes two generic type parameters:
+Currently, `PipelineBehavior` takes two generic type parameters.
 
 ```python
 class PipelineBehavior[RequestT, ResponseT](ABC):
@@ -45,7 +45,7 @@ The `ResponseT` type parameter is **redundant** because:
 3. This creates **DRY violation** - we specify `UserResponse` twice:
    - Once in `Request[UserResponse]`
    - Again in `PipelineBehavior[CreateUserRequest, UserResponse]`
-4. This opens the door for **type inconsistencies** - nothing prevents:
+4. This opens the door for **type inconsistencies** - nothing prevents.
    ```python
    # Wrong but compiles!
    class BrokenBehavior(PipelineBehavior[CreateUserRequest, WrongResponse]):
@@ -54,7 +54,7 @@ The `ResponseT` type parameter is **redundant** because:
 
 ### What we want
 
-Ideally, we'd like to write:
+Ideally, we'd like to write.
 
 ```python
 class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
@@ -93,7 +93,7 @@ Python 3.12 introduced:
 
 **Python's type system does not support extracting type parameters from generic base classes.**
 
-We cannot do:
+We cannot do.
 ```python
 # This doesn't exist in Python!
 ResponseT = ExtractTypeParam[RequestT, 0]  # ❌ Not possible
@@ -291,7 +291,7 @@ class BrokenBehavior(PipelineBehavior[CreateUserRequest, WrongResponse]):
 
 **Approach:** Write a mypy plugin to infer `ResponseT` from `RequestT`.
 
-This would allow:
+This would allow.
 ```python
 class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
     # Plugin infers UserResponse from CreateUserRequest
@@ -431,7 +431,7 @@ Existing code continues to work identically, but gains additional safety.
 
 ## Appendix: Type system limitations
 
-For reference, here's what Python's type system **cannot** do:
+For reference, here's what Python's type system **cannot** do.
 
 ```python
 # ❌ Cannot extract type from generic base

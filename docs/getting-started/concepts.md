@@ -61,7 +61,7 @@ Without behaviors, you'd need to add logging, validation, and timing to every ha
 - Inconsistent behavior between handlers.
 - Difficulty adding new cross-cutting concerns later.
 
-Behaviors solve this by applying automatically to requests. They can be **universal** (apply to all requests) or **selective** (apply only to specific request types or mixins):
+Behaviors solve this by applying automatically to requests. They can be **universal** (apply to all requests) or **selective** (apply only to specific request types or mixins).
 
 ```python
 from pymediate import Request, PipelineBehavior
@@ -86,7 +86,7 @@ mediator = Mediator(services.provider())
 
 ### How behaviors work
 
-Behaviors form a chain where each behavior wraps the next:
+Behaviors form a chain where each behavior wraps the next.
 
 ```
 Request → Logging → Validation → Timing → Handler → Response

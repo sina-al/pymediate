@@ -1,455 +1,36 @@
 # Error handling
 
-PyMediate provides a comprehensive error handling system with helpful error messages, documentation links, and best practices for managing errors in your application.
-
-## Error philosophy
-
-PyMediate follows these principles for error handling:
-
-1. **Fail fast.** Errors should be caught as early as possible.
-2. **Helpful messages.** Errors include solutions and documentation links.
-3. **Type safety.** A custom exception hierarchy enables precise error handling.
-4. **Framework independent.** Errors work with any adapter (web, CLI, and so on).
-5. **Testable.** Easy to test error conditions.
-
-## Built-in error types
-
-PyMediate provides several custom exception types, all inheriting from `PyMediateError`.
-
-### PyMediateError
-
-Base exception for all PyMediate errors.
-
-```python
-from pymediate import PyMediateError
-
-try:
-    # PyMediate operation
-    response = mediator.send(request)
-except PyMediateError as e:
-    # Catch any PyMediate error
-    print(f"PyMediate error: {e}")
-```
-
-### HandlerNotFoundError
-
-Raised when no handler is registered for a request type.
-
-```python
-from pymediate import HandlerNotFoundError
-
-try:
-    response = mediator.send(UnregisteredRequest())
-except HandlerNotFoundError as e:
-    print(f"No handler for: {e.request_type.__name__}")
-    print(f"Available handlers: {e.available_handlers}")
-```
-
-Example error message:
-```
-No handler registered for request type 'CreateUserRequest'
-
-💡 Possible solutions:
-  1. Register a handler: services.add(handler)
-  2. Ensure your DI container has a provider for this handler
-  3. Verify CreateUserRequest inherits from Request[ResponseType]
-
-📋 Available handlers: GetUserRequest, DeleteUserRequest, UpdateUserRequest
-
-📚 Learn more: https://sina-al.github.io/pymediate/guide/handlers
-```
-
-### InvalidHandlerSignatureError
-
-Raised when a handler has an invalid `__call__` signature.
-
-```python
-from pymediate import InvalidHandlerSignatureError, Handler
-
-try:
-    class BadHandler(Handler[MyRequest]):
-        def __call__(self):  # Missing request parameter!
-            pass
-except InvalidHandlerSignatureError as e:
-    print(f"Handler: {e.handler_type.__name__}")
-    print(f"Issue: {e.issue}")
-```
-
-Example error message:
-```
-Invalid handler signature in CreateUserHandler: __call__ must have exactly one parameter
-
-✅ Correct handler signature:
-  class MyHandler(Handler[MyRequest]):
-      def __call__(self, request: MyRequest) -> MyResponse:
-          return MyResponse(...)
-
-Common mistakes:
-  ❌ Missing request parameter
-  ❌ Wrong parameter type annotation
-  ❌ Missing or wrong return type annotation
-  ❌ Extra parameters (only 'self' and 'request' allowed)
-
-📚 Learn more: https://sina-al.github.io/pymediate/guide/handlers
-```
-
-### InvalidRequestTypeError
-
-Raised when a request doesn't properly inherit from `Request[ResponseType]`.
-
-```python
-from pymediate import InvalidRequestTypeError
-
-try:
-    class MyRequest:  # Missing Request[T] inheritance!
-        pass
-
-    class MyHandler(Handler[MyRequest]):
-        pass
-except InvalidRequestTypeError as e:
-    print(f"Invalid request: {e.request_type.__name__}")
-```
-
-### ResponseTypeMismatchError
-
-Raised when a handler returns the wrong response type.
-
-```python
-from pymediate import ResponseTypeMismatchError
-
-try:
-    class MyHandler(Handler[MyRequest]):
-        def __call__(self, request: MyRequest) -> WrongResponse:  # Should be MyResponse!
-            return WrongResponse()
-except ResponseTypeMismatchError as e:
-    print(f"Handler: {e.handler_type.__name__}")
-    print(f"Expected: {e.expected_type.__name__}")
-    print(f"Got: {e.actual_type.__name__}")
-```
-
-## Handling errors
-
-### Basic error handling
-
-```python
-from pymediate import HandlerNotFoundError
-
-try:
-    response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
-except HandlerNotFoundError:
-    # Handle missing handler
-    print("Handler not registered")
-except ValueError:
-    # Handle validation errors
-    print("Invalid request data")
-except Exception as e:
-    # Catch-all for unexpected errors
-    print(f"Unexpected error: {e}")
-```
-
-### Specific error handling
-
-```python
-from pymediate import HandlerNotFoundError
-
-try:
-    response = mediator.send(MyRequest())
-except HandlerNotFoundError as e:
-    # Handler not found
-    print(f"Handler not found: {e}")
-```
-
-### Error context
-
-```python
-from pymediate import PyMediateError
-
-try:
-    response = mediator.send(request)
-except PyMediateError as e:
-    # All PyMediate errors include docs_path
-    if e.docs_path:
-        print(f"See documentation: https://sina-al.github.io/pymediate/{e.docs_path}")
-    raise
-```
-
-## Custom error types
-
-### Domain-specific errors
-
-```python
-class UserAlreadyExistsError(Exception):
-    """Raised when trying to create a user that already exists."""
-    def __init__(self, username: str):
-        self.username = username
-        super().__init__(f"User '{username}' already exists")
-
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        if self.database.user_exists(request.username):
-            raise UserAlreadyExistsError(request.username)
-
-        user_id = self.database.create_user(request.username, request.email)
-        return CreateUserResponse(user_id=user_id, username=request.username)
-```
-
-### Error with context
-
-```python
-class PaymentFailedError(Exception):
-    """Raised when payment processing fails."""
-    def __init__(self, reason: str, payment_id: str, amount: float):
-        self.reason = reason
-        self.payment_id = payment_id
-        self.amount = amount
-        super().__init__(
-            f"Payment {payment_id} failed: {reason} (amount: ${amount:.2f})"
-        )
-
-class ProcessPaymentHandler(Handler[ProcessPaymentRequest]):
-    def __call__(self, request: ProcessPaymentRequest) -> ProcessPaymentResponse:
-        try:
-            payment_id = self.payment_service.charge(
-                amount=request.amount,
-                method=request.payment_method
-            )
-        except Exception as e:
-            raise PaymentFailedError(
-                reason=str(e),
-                payment_id=request.payment_id,
-                amount=request.amount
-            )
-
-        return ProcessPaymentResponse(payment_id=payment_id, status="success")
-```
-
-### Error hierarchy
-
-```python
-class ApplicationError(Exception):
-    """Base error for all application errors."""
-    pass
-
-class ValidationError(ApplicationError):
-    """Base error for validation failures."""
-    pass
-
-class BusinessRuleError(ApplicationError):
-    """Base error for business rule violations."""
-    pass
-
-class InsufficientFundsError(BusinessRuleError):
-    """Raised when account has insufficient funds."""
-    def __init__(self, account_id: str, required: float, available: float):
-        self.account_id = account_id
-        self.required = required
-        self.available = available
-        super().__init__(
-            f"Account {account_id} has insufficient funds: "
-            f"required ${required:.2f}, available ${available:.2f}"
-        )
-
-class InvalidEmailError(ValidationError):
-    """Raised when email format is invalid."""
-    def __init__(self, email: str):
-        self.email = email
-        super().__init__(f"Invalid email format: {email}")
-```
-
-## Error messages
-
-### Helpful error messages
-
-```python
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        # ✅ Good: Helpful error message
-        if len(request.username) < 3:
-            raise ValueError(
-                f"Username must be at least 3 characters (got {len(request.username)})"
-            )
-
-        # ❌ Bad: Vague error message
-        if len(request.username) < 3:
-            raise ValueError("Invalid username")
-```
-
-### Error messages with solutions
-
-```python
-class ValidateOrderHandler(Handler[ValidateOrderRequest]):
-    def __call__(self, request: ValidateOrderRequest) -> ValidateOrderResponse:
-        if not request.items:
-            raise ValueError(
-                "Order must contain at least one item.\n\n"
-                "💡 Solutions:\n"
-                "  1. Add items to the order before validating\n"
-                "  2. Check if items were properly loaded from cart\n"
-                "  3. Ensure items weren't filtered out during processing"
-            )
-```
-
-### Error messages with context
-
-```python
-class UpdateProductHandler(Handler[UpdateProductRequest]):
-    def __call__(self, request: UpdateProductRequest) -> UpdateProductResponse:
-        product = self.database.get_product(request.product_id)
-
-        if not product:
-            # Include context about what was being updated
-            raise ValueError(
-                f"Product not found: {request.product_id}\n\n"
-                f"Attempted update:\n"
-                f"  - Name: {request.name}\n"
-                f"  - Price: ${request.price:.2f}\n"
-                f"  - Stock: {request.stock}\n\n"
-                "Possible causes:\n"
-                "  - Product was deleted\n"
-                "  - Incorrect product ID\n"
-                "  - Database connection issue"
-            )
-```
-
-## Error propagation
-
-### Let errors propagate
-
-```python
-# ✅ Good: Let errors propagate naturally
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        # Validation errors propagate automatically
-        user_id = self.database.create_user(request.username, request.email)
-        return CreateUserResponse(user_id=user_id, username=request.username)
-
-# Caller handles errors
-try:
-    response = mediator.send(CreateUserRequest(username="", email="bad-email"))
-except ValueError as e:
-    print(f"Validation failed: {e}")
-```
-
-### Don't swallow errors
-
-```python
-# ❌ Bad: Swallowing errors
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        try:
-            user_id = self.database.create_user(request.username, request.email)
-            return CreateUserResponse(user_id=user_id, username=request.username)
-        except Exception:
-            # Swallowed! Caller doesn't know what happened
-            return CreateUserResponse(user_id=0, username="")
-
-# ✅ Good: Let errors propagate
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        # Errors propagate to caller
-        user_id = self.database.create_user(request.username, request.email)
-        return CreateUserResponse(user_id=user_id, username=request.username)
-```
-
-### Wrap and re-raise
-
-```python
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        try:
-            user_id = self.database.create_user(request.username, request.email)
-            return CreateUserResponse(user_id=user_id, username=request.username)
-        except DatabaseError as e:
-            # Wrap with more context
-            raise UserCreationError(
-                f"Failed to create user '{request.username}': {e}"
-            ) from e
-```
-
-## Validation errors
-
-### Request validation
-
-```python
-@dataclass
-class CreateUserRequest(Request[CreateUserResponse]):
-    username: str
-    email: str
-    age: int
-
-    def __post_init__(self):
-        # Validate at request creation time
-        errors = []
-
-        if not self.username:
-            errors.append("Username is required")
-        elif len(self.username) < 3:
-            errors.append("Username must be at least 3 characters")
-
-        if not self.email:
-            errors.append("Email is required")
-        elif "@" not in self.email:
-            errors.append("Invalid email format")
-
-        if self.age < 0:
-            errors.append("Age cannot be negative")
-        elif self.age < 18:
-            errors.append("Must be 18 or older")
-
-        if errors:
-            raise ValueError(
-                f"Invalid request:\n" + "\n".join(f"  - {err}" for err in errors)
-            )
-```
-
-### Business rule validation
-
-```python
-class TransferMoneyHandler(Handler[TransferMoneyRequest]):
-    def __call__(self, request: TransferMoneyRequest) -> TransferMoneyResponse:
-        # Get account balances
-        from_balance = self.database.get_balance(request.from_account)
-        to_account = self.database.get_account(request.to_account)
-
-        # Validate business rules
-        if from_balance < request.amount:
-            raise InsufficientFundsError(
-                account_id=request.from_account,
-                required=request.amount,
-                available=from_balance
-            )
-
-        if not to_account:
-            raise AccountNotFoundError(request.to_account)
-
-        if to_account.is_closed:
-            raise AccountClosedError(request.to_account)
-
-        # Process transfer
-        self.database.transfer(
-            from_account=request.from_account,
-            to_account=request.to_account,
-            amount=request.amount
-        )
-
-        return TransferMoneyResponse(
-            transaction_id=generate_id(),
-            status="completed"
-        )
-```
+PyMediate deliberately stays out of your error handling. Handlers raise ordinary
+Python exceptions, `send` lets them propagate unchanged, and it's up to the edge of
+your application to decide what a given failure means to a caller. That hands-off
+stance is the point: it's what lets the same core run behind a web framework, a CLI,
+or a background worker without change.
+
+Two families of error show up in a PyMediate application, and keeping them apart is
+what keeps the core portable:
+
+- **Domain errors** — raised by your handlers to signal business-rule violations
+  (`InsufficientFundsError`, `ProductNotFoundError`). Plain exceptions, no framework
+  knowledge.
+- **Framework errors** — HTTP status codes, JSON error bodies, `HTTPException`. These
+  belong to the web layer, not to a handler.
 
 ## Domain errors
 
-### Specific domain errors
+A handler's job is to describe *what went wrong in the domain*, not how some transport
+should report it. Model those failures as a small exception hierarchy so callers can
+catch at whatever granularity they need.
 
 ```python
-# E-commerce domain errors
-class ProductNotFoundError(Exception):
+class ShopError(Exception):
+    """Base for every error the shop domain can raise."""
+
+class ProductNotFoundError(ShopError):
     def __init__(self, product_id: int):
         self.product_id = product_id
         super().__init__(f"Product not found: {product_id}")
 
-class OutOfStockError(Exception):
+class OutOfStockError(ShopError):
     def __init__(self, product_id: int, requested: int, available: int):
         self.product_id = product_id
         self.requested = requested
@@ -458,364 +39,210 @@ class OutOfStockError(Exception):
             f"Product {product_id} out of stock: "
             f"requested {requested}, available {available}"
         )
+```
 
-class InvalidCouponError(Exception):
-    def __init__(self, coupon_code: str, reason: str):
-        self.coupon_code = coupon_code
-        self.reason = reason
-        super().__init__(f"Invalid coupon '{coupon_code}': {reason}")
+A handler raises them and nothing else — no status codes, no `abort()`, no imports from
+your web framework.
 
-# Usage in handler
+```python
 class PlaceOrderHandler(Handler[PlaceOrderRequest]):
     def __call__(self, request: PlaceOrderRequest) -> PlaceOrderResponse:
-        # Check product availability
-        for item in request.items:
-            product = self.database.get_product(item.product_id)
+        product = self.database.get_product(request.product_id)
+        if not product:
+            raise ProductNotFoundError(request.product_id)
+        if product.stock < request.quantity:
+            raise OutOfStockError(request.product_id, request.quantity, product.stock)
 
-            if not product:
-                raise ProductNotFoundError(item.product_id)
-
-            if product.stock < item.quantity:
-                raise OutOfStockError(
-                    product_id=item.product_id,
-                    requested=item.quantity,
-                    available=product.stock
-                )
-
-        # Validate coupon if provided
-        if request.coupon_code:
-            coupon = self.database.get_coupon(request.coupon_code)
-
-            if not coupon:
-                raise InvalidCouponError(request.coupon_code, "Coupon not found")
-
-            if coupon.is_expired():
-                raise InvalidCouponError(request.coupon_code, "Coupon expired")
-
-        # Process order...
         order_id = self.database.create_order(request)
         return PlaceOrderResponse(order_id=order_id)
 ```
 
-## Result types
+## Framework errors
 
-Instead of throwing exceptions, use result types for expected failures.
-
-### Simple result type
+A handler must speak only in domain terms. The blatant way to break that is to raise the
+web framework's own exception straight from a handler, which drags the framework's types
+into your core.
 
 ```python
-from dataclasses import dataclass
+# Leak: the handler now depends on a web framework.
+raise HTTPException(status_code=404, detail="Product not found")
+```
 
-@dataclass
-class Success[T]:
-    value: T
+Reaching for your own exception class instead doesn't fix anything if you smuggle the same
+transport detail inside it. This looks framework-independent, and isn't.
 
-    def is_success(self) -> bool:
-        return True
+```python
+# Also a leak: a domain error that carries its own HTTP status.
+class ProductNotFoundError(ShopError):
+    http_status = 404
 
-    def is_failure(self) -> bool:
-        return False
+    def __init__(self, product_id: int):
+        self.product_id = product_id
+        super().__init__(f"Product not found: {product_id}")
+```
 
-@dataclass
-class Failure[E]:
-    error: E
+The exception is yours, but `http_status` is a fact about HTTP, and HTTP is one transport
+out of many. The domain's job is to say *what* happened — this product doesn't exist.
+Deciding that a missing product maps to `404` is the web edge's job, and it only means
+anything when an HTTP request is actually in play. Either form — the framework exception or
+the `http_status` attribute — pins your core to one transport.
 
-    def is_success(self) -> bool:
-        return False
+### Why this matters
 
-    def is_failure(self) -> bool:
-        return True
+The cost stays hidden until you run the same handler somewhere other than the web.
+`PlaceOrderHandler` is just a class, so the natural move is to drive it from a nightly CLI
+importer or a message-queue worker as well as from the API — and that's exactly where an
+HTTP status baked into the core turns absurd.
 
-type Result[T, E] = Success[T] | Failure[E]
+- **A nightly stock-reconciliation script** crashes at 3 a.m. with `404 Not Found` — a "Not
+  Found" *HTTP response* from a program that never received an HTTP request and has no client
+  waiting on one. A missing product here should print `Product not found: 42` and exit
+  non-zero; instead the on-call engineer is paged to debug a web error in a job with no web
+  server.
+- **A payments worker** decides whether to retry or dead-letter a message by branching on the
+  failure. Reading `err.http_status` and finding `409` tells it nothing useful: that number
+  was invented to describe a conflict *to a browser*, and now core retry logic is divining
+  business intent from a web convention that doesn't belong here.
 
-# Usage
-@dataclass
-class ProcessPaymentResponse:
-    result: Result[Payment, str]
+The absurdity is the tell. An HTTP status code in a program with no HTTP request means the
+wrong layer owns the decision. So the core stays framework-blind, and each deployment
+translates domain errors into whatever its edge actually speaks — HTTP status codes at a web
+boundary, exit codes and stderr at a CLI, ack or nack at a queue.
 
-class ProcessPaymentHandler(Handler[ProcessPaymentRequest]):
-    def __call__(self, request: ProcessPaymentRequest) -> ProcessPaymentResponse:
+That independence comes directly from the domain-error design above. Because handlers raise
+typed, transport-agnostic exceptions, the *translation* to a framework response lives in one
+place at the edge of the app, and the core never imports the framework at all.
+
+## Mapping domain errors at the edge
+
+Every mainstream web framework has a construct for turning an exception into a response.
+Register your domain-error mapping there — once, centrally — and keep the mediator call
+in your routes down to the happy path.
+
+**Flask** — `register_error_handler` (or the `@app.errorhandler` decorator).
+
+```python
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+
+@app.errorhandler(ProductNotFoundError)
+def handle_not_found(err: ProductNotFoundError):
+    return jsonify(error=str(err), product_id=err.product_id), 404
+
+@app.errorhandler(OutOfStockError)
+def handle_out_of_stock(err: OutOfStockError):
+    return jsonify(error=str(err), available=err.available), 409
+
+@app.post("/orders")
+def place_order():
+    # No try/except: the route describes success; the handlers above map failure.
+    response = mediator.send(PlaceOrderRequest(...))
+    return jsonify(order_id=response.order_id), 201
+```
+
+**FastAPI** — `add_exception_handler` (or the `@app.exception_handler` decorator).
+
+```python
+from fastapi import FastAPI, Request as HTTPRequest
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+@app.exception_handler(ProductNotFoundError)
+async def handle_not_found(request: HTTPRequest, err: ProductNotFoundError):
+    return JSONResponse(status_code=404, content={"error": str(err)})
+
+@app.exception_handler(OutOfStockError)
+async def handle_out_of_stock(request: HTTPRequest, err: OutOfStockError):
+    return JSONResponse(status_code=409, content={"error": str(err)})
+
+@app.post("/orders")
+def place_order():
+    response = mediator.send(PlaceOrderRequest(...))
+    return {"order_id": response.order_id}
+```
+
+Registering against the `ShopError` base maps the whole hierarchy in one handler; adding
+a per-subclass handler only where a failure needs a distinct status code. The core stays
+clean, and swapping Flask for FastAPI (or adding a CLI) means rewriting only this mapping
+layer.
+
+## A tempting trap: mapping inside a behavior
+
+Because a [pipeline behavior](pipeline-behaviors.md) wraps every dispatch, it looks like
+the perfect place to catch domain errors and turn them into responses.
+
+```python
+# Tempting, but it pulls the web framework into your core pipeline.
+class HttpErrorMappingBehavior(PipelineBehavior[Request]):
+    def __call__(self, request, next):
         try:
-            payment = self.payment_service.charge(request.amount)
-            return ProcessPaymentResponse(result=Success(payment))
-        except PaymentError as e:
-            return ProcessPaymentResponse(result=Failure(str(e)))
-
-# Caller handles both cases
-response = mediator.send(ProcessPaymentRequest(amount=99.99))
-if response.result.is_success():
-    print(f"Payment successful: {response.result.value.id}")
-else:
-    print(f"Payment failed: {response.result.error}")
+            return next()
+        except ProductNotFoundError as err:
+            raise HTTPException(status_code=404, detail=str(err))  # framework leak
+        except OutOfStockError as err:
+            raise HTTPException(status_code=409, detail=str(err))
 ```
 
-### Rich result type
+It centralizes the mapping and runs for free on every request — but it drags
+`HTTPException` back *inside* the mediator, exactly the coupling the domain errors were
+designed to avoid. The mediator no longer runs cleanly in a CLI or a worker.
 
-```python
-@dataclass
-class OperationResult[T]:
-    success: bool
-    value: T | None = None
-    error: str | None = None
-    error_code: str | None = None
-    metadata: dict = field(default_factory=dict)
+The damage is at least contained: it's a single, clearly specialized behavior, so a
+different deployment can simply leave it out of its behavior list and register a
+plain-exception mapping instead. But prefer the framework's own error-handling
+construct — mapping at the edge keeps the leak out of the pipeline entirely, which is
+strictly the more portable choice.
 
-    @staticmethod
-    def ok(value: T) -> "OperationResult[T]":
-        return OperationResult(success=True, value=value)
+## PyMediate's own errors
 
-    @staticmethod
-    def fail(error: str, error_code: str | None = None) -> "OperationResult[T]":
-        return OperationResult(success=False, error=error, error_code=error_code)
+PyMediate raises its own exceptions, all subclasses of `PyMediateError` (which carries an
+optional `docs_path` to the relevant guide). They split into two groups by *when* they
+fire, and the two call for opposite treatment.
 
-# Usage
-@dataclass
-class CreateUserResponse:
-    result: OperationResult[User]
+### Definition-time errors — fatal, not meant to be caught
 
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        # Check if user exists
-        if self.database.user_exists(request.username):
-            return CreateUserResponse(
-                result=OperationResult.fail(
-                    error=f"User '{request.username}' already exists",
-                    error_code="USER_EXISTS"
-                )
-            )
+PyMediate validates a `Handler` or `Request` subclass at the point it is *defined*, so
+these are raised while your modules are being imported — before the app is even running:
 
-        # Create user
-        try:
-            user = self.database.create_user(request.username, request.email)
-            return CreateUserResponse(result=OperationResult.ok(user))
-        except DatabaseError as e:
-            return CreateUserResponse(
-                result=OperationResult.fail(
-                    error=f"Database error: {e}",
-                    error_code="DB_ERROR"
-                )
-            )
-```
+- `InvalidHandlerSignatureError` — a `Handler.__call__` with the wrong shape.
+- `InvalidRequestTypeError` — a handler parameterized on something that isn't a `Request`.
+- `ResponseTypeMismatchError` — a handler's return annotation disagrees with its request's
+  response type.
+- `HandlerAlreadyRegisteredError` — two handlers registered for the same request type.
 
-## Error recovery
+There is nothing to catch, because the `import` that defines the offending class is what
+raises. A program with one of these can't start — it's a programming mistake, like a
+`SyntaxError`. Read the message, fix the code; don't wrap class definitions in `try`.
 
-### Retry logic
+### Dispatch-time errors — catchable
 
-```python
-from tenacity import retry, stop_after_attempt, wait_exponential
+These fire while a request is being routed, and you can handle them like any runtime
+exception:
 
-class FetchDataHandler(Handler[FetchDataRequest]):
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10)
-    )
-    def __call__(self, request: FetchDataRequest) -> FetchDataResponse:
-        # Will retry up to 3 times with exponential backoff
-        data = self.http_client.get(request.url)
-        return FetchDataResponse(data=data)
-```
+- `HandlerNotFoundError` — `mediator.send()` received a request with no registered handler.
+- `ServiceNotFoundError` — a `ServiceProvider.get()` couldn't resolve a requested type.
 
-### Fallback values
-
-```python
-class GetUserHandler(Handler[GetUserRequest]):
-    def __call__(self, request: GetUserRequest) -> GetUserResponse:
-        try:
-            # Try cache first
-            user = self.cache.get(f"user:{request.user_id}")
-            if user:
-                return GetUserResponse(**user)
-        except CacheError:
-            # Cache failed, continue to database
-            pass
-
-        try:
-            # Try database
-            user = self.database.get_user(request.user_id)
-            return GetUserResponse(
-                user_id=user.id,
-                username=user.username,
-                email=user.email
-            )
-        except DatabaseError:
-            # Database failed, return default
-            return GetUserResponse(
-                user_id=request.user_id,
-                username="Unknown",
-                email=""
-            )
-```
-
-### Circuit breaker
-
-```python
-from circuitbreaker import circuit
-
-class ExternalAPIHandler(Handler[ExternalAPIRequest]):
-    @circuit(failure_threshold=5, recovery_timeout=60)
-    def __call__(self, request: ExternalAPIRequest) -> ExternalAPIResponse:
-        # Circuit opens after 5 failures
-        # Stays open for 60 seconds
-        data = self.external_api.fetch(request.endpoint)
-        return ExternalAPIResponse(data=data)
-```
-
-## Testing error cases
-
-### Testing validation errors
-
-```python
-import pytest
-
-def test_create_user_empty_username():
-    with pytest.raises(ValueError, match="Username is required"):
-        CreateUserRequest(username="", email="test@example.com", age=25)
-
-def test_create_user_invalid_email():
-    with pytest.raises(ValueError, match="Invalid email format"):
-        CreateUserRequest(username="alice", email="invalid-email", age=25)
-
-def test_create_user_underage():
-    with pytest.raises(ValueError, match="Must be 18 or older"):
-        CreateUserRequest(username="alice", email="alice@example.com", age=16)
-```
-
-### Testing domain errors
-
-```python
-def test_transfer_insufficient_funds():
-    handler = TransferMoneyHandler(database=mock_db)
-
-    # Setup: Account has $50
-    mock_db.set_balance("account1", 50.0)
-
-    # Try to transfer $100
-    request = TransferMoneyRequest(
-        from_account="account1",
-        to_account="account2",
-        amount=100.0
-    )
-
-    with pytest.raises(InsufficientFundsError) as exc_info:
-        handler(request)
-
-    assert exc_info.value.required == 100.0
-    assert exc_info.value.available == 50.0
-```
-
-### Testing PyMediate errors
+Both usually signal a *misconfigured deployment* (a handler or service was never
+registered) rather than bad client input, so at a web edge they map to a 500, not a 4xx.
 
 ```python
 from pymediate import HandlerNotFoundError
 
-def test_handler_not_found():
-    services = Services()
-    mediator = Mediator(services.provider())
-
-    with pytest.raises(HandlerNotFoundError) as exc_info:
-        mediator.send(UnregisteredRequest())
-
-    assert exc_info.value.request_type == UnregisteredRequest
-```
-
-## Best practices
-
-### 1. Use specific exception types
-
-```python
-# ✅ Good: Specific exception types
-class UserNotFoundError(Exception):
-    pass
-
-class InvalidCredentialsError(Exception):
-    pass
-
-# Handler
-def __call__(self, request):
-    if not user:
-        raise UserNotFoundError(request.user_id)
-    if not valid:
-        raise InvalidCredentialsError()
-
-# Caller can handle specifically
 try:
-    response = mediator.send(request)
-except UserNotFoundError:
-    return {"error": "User not found"}, 404
-except InvalidCredentialsError:
-    return {"error": "Invalid credentials"}, 401
-```
-
-### 2. Include context in error messages
-
-```python
-# ✅ Good: Context included
-raise ValueError(
-    f"Failed to process order {order_id}: "
-    f"product {product_id} out of stock "
-    f"(requested: {requested}, available: {available})"
-)
-
-# ❌ Bad: No context
-raise ValueError("Out of stock")
-```
-
-### 3. Fail fast with validation
-
-```python
-# ✅ Good: Validate in __post_init__
-@dataclass
-class CreateUserRequest(Request[UserResponse]):
-    email: str
-
-    def __post_init__(self):
-        if "@" not in self.email:
-            raise ValueError("Invalid email")
-
-# ❌ Bad: Validate in handler
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request):
-        if "@" not in request.email:  # Too late!
-            raise ValueError("Invalid email")
-```
-
-### 4. Don't use exceptions for control flow
-
-```python
-# ❌ Bad: Using exceptions for control flow
-try:
-    user = self.database.get_user(user_id)
-except UserNotFoundError:
-    user = self.create_default_user()
-
-# ✅ Good: Check explicitly
-user = self.database.get_user(user_id)
-if not user:
-    user = self.create_default_user()
-```
-
-### 5. Log errors before re-raising
-
-```python
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        try:
-            user_id = self.database.create_user(request.username, request.email)
-            return CreateUserResponse(user_id=user_id, username=request.username)
-        except DatabaseError as e:
-            # Log before re-raising
-            self.logger.error(
-                f"Failed to create user '{request.username}': {e}",
-                exc_info=True
-            )
-            raise
+    response = mediator.send(GetUserRequest(user_id=1))
+except HandlerNotFoundError as err:
+    # A handler is missing from the container — a config bug, not the caller's fault.
+    logger.error("No handler registered for %s", err.request_type.__name__)
+    raise
 ```
 
 ---
 
 ## Next steps
 
-- Learn about [Handlers](handlers.md) - Implementing error handling in handlers
-- Explore [Best Practices](../advanced/best-practices.md) - Advanced techniques
-- See [Testing](../advanced/testing.md) - Testing error scenarios
-- Check out the [API Reference](../api/request.md) - Complete API documentation
+- [Pipeline behaviors](pipeline-behaviors.md) — cross-cutting logic, and why error mapping
+  usually shouldn't live here.
+- [FastAPI example](../examples/fastapi.md) — a full edge that maps exceptions to responses.
+- [Handlers](handlers.md) — where domain errors are raised.

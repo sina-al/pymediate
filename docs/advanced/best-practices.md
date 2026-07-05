@@ -9,11 +9,11 @@ Each guide page ends with a best-practices section scoped to its own topic. This
 - [Mediator](../guide/mediator.md#best-practices) - One mediator instance per application, don't mix mediator and direct handler calls.
 - [Pipeline behaviors](../guide/pipeline-behaviors.md#best-practices) - Keep behaviors focused and reusable, always call `next()` unless short-circuiting is intentional, mind registration order.
 - [Dataclasses](../guide/dataclasses.md#best-practices) - `frozen=True` for requests, `default_factory` for mutable defaults, validate in `__post_init__`.
-- [Error handling](../guide/error-handling.md#best-practices) - Specific exception types, context in error messages, fail fast.
+- [Error handling](../guide/error-handling.md) - Keeping domain errors independent of the framework, and mapping them at the edge.
 
 ## Project structure
 
-Organize by business capability, not by technical layer — keep a feature's requests, handlers, and tests together rather than splitting them into parallel `requests/`, `handlers/`, `tests/` trees:
+Organize by business capability, not by technical layer — keep a feature's requests, handlers, and tests together rather than splitting them into parallel `requests/`, `handlers/`, `tests/` trees.
 
 ```
 app/
@@ -44,7 +44,7 @@ Don't reach for a DI container just to avoid writing `services.add(...)` calls �
 
 ## Versioning requests
 
-Once a request type ships, treat its fields as a public contract. Add optional fields with defaults rather than changing existing ones; if a change would break existing callers, introduce a new versioned request type instead and translate at the adapter boundary:
+Once a request type ships, treat its fields as a public contract. Add optional fields with defaults rather than changing existing ones; if a change would break existing callers, introduce a new versioned request type instead and translate at the adapter boundary.
 
 ```python
 @dataclass

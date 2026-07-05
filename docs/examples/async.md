@@ -4,7 +4,7 @@ PyMediate provides first-class support for asynchronous operations through the `
 
 ## Quick start
 
-The async API mirrors the synchronous API, with handlers using `async def __call__` and mediators using `await send()`:
+The async API mirrors the synchronous API, with handlers using `async def __call__` and mediators using `await send()`.
 
 ```python
 import asyncio
@@ -53,7 +53,7 @@ asyncio.run(main())
 
 ## Async database operations
 
-Here's a realistic example with async database access:
+Here's a realistic example with async database access.
 
 ```python
 import asyncio
@@ -139,7 +139,7 @@ asyncio.run(main())
 
 ## Concurrent request processing
 
-One of the key benefits of async is the ability to process multiple requests concurrently:
+One of the key benefits of async is the ability to process multiple requests concurrently.
 
 ```python
 import asyncio
@@ -194,7 +194,7 @@ asyncio.run(main())
 
 ## Error handling
 
-Error handling works the same way in async handlers:
+Error handling works the same way in async handlers.
 
 ```python
 import asyncio
@@ -239,7 +239,7 @@ asyncio.run(main())
 
 ## Mixing sync and async
 
-You can have both sync and async handlers in the same application. Simply use the appropriate imports:
+You can have both sync and async handlers in the same application. Simply use the appropriate imports.
 
 ```python
 from dataclasses import dataclass
@@ -278,7 +278,7 @@ class MyAsyncHandler(AsyncHandler[AsyncRequest]):
 
 ## Type safety
 
-The async API maintains full type safety. Mypy will catch type errors:
+The async API maintains full type safety. Mypy will catch type errors.
 
 ```python
 from dataclasses import dataclass

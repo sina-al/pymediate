@@ -51,7 +51,7 @@ Use pipeline behaviors for **cross-cutting concerns** - functionality that appli
 
 ## Basic behavior structure
 
-A pipeline behavior inherits from the `PipelineBehavior` [ABC](https://docs.python.org/3/library/abc.html) and specifies which requests it applies to:
+A pipeline behavior inherits from the `PipelineBehavior` [ABC](https://docs.python.org/3/library/abc.html) and specifies which requests it applies to.
 
 ```python
 from collections.abc import Callable
@@ -88,7 +88,7 @@ You must call `next()` to continue the pipeline. If you don't, the handler never
 
 ### Selective behaviors
 
-Behaviors can be **universal** (apply to all requests) or **selective** (apply only to specific request types or mixins):
+Behaviors can be **universal** (apply to all requests) or **selective** (apply only to specific request types or mixins).
 
 ```python
 from pymediate import Request
@@ -129,7 +129,7 @@ class CreateUserRequest(Request[UserResponse], AuthMixin):
 #### Behavior selection
 - The mediator automatically filters behaviors using `isinstance()` checks
 - Only applicable behaviors are executed for each request
-- Custom matching logic can be implemented by overriding `should_apply()`:
+- Custom matching logic can be implemented by overriding `should_apply()`.
 
 ```python
 class BusinessHoursOnlyBehavior(PipelineBehavior[Request]):
@@ -144,7 +144,7 @@ class BusinessHoursOnlyBehavior(PipelineBehavior[Request]):
 
 ### Logging behavior
 
-Track all requests passing through your system:
+Track all requests passing through your system.
 
 ```python
 from datetime import datetime
@@ -180,7 +180,7 @@ class LoggingBehavior(PipelineBehavior[Request]):
 
 ### Performance monitoring behavior
 
-Measure execution time for all handlers:
+Measure execution time for all handlers.
 
 ```python
 import time
@@ -220,7 +220,7 @@ class TimingBehavior(PipelineBehavior[Request]):
 
 ### Validation behavior
 
-Apply common validation rules:
+Apply common validation rules.
 
 ```python
 from pymediate import Request
@@ -239,9 +239,44 @@ class ValidationBehavior(PipelineBehavior[Request]):
         return next()
 ```
 
+### Request context behavior
+
+Attach per-request metadata (a request ID, timestamp, and so on) that handlers can read via a `contextvars.ContextVar`, without threading it through every handler's parameters.
+
+```python
+from contextvars import ContextVar
+from datetime import datetime
+from pymediate import Request
+from pymediate.pipeline import PipelineBehavior
+
+request_context: ContextVar[dict] = ContextVar("request_context")
+
+class RequestContextBehavior(PipelineBehavior[Request]):
+    """Populates a context var with metadata for the duration of the request."""
+
+    def __call__(self, request, next):
+        token = request_context.set({
+            "request_id": generate_id(),
+            "request_type": type(request).__name__,
+            "timestamp": datetime.now(),
+        })
+
+        try:
+            return next()
+        finally:
+            request_context.reset(token)
+
+# Handlers can read the context without it being passed in explicitly
+class CreateUserHandler(Handler[CreateUserRequest]):
+    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
+        ctx = request_context.get()
+        print(f"Request ID: {ctx['request_id']}")
+        # ... rest of handler
+```
+
 ### Caching behavior
 
-Cache responses to avoid redundant work:
+Cache responses to avoid redundant work.
 
 ```python
 import hashlib
@@ -284,7 +319,7 @@ class CachingBehavior(PipelineBehavior[Request]):
 
 ### Transaction behavior
 
-Wrap handler execution in a database transaction:
+Wrap handler execution in a database transaction.
 
 ```python
 from pymediate import Request
@@ -319,7 +354,7 @@ class TransactionBehavior(PipelineBehavior[Request]):
 
 ### Retry behavior
 
-Automatically retry failed operations:
+Automatically retry failed operations.
 
 ```python
 import time
@@ -356,7 +391,7 @@ class RetryBehavior(PipelineBehavior[Request]):
 
 ## Chaining multiple behaviors
 
-Behaviors execute in the order they're provided to the `Pipeline`:
+Behaviors execute in the order they're provided to the `Pipeline`.
 
 ```python
 from pymediate.pipeline import Pipeline
@@ -449,7 +484,7 @@ response = pipeline(request)
 
 ## Async behaviors
 
-For async handlers, use `pymediate.aio.pipeline`:
+For async handlers, use `pymediate.aio.pipeline`.
 
 ```python
 import asyncio
@@ -852,7 +887,7 @@ async def test_async_pipeline_with_behaviors():
 
 ### 1. Keep behaviors focused
 
-Each behavior should have a single responsibility:
+Each behavior should have a single responsibility.
 
 ```python
 # ✅ Good: Focused behavior
@@ -877,7 +912,7 @@ class MegaBehavior(PipelineBehavior[Request]):
 
 ### 2. Make behaviors reusable
 
-Design behaviors to work with any request type:
+Design behaviors to work with any request type.
 
 ```python
 # ✅ Good: Works with any request
@@ -898,7 +933,7 @@ class TimingBehavior(PipelineBehavior[Request]):
 
 ### 3. Always call `next()`
 
-Unless you intentionally want to short-circuit:
+Unless you intentionally want to short-circuit.
 
 ```python
 # ✅ Good: Always calls next
@@ -954,7 +989,7 @@ class LoggingBehavior(PipelineBehavior[Request]):
 
 ### 6. Order matters
 
-Think carefully about behavior order:
+Think carefully about behavior order.
 
 ```python
 # ✅ Good: Logical order
@@ -1000,7 +1035,7 @@ PyMediate automatically discovers and applies pipeline behaviors registered with
 
 ### Automatic behavior discovery
 
-The simplest way to use behaviors is to register them with your services - the mediator handles the rest:
+The simplest way to use behaviors is to register them with your services - the mediator handles the rest.
 
 ```python
 from pymediate import Request, Services, Mediator
@@ -1047,7 +1082,7 @@ response = mediator.send(GetUserRequest(user_id=123))
 
 ### Behavior execution order
 
-Behaviors execute in registration order, with the first registered behavior being the outermost:
+Behaviors execute in registration order, with the first registered behavior being the outermost.
 
 ```python
 services = Services()
@@ -1064,7 +1099,7 @@ services.add(GetUserHandler())
 
 ### DI container integration
 
-Behaviors work seamlessly with dependency injection containers, respecting lifecycle scopes:
+Behaviors work seamlessly with dependency injection containers, respecting lifecycle scopes.
 
 ```python
 from dependency_injector import containers, providers
@@ -1106,7 +1141,7 @@ response = await mediator.send(GetUserRequest(user_id=123))
 
 ### Manual pipeline construction (advanced)
 
-For fine-grained control, you can still construct pipelines manually:
+For fine-grained control, you can still construct pipelines manually.
 
 ```python
 from pymediate.pipeline import Pipeline

@@ -171,7 +171,7 @@ print(f"Created user {response.username} with ID {response.user_id}")
 
 ### Type safety
 
-The mediator preserves type information:
+The mediator preserves type information.
 
 ```python
 # Type checker knows response is CreateUserResponse
@@ -308,7 +308,7 @@ request = CreateUserRequest(username="alice", email="alice@example.com")
 
 ### 2. Pipeline behaviors (optional middleware)
 
-Pipeline behaviors are automatically discovered and applied to wrap request processing:
+Pipeline behaviors are automatically discovered and applied to wrap request processing.
 
 ```python
 from pymediate import Request, PipelineBehavior
@@ -508,81 +508,6 @@ Request
 ```
 
 See [Pipeline Behaviors Guide](pipeline-behaviors.md) for comprehensive documentation.
-
-### Request context
-
-```python
-from contextvars import ContextVar
-
-request_context = ContextVar('request_context')
-
-class ContextMediator(Mediator):
-    def send[RequestT](self, request: RequestT):
-        # Store request in context
-        token = request_context.set({
-            'request_id': generate_id(),
-            'request_type': type(request).__name__,
-            'timestamp': datetime.now()
-        })
-
-        try:
-            return super().send(request)
-        finally:
-            request_context.reset(token)
-
-# Handlers can access context
-class CreateUserHandler(Handler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        ctx = request_context.get()
-        print(f"Request ID: {ctx['request_id']}")
-        # ... rest of handler
-```
-
-### Scoped mediator
-
-```python
-class ScopedMediator(Mediator):
-    """Mediator that creates new handler instances per request."""
-
-    def send[RequestT](self, request: RequestT):
-        # Get handler factory instead of instance
-        handler_factory = self.services.get(type(request))
-
-        # Create new handler instance
-        handler = handler_factory()
-
-        # Execute
-        return handler(request)
-```
-
-### Caching mediator
-
-```python
-class CachingMediator(Mediator):
-    def __init__(self, resolver, cache):
-        super().__init__(resolver)
-        self.cache = cache
-
-    def send[RequestT](self, request: RequestT):
-        # Only cache read-only queries
-        if isinstance(request, Query):  # Assuming Query base class
-            cache_key = self._get_cache_key(request)
-            cached = self.cache.get(cache_key)
-            if cached:
-                return cached
-
-        # Execute handler
-        response = super().send(request)
-
-        # Cache query responses
-        if isinstance(request, Query):
-            self.cache.set(cache_key, response, ttl=300)
-
-        return response
-
-    def _get_cache_key(self, request):
-        return f"{type(request).__name__}:{hash(request)}"
-```
 
 ### Transaction mediator
 

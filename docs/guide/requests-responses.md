@@ -32,7 +32,7 @@ One of the most powerful aspects of the request/response pattern is **framework 
 
 ### The problem with framework-coupled code
 
-Traditional web applications often look like this:
+Traditional web applications often look like this.
 
 ```python
 # ❌ Bad: Business logic coupled to Flask
@@ -68,7 +68,7 @@ def create_user():
 
 ### The solution: Request/response pattern
 
-With PyMediate, your business logic is completely decoupled:
+With PyMediate, your business logic is completely decoupled.
 
 ```python
 # ✅ Good: Business logic independent of delivery mechanism
@@ -328,7 +328,7 @@ CQRS (Command Query Responsibility Segregation) is a pattern that separates oper
 
 ### Commands
 
-Commands **change state** and return minimal data:
+Commands **change state** and return minimal data.
 
 ```python
 @dataclass
@@ -352,7 +352,7 @@ class UpdateUserEmailCommand(Request[EmailUpdated]):
 
 ### Queries
 
-Queries **read state** and return rich data:
+Queries **read state** and return rich data.
 
 ```python
 @dataclass
@@ -404,7 +404,7 @@ class GetUserHandler(Handler[GetUserQuery]):
 
 ### 1. Immutable value objects
 
-Requests should be immutable to prevent bugs:
+Requests should be immutable to prevent bugs.
 
 ```python
 # ✅ Good: Frozen dataclass (immutable)
@@ -423,7 +423,7 @@ class TransferMoneyRequest(Request[TransferCompleted]):
 
 ### 2. Rich domain validation
 
-Include business rules in your requests:
+Include business rules in your requests.
 
 ```python
 @dataclass
@@ -448,7 +448,7 @@ class CreateOrderRequest(Request[OrderCreated]):
 
 ### 3. Request versioning
 
-Handle API evolution with versioned requests:
+Handle API evolution with versioned requests.
 
 ```python
 # Version 1
@@ -475,7 +475,7 @@ def translate_v1_to_v2(v1: CreateUserRequestV1) -> CreateUserRequestV2:
 
 ### 4. Nested value objects
 
-Use composition for complex domains:
+Use composition for complex domains.
 
 ```python
 @dataclass(frozen=True)
@@ -503,7 +503,7 @@ class CreateOrderRequest(Request[OrderCreated]):
 
 ### 1. Rich response objects
 
-Return all data the caller might need:
+Return all data the caller might need.
 
 ```python
 @dataclass
@@ -520,7 +520,7 @@ class UserCreated:
 
 ### 2. Result objects (success/failure)
 
-Explicit success/failure handling:
+Explicit success/failure handling.
 
 ```python
 @dataclass
@@ -563,7 +563,7 @@ class ProcessPaymentHandler(Handler[ProcessPaymentRequest]):
 
 ### 3. Pagination
 
-Handle large datasets:
+Handle large datasets.
 
 ```python
 @dataclass
@@ -586,7 +586,7 @@ class ListUsersQuery(Request[PaginatedUsers]):
 
 ## Testing without frameworks
 
-Framework independence makes testing trivial:
+Framework independence makes testing trivial.
 
 ```python
 def test_create_user():
@@ -624,7 +624,7 @@ def test_validation():
 
 ## Real-world example: E-commerce
 
-Complete example showing framework independence:
+Complete example showing framework independence.
 
 ```python
 # Domain Layer - Framework Independent

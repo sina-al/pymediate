@@ -58,7 +58,7 @@ def test_create_user_through_mediator():
 
 ## Mocking the mediator
 
-When testing a handler that itself calls other handlers through an injected mediator (see [Handler composition](../guide/handlers.md#handler-composition)), fake the mediator rather than wiring up every handler it might call:
+When testing a handler that itself calls other handlers through an injected mediator (see [Handler composition](../guide/handlers.md#handler-composition)), fake the mediator rather than wiring up every handler it might call.
 
 ```python
 class FakeMediator:
@@ -81,7 +81,7 @@ def test_place_order_sends_expected_requests():
 
 ## Testing async handlers
 
-Async handlers are `async def __call__` methods, so test them with [pytest](https://docs.pytest.org/)'s `pytest.mark.asyncio` like any other coroutine — direct calls and mediator calls both work the same way as the sync case:
+Async handlers are `async def __call__` methods, so test them with [pytest](https://docs.pytest.org/)'s `pytest.mark.asyncio` like any other coroutine — direct calls and mediator calls both work the same way as the sync case.
 
 ```python
 import pytest
@@ -111,7 +111,7 @@ Note that `Services` itself is imported from `pymediate`, not `pymediate.aio`, e
 
 ## A test-isolation gotcha: the handler registry is global
 
-Each `Handler[RequestT]` subclass registers itself against its request type the moment the class body executes — not per `Services` instance, but in a single registry shared by the whole process. Defining a second `Handler` for a request type that already has one raises `HandlerAlreadyRegisteredError`, and that applies just as much across two test functions as it does in application code:
+Each `Handler[RequestT]` subclass registers itself against its request type the moment the class body executes — not per `Services` instance, but in a single registry shared by the whole process. Defining a second `Handler` for a request type that already has one raises `HandlerAlreadyRegisteredError`, and that applies just as much across two test functions as it does in application code.
 
 ```python
 # test_a.py
@@ -126,7 +126,7 @@ class TempHandler(Handler[SharedRequest]):
 # HandlerAlreadyRegisteredError: Handler already registered for 'SharedRequest'
 ```
 
-Vary behavior through the constructor instead of redefining the class:
+Vary behavior through the constructor instead of redefining the class.
 
 ```python
 class ConfigurableHandler(Handler[SharedRequest]):
@@ -146,7 +146,7 @@ If you genuinely need two distinct handler implementations, give them distinct r
 
 ## Fixtures and organization
 
-Ordinary pytest fixtures work well for the pieces you construct repeatedly — a fake database, a populated request, a wired-up mediator:
+Ordinary pytest fixtures work well for the pieces you construct repeatedly — a fake database, a populated request, a wired-up mediator.
 
 ```python
 import pytest
@@ -170,6 +170,6 @@ This project's own test suite (`tests/`) enforces a 95% coverage floor and organ
 
 ## Next steps
 
-- [Error handling](../guide/error-handling.md#testing-error-cases) - Testing validation and domain errors.
+- [Error handling](../guide/error-handling.md) - Domain vs. framework errors and where to map them.
 - [Type safety](type-safety.md) - What mypy catches vs. what's validated at runtime.
 - [Troubleshooting](troubleshooting.md) - Common registration and configuration mistakes.

@@ -4,7 +4,7 @@ This guide gets you started with PyMediate in 5 minutes: define a request and re
 
 ## The complete picture
 
-Here's a full, runnable user-creation feature in one file:
+Here's a full, runnable user-creation feature in one file.
 
 ```python
 from dataclasses import dataclass
@@ -62,7 +62,7 @@ The rest of this page walks through each of those five numbered pieces.
 
 ### Step 1: Define your response
 
-First, define what your handler returns. Use a simple dataclass:
+First, define what your handler returns. Use a simple dataclass.
 
 ```python
 from dataclasses import dataclass
@@ -76,7 +76,7 @@ class UserCreated:
 
 ### Step 2: Define your request
 
-Inherit from `Request[ResponseType]` to link the request to its response:
+Inherit from `Request[ResponseType]` to link the request to its response.
 
 ```python
 from pymediate import Request
@@ -93,7 +93,7 @@ class CreateUser(Request[UserCreated]):
 
 ### Step 3: Create a handler
 
-Handlers implement the business logic. PyMediate automatically knows which handler handles which request:
+Handlers implement the business logic. PyMediate automatically knows which handler handles which request.
 
 ```python
 from pymediate import Handler
@@ -122,7 +122,7 @@ class CreateUserHandler(Handler[CreateUser]):
 
 ### Step 4: Set up the mediator
 
-Create a service collection, build a provider, and create a mediator:
+Create a service collection, build a provider, and create a mediator.
 
 ```python
 from pymediate import Mediator, Services
@@ -140,7 +140,7 @@ mediator = Mediator(provider)
 
 ### Step 5: Use it
 
-Now you can send requests through the mediator:
+Now you can send requests through the mediator.
 
 ```python
 # Send a request
@@ -154,7 +154,7 @@ print(f"Created user {response.username} with ID {response.user_id}")
 
 ## Type safety in action
 
-PyMediate validates types at class-definition time:
+PyMediate validates types at class-definition time.
 
 ```python
 class WrongHandler(Handler[CreateUser]):
@@ -166,7 +166,7 @@ class WrongHandler(Handler[CreateUser]):
 
 ## Async support
 
-PyMediate also supports async/await for asynchronous operations:
+PyMediate also supports async/await for asynchronous operations.
 
 ```python
 from pymediate import Services

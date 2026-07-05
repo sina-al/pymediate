@@ -56,7 +56,7 @@ Install PyMediate with `dependency-injector` for DI container integration:
 
 ## Development installation
 
-To contribute to PyMediate or run the tests:
+To contribute to PyMediate or run the tests.
 
 ```bash
 # Clone the repository
@@ -72,7 +72,7 @@ pip install -e '.[di,dev]'
 
 ## Verify installation
 
-Verify PyMediate installed correctly:
+Verify PyMediate installed correctly.
 
 ```python
 import pymediate
@@ -84,14 +84,14 @@ print(pymediate.__version__)
 
 ### `DependencyInjectorServiceProvider`
 
-`DependencyInjectorServiceProvider` is only available when you install PyMediate with the `[di]` extra. If you try to use it without installing `dependency-injector`, the import fails:
+`DependencyInjectorServiceProvider` is only available when you install PyMediate with the `[di]` extra. If you try to use it without installing `dependency-injector`, the import fails.
 
 ```python
 from pymediate.providers import DependencyInjectorServiceProvider
 # ModuleNotFoundError: No module named 'dependency_injector'
 ```
 
-**Solution:** Install with the `[di]` extra:
+**Solution:** Install with the `[di]` extra.
 
 ```bash
 pip install pymediate[di]

@@ -132,7 +132,7 @@ response = await pipeline(GetUserRequest(user_id=123))
 
 ## Type safety
 
-The pipeline system is fully type-safe with generic type parameters:
+The pipeline system is fully type-safe with generic type parameters.
 
 ```python
 from pymediate.pipeline import Pipeline, PipelineBehavior
