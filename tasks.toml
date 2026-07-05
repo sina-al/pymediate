@@ -85,7 +85,7 @@ ci.sequence = ["check:all"]
 # ========== Release ==========
 
 changelog.help = "Regenerate CHANGELOG.md from Conventional Commits (git-cliff)"
-changelog.cmd = "uvx git-cliff --output CHANGELOG.md"
+changelog.cmd = "python3 scripts/generate_changelog.py"
 
 "version:bump".help = "Bump the version in pyproject.toml + __init__.py (usage: poe version:bump patch|minor|major|X.Y.Z)"
 "version:bump".cmd = "python3 scripts/bump_version.py"

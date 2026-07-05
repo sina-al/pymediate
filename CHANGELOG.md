@@ -6,6 +6,14 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 
 ### Documentation
 
+- Apply Microsoft writing style to top-level docs, fix stale DI terminology ([3a47ee7](https://github.com/sina-al/pymediate/commit/3a47ee7aa81b7160b9b2cc53e128875d623ec255))
+
+- Remove Zero convention and Dataclass friendly from feature lists ([7798b81](https://github.com/sina-al/pymediate/commit/7798b815c46a5ae186351830558c367f380cd1e0))
+
+## [0.1.1] - 2026-07-05
+
+### Documentation
+
 - Rewrite entire docs/ site in Microsoft style, fix broken examples ([bec767f](https://github.com/sina-al/pymediate/commit/bec767fa98480faca25791f00a499a32f591faca))
 
 
@@ -17,6 +25,8 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 ### Miscellaneous
 
 - Scope Documentation workflow to docs-relevant path changes ([011b46f](https://github.com/sina-al/pymediate/commit/011b46f63c4742567ca38c8dd99f2a07c77e5584))
+
+- *(release)* V0.1.1 ([1c2a8ed](https://github.com/sina-al/pymediate/commit/1c2a8ede0c20b74c009c326e829cdddc190df645))
 
 ## [0.1.0] - 2026-07-05
 

@@ -36,8 +36,14 @@ tag. Don't do it silently as part of a larger task.
    ```bash
    uv run poe changelog
    ```
-   Skim the new `CHANGELOG.md` entry — git-cliff groups by Conventional Commit type
-   automatically, but check nothing landed in the catch-all "Other" group that should've been
+   git-cliff only headers a version once a matching tag exists in git — since this step runs
+   *before* tagging (step 4), a bare `git-cliff` invocation here would dump the new release's
+   commits under a permanent `[Unreleased]` heading instead of `[X.Y.Z]` (this happened for real
+   in v0.1.1 — see `scripts/generate_changelog.py`'s docstring). The `changelog` task wraps
+   git-cliff with `--tag vX.Y.Z` (the version just bumped in step 1) specifically to avoid this,
+   falling back to plain git-cliff if that tag somehow already exists. Skim the new
+   `CHANGELOG.md` entry after running it — confirm it's headed `## [X.Y.Z] - <date>`, not
+   `## [Unreleased]`, and that nothing landed in the catch-all "Other" group that should've been
    categorized.
 
 3. **Review and commit:**
@@ -72,6 +78,11 @@ tag. Don't do it silently as part of a larger task.
    - GitHub Release exists at `https://github.com/sina-al/pymediate/releases/tag/vX.Y.Z` with
      the right notes attached.
    - `https://pypi.org/project/pymediate/` shows the new version.
+   - `CHANGELOG.md` on `main` has a real `## [X.Y.Z] - <date>` section for this release (not
+     still sitting under `## [Unreleased]`) — this is the step 2 check again, but re-confirm it
+     post-push since that's the actual persisted file readers see.
+   - `docs/changelog.md` matches the root `CHANGELOG.md` — it's a manually-synced mirror (see
+     its own header), so update it too if you haven't.
    - Optionally, in a scratch venv: `pip install pymediate==X.Y.Z` and a quick smoke import.
 
 ## If something fails partway
