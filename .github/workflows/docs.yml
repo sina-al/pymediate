@@ -24,9 +24,8 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
-  # Site is served from https://sina-al.github.io/pymediate
-  NEXT_PUBLIC_BASE_PATH: /pymediate
-  NEXT_PUBLIC_SITE_URL: https://sina-al.github.io/pymediate
+  # NEXT_PUBLIC_BASE_PATH: /pymediate # if switching back to https://sina-al.github.io/pymediate, uncomment this line
+  NEXT_PUBLIC_SITE_URL: https://pymediate.sina-al.uk
 
 jobs:
   build:

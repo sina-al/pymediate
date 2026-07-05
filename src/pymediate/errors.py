@@ -1,6 +1,6 @@
 """Custom exceptions for PyMediate with helpful error messages and documentation links."""
 
-DOCS_URL = "https://sina-al.github.io/pymediate"
+DOCS_URL = "https://pymediate.sina-al.uk"
 
 
 class PyMediateError(Exception):
@@ -63,7 +63,10 @@ class HandlerNotFoundError(PyMediateError):
                 handler_names += f", ... and {len(available_handlers) - 5} more"
             message += f"\n\n📋 Available handlers: {handler_names}"
 
-        super().__init__(message, docs_path="guide/handlers")
+        super().__init__(
+            message,
+            docs_path="docs/advanced/troubleshooting#handlernotfounderror",
+        )
 
 
 class InvalidHandlerSignatureError(PyMediateError):
@@ -104,7 +107,10 @@ class InvalidHandlerSignatureError(PyMediateError):
             "  ❌ Extra parameters (only 'self' and 'request' allowed)"
         )
 
-        super().__init__(message, docs_path="guide/handlers")
+        super().__init__(
+            message,
+            docs_path="docs/advanced/troubleshooting#invalidhandlersignatureerror",
+        )
 
 
 class InvalidRequestTypeError(PyMediateError):
@@ -143,7 +149,10 @@ class InvalidRequestTypeError(PyMediateError):
             "   response to expect, enabling type-safe validation."
         )
 
-        super().__init__(message, docs_path="guide/requests-responses")
+        super().__init__(
+            message,
+            docs_path="docs/advanced/troubleshooting#invalidrequesttypeerror",
+        )
 
 
 class ResponseTypeMismatchError(PyMediateError):
@@ -185,7 +194,9 @@ class ResponseTypeMismatchError(PyMediateError):
             f"          return {expected_type.__name__}(...)"
         )
 
-        super().__init__(message, docs_path="guide/handlers")
+        super().__init__(
+            message, docs_path="docs/advanced/troubleshooting#responsetypemismatcherror"
+        )
 
 
 class HandlerAlreadyRegisteredError(PyMediateError):
@@ -249,4 +260,6 @@ class HandlerAlreadyRegisteredError(PyMediateError):
             "             ...\n"
         )
 
-        super().__init__(message, docs_path="advanced/troubleshooting")
+        super().__init__(
+            message, docs_path="docs/advanced/troubleshooting#handleralreadyregisterederror"
+        )
