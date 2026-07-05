@@ -188,6 +188,11 @@ jobs:
       id-token: write
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
 
@@ -212,6 +217,11 @@ jobs:
       id-token: write
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
 
