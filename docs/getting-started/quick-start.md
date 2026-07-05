@@ -127,12 +127,14 @@ Create a service collection, build a provider, and create a mediator:
 ```python
 from pymediate import Mediator, Services
 
-# Create service collection and add handler
+# Collect your services
 services = Services()
 services.add(CreateUserHandler())
 
-# Build provider and create mediator
+# Build a read-only service provider
 provider = services.provider()
+
+# Construct your mediator
 mediator = Mediator(provider)
 ```
 
@@ -183,8 +185,8 @@ class CreateUserHandler(Handler[CreateUser]):
 # Set up async mediator
 services = Services()
 services.add(CreateUserHandler())
-provider = services.provider()
-mediator = Mediator(provider)
+
+mediator = Mediator(services.provider())
 
 response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
 ```

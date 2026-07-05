@@ -4,7 +4,7 @@ Learn the fundamental concepts behind PyMediate's mediator pattern implementatio
 
 ## Requests
 
-**Requests.** Requests represent intentions — things you want your application to do. They're simple data containers that describe what action to perform.
+Requests represent intentions — things you want your application to do. They're simple data containers that describe what action to perform.
 
 ```python
 from pymediate import Request
@@ -18,7 +18,7 @@ class CreateUserRequest(Request[UserCreatedResponse]):
 
 ## Responses
 
-**Responses.** Responses contain the results of processing a request — the data produced by the handler.
+Responses contain the results of processing a request — the data produced by the handler.
 
 ```python
 @dataclass
@@ -30,7 +30,7 @@ class UserCreatedResponse:
 
 ## Handlers
 
-**Handlers.** Handlers contain your business logic. Each handler processes exactly one type of request and returns a response.
+Handlers contain your business logic. Each handler processes exactly one type of request and returns a response.
 
 ```python
 from pymediate import Handler
@@ -43,7 +43,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 
 ## Mediator
 
-**Mediator.** The mediator coordinates request processing — it receives requests and delegates them to the appropriate handler.
+The mediator coordinates request processing — it receives requests and delegates them to the appropriate handler.
 
 ```python
 response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
@@ -51,7 +51,7 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 
 ## Pipeline behaviors
 
-**Pipeline behaviors.** Pipeline behaviors are [middleware](https://en.wikipedia.org/wiki/Middleware) that automatically wrap around request processing. They enable cross-cutting concerns like logging, validation, caching, and error handling without modifying your handlers.
+Pipeline behaviors are [middleware](https://en.wikipedia.org/wiki/Middleware) that automatically wrap around request processing. They enable cross-cutting concerns like logging, validation, caching, and error handling without modifying your handlers.
 
 ### Why pipeline behaviors?
 
@@ -155,6 +155,7 @@ class LoggingBehavior(PipelineBehavior[Request]):
 services = Services()
 services.add(LoggingBehavior())      # Applied to all requests automatically
 services.add(CreateUserHandler())
+
 mediator = Mediator(services.provider())
 
 # 5. Send requests - behaviors automatically wrap the handler

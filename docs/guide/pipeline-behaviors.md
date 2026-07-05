@@ -594,29 +594,6 @@ class AuditBehavior(PipelineBehavior[Request]):
             raise
 ```
 
-### 2. Authentication and authorization
-
-```python
-class AuthorizationBehavior(PipelineBehavior[Request]):
-    """Checks if user has permission to execute request."""
-
-    def __init__(self, permission_service):
-        self.permissions = permission_service
-
-    def __call__(self, request, next):
-        # Check if request has required_permission attribute
-        if hasattr(request, 'required_permission'):
-            user_id = request.user_id  # Assume all requests have user_id
-            permission = request.required_permission
-
-            if not self.permissions.has_permission(user_id, permission):
-                raise PermissionError(
-                    f"User {user_id} lacks permission: {permission}"
-                )
-
-        return next()
-```
-
 ### 3. Rate limiting
 
 ```python
@@ -629,8 +606,9 @@ class RateLimitBehavior(PipelineBehavior[Request]):
         self.window = window  # seconds
 
     def __call__(self, request, next):
-        user_id = getattr(request, 'user_id', 'anonymous')
-        key = f"rate_limit:{user_id}"
+        principal = get_current_principal()
+
+        key = f"rate_limit:{principal.id}"
 
         # Get current count
         current = int(self.redis.get(key) or 0)
@@ -698,9 +676,9 @@ class ResponseEnrichmentBehavior(PipelineBehavior[Request]):
 class ConditionalBehavior(PipelineBehavior[Request]):
     """Only executes inner logic for certain request types."""
 
-    def __init__(self, predicate, inner_behavior):
+    def __init__(self, predicate, behaviour):
         self.predicate = predicate
-        self.inner_behavior = inner_behavior
+        self.inner_behavior = behaviour
 
     def __call__(self, request, next):
         if self.predicate(request):
@@ -755,23 +733,6 @@ class CircuitBreakerBehavior(PipelineBehavior[Request]):
                 self.state = 'OPEN'
 
             raise
-```
-
-### Decorator pattern
-
-```python
-class BehaviorDecorator(PipelineBehavior[Request]):
-    """Wraps another behavior with additional functionality."""
-
-    def __init__(self, inner_behavior, logger):
-        self.inner = inner_behavior
-        self.logger = logger
-
-    def __call__(self, request, next):
-        self.logger.info(f"Before {type(self.inner).__name__}")
-        response = self.inner(request, next)
-        self.logger.info(f"After {type(self.inner).__name__}")
-        return response
 ```
 
 ## Testing behaviors

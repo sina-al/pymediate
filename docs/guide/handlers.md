@@ -898,31 +898,6 @@ class GetProductsHandler(Handler[GetProductsRequest]):
         return GetProductsResponse(products=products, total=total)
 ```
 
-### Result pattern (success/failure)
-
-```python
-@dataclass
-class Result[T]:
-    success: bool
-    data: T | None
-    error: str | None
-
-@dataclass
-class ProcessPaymentResponse:
-    result: Result[Payment]
-
-class ProcessPaymentHandler(Handler[ProcessPaymentRequest]):
-    def __call__(self, request: ProcessPaymentRequest) -> ProcessPaymentResponse:
-        try:
-            payment = self.payment_service.charge(request.amount)
-            return ProcessPaymentResponse(
-                result=Result(success=True, data=payment, error=None)
-            )
-        except PaymentError as e:
-            return ProcessPaymentResponse(
-                result=Result(success=False, data=None, error=str(e))
-            )
-```
 
 ### [Decorator pattern](https://en.wikipedia.org/wiki/Decorator_pattern) (handler wrapping)
 
