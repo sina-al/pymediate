@@ -9,7 +9,7 @@ export function DispatchFlow() {
     <div className="overflow-x-auto">
       <svg
         viewBox="0 0 760 168"
-        className="w-full min-w-[640px]"
+        className="w-full min-w-160"
         role="img"
         aria-label="A CreateUser request flows through the mediator and pipeline behaviors to its handler, and the typed response returns"
         style={{ fontFamily: 'var(--font-mono)' }}

@@ -25,7 +25,7 @@ export async function CodeWindow({
           {...props}
           className={cn(
             'shiki overflow-x-auto p-4 text-[13px] leading-relaxed',
-            'bg-[var(--shiki-light-bg)] dark:bg-[var(--shiki-dark-bg)]',
+            'bg-(--shiki-light-bg) dark:bg-(--shiki-dark-bg)',
           )}
         />
       ),
