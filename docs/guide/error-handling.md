@@ -89,11 +89,11 @@ the `http_status` attribute — pins your core to one transport.
 
 ### Why this matters
 
-The coupling costs nothing on the day you write it. It sends the bill the day you try to
-reuse the core — which is the whole reason the core exists. Suppose the shop needs a second
+The coupling costs nothing on the day you write it. The bill arrives the day you try to
+reuse the core — and reuse is the reason the core exists. Suppose the shop needs a second
 entry point: a nightly batch script that replays failed orders from a partner's CSV feed.
-`PlaceOrderHandler` is just a class, so this should be the mediator pattern's easiest win —
-point a new script at the same `mediator.send()` call and go home. You write it and run it.
+`PlaceOrderHandler` is just a class, so this should be the mediator pattern's easiest win.
+Point a new script at the same `mediator.send()` call and go home.
 
 ```
 $ python replay_orders.py
@@ -107,22 +107,22 @@ fastapi.exceptions.HTTPException: 404: Product not found
 ```
 
 A batch script just failed with an HTTP error. There's no server in this program, no client,
-no request — nothing a 404 could be sent *to* — yet there it is at the bottom of the
-traceback. Look at what it took to get even this far: `replay_orders.py` can't run without
-FastAPI installed, because the domain can't say "product not found" without it. To catch the
-error and skip the row, the batch script must `import fastapi` too. A CSV-processing job now
-carries a web framework as a load-bearing dependency, and every future entry point — the
-queue consumer, the admin CLI, the test suite — inherits the same passenger.
+no request — nothing a 404 could be sent *to* — and yet there it sits at the bottom of the
+traceback. And the traceback is only the visible symptom. The script can't run at all until
+FastAPI is installed, because the domain can't say "product not found" without it. To catch
+the error and skip the bad row, the script has to `import fastapi` too. A CSV-processing job
+now hauls a web framework around as a load-bearing dependency — and so does every entry
+point you add after it: the queue consumer, the admin CLI, the test suite.
 
-Swapping frameworks is where it fully unravels: migrating FastAPI to Flask should mean
-rewriting routes, but your *handlers* raise `fastapi.exceptions.HTTPException`, so the
-migration now reaches into the domain layer — the one part of the codebase the architecture
-promised would never care.
+Swapping frameworks is where the coupling turns from absurd to blocking. Migrating from
+FastAPI to Flask should mean rewriting routes. Instead it means rewriting handlers, because
+they raise `fastapi.exceptions.HTTPException` — the migration reaches into the domain layer,
+the one part of the codebase the architecture promised would never care.
 
-That's the real cost: the leak doesn't hurt where you wrote it, it hurts everywhere you
-planned to go next. Keep transport out of the domain and every new edge is just a new
-translation; let it in and every new edge inherits a framework it has no use for. Which
-raises the practical question — where should that translation live?
+That's the real cost. The leak doesn't hurt where you wrote it; it hurts everywhere you
+planned to go next. Keep transport out of the domain, and every new edge is just a new
+translation. Let it in, and every new edge inherits a framework it has no use for. That
+leaves one practical question: where should the translation live?
 
 ## Mapping domain errors at the edge
 
