@@ -6,19 +6,19 @@ The Mediator is the central orchestrator in PyMediate. It receives requests and 
 
 The Mediator is a simple but powerful class that:
 
-1. **Receives requests** from your application (API, CLI, etc.)
-2. **Finds the appropriate handler** using a service provider
-3. **Executes the handler** with the request
-4. **Returns the response** back to the caller
+1. **Receives requests** from your application (API, CLI, etc.).
+2. **Finds the appropriate handler** using a service provider.
+3. **Executes the handler** with the request.
+4. **Returns the response** back to the caller.
 
 ```python
 from pymediate import Mediator, Services
 
-# Create resolver with handlers
+# Register handlers with a service collection
 services = Services()
 services.add(CreateUserHandler(database))
 
-# Create mediator
+# Build the mediator from a ServiceProvider
 mediator = Mediator(services.provider())
 
 # Send request
@@ -107,19 +107,21 @@ def test_create_user_handler():
 
 ### 4. Flexibility
 
-Change handler implementations without affecting callers.
+Change how handlers are resolved without changing how they're called.
 
 ```python
-# Start with simple resolver
+# Start with Services
 services = Services()
 services.add(SimpleUserHandler(database))
+provider = services.provider()
 
-# Later, switch to DI container
+# Later, switch to a DI container - ServiceProvider is a protocol,
+# so Mediator doesn't care which implementation it's given
 from pymediate.providers import DependencyInjectorServiceProvider
 provider = DependencyInjectorServiceProvider(container)
 
 # Mediator usage stays the same!
-mediator = Mediator(services.provider())
+mediator = Mediator(provider)
 response = mediator.send(GetUserRequest(user_id=123))
 ```
 
@@ -151,7 +153,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         user_id = self.database.create_user(request.username, request.email)
         return CreateUserResponse(user_id=user_id, username=request.username)
 
-# 3. Setup resolver
+# 3. Register handlers
 services = Services()
 services.add(CreateUserHandler(database))
 
@@ -171,7 +173,8 @@ print(f"Created user {response.username} with ID {response.user_id}")
 
 ### Type safety
 
-The mediator preserves type information.
+The mediator preserves type information: `send()` infers its return type from the
+request's `Request[ResponseT]` parameter.
 
 ```python
 # Type checker knows response is CreateUserResponse
@@ -184,21 +187,25 @@ print(response.invalid)   # ❌ Type checker catches this error
 
 ## How it works
 
-### Request resolution flow
+`send()` does four things, in order.
 
 ```
 1. Application sends request to mediator
    ↓
-2. Mediator asks resolver for handler
+2. Mediator looks up the handler *class* registered for this request type
+   (recorded automatically when the Handler[RequestT] subclass was defined)
    ↓
-3. Resolver looks up handler by request type
+3. Mediator resolves a handler *instance* of that class from the ServiceProvider
    ↓
-4. Mediator executes handler with request
-   ↓
-5. Handler returns response
-   ↓
-6. Mediator returns response to application
+4. Mediator discovers every registered PipelineBehavior that applies to this
+   request, and either calls the handler directly (no applicable behaviors)
+   or wraps it in a Pipeline and calls that instead
 ```
+
+Step 4 is a fast path, not an optimization you opt into: if no behavior applies to a
+request, the mediator calls the handler directly, with zero pipeline-construction
+overhead. See [Pipeline behaviors](pipeline-behaviors.md) for how behaviors are matched
+and ordered.
 
 ### Example with multiple handlers
 
@@ -219,35 +226,17 @@ get_response = mediator.send(GetUserRequest(...))        # → GetUserHandler
 delete_response = mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
 ```
 
-### Under the hood
+## Async handlers
+
+Async handlers use a separate mediator: `pymediate.aio.Mediator`, paired with
+`pymediate.aio.Handler`. The async API mirrors the sync one structurally, but the two
+don't mix at runtime — a sync `Mediator` never awaits anything, so it has no way to
+detect or dispatch an `async def __call__`.
 
 ```python
-class Mediator:
-    def __init__(self, services: ServiceProvider):
-        self.services = services
+from pymediate import Request, Services
+from pymediate.aio import Handler, Mediator
 
-    def send[RequestT](self, request: RequestT):
-        # 1. Look up which handler class was registered for this request type
-        #    (recorded automatically when the Handler[RequestT] subclass was defined)
-        handler_class = registry.get_handler_class(type(request))
-
-        # 2. Resolve a handler instance from the service provider
-        handler = self.services.get(handler_class)
-
-        # 3. Execute handler
-        if inspect.iscoroutinefunction(handler.__call__):
-            return await handler(request)  # Async handler
-        else:
-            return handler(request)  # Sync handler
-```
-
-## Async support
-
-The mediator automatically detects and handles async handlers.
-
-### Async handler
-
-```python
 class FetchDataHandler(Handler[FetchDataRequest]):
     def __init__(self, http_client):
         self.http_client = http_client
@@ -255,117 +244,20 @@ class FetchDataHandler(Handler[FetchDataRequest]):
     async def __call__(self, request: FetchDataRequest) -> FetchDataResponse:
         data = await self.http_client.get(request.url)
         return FetchDataResponse(data=data)
-```
 
-### Using async with mediator
+services = Services()
+services.add(FetchDataHandler(http_client))
+mediator = Mediator(services.provider())
 
-```python
-# Mediator automatically awaits async handlers
 response = await mediator.send(FetchDataRequest(url="https://api.example.com/data"))
 ```
 
-### Mixed sync and async
-
-```python
-# Same mediator can handle both sync and async handlers
-services = Services()
-services.add(CreateUserHandler(database))  # Sync
-services.add(FetchDataHandler(http_client))  # Async
-
-mediator = Mediator(services.provider())
-
-# Sync request
-user = mediator.send(CreateUserRequest(...))
-
-# Async request
-data = await mediator.send(FetchDataRequest(...))
-```
-
-### Parallel async requests
-
-```python
-import asyncio
-
-async def fetch_dashboard(user_id: int):
-    # Execute multiple requests in parallel
-    user, orders, analytics = await asyncio.gather(
-        mediator.send(GetUserRequest(user_id=user_id)),
-        mediator.send(GetOrdersRequest(user_id=user_id)),
-        mediator.send(GetAnalyticsRequest(user_id=user_id))
-    )
-
-    return DashboardData(user=user, orders=orders, analytics=analytics)
-```
-
-## Request lifecycle
-
-### 1. Request creation
-
-```python
-# Application creates request
-request = CreateUserRequest(username="alice", email="alice@example.com")
-```
-
-### 2. Pipeline behaviors (optional middleware)
-
-Pipeline behaviors are automatically discovered and applied to wrap request processing.
-
-```python
-from pymediate import Request, PipelineBehavior
-
-# Define universal behavior - applies to all requests
-class LoggingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
-        print(f"Handling {type(request).__name__}")
-        response = next()
-        print(f"Completed {type(request).__name__}")
-        return response
-
-# Register behaviors - they're automatically applied to matching requests
-services = Services()
-services.add(LoggingBehavior())  # Auto-discovered! Applies to all requests
-services.add(CreateUserHandler())
-```
-
-### 3. Behavior and handler resolution
-
-```python
-# Mediator resolves handler from registry
-handler = self.services.get(handler_class)
-
-# Mediator automatically discovers all registered behaviors
-behaviors = self.services.get_all(PipelineBehavior)
-```
-
-### 4. Pipeline construction
-
-```python
-# If behaviors exist, mediator constructs a pipeline
-if behaviors:
-    pipeline = Pipeline(behaviors, handler)
-else:
-    # Fast path: call handler directly
-    response = handler(request)
-```
-
-### 5. Request processing
-
-```python
-# Pipeline executes behaviors in order, then handler
-response = pipeline(request)
-
-# Execution flow:
-# request → behavior1 → behavior2 → handler → response
-#                                      ↓
-#         behavior1 ← behavior2 ← handler
-```
-
-### 6. Response return
-
-```python
-# Mediator returns response to caller
-return response
-```
+An application can use both variants side by side — a sync `Mediator` for sync handlers
+and a `pymediate.aio.Mediator` for async ones — but each request goes through the
+mediator that matches its handler; there's no single mediator that routes to either
+kind. See [Async/await support](../examples/async.md) for a fuller walkthrough,
+including async pipeline behaviors and running requests concurrently with
+`asyncio.gather`.
 
 ## Error handling
 
@@ -378,10 +270,12 @@ try:
     response = mediator.send(UnregisteredRequest())
 except HandlerNotFoundError as e:
     print(f"No handler for request: {e.request_type}")
-    print(f"Available handlers: {e.available_handlers}")
 ```
 
 ### Handler errors
+
+Handlers raise ordinary exceptions, and `send()` lets them propagate unchanged - the
+mediator itself never catches or wraps them.
 
 ```python
 class CreateUserHandler(Handler[CreateUserRequest]):
@@ -399,29 +293,17 @@ except ValueError as e:
     print(f"Validation error: {e}")
 ```
 
-### Custom error-handling mediator
+See [Error handling](error-handling.md) for how to keep these domain errors independent
+of whatever framework sits at the edge of your application.
 
-```python
-class ErrorHandlingMediator(Mediator):
-    def __init__(self, resolver, logger):
-        super().__init__(resolver)
-        self.logger = logger
+## Composing behaviors instead of subclassing
 
-    def send[RequestT](self, request: RequestT):
-        try:
-            return super().send(request)
-        except Exception as e:
-            self.logger.error(f"Error handling {type(request).__name__}: {e}")
-            raise
-```
-
-## Advanced patterns
-
-### Mediator with pipeline behaviors
-
-Pipeline behaviors provide a clean, composable way to add middleware to your mediator without subclassing. Behaviors are automatically discovered and applied to every request.
-
-#### Simple example
+`Mediator` isn't designed to be subclassed - there's no protected hook for it, and
+`send()`'s behavior isn't meant to vary between instances. If you need logging, timing,
+validation, or any other cross-cutting concern, register a
+[pipeline behavior](pipeline-behaviors.md) instead. Behaviors are auto-discovered from
+the same `Services`/`ServiceProvider` as handlers, so nothing about the mediator itself
+needs to change.
 
 ```python
 from pymediate import Request, PipelineBehavior, Services, Mediator
@@ -456,7 +338,7 @@ mediator = Mediator(services.provider())
 response = mediator.send(CreateUserRequest(username="alice"))
 ```
 
-#### With error handling
+Behaviors compose the same way for error handling and validation.
 
 ```python
 class ErrorHandlingBehavior(PipelineBehavior[Request]):
@@ -484,16 +366,7 @@ services.add(CreateUserHandler())
 mediator = Mediator(services.provider())
 ```
 
-#### Why this approach
-
-- No subclassing required.
-- Behaviors are reusable across projects.
-- Clear separation of concerns.
-- Easy to test behaviors in isolation.
-- Works with DI container scopes.
-- Zero overhead when no behaviors are registered.
-
-#### Execution order
+Registration order sets execution order, outermost first.
 
 ```
 Request
@@ -507,24 +380,11 @@ Request
   ← ErrorHandling (catches any errors)
 ```
 
-See [Pipeline Behaviors Guide](pipeline-behaviors.md) for comprehensive documentation.
-
-### Transaction mediator
-
-```python
-class TransactionMediator(Mediator):
-    def __init__(self, resolver, database):
-        super().__init__(resolver)
-        self.database = database
-
-    def send[RequestT](self, request: RequestT):
-        # Start transaction for commands
-        if isinstance(request, Command):  # Assuming Command base class
-            with self.database.transaction():
-                return super().send(request)
-        else:
-            return super().send(request)
-```
+This gets you everything a subclass would - shared setup, teardown, error handling -
+without a bespoke `Mediator` subclass for every deployment to keep in sync. Behaviors
+are also independently testable, reusable across projects, and free to skip entirely
+in a setting that doesn't need them. See
+[Pipeline behaviors](pipeline-behaviors.md) for the full guide.
 
 ## Testing with mediator
 
@@ -676,23 +536,7 @@ class OrderHandler(Handler[CreateOrderRequest]):
         self.email_handler(SendEmailRequest(...))  # Inconsistent
 ```
 
-### 4. Keep mediator simple
-
-```python
-# ✅ Good: Simple mediator, complex logic in handlers
-mediator = Mediator(services.provider())
-
-# ❌ Bad: Complex mediator with business logic
-class BusinessLogicMediator(Mediator):
-    def send(self, request):
-        if isinstance(request, CreateUserRequest):
-            # Validate email
-            if '@' not in request.email:  # Business logic in mediator!
-                raise ValueError("Invalid email")
-        return super().send(request)
-```
-
-### 5. Use type hints
+### 4. Use type hints
 
 ```python
 # ✅ Good: Full type hints
@@ -825,7 +669,8 @@ class Query:
 
 ## Next steps
 
-- Learn about [Dependency Injection](dependency-injection.md) - How to wire up handlers
-- Explore [Handlers](handlers.md) - Writing handler implementations
-- See [Error Handling](error-handling.md) - Handling errors gracefully
-- Read [Examples](../examples/basic.md) - Real-world usage examples
+- Learn about [Dependency Injection](dependency-injection.md) - How to wire up handlers.
+- Explore [Handlers](handlers.md) - Writing handler implementations.
+- See [Error handling](error-handling.md) - Domain vs. framework errors and where to map them.
+- Read [Async/await support](../examples/async.md) - The `pymediate.aio` mediator and handlers.
+- Read [Examples](../examples/basic.md) - Real-world usage examples.

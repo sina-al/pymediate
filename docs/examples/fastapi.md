@@ -145,7 +145,7 @@ async def get_profile(user_id: int, mediator: AsyncMediator = Depends(get_async_
     return {"user_id": response.user_id, "bio": response.bio}
 ```
 
-See [Async/await support](async.md) for more on choosing between the sync and async APIs, and [Mediator: mixed sync and async](../guide/mediator.md#mixed-sync-and-async) for why request types and their handlers are matched one-to-one.
+See [Async/await support](async.md) for more on choosing between the sync and async APIs, and [Mediator: async handlers](../guide/mediator.md#async-handlers) for why a sync and an async mediator never route to each other's handlers.
 
 ## Next steps
 
