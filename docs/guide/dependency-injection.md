@@ -12,7 +12,7 @@ See [Installation](../getting-started/installation.md) for other package manager
 
 ## Basic setup
 
-`DependencyInjectorServiceProvider` wraps a `dependency-injector` container and implements PyMediate's `ServiceProvider` protocol, so you can hand it to `Mediator` in place of `Services.provider()`. It resolves handlers by their concrete type using type inspection — the provider's name in the container doesn't matter:
+`DependencyInjectorServiceProvider` wraps a `dependency-injector` container and implements PyMediate's `ServiceProvider` [protocol](https://docs.python.org/3/library/typing.html#typing.Protocol), so you can hand it to `Mediator` in place of `Services.provider()`. It resolves handlers by their concrete type using type inspection — the provider's name in the container doesn't matter:
 
 ```python
 from dependency_injector import containers, providers

@@ -1,10 +1,64 @@
 # Quick start
 
-This guide gets you started with PyMediate in 5 minutes.
+This guide gets you started with PyMediate in 5 minutes: define a request and response, write a handler, wire it up, and send it through a mediator.
+
+## The complete picture
+
+Here's a full, runnable user-creation feature in one file:
+
+```python
+from dataclasses import dataclass
+from pymediate import Request, Handler, Mediator, Services
+
+# 1. Define response
+@dataclass
+class UserCreated:
+    user_id: int
+    username: str
+    email: str
+
+# 2. Define request
+@dataclass
+class CreateUser(Request[UserCreated]):
+    username: str
+    email: str
+
+# 3. Create handler
+class CreateUserHandler(Handler[CreateUser]):
+    def __init__(self):
+        self.next_id = 1
+        self.users = {}
+
+    def __call__(self, request: CreateUser) -> UserCreated:
+        user_id = self.next_id
+        self.next_id += 1
+
+        self.users[user_id] = {
+            'username': request.username,
+            'email': request.email
+        }
+
+        return UserCreated(
+            user_id=user_id,
+            username=request.username,
+            email=request.email
+        )
+
+# 4. Set up mediator
+services = Services()
+services.add(CreateUserHandler())
+provider = services.provider()
+mediator = Mediator(provider)
+
+# 5. Use it
+response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
+print(f"Created user {response.username} with ID {response.user_id}")
+# Output: Created user alice with ID 1
+```
+
+The rest of this page walks through each of those five numbered pieces.
 
 ## Your first mediator
-
-Let's build a simple user creation feature using PyMediate.
 
 ### Step 1: Define your response
 
@@ -94,59 +148,6 @@ response = mediator.send(request)
 # Use the response
 print(f"Created user {response.username} with ID {response.user_id}")
 # Output: Created user alice with ID 1
-```
-
-## Complete example
-
-Here's the complete code in one file:
-
-```python
-from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
-
-# 1. Define response
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-    email: str
-
-# 2. Define request
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
-
-# 3. Create handler
-class CreateUserHandler(Handler[CreateUser]):
-    def __init__(self):
-        self.next_id = 1
-        self.users = {}
-
-    def __call__(self, request: CreateUser) -> UserCreated:
-        user_id = self.next_id
-        self.next_id += 1
-
-        self.users[user_id] = {
-            'username': request.username,
-            'email': request.email
-        }
-
-        return UserCreated(
-            user_id=user_id,
-            username=request.username,
-            email=request.email
-        )
-
-# 4. Set up mediator
-services = Services()
-services.add(CreateUserHandler())
-provider = services.provider()
-mediator = Mediator(provider)
-
-# 5. Use it
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-print(f"Created user {response.username} with ID {response.user_id}")
 ```
 
 ## Type safety in action

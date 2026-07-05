@@ -2,19 +2,6 @@
 
 Handlers are the core execution units in PyMediate. They contain your business logic and are completely independent from each other and from the infrastructure that invokes them.
 
-## Table of contents
-
-- [What are handlers?](#what-are-handlers)
-- [Handler independence](#handler-independence)
-- [Basic handler structure](#basic-handler-structure)
-- [Async handlers](#async-handlers)
-- [Deployment flexibility](#deployment-flexibility)
-- [Stateful vs stateless](#stateful-vs-stateless)
-- [Handler composition](#handler-composition)
-- [Testing strategies](#testing-strategies)
-- [Best practices](#best-practices)
-- [Common patterns](#common-patterns)
-
 ## What are handlers?
 
 A handler is a class that implements the `Handler[RequestType]` protocol. Its sole responsibility is to process a specific type of request and return a response.
@@ -861,7 +848,7 @@ class Handler(Handler[MyRequest]):
 
 ## Common patterns
 
-### Command pattern (no response needed)
+### [Command pattern](https://en.wikipedia.org/wiki/Command_pattern) (no response needed)
 
 ```python
 @dataclass
@@ -937,7 +924,7 @@ class ProcessPaymentHandler(Handler[ProcessPaymentRequest]):
             )
 ```
 
-### Decorator pattern (handler wrapping)
+### [Decorator pattern](https://en.wikipedia.org/wiki/Decorator_pattern) (handler wrapping)
 
 ```python
 class LoggingHandlerDecorator[T](Handler[T]):
@@ -962,7 +949,7 @@ handler = LoggingHandlerDecorator(
 )
 ```
 
-### Pipeline pattern (multi-step)
+### [Pipeline pattern](https://en.wikipedia.org/wiki/Pipeline_(software)) (multi-step)
 
 ```python
 class PipelineHandler(Handler[PipelineRequest]):

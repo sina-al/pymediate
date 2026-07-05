@@ -28,7 +28,7 @@ class UserCreated:
 
 ## Framework independence: The hexagonal architecture principle
 
-One of the most powerful aspects of the request/response pattern is **framework independence**. Your core application logic should not depend on Flask, FastAPI, Django, or any other framework.
+One of the most powerful aspects of the request/response pattern is **framework independence**. Your core application logic should not depend on [Flask](https://flask.palletsprojects.com/en/stable/), [FastAPI](https://fastapi.tiangolo.com/), [Django](https://www.djangoproject.com/), or any other framework.
 
 ### The problem with framework-coupled code
 
@@ -284,7 +284,7 @@ Notice how:
 4. **Easy testing.** Test business logic without any framework.
 5. **Mix and match.** Use Flask for web, Kafka for async, Lambda for events.
 
-This is the essence of **Hexagonal Architecture** (also called Ports and Adapters):
+This is the essence of [**Hexagonal Architecture**](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)) (also called Ports and Adapters — see also [AWS's guide to the pattern](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/hexagonal-architecture.html)):
 
 - **Core (domain)**: Your requests, handlers, business logic
 - **Ports**: The `Mediator` interface
@@ -784,5 +784,6 @@ app/
 ## See also
 
 - [Handlers](handlers.md) - Implementing business logic
-- [Hexagonal Architecture](../advanced/best-practices.md) - Architectural patterns
+- [Hexagonal architecture (Wikipedia)](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)) - Background on Ports and Adapters
+- [Hexagonal architecture (AWS Prescriptive Guidance)](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/hexagonal-architecture.html) - A practical walkthrough of the same pattern
 - [Testing](../advanced/testing.md) - Testing strategies

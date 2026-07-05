@@ -2,20 +2,6 @@
 
 The Mediator is the central orchestrator in PyMediate. It receives requests and routes them to the appropriate handlers, eliminating direct dependencies between components.
 
-## Table of contents
-
-- [What is the mediator?](#what-is-the-mediator)
-- [Why use the mediator pattern?](#why-use-the-mediator-pattern)
-- [Basic usage](#basic-usage)
-- [How it works](#how-it-works)
-- [Async support](#async-support)
-- [Request lifecycle](#request-lifecycle)
-- [Error handling](#error-handling)
-- [Advanced patterns](#advanced-patterns)
-- [Testing with mediator](#testing-with-mediator)
-- [Best practices](#best-practices)
-- [Common use cases](#common-use-cases)
-
 ## What is the mediator?
 
 The Mediator is a simple but powerful class that:

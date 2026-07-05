@@ -2,21 +2,6 @@
 
 PyMediate provides a comprehensive error handling system with helpful error messages, documentation links, and best practices for managing errors in your application.
 
-## Table of contents
-
-- [Error philosophy](#error-philosophy)
-- [Built-in error types](#built-in-error-types)
-- [Handling errors](#handling-errors)
-- [Custom error types](#custom-error-types)
-- [Error messages](#error-messages)
-- [Error propagation](#error-propagation)
-- [Validation errors](#validation-errors)
-- [Domain errors](#domain-errors)
-- [Result types](#result-types)
-- [Error recovery](#error-recovery)
-- [Testing error cases](#testing-error-cases)
-- [Best practices](#best-practices)
-
 ## Error philosophy
 
 PyMediate follows these principles for error handling:

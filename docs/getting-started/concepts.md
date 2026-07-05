@@ -51,7 +51,7 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 
 ## Pipeline behaviors
 
-**Pipeline behaviors.** Pipeline behaviors are middleware that automatically wrap around request processing. They enable cross-cutting concerns like logging, validation, caching, and error handling without modifying your handlers.
+**Pipeline behaviors.** Pipeline behaviors are [middleware](https://en.wikipedia.org/wiki/Middleware) that automatically wrap around request processing. They enable cross-cutting concerns like logging, validation, caching, and error handling without modifying your handlers.
 
 ### Why pipeline behaviors?
 

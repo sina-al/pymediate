@@ -2,23 +2,9 @@
 
 Pipeline behaviors are middleware components that wrap around request processing, enabling clean implementation of cross-cutting concerns without modifying your handler code.
 
-## Table of contents
-
-- [What are pipeline behaviors?](#what-are-pipeline-behaviors)
-- [When to use pipeline behaviors](#when-to-use-pipeline-behaviors)
-- [Basic behavior structure](#basic-behavior-structure)
-- [Creating behaviors](#creating-behaviors)
-- [Chaining multiple behaviors](#chaining-multiple-behaviors)
-- [Async behaviors](#async-behaviors)
-- [Common use cases](#common-use-cases)
-- [Behavior patterns](#behavior-patterns)
-- [Testing behaviors](#testing-behaviors)
-- [Best practices](#best-practices)
-- [Integration with mediator](#integration-with-mediator)
-
 ## What are pipeline behaviors?
 
-Pipeline behaviors are inspired by **MediatR's IPipelineBehavior** pattern from the .NET ecosystem. They provide a way to implement middleware-like functionality that wraps around your request handlers.
+Pipeline behaviors are inspired by [MediatR](https://github.com/jbogard/MediatR)'s `IPipelineBehavior` pattern from the .NET ecosystem. They provide a way to implement middleware-like functionality that wraps around your request handlers.
 
 ### Key characteristics
 
@@ -65,7 +51,7 @@ Use pipeline behaviors for **cross-cutting concerns** - functionality that appli
 
 ## Basic behavior structure
 
-A pipeline behavior inherits from the `PipelineBehavior` ABC and specifies which requests it applies to:
+A pipeline behavior inherits from the `PipelineBehavior` [ABC](https://docs.python.org/3/library/abc.html) and specifies which requests it applies to:
 
 ```python
 from collections.abc import Callable
@@ -731,7 +717,7 @@ logging_for_commands = ConditionalBehavior(
 )
 ```
 
-### Circuit breaker pattern
+### [Circuit breaker pattern](https://en.wikipedia.org/wiki/Circuit_breaker_design_pattern)
 
 ```python
 class CircuitBreakerBehavior(PipelineBehavior[Request]):

@@ -2,22 +2,6 @@
 
 PyMediate has first-class support for Python dataclasses, making it easy to create type-safe, validated requests and responses with minimal boilerplate.
 
-## Table of contents
-
-- [Why dataclasses?](#why-dataclasses)
-- [Basic usage](#basic-usage)
-- [Request dataclasses](#request-dataclasses)
-- [Response dataclasses](#response-dataclasses)
-- [Advanced features](#advanced-features)
-- [Validation](#validation)
-- [Frozen dataclasses](#frozen-dataclasses)
-- [Nested dataclasses](#nested-dataclasses)
-- [Default values and factories](#default-values-and-factories)
-- [Dataclass mixins](#dataclass-mixins)
-- [Testing with dataclasses](#testing-with-dataclasses)
-- [Best practices](#best-practices)
-- [Common patterns](#common-patterns)
-
 ## Why dataclasses?
 
 Dataclasses provide several benefits for PyMediate applications:

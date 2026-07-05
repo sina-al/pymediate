@@ -16,24 +16,24 @@
 
 ## What is PyMediate?
 
-PyMediate is a modern, type-safe implementation of the [mediator pattern](https://refactoring.guru/design-patterns/mediator) for Python. It routes requests to their handlers without coupling the two together, so you get a clean, decoupled application.
+PyMediate is a modern, type-safe implementation of the [mediator pattern](https://en.wikipedia.org/wiki/Mediator_pattern) for Python. It routes requests to their handlers without coupling the two together, so you get a clean, decoupled application.
 
 ## Key features
 
 🎯 **Type-safe**
-:   Runtime validation of handler signatures, with full static type checking support via mypy.
+:   Runtime validation of handler signatures, with full static type checking support via [mypy](https://mypy.readthedocs.io/).
 
 🔌 **Dependency injection ready**
-:   Built-in support for `dependency-injector`, with automatic handler discovery.
+:   Built-in support for [`dependency-injector`](https://python-dependency-injector.ets-labs.org/), with automatic handler discovery.
 
-🔄 **Async/await support**
+🔄 **[Async/await](https://docs.python.org/3/library/asyncio-task.html) support**
 :   First-class async handlers and mediators via `pymediate.aio`.
 
 🧪 **Well tested**
 :   135+ tests with 96%+ code coverage.
 
 🚀 **Modern Python**
-:   Built for Python 3.12+ using PEP 695 type parameter syntax.
+:   Built for Python 3.12+ using [PEP 695](https://peps.python.org/pep-0695/) type parameter syntax.
 
 ## Quick example
 
@@ -100,7 +100,7 @@ The mediator pattern helps you:
 
 - **Decouple.** Handlers don't need to know about each other.
 - **Test easily.** Mock the mediator to test consumers in isolation.
-- **Follow CQRS.** Separate commands from queries naturally.
+- **Follow [CQRS](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs).** Separate commands from queries naturally.
 - **Scale cleanly.** Add new handlers without changing existing code.
 - **Maintain more easily.** Keep a clear separation of concerns.
 
@@ -111,7 +111,7 @@ Unlike other mediator implementations, PyMediate:
 1. **Uses type inspection, not naming conventions.** Handler providers can have any name.
 2. **Infers the response type automatically.** Specify it once, in the request.
 3. **Validates at class-definition time.** Catch errors before runtime, not after.
-4. **Supports pure dataclasses.** Use `Request[T]` inheritance for clean, simple code.
+4. **Supports pure [dataclasses](https://docs.python.org/3/library/dataclasses.html).** Use `Request[T]` inheritance for clean, simple code.
 5. **Provides first-class async/await support.** Async handlers and mediators via `pymediate.aio`.
 6. **Works with modern Python.** Uses PEP 695 type parameters for cleaner generics.
 

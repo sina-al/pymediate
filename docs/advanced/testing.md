@@ -81,7 +81,7 @@ def test_place_order_sends_expected_requests():
 
 ## Testing async handlers
 
-Async handlers are `async def __call__` methods, so test them with `pytest.mark.asyncio` like any other coroutine — direct calls and mediator calls both work the same way as the sync case:
+Async handlers are `async def __call__` methods, so test them with [pytest](https://docs.pytest.org/)'s `pytest.mark.asyncio` like any other coroutine — direct calls and mediator calls both work the same way as the sync case:
 
 ```python
 import pytest
