@@ -61,13 +61,12 @@ tag. Don't do it silently as part of a larger task.
    falling back to plain git-cliff if that tag somehow already exists. Skim the new
    `CHANGELOG.md` entry after running it — confirm it's headed `## [X.Y.Z] - <date>`, not
    `## [Unreleased]`, and that nothing landed in the catch-all "Other" group that should've been
-   categorized. This same run also regenerates `docs/changelog.md` from the same output (see
-   `write_docs_mirror()` in `scripts/generate_changelog.py`) — don't hand-edit that file.
+   categorized.
 
 4. **Review and commit:**
    ```bash
    git diff
-   git add pyproject.toml src/pymediate/__init__.py CHANGELOG.md docs/changelog.md uv.lock
+   git add pyproject.toml src/pymediate/__init__.py CHANGELOG.md uv.lock
    git commit -m "chore(release): vX.Y.Z"
    git push origin main
    ```
@@ -99,8 +98,6 @@ tag. Don't do it silently as part of a larger task.
    - `CHANGELOG.md` on `main` has a real `## [X.Y.Z] - <date>` section for this release (not
      still sitting under `## [Unreleased]`) — this is the step 3 check again, but re-confirm it
      post-push since that's the actual persisted file readers see.
-   - `docs/changelog.md` matches the root `CHANGELOG.md` — both come from the same
-     `poe changelog` run in step 3, so this should already be true; spot-check it wasn't missed.
    - Optionally, in a scratch venv: `pip install pymediate==X.Y.Z` and a quick smoke import.
 
 ## If something fails partway
