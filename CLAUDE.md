@@ -122,12 +122,9 @@ Existing ADRs (0001, 0002) were authored by Claude and reviewed by @sina-al (rep
 handle) — continue that pattern for anything touching public API shape, generics design, or
 breaking changes. Use the `/adr` skill to scaffold a new one.
 
-@.claude/context/adr-index.md
-
-Generated from `docs/adr/*.md` by `uv run poe context:update` (`scripts/update_context.py`); run
-`uv run poe context:check` to confirm it isn't stale. Don't hand-edit that file. Note ADR 0002
-revisits and overturns part of ADR 0001's decision — read both before assuming either alone is
-current.
+ADR 0002 revisits and overturns part of ADR 0001's decision (0001 rejected a single type
+parameter for `PipelineBehavior`; 0002 later adopted one for the narrower case of selective
+behaviors) — read both before assuming either alone reflects the current design.
 
 ## Versioning
 

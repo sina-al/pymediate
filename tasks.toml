@@ -104,10 +104,10 @@ install.cmd = "uv sync --all-extras --group test"
 "update-uv:check".help = "Check whether the pinned uv version is behind the latest release"
 "update-uv:check".cmd = "python3 scripts/update_uv.py --check"
 
-"context:update".help = "Regenerate CLAUDE.md's generated context files (API signatures, ADR index)"
+"context:update".help = "Regenerate CLAUDE.md's API signatures block from src/pymediate/"
 "context:update".cmd = "python3 scripts/update_context.py"
 
-"context:check".help = "Fail if any generated context file imported into CLAUDE.md is stale"
+"context:check".help = "Fail if CLAUDE.md's API signatures block is stale"
 "context:check".cmd = "python3 scripts/update_context.py --check"
 
 clean.help = "Clean build artifacts, cache files, and coverage reports"

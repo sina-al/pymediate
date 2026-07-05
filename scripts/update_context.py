@@ -1,32 +1,24 @@
 #!/usr/bin/env python3
-"""Regenerate the generated files imported into CLAUDE.md from source.
+"""Regenerate .claude/context/api-signatures.md from src/pymediate/.
 
-Two independent generators, run together:
+Walks the public modules of src/pymediate/ with griffe (already a project dependency
+via mkdocstrings, and the same library docs/api/*.md's ``:::`` directives rely on) and
+renders a signatures-only, docstring-summary blueprint: class/function signatures with
+no implementation bodies, one-line docstring summaries, no private (``_``-prefixed)
+members, and nothing from pymediate._internal (no public API guarantees, per CLAUDE.md).
 
-- API signatures (.claude/context/api-signatures.md): walks the public modules of
-  src/pymediate/ with griffe (already a project dependency via mkdocstrings, and the
-  same library docs/api/*.md's ``:::`` directives rely on) and renders a signatures-only,
-  docstring-summary blueprint — class/function signatures with no implementation bodies,
-  one-line docstring summaries, no private (``_``-prefixed) members, and nothing from
-  pymediate._internal (no public API guarantees, per CLAUDE.md).
-- ADR index (.claude/context/adr-index.md): extracts each docs/adr/*.md's title and its
-  one-line Decision summary (the bolded "Recommendation: ..." line directly under the
-  "## Decision" heading, by this repo's ADR template), so the outcome of a past design
-  discussion is visible without opening the full document.
-
-Both outputs are entirely generated — CLAUDE.md pulls them in via Claude Code's
-``@path/to/file`` import syntax, so they're part of the loaded context without mixing
+The output file is entirely generated — CLAUDE.md pulls it in via Claude Code's
+``@path/to/file`` import syntax, so it's part of the loaded context without mixing
 generated content into the hand-written CLAUDE.md itself.
 
 Usage:
     python3 scripts/update_context.py
-    python3 scripts/update_context.py --check   # exit 1 if either file would change
+    python3 scripts/update_context.py --check   # exit 1 if the file would change
 """
 
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -34,10 +26,8 @@ import griffe
 from griffe import Alias, Class, Function, Module, ParameterKind
 
 ROOT = Path(__file__).resolve().parent.parent
+OUTPUT = ROOT / ".claude" / "context" / "api-signatures.md"
 SRC = ROOT / "src"
-ADR_DIR = ROOT / "docs" / "adr"
-SIGNATURES_OUTPUT = ROOT / ".claude" / "context" / "api-signatures.md"
-ADR_INDEX_OUTPUT = ROOT / ".claude" / "context" / "adr-index.md"
 
 # Public surface, in the order they should appear. Anything under pymediate._internal
 # is deliberately excluded (see CLAUDE.md: "no public API, no back-compat guarantees").
@@ -58,9 +48,6 @@ MODULES = [
 
 # Dunder methods worth showing on a class even though they're "private" by name.
 PUBLIC_DUNDERS = {"__init__", "__call__"}
-
-ADR_TITLE_PATTERN = re.compile(r"^#\s*ADR\s*(\d+):\s*(.+)$")
-ADR_DECISION_HEADING_PATTERN = re.compile(r"^##\s*Decision\s*$")
 
 
 def is_public(name: str) -> bool:
@@ -189,92 +176,31 @@ def build_signatures_file() -> str:
     return "\n".join(sections)
 
 
-def parse_adr(path: Path) -> tuple[str, str, str]:
-    """Return (number, title, decision_summary) for one ADR file."""
-    lines = path.read_text().splitlines()
-
-    number, title = path.stem.split("-", 1)
-    for line in lines:
-        if match := ADR_TITLE_PATTERN.match(line):
-            number, title = match.group(1), match.group(2)
-            break
-
-    decision_summary = ""
-    in_decision = False
-    for line in lines:
-        if ADR_DECISION_HEADING_PATTERN.match(line):
-            in_decision = True
-            continue
-        if in_decision:
-            if line.startswith("#"):
-                break
-            if line.strip():
-                decision_summary = line.strip()
-                break
-
-    return number, title, decision_summary
-
-
-def build_adr_index_file() -> str:
-    adr_files = sorted(ADR_DIR.glob("*.md"))
-    sections = [
-        "<!-- GENERATED FILE — do not hand-edit. -->",
-        "<!-- Regenerate with `uv run poe context:update` (see scripts/update_context.py). -->",
-        "<!-- Imported into CLAUDE.md via @.claude/context/adr-index.md. -->",
-        "",
-        "# ADR Index (generated)",
-        "",
-        "One-line-per-ADR summary of what's already been decided and why, so a past design"
-        " discussion doesn't need to be re-read in full just to check its outcome. Full"
-        " rationale, alternatives, and consequences are in each linked file.",
-        "",
-    ]
-    if not adr_files:
-        sections.append("No ADRs yet.")
-        sections.append("")
-        return "\n".join(sections)
-
-    for path in adr_files:
-        number, title, decision_summary = parse_adr(path)
-        relative = path.relative_to(ROOT)
-        sections.append(f"- **ADR {number}** ({relative}): {title}")
-        if decision_summary:
-            sections.append(f"  Decision: {decision_summary}")
-    sections.append("")
-    return "\n".join(sections)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Exit 1 if either generated file would change, without writing",
+        help="Exit 1 if the generated file would change, without writing",
     )
     args = parser.parse_args()
 
-    targets = [
-        (SIGNATURES_OUTPUT, build_signatures_file()),
-        (ADR_INDEX_OUTPUT, build_adr_index_file()),
-    ]
+    updated = build_signatures_file()
+    current = OUTPUT.read_text() if OUTPUT.exists() else None
 
-    stale = []
-    for output, updated in targets:
-        current = output.read_text() if output.exists() else None
-        if current == updated:
-            print(f"{output} already up to date.")
-            continue
-        if args.check:
-            stale.append(output)
-            continue
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(updated)
-        print(f"Updated {output}.")
+    if args.check:
+        if current != updated:
+            print(f"{OUTPUT} is stale — run `uv run poe context:update`.", file=sys.stderr)
+            sys.exit(1)
+        print(f"{OUTPUT} is up to date.")
+        return
 
-    if args.check and stale:
-        for output in stale:
-            print(f"{output} is stale — run `uv run poe context:update`.", file=sys.stderr)
-        sys.exit(1)
+    if current == updated:
+        print(f"{OUTPUT} already up to date.")
+        return
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT.write_text(updated)
+    print(f"Updated {OUTPUT}.")
 
 
 if __name__ == "__main__":
