@@ -49,7 +49,7 @@ class DependencyInjectorServiceProvider:
                 )
                 mediator = providers.Singleton(
                     Mediator,
-                    service_provider=service_provider
+                    services=service_provider
                 )
 
             container = AppContainer()

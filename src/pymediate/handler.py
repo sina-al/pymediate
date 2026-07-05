@@ -13,7 +13,7 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
     to specify the request type - the response type is automatically inferred
     from the Request[ResponseT] class definition.
 
-    The handler performs compile-time validation via __init_subclass__ to ensure:
+    The handler performs class-definition-time validation via __init_subclass__ to ensure:
     - The __call__ method exists and is properly implemented
     - The __call__ method is synchronous (not async)
     - The __call__ parameter matches the declared request type

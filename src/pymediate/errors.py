@@ -50,9 +50,9 @@ class HandlerNotFoundError(PyMediateError):
         message = (
             f"No handler registered for request type '{request_type.__name__}'\n\n"
             "💡 Possible solutions:\n"
-            "  1. Register a handler: resolver.register({request_type.__name__}, handler)\n"
+            "  1. Register a handler: services.add(your_handler_instance)\n"
             "  2. Ensure your DI container has a provider for this handler\n"
-            "  3. Verify {request_type.__name__} inherits from Request[ResponseType]"
+            f"  3. Verify {request_type.__name__} inherits from Request[ResponseType]"
         )
 
         if available_handlers:
