@@ -25,10 +25,8 @@
 ## Features
 
 - **Type safe.** Full runtime validation with mypy support.
-- **Zero convention.** No naming conventions — uses type inspection.
 - **Async/await support.** First-class async handlers and mediators via `pymediate.aio`.
 - **DI ready.** Built-in `dependency-injector` integration.
-- **Dataclass friendly.** Works seamlessly with `@dataclass` and `Request[T]` inheritance.
 - **Well tested.** Comprehensive test suite.
 
 ## Quick example

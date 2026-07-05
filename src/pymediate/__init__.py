@@ -7,10 +7,8 @@ injection frameworks.
 
 Key Features:
     - Type-safe: Full runtime validation with mypy support
-    - Zero convention: Uses type inspection instead of naming conventions
     - Async/await support: Built-in async handlers and mediators via pymediate.aio
     - DI ready: Built-in dependency-injector integration
-    - Dataclass friendly: Works seamlessly with @dataclass and Request[T]
     - Well tested: 95%+ coverage enforced in CI
 
 Quick Example:

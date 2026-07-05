@@ -23,14 +23,8 @@ PyMediate is a modern, type-safe implementation of the [mediator pattern](https:
 🎯 **Type-safe**
 :   Runtime validation of handler signatures, with full static type checking support via mypy.
 
-⚡ **Zero convention**
-:   No naming conventions required — type inspection matches handlers to requests.
-
 🔌 **Dependency injection ready**
 :   Built-in support for `dependency-injector`, with automatic handler discovery.
-
-📦 **Dataclass friendly**
-:   Works seamlessly with Python dataclasses using `Request[T]` inheritance.
 
 🔄 **Async/await support**
 :   First-class async handlers and mediators via `pymediate.aio`.
