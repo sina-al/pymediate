@@ -2,20 +2,20 @@
 
 Handlers are the core execution units in PyMediate. They contain your business logic and are completely independent from each other and from the infrastructure that invokes them.
 
-## Table of Contents
+## Table of contents
 
-- [What Are Handlers?](#what-are-handlers)
-- [Handler Independence](#handler-independence)
-- [Basic Handler Structure](#basic-handler-structure)
-- [Async Handlers](#async-handlers)
-- [Deployment Flexibility](#deployment-flexibility)
-- [Stateful vs Stateless](#stateful-vs-stateless)
-- [Handler Composition](#handler-composition)
-- [Testing Strategies](#testing-strategies)
-- [Best Practices](#best-practices)
-- [Common Patterns](#common-patterns)
+- [What are handlers?](#what-are-handlers)
+- [Handler independence](#handler-independence)
+- [Basic handler structure](#basic-handler-structure)
+- [Async handlers](#async-handlers)
+- [Deployment flexibility](#deployment-flexibility)
+- [Stateful vs stateless](#stateful-vs-stateless)
+- [Handler composition](#handler-composition)
+- [Testing strategies](#testing-strategies)
+- [Best practices](#best-practices)
+- [Common patterns](#common-patterns)
 
-## What Are Handlers?
+## What are handlers?
 
 A handler is a class that implements the `Handler[RequestType]` protocol. Its sole responsibility is to process a specific type of request and return a response.
 
@@ -46,14 +46,14 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return CreateUserResponse(user_id=user_id, username=request.username)
 ```
 
-### Key Characteristics
+### Key characteristics
 
-1. **Single Responsibility**: Each handler handles exactly one request type
-2. **Type-Safe**: Generic type `Handler[RequestType]` ensures type safety
-3. **Framework-Independent**: No dependency on web frameworks, CLI, or infrastructure
-4. **Testable**: Can be tested in isolation without infrastructure
+1. **Single responsibility.** Each handler handles exactly one request type.
+2. **Type-safe.** The generic type `Handler[RequestType]` ensures type safety.
+3. **Framework-independent.** No dependency on web frameworks, CLI, or infrastructure.
+4. **Testable.** Can be tested in isolation without infrastructure.
 
-## Handler Independence
+## Handler independence
 
 One of the most powerful features of PyMediate is that **handlers don't know about each other**. They only know about:
 
@@ -61,10 +61,10 @@ One of the most powerful features of PyMediate is that **handlers don't know abo
 - The response they return
 - Their own dependencies (database, services, etc.)
 
-### Why Independence Matters
+### Why independence matters
 
 ```python
-# ❌ BAD: Handlers calling other handlers directly
+# ❌ Bad: Handlers calling other handlers directly
 class CreateOrderHandler(Handler[CreateOrderRequest]):
     def __init__(self, create_user_handler, send_email_handler):
         self.create_user_handler = create_user_handler
@@ -76,7 +76,7 @@ class CreateOrderHandler(Handler[CreateOrderRequest]):
         self.send_email_handler(SendEmailRequest(...))
         return CreateOrderResponse(...)
 
-# ✅ GOOD: Handlers using the mediator
+# ✅ Good: Handlers using the mediator
 class CreateOrderHandler(Handler[CreateOrderRequest]):
     def __init__(self, mediator, database):
         self.mediator = mediator
@@ -91,17 +91,17 @@ class CreateOrderHandler(Handler[CreateOrderRequest]):
         return CreateOrderResponse(order_id=order_id)
 ```
 
-### Benefits of Independence
+### Benefits of independence
 
-1. **Change Deployment Without Breaking System**: Move a handler from synchronous API to async cloud function without affecting other handlers
-2. **Independent Evolution**: Update one handler's implementation without touching others
-3. **Easy Testing**: Test each handler in isolation
-4. **Parallel Development**: Different teams can work on different handlers
-5. **Reusability**: Use the same handler in different contexts (web, CLI, batch jobs)
+1. **Change deployment without breaking the system.** Move a handler from a synchronous API to an async cloud function without affecting other handlers.
+2. **Independent evolution.** Update one handler's implementation without touching others.
+3. **Easy testing.** Test each handler in isolation.
+4. **Parallel development.** Different teams can work on different handlers.
+5. **Reusability.** Use the same handler in different contexts (web, CLI, batch jobs).
 
-## Basic Handler Structure
+## Basic handler structure
 
-### Minimal Handler
+### Minimal handler
 
 ```python
 class SimpleHandler(Handler[SimpleRequest]):
@@ -109,7 +109,7 @@ class SimpleHandler(Handler[SimpleRequest]):
         return SimpleResponse(result="processed")
 ```
 
-### Handler with Dependencies
+### Handler with dependencies
 
 ```python
 class UserServiceHandler(Handler[GetUserRequest]):
@@ -138,7 +138,7 @@ class UserServiceHandler(Handler[GetUserRequest]):
         )
 ```
 
-### Handler with Validation
+### Handler with validation
 
 ```python
 class CreateProductHandler(Handler[CreateProductRequest]):
@@ -171,11 +171,11 @@ class CreateProductHandler(Handler[CreateProductRequest]):
         )
 ```
 
-## Async Handlers
+## Async handlers
 
 PyMediate provides first-class async/await support through the `pymediate.aio` package for I/O-bound operations.
 
-### Basic Async Handler
+### Basic async handler
 
 ```python
 import asyncio
@@ -209,7 +209,7 @@ class AsyncFetchHandler(Handler[FetchDataRequest]):
 
     Requests are always imported from the main package: `from pymediate import Request`
 
-### Async Handler with Multiple I/O Operations
+### Async handler with multiple I/O operations
 
 ```python
 from pymediate.aio import Handler
@@ -244,7 +244,7 @@ class ProcessOrderHandler(Handler[ProcessOrderRequest]):
         )
 ```
 
-### Using Async Handlers with Mediator
+### Using async handlers with mediator
 
 ```python
 from pymediate import Services
@@ -253,7 +253,7 @@ from pymediate.aio import Mediator
 # Setup async mediator
 services = Services()
 services.add(AsyncFetchHandler(http_client))
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 
 # Use with asyncio
 async def main():
@@ -271,11 +271,11 @@ async def process():
 
 For more async examples, see the [Async/Await guide](../examples/async.md).
 
-## Deployment Flexibility
+## Deployment flexibility
 
 One of the most powerful features of handler independence is **deployment flexibility**. The same handler can run in different environments without code changes.
 
-### Example: Moving from API to Cloud Function
+### Example: Moving from API to cloud function
 
 ```python
 # Same handler code works everywhere
@@ -379,7 +379,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     )
 ```
 
-### Deployment 5: Message Queue Consumer (Kafka)
+### Deployment 5: Message queue consumer (Kafka)
 
 ```python
 from kafka import KafkaConsumer
@@ -405,7 +405,7 @@ for message in consumer:
     })
 ```
 
-### Deployment 6: CLI Tool
+### Deployment 6: CLI tool
 
 ```python
 import click
@@ -426,7 +426,7 @@ def process_image_cli(image_url, width, height):
     click.echo(f"Processed image: {response.processed_url}")
 ```
 
-### Key Insight
+### Key insight
 
 **The handler code never changes**. Only the adapter (the thin layer that converts external input to requests) changes. This means:
 
@@ -435,11 +435,11 @@ def process_image_cli(image_url, width, height):
 - Add CLI support for admin tools
 - Add message queue processing for batch operations
 
-All without touching your business logic!
+All without touching your business logic.
 
-## Stateful vs Stateless
+## Stateful vs stateless
 
-### Stateless Handlers (Recommended)
+### Stateless handlers (recommended)
 
 Stateless handlers don't maintain state between invocations. They're safer, easier to scale, and work well with serverless.
 
@@ -457,14 +457,15 @@ class GetUserHandler(Handler[GetUserRequest]):
         )
 ```
 
-**Benefits:**
+#### Benefits
+
 - Thread-safe by default
 - Can be used as singleton
 - Works in serverless environments
 - Easy to test
 - No side effects
 
-### Stateful Handlers (Use With Caution)
+### Stateful handlers (use with caution)
 
 Stateful handlers maintain state between invocations. Use only when necessary.
 
@@ -487,14 +488,15 @@ class RateLimitHandler(Handler[RateLimitRequest]):
         return RateLimitResponse(allowed=True, remaining=remaining)
 ```
 
-**Considerations:**
+#### Considerations
+
 - Not thread-safe (need locks)
 - State lost in serverless environments
 - Can't use as singleton safely
 - Hard to test (state pollution)
 - Use external state store instead (Redis, database)
 
-**Better Approach:**
+#### Better approach
 
 ```python
 class RateLimitHandler(Handler[RateLimitRequest]):
@@ -517,11 +519,11 @@ class RateLimitHandler(Handler[RateLimitRequest]):
         return RateLimitResponse(allowed=True, remaining=remaining)
 ```
 
-## Handler Composition
+## Handler composition
 
 Handlers can compose other operations through the mediator, not by direct coupling.
 
-### Sequential Composition
+### Sequential composition
 
 ```python
 class PlaceOrderHandler(Handler[PlaceOrderRequest]):
@@ -562,7 +564,7 @@ class PlaceOrderHandler(Handler[PlaceOrderRequest]):
         return PlaceOrderResponse(order_id=order_id)
 ```
 
-### Parallel Composition (Async)
+### Parallel composition (async)
 
 ```python
 class FetchDashboardHandler(Handler[FetchDashboardRequest]):
@@ -584,7 +586,7 @@ class FetchDashboardHandler(Handler[FetchDashboardRequest]):
         )
 ```
 
-### Conditional Composition
+### Conditional composition
 
 ```python
 class ProcessSubscriptionHandler(Handler[ProcessSubscriptionRequest]):
@@ -629,9 +631,9 @@ class ProcessSubscriptionHandler(Handler[ProcessSubscriptionRequest]):
         return ProcessSubscriptionResponse(subscription=result)
 ```
 
-## Testing Strategies
+## Testing strategies
 
-### Unit Testing (Isolated)
+### Unit testing (isolated)
 
 ```python
 import pytest
@@ -661,7 +663,7 @@ def test_create_user_handler():
     )
 ```
 
-### Integration Testing (With Mediator)
+### Integration testing (with mediator)
 
 ```python
 def test_place_order_integration():
@@ -671,7 +673,7 @@ def test_place_order_integration():
     services.add(ProcessPaymentHandler(payment_service))
     services.add(EmailHandler(email_service))
 
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     # Handler under test
     handler = PlaceOrderHandler(mediator=mediator, database=order_db)
@@ -691,7 +693,7 @@ def test_place_order_integration():
     assert order_db.get_order(response.order_id) is not None
 ```
 
-### Async Testing
+### Async testing
 
 ```python
 import pytest
@@ -708,7 +710,7 @@ async def test_async_handler():
     assert mock_http.get.called_once()
 ```
 
-### Testing with Fixtures
+### Testing with fixtures
 
 ```python
 @pytest.fixture
@@ -727,18 +729,18 @@ def test_with_fixtures(user_handler):
     assert response.user_id > 0
 ```
 
-## Best Practices
+## Best practices
 
-### 1. Keep Handlers Focused
+### 1. Keep handlers focused
 
 ```python
-# ✅ GOOD: Single responsibility
+# ✅ Good: Single responsibility
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         user_id = self.database.create_user(request.username, request.email)
         return CreateUserResponse(user_id=user_id, username=request.username)
 
-# ❌ BAD: Too many responsibilities
+# ❌ Bad: Too many responsibilities
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         user_id = self.database.create_user(request.username, request.email)
@@ -748,27 +750,27 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return CreateUserResponse(user_id=user_id, username=request.username)
 ```
 
-### 2. Inject Dependencies, Don't Create Them
+### 2. Inject dependencies, don't create them
 
 ```python
-# ✅ GOOD: Dependencies injected
+# ✅ Good: Dependencies injected
 class UserHandler(Handler[GetUserRequest]):
     def __init__(self, database, cache, logger):
         self.database = database
         self.cache = cache
         self.logger = logger
 
-# ❌ BAD: Creating dependencies inside
+# ❌ Bad: Creating dependencies inside
 class UserHandler(Handler[GetUserRequest]):
     def __init__(self):
         self.database = DatabaseConnection()  # Hard to test
         self.cache = RedisCache()  # Hard to mock
 ```
 
-### 3. Return Rich Response Objects
+### 3. Return rich response objects
 
 ```python
-# ✅ GOOD: Rich response with all data
+# ✅ Good: Rich response with all data
 @dataclass
 class CreateUserResponse:
     user_id: int
@@ -776,12 +778,12 @@ class CreateUserResponse:
     created_at: datetime
     email_verified: bool
 
-# ❌ BAD: Primitive return
+# ❌ Bad: Primitive return
 def __call__(self, request: CreateUserRequest) -> int:  # Just user_id
     return self.database.create_user(...)
 ```
 
-### 4. Validate Early
+### 4. Validate early
 
 ```python
 class CreateProductHandler(Handler[CreateProductRequest]):
@@ -797,10 +799,10 @@ class CreateProductHandler(Handler[CreateProductRequest]):
         return CreateProductResponse(product_id=product_id)
 ```
 
-### 5. Use Mediator for Handler Composition
+### 5. Use mediator for handler composition
 
 ```python
-# ✅ GOOD: Loose coupling through mediator
+# ✅ Good: Loose coupling through mediator
 class OrderHandler(Handler[CreateOrderRequest]):
     def __init__(self, mediator, database):
         self.mediator = mediator
@@ -809,7 +811,7 @@ class OrderHandler(Handler[CreateOrderRequest]):
     def __call__(self, request: CreateOrderRequest) -> CreateOrderResponse:
         self.mediator.send(SendEmailRequest(...))
 
-# ❌ BAD: Direct handler coupling
+# ❌ Bad: Direct handler coupling
 class OrderHandler(Handler[CreateOrderRequest]):
     def __init__(self, email_handler, database):
         self.email_handler = email_handler  # Tight coupling
@@ -819,10 +821,10 @@ class OrderHandler(Handler[CreateOrderRequest]):
         self.email_handler(SendEmailRequest(...))
 ```
 
-### 6. Prefer Stateless Handlers
+### 6. Prefer stateless handlers
 
 ```python
-# ✅ GOOD: Stateless with external storage
+# ✅ Good: Stateless with external storage
 class SessionHandler(Handler[CreateSessionRequest]):
     def __init__(self, redis):
         self.redis = redis
@@ -832,7 +834,7 @@ class SessionHandler(Handler[CreateSessionRequest]):
         self.redis.set(f"session:{session_id}", request.user_id)
         return CreateSessionResponse(session_id=session_id)
 
-# ❌ BAD: Stateful with instance variables
+# ❌ Bad: Stateful with instance variables
 class SessionHandler(Handler[CreateSessionRequest]):
     def __init__(self):
         self.sessions = {}  # State in memory
@@ -843,10 +845,10 @@ class SessionHandler(Handler[CreateSessionRequest]):
         return CreateSessionResponse(session_id=session_id)
 ```
 
-### 7. Use Type Hints Everywhere
+### 7. Use type hints everywhere
 
 ```python
-# ✅ GOOD: Full type hints
+# ✅ Good: Full type hints
 class Handler(Handler[MyRequest]):
     def __init__(self, database: Database, cache: Cache) -> None:
         self.database = database
@@ -857,9 +859,9 @@ class Handler(Handler[MyRequest]):
         return MyResponse(data=result)
 ```
 
-## Common Patterns
+## Common patterns
 
-### Command Pattern (No Response Needed)
+### Command pattern (no response needed)
 
 ```python
 @dataclass
@@ -880,7 +882,7 @@ class LogEventHandler(Handler[LogEventRequest]):
         return LogEventResponse(success=True)
 ```
 
-### Query Pattern (Read-Only)
+### Query pattern (read-only)
 
 ```python
 @dataclass
@@ -909,7 +911,7 @@ class GetProductsHandler(Handler[GetProductsRequest]):
         return GetProductsResponse(products=products, total=total)
 ```
 
-### Result Pattern (Success/Failure)
+### Result pattern (success/failure)
 
 ```python
 @dataclass
@@ -935,7 +937,7 @@ class ProcessPaymentHandler(Handler[ProcessPaymentRequest]):
             )
 ```
 
-### Decorator Pattern (Handler Wrapping)
+### Decorator pattern (handler wrapping)
 
 ```python
 class LoggingHandlerDecorator[T](Handler[T]):
@@ -960,7 +962,7 @@ handler = LoggingHandlerDecorator(
 )
 ```
 
-### Pipeline Pattern (Multi-Step)
+### Pipeline pattern (multi-step)
 
 ```python
 class PipelineHandler(Handler[PipelineRequest]):
@@ -982,9 +984,9 @@ class PipelineHandler(Handler[PipelineRequest]):
 
 ---
 
-## Next Steps
+## Next steps
 
 - Learn about [Mediator](mediator.md) - How to coordinate handlers
-- Explore [Error Handling](error-handling.md) - Best practices for errors
+- Explore [Error handling](error-handling.md) - Best practices for errors
 - See [Examples](../examples/basic.md) - Real-world handler examples
-- Read [Best Practices](../advanced/best-practices.md) - Advanced patterns
+- Read [Best practices](../advanced/best-practices.md) - Advanced patterns

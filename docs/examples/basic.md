@@ -1,10 +1,128 @@
-# uasic
+# Basic usage
 
-Documentation 
-This page is under construction and will be filled with comprehensive content.
+Minimal, complete examples of the core PyMediate workflow: define a request and response, write a handler, register it, and send the request through a mediator.
 
-For now, please refer to:
+For a guided walkthrough of these same pieces, see [Quick start](../getting-started/quick-start.md). This page is a compact reference to copy from.
 
-- [Quick Start Guide](../getting-started/quick-start.md)
-- [Installation Guide](../getting-started/installation.md)
-- [GitHub Repository](https://github.com/sina-al/pymediate)
+## A single handler
+
+```python
+from dataclasses import dataclass
+from pymediate import Request, Handler, Mediator, Services
+
+@dataclass
+class GreetResponse:
+    message: str
+
+@dataclass
+class GreetRequest(Request[GreetResponse]):
+    name: str
+
+class GreetHandler(Handler[GreetRequest]):
+    def __call__(self, request: GreetRequest) -> GreetResponse:
+        return GreetResponse(message=f"Hello, {request.name}!")
+
+services = Services()
+services.add(GreetHandler())
+mediator = Mediator(services.provider())
+
+response = mediator.send(GreetRequest(name="Alice"))
+print(response.message)
+# Output: Hello, Alice!
+```
+
+## Multiple handlers with validation
+
+A more realistic case: two handlers sharing a dependency, with request validation in `__post_init__` so invalid data never reaches a handler.
+
+```python
+from dataclasses import dataclass
+from pymediate import Request, Handler, Mediator, Services
+
+class InMemoryUserStore:
+    def __init__(self):
+        self._users = {}
+        self._next_id = 1
+
+    def create(self, username: str, email: str) -> int:
+        user_id = self._next_id
+        self._next_id += 1
+        self._users[user_id] = {"username": username, "email": email}
+        return user_id
+
+    def get(self, user_id: int) -> dict | None:
+        return self._users.get(user_id)
+
+@dataclass
+class CreateUserResponse:
+    user_id: int
+    username: str
+
+@dataclass
+class CreateUserRequest(Request[CreateUserResponse]):
+    username: str
+    email: str
+
+    def __post_init__(self):
+        if not self.username:
+            raise ValueError("Username is required")
+        if "@" not in self.email:
+            raise ValueError("Invalid email address")
+
+class CreateUserHandler(Handler[CreateUserRequest]):
+    def __init__(self, store: InMemoryUserStore):
+        self.store = store
+
+    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
+        user_id = self.store.create(request.username, request.email)
+        return CreateUserResponse(user_id=user_id, username=request.username)
+
+@dataclass
+class GetUserResponse:
+    user_id: int
+    username: str
+    email: str
+
+@dataclass
+class GetUserRequest(Request[GetUserResponse]):
+    user_id: int
+
+class GetUserHandler(Handler[GetUserRequest]):
+    def __init__(self, store: InMemoryUserStore):
+        self.store = store
+
+    def __call__(self, request: GetUserRequest) -> GetUserResponse:
+        user = self.store.get(request.user_id)
+        if user is None:
+            raise ValueError(f"User {request.user_id} not found")
+        return GetUserResponse(user_id=request.user_id, **user)
+
+store = InMemoryUserStore()
+services = Services()
+services.add(CreateUserHandler(store))
+services.add(GetUserHandler(store))
+mediator = Mediator(services.provider())
+
+created = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+print(created)
+# Output: CreateUserResponse(user_id=1, username='alice')
+
+fetched = mediator.send(GetUserRequest(user_id=created.user_id))
+print(fetched)
+# Output: GetUserResponse(user_id=1, username='alice', email='alice@example.com')
+
+try:
+    mediator.send(CreateUserRequest(username="", email="bad-email"))
+except ValueError as e:
+    print(f"Validation error: {e}")
+# Output: Validation error: Username is required
+```
+
+Notice that `CreateUserHandler` and `GetUserHandler` share the same `InMemoryUserStore` instance but know nothing about each other — the mediator is the only thing that knows both exist.
+
+## Next steps
+
+- [Handlers](../guide/handlers.md) - Handler design and independence.
+- [Requests and responses](../guide/requests-responses.md) - Request/response design patterns.
+- [Async/await](async.md) - The same patterns with async handlers.
+- [Pipeline behaviors](pipeline-behaviors.md) - Adding cross-cutting concerns like logging and caching.

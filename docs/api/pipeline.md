@@ -1,4 +1,4 @@
-# Pipeline API Reference
+# Pipeline API reference
 
 API documentation for pipeline behaviors and the Pipeline class.
 
@@ -10,7 +10,7 @@ The pipeline module provides middleware-like functionality for wrapping request 
 - **ABC**: `PipelineBehavior[RequestT: Request]`
 - **Class**: `Pipeline[RequestT, ResponseT]`
 
-## Selective Behaviors
+## Selective behaviors
 
 Behaviors can selectively apply to specific request types or mixins using the type parameter:
 
@@ -18,7 +18,7 @@ Behaviors can selectively apply to specific request types or mixins using the ty
 - `PipelineBehavior[CreateUserRequest]` - Specific request type
 - `PipelineBehavior[AuthMixin]` - Requests with mixin
 
-## Synchronous Pipeline
+## Synchronous pipeline
 
 ### PipelineBehavior
 
@@ -39,7 +39,7 @@ Behaviors can selectively apply to specific request types or mixins using the ty
         - __init__
         - __call__
 
-## Asynchronous Pipeline
+## Asynchronous pipeline
 
 ### PipelineBehavior (Async)
 
@@ -60,9 +60,9 @@ Behaviors can selectively apply to specific request types or mixins using the ty
         - __init__
         - __call__
 
-## Usage Examples
+## Usage examples
 
-### Creating a Simple Behavior
+### Creating a simple behavior
 
 ```python
 from pymediate.pipeline import PipelineBehavior
@@ -80,7 +80,7 @@ class LoggingBehavior:
         return response
 ```
 
-### Creating a Pipeline
+### Creating a pipeline
 
 ```python
 from pymediate import Handler, Request
@@ -105,7 +105,7 @@ pipeline = Pipeline(
 response = pipeline(GetUserRequest(user_id=123))
 ```
 
-### Async Pipeline
+### Async pipeline
 
 ```python
 from pymediate.aio import Handler
@@ -130,7 +130,7 @@ pipeline = Pipeline(
 response = await pipeline(GetUserRequest(user_id=123))
 ```
 
-## Type Safety
+## Type safety
 
 The pipeline system is fully type-safe with generic type parameters:
 
@@ -159,8 +159,8 @@ request: GetUserRequest = GetUserRequest(user_id=123)
 response: GetUserResponse = pipeline(request)
 ```
 
-## See Also
+## See also
 
-- [Pipeline Behaviors Guide](../guide/pipeline-behaviors.md) - Comprehensive guide to pipeline behaviors
-- [Handler API](handler.md) - Handler API reference
-- [Examples](../examples/pipeline-behaviors.md) - More pipeline examples
+- [Pipeline behaviors guide](../guide/pipeline-behaviors.md) - Comprehensive guide to pipeline behaviors.
+- [Handler API reference](handler.md) - The `Handler` protocol.
+- [Examples](../examples/pipeline-behaviors.md) - More pipeline examples.

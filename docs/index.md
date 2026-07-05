@@ -16,32 +16,32 @@
 
 ## What is PyMediate?
 
-PyMediate is a modern, type-safe implementation of the [Mediator Pattern](https://refactoring.guru/design-patterns/mediator) for Python. It helps you build clean, decoupled applications by routing requests to their appropriate handlers without tight coupling.
+PyMediate is a modern, type-safe implementation of the [mediator pattern](https://refactoring.guru/design-patterns/mediator) for Python. It routes requests to their handlers without coupling the two together, so you get a clean, decoupled application.
 
-## Key Features
+## Key features
 
-🎯 **Type-Safe**
-:   Runtime validation of handler signatures with full static type checking support via mypy
+🎯 **Type-safe**
+:   Runtime validation of handler signatures, with full static type checking support via mypy.
 
-⚡ **Zero Convention**
-:   No naming conventions required - uses type inspection to match handlers with requests
+⚡ **Zero convention**
+:   No naming conventions required — type inspection matches handlers to requests.
 
-🔌 **Dependency Injection Ready**
-:   Built-in support for dependency-injector with automatic handler discovery
+🔌 **Dependency injection ready**
+:   Built-in support for `dependency-injector`, with automatic handler discovery.
 
-📦 **Dataclass Friendly**
-:   Works seamlessly with Python dataclasses using Request[T] inheritance
+📦 **Dataclass friendly**
+:   Works seamlessly with Python dataclasses using `Request[T]` inheritance.
 
-🔄 **Async/Await Support**
-:   First-class async handlers and mediators via `pymediate.aio`
+🔄 **Async/await support**
+:   First-class async handlers and mediators via `pymediate.aio`.
 
-🧪 **Well Tested**
-:   135+ comprehensive tests with 96%+ code coverage
+🧪 **Well tested**
+:   135+ tests with 96%+ code coverage.
 
 🚀 **Modern Python**
-:   Built for Python 3.12+ using PEP 695 type parameter syntax
+:   Built for Python 3.12+ using PEP 695 type parameter syntax.
 
-## Quick Example
+## Quick example
 
 ```python
 from dataclasses import dataclass
@@ -58,7 +58,7 @@ class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
-# Create a handler - automatically linked by type inspection!
+# Create a handler - type inspection links it to CreateUser automatically
 class CreateUserHandler(Handler[CreateUser]):
     def __call__(self, req: CreateUser) -> UserCreated:
         user_id = 1  # Simulated ID generation
@@ -66,30 +66,32 @@ class CreateUserHandler(Handler[CreateUser]):
 
 # Set up and use
 services = Services()
-services.add(CreateUser, CreateUserHandler())
-mediator = Mediator(resolver)
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
 
-# Send request - type-safe end-to-end
+# Send a request - type-safe end-to-end
 response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 print(f"Created user {response.username} with ID {response.user_id}")
 ```
 
-### Async Support
+### Async support
 
 PyMediate provides first-class async/await support:
 
 ```python
 import asyncio
+from pymediate import Services
 from pymediate.aio import Handler, Mediator
 
 class CreateUserHandler(Handler[CreateUser]):
     async def __call__(self, req: CreateUser) -> UserCreated:
-        # Perform async operations
         await database.save_user(req.username, req.email)
         return UserCreated(user_id=1, username=req.username)
 
 async def main():
-    mediator = Mediator(resolver)
+    services = Services()
+    services.add(CreateUserHandler())
+    mediator = Mediator(services.provider())
     response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
     print(f"Created user {response.username}")
 
@@ -98,36 +100,36 @@ asyncio.run(main())
 
 [Learn more about async support →](examples/async.md)
 
-## Why Use the Mediator Pattern?
+## Why use the mediator pattern?
 
 The mediator pattern helps you:
 
-- **Decouple** components - handlers don't need to know about each other
-- **Test easily** - mock the mediator for testing consumers
-- **Follow CQRS** - separate commands from queries naturally
-- **Scale cleanly** - add new handlers without changing existing code
-- **Maintain** code better - clear separation of concerns
+- **Decouple.** Handlers don't need to know about each other.
+- **Test easily.** Mock the mediator to test consumers in isolation.
+- **Follow CQRS.** Separate commands from queries naturally.
+- **Scale cleanly.** Add new handlers without changing existing code.
+- **Maintain more easily.** Keep a clear separation of concerns.
 
-## What's Different About PyMediate?
+## What's different about PyMediate?
 
 Unlike other mediator implementations, PyMediate:
 
-1. **Uses type inspection instead of naming conventions** - your handler providers can have ANY name
-2. **Provides automatic response type inference** - specify response type once in the request
-3. **Validates at class definition time** - catch errors before runtime
-4. **Supports pure dataclasses** - use Request[T] inheritance for clean, simple code
-5. **First-class async/await support** - async handlers and mediators via `pymediate.aio`
-6. **Works with modern Python** - uses PEP 695 type parameters for cleaner generics
+1. **Uses type inspection, not naming conventions.** Handler providers can have any name.
+2. **Infers the response type automatically.** Specify it once, in the request.
+3. **Validates at class-definition time.** Catch errors before runtime, not after.
+4. **Supports pure dataclasses.** Use `Request[T]` inheritance for clean, simple code.
+5. **Provides first-class async/await support.** Async handlers and mediators via `pymediate.aio`.
+6. **Works with modern Python.** Uses PEP 695 type parameters for cleaner generics.
 
 ## Installation
 
-=== "Core Package"
+=== "Core package"
 
     ```bash
     pip install pymediate
     ```
 
-=== "With DI Support"
+=== "With DI support"
 
     ```bash
     pip install pymediate[di]
@@ -141,45 +143,45 @@ Unlike other mediator implementations, PyMediate:
     uv add 'pymediate[di]'
     ```
 
-## Next Steps
+## Next steps
 
 <div class="grid cards" markdown>
 
--   :material-clock-fast:{ .lg .middle } __Quick Start__
+-   :material-clock-fast:{ .lg .middle } __Quick start__
 
     ---
 
-    Get up and running in 5 minutes
+    Get up and running in 5 minutes.
 
-    [:octicons-arrow-right-24: Quick Start](getting-started/quick-start.md)
+    [:octicons-arrow-right-24: Quick start](getting-started/quick-start.md)
 
--   :material-book-open-variant:{ .lg .middle } __User Guide__
+-   :material-book-open-variant:{ .lg .middle } __User guide__
 
     ---
 
-    Learn PyMediate concepts and patterns
+    Learn PyMediate's concepts and patterns.
 
-    [:octicons-arrow-right-24: User Guide](guide/requests-responses.md)
+    [:octicons-arrow-right-24: User guide](guide/requests-responses.md)
 
 -   :material-code-braces:{ .lg .middle } __Examples__
 
     ---
 
-    See PyMediate in action with real examples
+    See PyMediate in action with real examples.
 
     [:octicons-arrow-right-24: Examples](examples/basic.md)
 
--   :material-api:{ .lg .middle } __API Reference__
+-   :material-api:{ .lg .middle } __API reference__
 
     ---
 
-    Detailed API documentation
+    Detailed API documentation.
 
-    [:octicons-arrow-right-24: API Docs](api/request.md)
+    [:octicons-arrow-right-24: API docs](api/request.md)
 
 </div>
 
-## Community & Support
+## Community and support
 
 - **GitHub**: [sina-al/pymediate](https://github.com/sina-al/pymediate)
 - **Issues**: [Report bugs](https://github.com/sina-al/pymediate/issues)

@@ -1,14 +1,14 @@
-# Quick Start
+# Quick start
 
-This guide will help you get started with PyMediate in 5 minutes.
+This guide gets you started with PyMediate in 5 minutes.
 
-## Your First Mediator
+## Your first mediator
 
 Let's build a simple user creation feature using PyMediate.
 
-### Step 1: Define Your Response
+### Step 1: Define your response
 
-First, define what your handler will return. We'll use a simple dataclass:
+First, define what your handler returns. Use a simple dataclass:
 
 ```python
 from dataclasses import dataclass
@@ -20,9 +20,9 @@ class UserCreated:
     email: str
 ```
 
-### Step 2: Define Your Request
+### Step 2: Define your request
 
-Inherit from Request[ResponseType] to link the request to its response:
+Inherit from `Request[ResponseType]` to link the request to its response:
 
 ```python
 from pymediate import Request
@@ -34,10 +34,10 @@ class CreateUser(Request[UserCreated]):
 ```
 
 !!! tip "Why Request[T] inheritance?"
-    Inheriting from Request[ResponseType] tells PyMediate what type of response this request expects.
-    This enables automatic type inference and validation, and works perfectly with dataclasses!
+    Inheriting from `Request[ResponseType]` tells PyMediate what type of response this request expects.
+    This enables automatic type inference and validation, and works cleanly with dataclasses.
 
-### Step 3: Create a Handler
+### Step 3: Create a handler
 
 Handlers implement the business logic. PyMediate automatically knows which handler handles which request:
 
@@ -66,7 +66,7 @@ class CreateUserHandler(Handler[CreateUser]):
         )
 ```
 
-### Step 4: Set Up the Mediator
+### Step 4: Set up the mediator
 
 Create a service collection, build a provider, and create a mediator:
 
@@ -82,7 +82,7 @@ provider = services.provider()
 mediator = Mediator(provider)
 ```
 
-### Step 5: Use It!
+### Step 5: Use it
 
 Now you can send requests through the mediator:
 
@@ -96,7 +96,7 @@ print(f"Created user {response.username} with ID {response.user_id}")
 # Output: Created user alice with ID 1
 ```
 
-## Complete Example
+## Complete example
 
 Here's the complete code in one file:
 
@@ -144,24 +144,24 @@ services.add(CreateUserHandler())
 provider = services.provider()
 mediator = Mediator(provider)
 
-# 5. Use it!
+# 5. Use it
 response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 print(f"Created user {response.username} with ID {response.user_id}")
 ```
 
-## Type Safety in Action
+## Type safety in action
 
-PyMediate validates types at class definition time:
+PyMediate validates types at class-definition time:
 
 ```python
 class WrongHandler(Handler[CreateUser]):
-    def __call__(self, request: CreateUser) -> str:  # ❌ Wrong return type!
+    def __call__(self, request: CreateUser) -> str:  # ❌ Wrong return type
         return "oops"
 
 # TypeError: WrongHandler.__call__ must return UserCreated, got str
 ```
 
-## Async Support
+## Async support
 
 PyMediate also supports async/await for asynchronous operations:
 
@@ -190,12 +190,12 @@ response = await mediator.send(CreateUser(username="alice", email="alice@example
 
 See the [async examples](../examples/async.md) for more details.
 
-## Next Steps
+## Next steps
 
 Now that you understand the basics:
 
-- Learn about [core concepts](concepts.md)
-- Try [async/await support](../examples/async.md)
-- Explore [dependency injection](../guide/dependency-injection.md)
-- See more [examples](../examples/basic.md)
-- Read the [user guide](../guide/requests-responses.md)
+- Learn about [core concepts](concepts.md).
+- Try [async/await support](../examples/async.md).
+- Explore [dependency injection](../guide/dependency-injection.md).
+- See more [examples](../examples/basic.md).
+- Read the [user guide](../guide/requests-responses.md).

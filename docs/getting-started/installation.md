@@ -1,16 +1,16 @@
 # Installation
 
-PyMediate is available on [PyPI](https://pypi.org/project/pymediate/) and can be installed with your favorite package manager.
+PyMediate is available on [PyPI](https://pypi.org/project/pymediate/) and installs with your favorite package manager.
 
 ## Requirements
 
-- Python 3.12 or higher
-- No required dependencies for core functionality
-- Optional: `dependency-injector>=4.41.0` for DI integration
+- Python 3.12 or higher.
+- No required dependencies for core functionality.
+- Optional: `dependency-injector>=4.41.0` for dependency injection (DI) integration.
 
-## Installation Options
+## Installation options
 
-### Core Package
+### Core package
 
 Install just the core PyMediate package:
 
@@ -32,7 +32,7 @@ Install just the core PyMediate package:
     poetry add pymediate
     ```
 
-### With Dependency Injection Support
+### With dependency injection support
 
 Install PyMediate with `dependency-injector` for DI container integration:
 
@@ -54,9 +54,9 @@ Install PyMediate with `dependency-injector` for DI container integration:
     poetry add pymediate[di]
     ```
 
-## Development Installation
+## Development installation
 
-If you want to contribute to PyMediate or run the tests:
+To contribute to PyMediate or run the tests:
 
 ```bash
 # Clone the repository
@@ -70,9 +70,9 @@ uv sync --all-extras
 pip install -e '.[di,dev]'
 ```
 
-## Verify Installation
+## Verify installation
 
-Verify PyMediate is installed correctly:
+Verify PyMediate installed correctly:
 
 ```python
 import pymediate
@@ -80,11 +80,11 @@ import pymediate
 print(pymediate.__version__)
 ```
 
-## Optional Dependencies
+## Optional dependencies
 
-### DependencyInjectorServiceProvider
+### `DependencyInjectorServiceProvider`
 
-The `DependencyInjectorServiceProvider` is only available when you install PyMediate with the `[di]` extra. If you try to use it without installing the dependency-injector package, the import fails:
+`DependencyInjectorServiceProvider` is only available when you install PyMediate with the `[di]` extra. If you try to use it without installing `dependency-injector`, the import fails:
 
 ```python
 from pymediate.providers import DependencyInjectorServiceProvider
@@ -97,10 +97,10 @@ from pymediate.providers import DependencyInjectorServiceProvider
 pip install pymediate[di]
 ```
 
-See the [Troubleshooting guide](../advanced/troubleshooting.md#dependencyinjectorserviceprovider-not-available) for more details.
+See the [troubleshooting guide](../advanced/troubleshooting.md#dependencyinjectorserviceprovider-not-available) for more details.
 
-## Next Steps
+## Next steps
 
-Now that PyMediate is installed, let's get started!
+Now that PyMediate is installed, let's get started.
 
-[Quick Start →](quick-start.md){ .md-button .md-button--primary }
+[Quick start →](quick-start.md){ .md-button .md-button--primary }

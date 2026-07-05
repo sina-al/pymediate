@@ -1,13 +1,13 @@
-# Pipeline Behaviors Examples
+# Pipeline behaviors examples
 
 Real-world examples of using pipeline behaviors to implement cross-cutting concerns.
 
-## Basic Logging Example
+## Basic logging example
 
 ```python
 from dataclasses import dataclass
 from datetime import datetime
-from pymediate import Handler, Request, Mediator, Services
+from pymediate import Handler, Request
 from pymediate.pipeline import Pipeline
 
 # Define request and response
@@ -60,20 +60,15 @@ logger = Logger()
 handler = CreateUserHandler(database)
 pipeline = Pipeline([LoggingBehavior(logger)], handler)
 
-# Register with mediator
-services = Services()
-services.add(CreateUserRequest, pipeline)
-mediator = Mediator(services.provider())
-
 # Use it
-response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+response = pipeline(CreateUserRequest(username="alice", email="alice@example.com"))
 
 # Output:
 # [2025-01-15 10:30:00] Processing: CreateUserRequest
 # [2025-01-15 10:30:00] Success: CreateUserRequest
 ```
 
-## Performance Monitoring
+## Performance monitoring
 
 ```python
 import time
@@ -198,7 +193,7 @@ response1 = pipeline(GetUserRequest(user_id=123))
 response2 = pipeline(GetUserRequest(user_id=123))
 ```
 
-## Database Transactions
+## Database transactions
 
 ```python
 from sqlalchemy.orm import Session
@@ -251,7 +246,7 @@ pipeline = Pipeline(
 response = pipeline(CreateUserRequest(username="alice", email="alice@example.com"))
 ```
 
-## Request Validation
+## Request validation
 
 ```python
 from typing import Any
@@ -340,7 +335,7 @@ except ValueError as e:
     print(f"Validation failed: {e}")
 ```
 
-## Retry with Exponential Backoff
+## Retry with exponential backoff
 
 ```python
 import time
@@ -401,7 +396,7 @@ pipeline = Pipeline(
 response = pipeline(FetchDataRequest(url="https://api.example.com/data"))
 ```
 
-## Authentication and Authorization
+## Authentication and authorization
 
 ```python
 class AuthenticationBehavior:
@@ -482,7 +477,7 @@ response = pipeline(DeleteUserRequest(
 ))
 ```
 
-## Async Pipeline with Multiple Behaviors
+## Async pipeline with multiple behaviors
 
 ```python
 import asyncio
@@ -566,12 +561,12 @@ async def main():
 asyncio.run(main())
 ```
 
-## Complete E-Commerce Example
+## Complete e-commerce example
 
 ```python
 from dataclasses import dataclass
 from datetime import datetime
-from pymediate import Handler, Request, Mediator, Services
+from pymediate import Handler, Request
 from pymediate.pipeline import Pipeline
 
 # Domain models
@@ -705,13 +700,8 @@ pipeline = Pipeline(
     handler=handler
 )
 
-# Register with mediator
-services = Services()
-services.add(CreateOrderRequest, pipeline)
-mediator = Mediator(services.provider())
-
 # Use it
-response = mediator.send(CreateOrderRequest(
+response = pipeline(CreateOrderRequest(
     user_id=123,
     items=[
         {'product_id': 456, 'quantity': 2, 'price': 29.99},
@@ -725,7 +715,7 @@ print(f"Order created: {response.order_id}")
 print(f"Total: ${response.total_amount:.2f}")
 ```
 
-## See Also
+## See also
 
 - [Pipeline Behaviors Guide](../guide/pipeline-behaviors.md) - Comprehensive guide
 - [Pipeline API Reference](../api/pipeline.md) - API documentation

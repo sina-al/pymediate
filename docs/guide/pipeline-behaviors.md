@@ -1,34 +1,34 @@
-# Pipeline Behaviors
+# Pipeline behaviors
 
 Pipeline behaviors are middleware components that wrap around request processing, enabling clean implementation of cross-cutting concerns without modifying your handler code.
 
-## Table of Contents
+## Table of contents
 
-- [What Are Pipeline Behaviors?](#what-are-pipeline-behaviors)
-- [When to Use Pipeline Behaviors](#when-to-use-pipeline-behaviors)
-- [Basic Behavior Structure](#basic-behavior-structure)
-- [Creating Behaviors](#creating-behaviors)
-- [Chaining Multiple Behaviors](#chaining-multiple-behaviors)
-- [Async Behaviors](#async-behaviors)
-- [Common Use Cases](#common-use-cases)
-- [Behavior Patterns](#behavior-patterns)
-- [Testing Behaviors](#testing-behaviors)
-- [Best Practices](#best-practices)
-- [Integration with Mediator](#integration-with-mediator)
+- [What are pipeline behaviors?](#what-are-pipeline-behaviors)
+- [When to use pipeline behaviors](#when-to-use-pipeline-behaviors)
+- [Basic behavior structure](#basic-behavior-structure)
+- [Creating behaviors](#creating-behaviors)
+- [Chaining multiple behaviors](#chaining-multiple-behaviors)
+- [Async behaviors](#async-behaviors)
+- [Common use cases](#common-use-cases)
+- [Behavior patterns](#behavior-patterns)
+- [Testing behaviors](#testing-behaviors)
+- [Best practices](#best-practices)
+- [Integration with mediator](#integration-with-mediator)
 
-## What Are Pipeline Behaviors?
+## What are pipeline behaviors?
 
 Pipeline behaviors are inspired by **MediatR's IPipelineBehavior** pattern from the .NET ecosystem. They provide a way to implement middleware-like functionality that wraps around your request handlers.
 
-### Key Characteristics
+### Key characteristics
 
-1. **Middleware Pattern**: Execute code before and after handler execution
-2. **Type-Safe**: Full generic type support with compile-time checking
-3. **Composable**: Chain multiple behaviors together
-4. **Non-Invasive**: Add functionality without modifying handlers
-5. **Reusable**: Write once, use across many request types
+1. **Middleware pattern.** Execute code before and after handler execution.
+2. **Type-safe.** Full generic type support with compile-time checking.
+3. **Composable.** Chain multiple behaviors together.
+4. **Non-invasive.** Add functionality without modifying handlers.
+5. **Reusable.** Write once, use across many request types.
 
-### The Pipeline Chain
+### The pipeline chain
 
 ```
 Request → Behavior 1 → Behavior 2 → Behavior 3 → Handler → Response
@@ -40,30 +40,30 @@ Request → Behavior 1 → Behavior 2 → Behavior 3 → Handler → Response
 
 Each behavior can execute logic both before and after the next step in the chain.
 
-## When to Use Pipeline Behaviors
+## When to use pipeline behaviors
 
 Use pipeline behaviors for **cross-cutting concerns** - functionality that applies to multiple handlers:
 
-### Perfect Use Cases
+### Perfect use cases
 
-- ✅ **Logging and Auditing**: Track all requests passing through the system
-- ✅ **Performance Monitoring**: Measure execution time for all handlers
-- ✅ **Validation**: Apply common validation rules
-- ✅ **Caching**: Cache responses based on request data
-- ✅ **Transaction Management**: Wrap handler execution in database transactions
-- ✅ **Error Handling**: Centralized error logging and recovery
-- ✅ **Authentication/Authorization**: Check permissions before handler execution
-- ✅ **Rate Limiting**: Throttle requests based on rules
-- ✅ **Retry Logic**: Automatically retry failed operations
+- **Logging and auditing.** Track all requests passing through the system.
+- **Performance monitoring.** Measure execution time for all handlers.
+- **Validation.** Apply common validation rules.
+- **Caching.** Cache responses based on request data.
+- **Transaction management.** Wrap handler execution in database transactions.
+- **Error handling.** Centralized error logging and recovery.
+- **Authentication/authorization.** Check permissions before handler execution.
+- **Rate limiting.** Throttle requests based on rules.
+- **Retry logic.** Automatically retry failed operations.
 
-### When NOT to Use Behaviors
+### When not to use behaviors
 
-- ❌ **Handler-Specific Logic**: Use the handler itself
-- ❌ **Business Rules**: Keep in handlers where they belong
-- ❌ **Request Transformation**: Use separate request types instead
-- ❌ **Complex Conditionals**: Behaviors should be simple and focused
+- **Handler-specific logic.** Use the handler itself.
+- **Business rules.** Keep them in handlers, where they belong.
+- **Request transformation.** Use separate request types instead.
+- **Complex conditionals.** Behaviors should be simple and focused.
 
-## Basic Behavior Structure
+## Basic behavior structure
 
 A pipeline behavior inherits from the `PipelineBehavior` ABC and specifies which requests it applies to:
 
@@ -91,16 +91,16 @@ class MyBehavior(PipelineBehavior[Request]):
         return response
 ```
 
-### The `next` Parameter
+### The `next` parameter
 
 The `next` parameter is a callable that represents the next step in the pipeline:
 - It could be another behavior
 - It could be the final handler
 - It returns the response when called
 
-**You must call `next()` to continue the pipeline!** If you don't, the handler never executes.
+You must call `next()` to continue the pipeline. If you don't, the handler never executes.
 
-### Selective Behaviors
+### Selective behaviors
 
 Behaviors can be **universal** (apply to all requests) or **selective** (apply only to specific request types or mixins):
 
@@ -108,7 +108,7 @@ Behaviors can be **universal** (apply to all requests) or **selective** (apply o
 from pymediate import Request
 from pymediate.pipeline import PipelineBehavior
 
-# Universal - applies to ALL requests
+# Universal - applies to all requests
 class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         print(f"Processing: {type(request).__name__}")
@@ -140,7 +140,7 @@ class CreateUserRequest(Request[UserResponse], AuthMixin):
 # because it has AuthMixin, but not to requests without AuthMixin
 ```
 
-**Behavior Selection:**
+#### Behavior selection
 - The mediator automatically filters behaviors using `isinstance()` checks
 - Only applicable behaviors are executed for each request
 - Custom matching logic can be implemented by overriding `should_apply()`:
@@ -154,9 +154,9 @@ class BusinessHoursOnlyBehavior(PipelineBehavior[Request]):
         return 9 <= datetime.now().hour < 17
 ```
 
-## Creating Behaviors
+## Creating behaviors
 
-### Logging Behavior
+### Logging behavior
 
 Track all requests passing through your system:
 
@@ -192,7 +192,7 @@ class LoggingBehavior(PipelineBehavior[Request]):
             raise
 ```
 
-### Performance Monitoring Behavior
+### Performance monitoring behavior
 
 Measure execution time for all handlers:
 
@@ -232,7 +232,7 @@ class TimingBehavior(PipelineBehavior[Request]):
             raise
 ```
 
-### Validation Behavior
+### Validation behavior
 
 Apply common validation rules:
 
@@ -253,7 +253,7 @@ class ValidationBehavior(PipelineBehavior[Request]):
         return next()
 ```
 
-### Caching Behavior
+### Caching behavior
 
 Cache responses to avoid redundant work:
 
@@ -296,7 +296,7 @@ class CachingBehavior(PipelineBehavior[Request]):
         ).hexdigest()
 ```
 
-### Transaction Behavior
+### Transaction behavior
 
 Wrap handler execution in a database transaction:
 
@@ -331,7 +331,7 @@ class TransactionBehavior(PipelineBehavior[Request]):
             session.close()
 ```
 
-### Retry Behavior
+### Retry behavior
 
 Automatically retry failed operations:
 
@@ -368,7 +368,7 @@ class RetryBehavior(PipelineBehavior[Request]):
         raise last_exception
 ```
 
-## Chaining Multiple Behaviors
+## Chaining multiple behaviors
 
 Behaviors execute in the order they're provided to the `Pipeline`:
 
@@ -405,7 +405,7 @@ pipeline = Pipeline(
 #   → validation.after → timing.after → logging.after
 ```
 
-### Execution Order Visualization
+### Execution order visualization
 
 ```python
 behaviors = [A, B, C]
@@ -422,7 +422,7 @@ A.before()
 A.after()
 ```
 
-### Practical Example
+### Practical example
 
 ```python
 from pymediate.pipeline import Pipeline
@@ -461,7 +461,7 @@ response = pipeline(request)
 # [2025-01-15 10:30:00] Completed: GetUserRequest in 0.042s
 ```
 
-## Async Behaviors
+## Async behaviors
 
 For async handlers, use `pymediate.aio.pipeline`:
 
@@ -487,7 +487,7 @@ class AsyncLoggingBehavior(PipelineBehavior[Request]):
         return response
 ```
 
-### Async Transaction Behavior
+### Async transaction behavior
 
 ```python
 from pymediate import Request
@@ -507,7 +507,7 @@ class AsyncTransactionBehavior(PipelineBehavior[Request]):
         # Transaction rolls back automatically on exception
 ```
 
-### Async Caching Behavior
+### Async caching behavior
 
 ```python
 from pymediate import Request
@@ -540,7 +540,7 @@ class AsyncCachingBehavior(PipelineBehavior[Request]):
         return response
 ```
 
-### Using Async Pipelines
+### Using async pipelines
 
 ```python
 from pymediate.aio import Handler, Mediator
@@ -566,12 +566,12 @@ pipeline = Pipeline(
 response = await pipeline(GetUserRequest(user_id=123))
 ```
 
-## Common Use Cases
+## Common use cases
 
-### 1. Request/Response Logging with Audit Trail
+### 1. Request/response logging with audit trail
 
 ```python
-class AuditBehavior:
+class AuditBehavior(PipelineBehavior[Request]):
     """Logs requests and responses for audit compliance."""
 
     def __init__(self, audit_log):
@@ -608,10 +608,10 @@ class AuditBehavior:
             raise
 ```
 
-### 2. Authentication and Authorization
+### 2. Authentication and authorization
 
 ```python
-class AuthorizationBehavior:
+class AuthorizationBehavior(PipelineBehavior[Request]):
     """Checks if user has permission to execute request."""
 
     def __init__(self, permission_service):
@@ -631,10 +631,10 @@ class AuthorizationBehavior:
         return next()
 ```
 
-### 3. Rate Limiting
+### 3. Rate limiting
 
 ```python
-class RateLimitBehavior:
+class RateLimitBehavior(PipelineBehavior[Request]):
     """Limits request rate per user."""
 
     def __init__(self, redis_client, max_requests=100, window=60):
@@ -663,10 +663,10 @@ class RateLimitBehavior:
         return next()
 ```
 
-### 4. Dead Letter Queue for Failed Requests
+### 4. Dead letter queue for failed requests
 
 ```python
-class DeadLetterBehavior:
+class DeadLetterBehavior(PipelineBehavior[Request]):
     """Sends failed requests to a dead letter queue."""
 
     def __init__(self, queue):
@@ -686,10 +686,10 @@ class DeadLetterBehavior:
             raise
 ```
 
-### 5. Response Transformation
+### 5. Response transformation
 
 ```python
-class ResponseEnrichmentBehavior:
+class ResponseEnrichmentBehavior(PipelineBehavior[Request]):
     """Adds metadata to all responses."""
 
     def __call__(self, request, next):
@@ -704,12 +704,12 @@ class ResponseEnrichmentBehavior:
         return response
 ```
 
-## Behavior Patterns
+## Behavior patterns
 
-### Conditional Execution
+### Conditional execution
 
 ```python
-class ConditionalBehavior:
+class ConditionalBehavior(PipelineBehavior[Request]):
     """Only executes inner logic for certain request types."""
 
     def __init__(self, predicate, inner_behavior):
@@ -731,10 +731,10 @@ logging_for_commands = ConditionalBehavior(
 )
 ```
 
-### Circuit Breaker Pattern
+### Circuit breaker pattern
 
 ```python
-class CircuitBreakerBehavior:
+class CircuitBreakerBehavior(PipelineBehavior[Request]):
     """Implements circuit breaker pattern."""
 
     def __init__(self, failure_threshold=5, timeout=60):
@@ -771,10 +771,10 @@ class CircuitBreakerBehavior:
             raise
 ```
 
-### Decorator Pattern
+### Decorator pattern
 
 ```python
-class BehaviorDecorator:
+class BehaviorDecorator(PipelineBehavior[Request]):
     """Wraps another behavior with additional functionality."""
 
     def __init__(self, inner_behavior, logger):
@@ -788,9 +788,9 @@ class BehaviorDecorator:
         return response
 ```
 
-## Testing Behaviors
+## Testing behaviors
 
-### Unit Testing a Behavior
+### Unit testing a behavior
 
 ```python
 def test_logging_behavior():
@@ -854,7 +854,7 @@ def test_caching_behavior_caches_response():
     assert result2 == response
 ```
 
-### Integration Testing with Pipeline
+### Integration testing with pipeline
 
 ```python
 def test_pipeline_with_multiple_behaviors():
@@ -901,23 +901,23 @@ async def test_async_pipeline_with_behaviors():
     assert await logger.has_log("Processing: SampleRequest")
 ```
 
-## Best Practices
+## Best practices
 
-### 1. Keep Behaviors Focused
+### 1. Keep behaviors focused
 
 Each behavior should have a single responsibility:
 
 ```python
-# ✅ GOOD: Focused behavior
-class LoggingBehavior:
+# ✅ Good: Focused behavior
+class LoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         logger.info(f"Processing: {type(request).__name__}")
         response = next()
         logger.info(f"Completed: {type(request).__name__}")
         return response
 
-# ❌ BAD: Too many responsibilities
-class MegaBehavior:
+# ❌ Bad: Too many responsibilities
+class MegaBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         logger.info("Processing")  # Logging
         if not valid(request):  # Validation
@@ -928,13 +928,13 @@ class MegaBehavior:
         return response
 ```
 
-### 2. Make Behaviors Reusable
+### 2. Make behaviors reusable
 
 Design behaviors to work with any request type:
 
 ```python
-# ✅ GOOD: Works with any request
-class TimingBehavior:
+# ✅ Good: Works with any request
+class TimingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         start = time.time()
         response = next()
@@ -942,27 +942,27 @@ class TimingBehavior:
         metrics.record(duration)
         return response
 
-# ❌ BAD: Tied to specific request type
-class TimingBehavior:
+# ❌ Bad: Tied to specific request type
+class TimingBehavior(PipelineBehavior[Request]):
     def __call__(self, request: GetUserRequest, next):
         # Only works with GetUserRequest
         ...
 ```
 
-### 3. Always Call `next()`
+### 3. Always call `next()`
 
 Unless you intentionally want to short-circuit:
 
 ```python
-# ✅ GOOD: Always calls next
-class ValidationBehavior:
+# ✅ Good: Always calls next
+class ValidationBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         if not is_valid(request):
             raise ValueError("Invalid request")
         return next()  # ← Always call next
 
-# ⚠️ CAUTION: Only short-circuit intentionally
-class CacheShortCircuitBehavior:
+# ⚠️ Caution: Only short-circuit intentionally
+class CacheShortCircuitBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         cached = cache.get(key)
         if cached:
@@ -970,11 +970,11 @@ class CacheShortCircuitBehavior:
         return next()
 ```
 
-### 4. Handle Exceptions Appropriately
+### 4. Handle exceptions appropriately
 
 ```python
-# ✅ GOOD: Log and re-raise
-class ErrorLoggingBehavior:
+# ✅ Good: Log and re-raise
+class ErrorLoggingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         try:
             return next()
@@ -982,8 +982,8 @@ class ErrorLoggingBehavior:
             logger.error(f"Request failed: {e}")
             raise  # Re-raise so caller knows about error
 
-# ❌ BAD: Swallow exceptions
-class BadBehavior:
+# ❌ Bad: Swallow exceptions
+class BadBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
         try:
             return next()
@@ -991,26 +991,26 @@ class BadBehavior:
             return None  # Caller doesn't know something went wrong!
 ```
 
-### 5. Inject Dependencies
+### 5. Inject dependencies
 
 ```python
-# ✅ GOOD: Dependencies injected
-class LoggingBehavior:
+# ✅ Good: Dependencies injected
+class LoggingBehavior(PipelineBehavior[Request]):
     def __init__(self, logger):
         self.logger = logger
 
-# ❌ BAD: Creating dependencies
-class LoggingBehavior:
+# ❌ Bad: Creating dependencies
+class LoggingBehavior(PipelineBehavior[Request]):
     def __init__(self):
         self.logger = Logger()  # Hard to test
 ```
 
-### 6. Order Matters
+### 6. Order matters
 
 Think carefully about behavior order:
 
 ```python
-# ✅ GOOD: Logical order
+# ✅ Good: Logical order
 Pipeline([
     AuthenticationBehavior(),  # Check auth first
     AuthorizationBehavior(),   # Then permissions
@@ -1019,7 +1019,7 @@ Pipeline([
     LoggingBehavior(),         # Log everything
 ], handler)
 
-# ❌ BAD: Illogical order
+# ❌ Bad: Illogical order
 Pipeline([
     CachingBehavior(),         # Cache before auth check!
     LoggingBehavior(),         # Log before validation!
@@ -1028,10 +1028,10 @@ Pipeline([
 ], handler)
 ```
 
-### 7. Document Behavior Contracts
+### 7. Document behavior contracts
 
 ```python
-class CachingBehavior:
+class CachingBehavior(PipelineBehavior[Request]):
     """Caches responses based on request data.
 
     Requirements:
@@ -1047,11 +1047,11 @@ class CachingBehavior:
     """
 ```
 
-## Integration with Mediator
+## Integration with mediator
 
 PyMediate automatically discovers and applies pipeline behaviors registered with the service provider. Behaviors that inherit from `PipelineBehavior` are automatically resolved and applied to **every request** processed by the mediator.
 
-### Automatic Behavior Discovery
+### Automatic behavior discovery
 
 The simplest way to use behaviors is to register them with your services - the mediator handles the rest:
 
@@ -1089,7 +1089,7 @@ response = mediator.send(GetUserRequest(user_id=123))
 #         Completed: GetUserRequest
 ```
 
-**Key Points:**
+#### Key points
 - Behaviors must inherit from `PipelineBehavior[RequestT]`
 - `PipelineBehavior[Request]` creates **universal** behaviors (apply to all requests)
 - `PipelineBehavior[SpecificRequest]` creates **selective** behaviors (apply only to that type)
@@ -1098,7 +1098,7 @@ response = mediator.send(GetUserRequest(user_id=123))
 - Behaviors are filtered per request using `should_apply()` type matching
 - Zero overhead when no applicable behaviors exist
 
-### Behavior Execution Order
+### Behavior execution order
 
 Behaviors execute in registration order, with the first registered behavior being the outermost:
 
@@ -1115,7 +1115,7 @@ services.add(GetUserHandler())
 #         Logging ← Validation ← Timing ← Handler
 ```
 
-### DI Container Integration
+### DI container integration
 
 Behaviors work seamlessly with dependency injection containers, respecting lifecycle scopes:
 
@@ -1155,7 +1155,7 @@ mediator = Mediator(provider)
 response = await mediator.send(GetUserRequest(user_id=123))
 ```
 
-### Manual Pipeline Construction (Advanced)
+### Manual pipeline construction (advanced)
 
 For fine-grained control, you can still construct pipelines manually:
 
@@ -1178,27 +1178,14 @@ response = pipeline(GetUserRequest(user_id=123))
 ```
 
 This is useful for:
-- Testing behaviors in isolation
-- One-off pipelines with specific behavior combinations
-- Custom request processing workflows
 
-# Specific behaviors for commands
-command_behaviors = standard_behaviors + [
-    TransactionBehavior(session),
-    ValidationBehavior(),
-]
-
-# Register handlers with appropriate pipelines
-services.add(GetUserRequest,
-    Pipeline(standard_behaviors, GetUserHandler(db)))
-
-services.add(CreateUserRequest,
-    Pipeline(command_behaviors, CreateUserHandler(db)))
-```
+- Testing behaviors in isolation.
+- One-off pipelines with specific behavior combinations.
+- Custom request processing workflows.
 
 ---
 
-## Next Steps
+## Next steps
 
 - [Handlers Guide](handlers.md) - Learn about handlers
 - [API Reference](../api/pipeline.md) - Detailed pipeline API documentation

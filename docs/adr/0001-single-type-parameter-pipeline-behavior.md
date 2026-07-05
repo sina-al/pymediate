@@ -1,7 +1,7 @@
-# ADR 0001: Single Type Parameter for PipelineBehavior
+# ADR 0001: Single type parameter for `PipelineBehavior`
 
-**Status:** Proposed
-**Date:** 2025-01-XX
+**Status:** Superseded by [ADR 0002](0002-single-type-parameter-for-selective-behaviors.md)
+**Date:** 2025-10-25
 **Author:** Claude
 **Reviewers:** @sina-al
 
@@ -36,7 +36,7 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
         return next()
 ```
 
-### The Problem
+### The problem
 
 The `ResponseT` type parameter is **redundant** because:
 
@@ -52,7 +52,7 @@ The `ResponseT` type parameter is **redundant** because:
        ...
    ```
 
-### What We Want
+### What we want
 
 Ideally, we'd like to write:
 
@@ -68,7 +68,7 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
 
 ## Investigation
 
-### Python 3.12+ Features
+### Python 3.12+ features
 
 Python 3.12 introduced:
 
@@ -89,9 +89,9 @@ Python 3.12 introduced:
    T = TypeVar("T", bound=BaseClass, default=BaseClass)
    ```
 
-### The Core Challenge
+### The core challenge
 
-**Python's type system does NOT support extracting type parameters from generic base classes.**
+**Python's type system does not support extracting type parameters from generic base classes.**
 
 We cannot do:
 ```python
@@ -107,9 +107,9 @@ Even with advanced typing features like:
 
 **There is no static type system way to "extract" `UserResponse` from `CreateUserRequest` where `CreateUserRequest(Request[UserResponse])`.**
 
-## Proposed Solutions
+## Proposed solutions
 
-### Option 1: Single Type Parameter with Type: ignore (Pragmatic)
+### Option 1: Single type parameter with `type: ignore` (pragmatic)
 
 **Approach:** Use one type parameter but accept we must use `type: ignore` in implementation.
 
@@ -149,11 +149,11 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
 - ❌ No IDE autocomplete for response type
 - ❌ Manual type assertions needed
 
-**Verdict:** ❌ **REJECTED** - Type safety loss is too severe.
+**Verdict:** ❌ Rejected - Type safety loss is too severe.
 
 ---
 
-### Option 2: Runtime Type Extraction with Generic Alias (Hybrid)
+### Option 2: Runtime type extraction with generic alias (hybrid)
 
 **Approach:** Keep single type parameter but provide helper to extract response type at runtime.
 
@@ -198,11 +198,11 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
 - ❌ Still no static type checking
 - ❌ Doesn't solve the core problem
 
-**Verdict:** ❌ **REJECTED** - Doesn't improve static typing.
+**Verdict:** ❌ Rejected - Doesn't improve static typing.
 
 ---
 
-### Option 3: Keep Two Type Parameters with Validation (Current + Enhancement)
+### Option 3: Keep two type parameters with validation (current and enhancement)
 
 **Approach:** Keep current design but add **static and runtime validation** that `ResponseT` matches what `RequestT` declares.
 
@@ -283,11 +283,11 @@ class BrokenBehavior(PipelineBehavior[CreateUserRequest, WrongResponse]):
 - ❌ Still requires specifying response type twice (but validated!)
 - ❌ Slightly more verbose
 
-**Verdict:** ✅ **RECOMMENDED** - Best balance of safety and usability.
+**Verdict:** ✅ Recommended - Best balance of safety and usability.
 
 ---
 
-### Option 4: Mypy Plugin (Advanced)
+### Option 4: mypy plugin (advanced)
 
 **Approach:** Write a mypy plugin to infer `ResponseT` from `RequestT`.
 
@@ -308,11 +308,11 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
 - ❌ IDE support varies
 - ❌ Adds dependency on mypy-specific features
 
-**Verdict:** ❌ **REJECTED** - Too complex, too narrow support.
+**Verdict:** ❌ Rejected - Too complex, too narrow support.
 
 ## Decision
 
-**RECOMMENDATION: Option 3 - Keep Two Type Parameters with Runtime Validation**
+**Recommendation: Option 3 - keep two type parameters with runtime validation**
 
 ### Rationale
 
@@ -322,7 +322,7 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
 4. **Best developer experience** - Full IDE support, clear error messages
 5. **Pragmatic** - Works with all type checkers without special plugins
 
-### What Changes
+### What changes
 
 **Before (current):**
 ```python
@@ -339,7 +339,7 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
     ...
 ```
 
-### Implementation Plan
+### Implementation plan
 
 1. Add `__init_subclass__` to `PipelineBehavior` (sync and async)
 2. Extract and validate response types match
@@ -347,7 +347,7 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest, UserResponse]):
 4. Update documentation with examples
 5. Add migration guide (though it's backward compatible)
 
-### Example Error Message
+### Example error message
 
 ```python
 class WrongBehavior(PipelineBehavior[CreateUserRequest, WrongResponse]):
@@ -358,9 +358,9 @@ class WrongBehavior(PipelineBehavior[CreateUserRequest, WrongResponse]):
 # but CreateUserRequest expects UserResponse
 ```
 
-## Alternatives Considered But Not Viable
+## Alternatives considered but not viable
 
-### Why Not Single Type Parameter?
+### Why not single type parameter?
 
 Python's type system fundamentally cannot extract generic type parameters for static type checking. While we could use:
 - `typing.get_args()` - Runtime only
@@ -369,7 +369,7 @@ Python's type system fundamentally cannot extract generic type parameters for st
 
 None provide **static type safety**, which is core to PyMediate's value proposition.
 
-### Could This Change in Future Python Versions?
+### Could this change in future Python versions?
 
 Possibly, but unlikely. This would require PEP-level changes to:
 - Add type parameter extraction syntax
@@ -378,7 +378,7 @@ Possibly, but unlikely. This would require PEP-level changes to:
 
 Even if proposed today, would take years to land and adopt.
 
-## Migration Path
+## Migration path
 
 **No migration needed** - This is backward compatible enhancement.
 
@@ -405,7 +405,7 @@ Existing code continues to work identically, but gains additional safety.
 - 📝 Does not reduce verbosity
 - 📝 Does not change API surface
 
-## Open Questions
+## Open questions
 
 1. Should we provide a type alias helper to reduce verbosity?
    ```python
@@ -417,10 +417,10 @@ Existing code continues to work identically, but gains additional safety.
    ```
 
 2. Should validation be optional (opt-in via flag)?
-   - Probably NO - always validate
+   - Probably not - always validate
 
 3. Should we provide runtime type hints for response extraction?
-   - Probably YES - utility function could help tooling
+   - Probably yes - utility function could help tooling
 
 ## References
 
@@ -429,7 +429,7 @@ Existing code continues to work identically, but gains additional safety.
 - typing.get_args() documentation
 - PyMediate Request.__init_subclass__ implementation
 
-## Appendix: Type System Limitations
+## Appendix: Type system limitations
 
 For reference, here's what Python's type system **cannot** do:
 

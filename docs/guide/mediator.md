@@ -2,21 +2,21 @@
 
 The Mediator is the central orchestrator in PyMediate. It receives requests and routes them to the appropriate handlers, eliminating direct dependencies between components.
 
-## Table of Contents
+## Table of contents
 
-- [What is the Mediator?](#what-is-the-mediator)
-- [Why Use the Mediator Pattern?](#why-use-the-mediator-pattern)
-- [Basic Usage](#basic-usage)
-- [How It Works](#how-it-works)
-- [Async Support](#async-support)
-- [Request Lifecycle](#request-lifecycle)
-- [Error Handling](#error-handling)
-- [Advanced Patterns](#advanced-patterns)
-- [Testing with Mediator](#testing-with-mediator)
-- [Best Practices](#best-practices)
-- [Common Use Cases](#common-use-cases)
+- [What is the mediator?](#what-is-the-mediator)
+- [Why use the mediator pattern?](#why-use-the-mediator-pattern)
+- [Basic usage](#basic-usage)
+- [How it works](#how-it-works)
+- [Async support](#async-support)
+- [Request lifecycle](#request-lifecycle)
+- [Error handling](#error-handling)
+- [Advanced patterns](#advanced-patterns)
+- [Testing with mediator](#testing-with-mediator)
+- [Best practices](#best-practices)
+- [Common use cases](#common-use-cases)
 
-## What is the Mediator?
+## What is the mediator?
 
 The Mediator is a simple but powerful class that:
 
@@ -39,7 +39,7 @@ mediator = Mediator(services.provider())
 response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 ```
 
-### The Mediator Pattern
+### The mediator pattern
 
 The mediator pattern is a behavioral design pattern that reduces coupling between components by having them communicate through a central mediator rather than directly with each other.
 
@@ -63,7 +63,7 @@ With Mediator (Loose Coupling):
     Handlers only know about the mediator
 ```
 
-## Why Use the Mediator Pattern?
+## Why use the mediator pattern?
 
 ### 1. Decoupling
 
@@ -94,7 +94,7 @@ class CreateOrderHandler:
         self.mediator.send(SendEmailRequest(...))
 ```
 
-### 2. Single Responsibility
+### 2. Single responsibility
 
 Each handler has one job. The mediator handles routing.
 
@@ -137,7 +137,7 @@ mediator = Mediator(services.provider())
 response = mediator.send(GetUserRequest(user_id=123))
 ```
 
-## Basic Usage
+## Basic usage
 
 ### Setup
 
@@ -173,7 +173,7 @@ services.add(CreateUserHandler(database))
 mediator = Mediator(services.provider())
 ```
 
-### Sending Requests
+### Sending requests
 
 ```python
 # Send request
@@ -183,7 +183,7 @@ response = mediator.send(request)
 print(f"Created user {response.username} with ID {response.user_id}")
 ```
 
-### Type Safety
+### Type safety
 
 The mediator preserves type information:
 
@@ -196,9 +196,9 @@ print(response.user_id)  # ✅ Type checker knows this exists
 print(response.invalid)   # ❌ Type checker catches this error
 ```
 
-## How It Works
+## How it works
 
-### Request Resolution Flow
+### Request resolution flow
 
 ```
 1. Application sends request to mediator
@@ -214,7 +214,7 @@ print(response.invalid)   # ❌ Type checker catches this error
 6. Mediator returns response to application
 ```
 
-### Example with Multiple Handlers
+### Example with multiple handlers
 
 ```python
 from pymediate import Mediator, Services
@@ -233,29 +233,33 @@ get_response = mediator.send(GetUserRequest(...))        # → GetUserHandler
 delete_response = mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
 ```
 
-### Under the Hood
+### Under the hood
 
 ```python
 class Mediator:
     def __init__(self, services: ServiceProvider):
-        self.services = resolver
+        self.services = services
 
     def send[RequestT](self, request: RequestT):
-        # 1. Get handler for this request type
-        handler = self.services.get(type(request))
+        # 1. Look up which handler class was registered for this request type
+        #    (recorded automatically when the Handler[RequestT] subclass was defined)
+        handler_class = registry.get_handler_class(type(request))
 
-        # 2. Execute handler
-        if inspect.iscoroutinefunction(handler):
+        # 2. Resolve a handler instance from the service provider
+        handler = self.services.get(handler_class)
+
+        # 3. Execute handler
+        if inspect.iscoroutinefunction(handler.__call__):
             return await handler(request)  # Async handler
         else:
             return handler(request)  # Sync handler
 ```
 
-## Async Support
+## Async support
 
 The mediator automatically detects and handles async handlers.
 
-### Async Handler
+### Async handler
 
 ```python
 class FetchDataHandler(Handler[FetchDataRequest]):
@@ -267,14 +271,14 @@ class FetchDataHandler(Handler[FetchDataRequest]):
         return FetchDataResponse(data=data)
 ```
 
-### Using Async with Mediator
+### Using async with mediator
 
 ```python
 # Mediator automatically awaits async handlers
 response = await mediator.send(FetchDataRequest(url="https://api.example.com/data"))
 ```
 
-### Mixed Sync and Async
+### Mixed sync and async
 
 ```python
 # Same mediator can handle both sync and async handlers
@@ -291,7 +295,7 @@ user = mediator.send(CreateUserRequest(...))
 data = await mediator.send(FetchDataRequest(...))
 ```
 
-### Parallel Async Requests
+### Parallel async requests
 
 ```python
 import asyncio
@@ -307,16 +311,16 @@ async def fetch_dashboard(user_id: int):
     return DashboardData(user=user, orders=orders, analytics=analytics)
 ```
 
-## Request Lifecycle
+## Request lifecycle
 
-### 1. Request Creation
+### 1. Request creation
 
 ```python
 # Application creates request
 request = CreateUserRequest(username="alice", email="alice@example.com")
 ```
 
-### 2. Pipeline Behaviors (Optional Middleware)
+### 2. Pipeline behaviors (optional middleware)
 
 Pipeline behaviors are automatically discovered and applied to wrap request processing:
 
@@ -337,7 +341,7 @@ services.add(LoggingBehavior())  # Auto-discovered! Applies to all requests
 services.add(CreateUserHandler())
 ```
 
-### 3. Behavior and Handler Resolution
+### 3. Behavior and handler resolution
 
 ```python
 # Mediator resolves handler from registry
@@ -347,7 +351,7 @@ handler = self.services.get(handler_class)
 behaviors = self.services.get_all(PipelineBehavior)
 ```
 
-### 4. Pipeline Construction
+### 4. Pipeline construction
 
 ```python
 # If behaviors exist, mediator constructs a pipeline
@@ -358,7 +362,7 @@ else:
     response = handler(request)
 ```
 
-### 5. Request Processing
+### 5. Request processing
 
 ```python
 # Pipeline executes behaviors in order, then handler
@@ -370,16 +374,16 @@ response = pipeline(request)
 #         behavior1 ← behavior2 ← handler
 ```
 
-### 6. Response Return
+### 6. Response return
 
 ```python
 # Mediator returns response to caller
 return response
 ```
 
-## Error Handling
+## Error handling
 
-### Handler Not Found
+### Handler not found
 
 ```python
 from pymediate import HandlerNotFoundError
@@ -391,7 +395,7 @@ except HandlerNotFoundError as e:
     print(f"Available handlers: {e.available_handlers}")
 ```
 
-### Handler Errors
+### Handler errors
 
 ```python
 class CreateUserHandler(Handler[CreateUserRequest]):
@@ -409,7 +413,7 @@ except ValueError as e:
     print(f"Validation error: {e}")
 ```
 
-### Custom Error Handling Mediator
+### Custom error-handling mediator
 
 ```python
 class ErrorHandlingMediator(Mediator):
@@ -425,13 +429,14 @@ class ErrorHandlingMediator(Mediator):
             raise
 ```
 
-## Advanced Patterns
+## Advanced patterns
 
-### Mediator with Pipeline Behaviors
+### Mediator with pipeline behaviors
 
 Pipeline behaviors provide a clean, composable way to add middleware to your mediator without subclassing. Behaviors are automatically discovered and applied to every request.
 
-**Simple Example:**
+#### Simple example
+
 ```python
 from pymediate import Request, PipelineBehavior, Services, Mediator
 
@@ -452,7 +457,7 @@ class TimingBehavior(PipelineBehavior[Request]):
         print(f"Took {duration:.3f}s")
         return response
 
-# Register behaviors - they apply to ALL requests automatically
+# Register behaviors - they apply to all requests automatically
 services = Services()
 services.add(LoggingBehavior())     # Outermost
 services.add(TimingBehavior())      # Inner
@@ -465,7 +470,8 @@ mediator = Mediator(services.provider())
 response = mediator.send(CreateUserRequest(username="alice"))
 ```
 
-**With Error Handling:**
+#### With error handling
+
 ```python
 class ErrorHandlingBehavior(PipelineBehavior[Request]):
     def __call__(self, request, next):
@@ -492,15 +498,17 @@ services.add(CreateUserHandler())
 mediator = Mediator(services.provider())
 ```
 
-**Why This Approach?**
-- ✅ No subclassing required
-- ✅ Behaviors are reusable across projects
-- ✅ Clear separation of concerns
-- ✅ Easy to test behaviors in isolation
-- ✅ Works with DI container scopes
-- ✅ Zero overhead when no behaviors registered
+#### Why this approach
 
-**Execution Order:**
+- No subclassing required.
+- Behaviors are reusable across projects.
+- Clear separation of concerns.
+- Easy to test behaviors in isolation.
+- Works with DI container scopes.
+- Zero overhead when no behaviors are registered.
+
+#### Execution order
+
 ```
 Request
   → ErrorHandling (outermost)
@@ -515,7 +523,7 @@ Request
 
 See [Pipeline Behaviors Guide](pipeline-behaviors.md) for comprehensive documentation.
 
-### Request Context
+### Request context
 
 ```python
 from contextvars import ContextVar
@@ -544,7 +552,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         # ... rest of handler
 ```
 
-### Scoped Mediator
+### Scoped mediator
 
 ```python
 class ScopedMediator(Mediator):
@@ -561,7 +569,7 @@ class ScopedMediator(Mediator):
         return handler(request)
 ```
 
-### Caching Mediator
+### Caching mediator
 
 ```python
 class CachingMediator(Mediator):
@@ -590,7 +598,7 @@ class CachingMediator(Mediator):
         return f"{type(request).__name__}:{hash(request)}"
 ```
 
-### Transaction Mediator
+### Transaction mediator
 
 ```python
 class TransactionMediator(Mediator):
@@ -607,9 +615,9 @@ class TransactionMediator(Mediator):
             return super().send(request)
 ```
 
-## Testing with Mediator
+## Testing with mediator
 
-### Unit Testing (Without Mediator)
+### Unit testing (without mediator)
 
 ```python
 def test_handler_isolated():
@@ -619,7 +627,7 @@ def test_handler_isolated():
     assert response.user_id > 0
 ```
 
-### Integration Testing (With Mediator)
+### Integration testing (with mediator)
 
 ```python
 def test_with_mediator():
@@ -634,7 +642,7 @@ def test_with_mediator():
     assert response.username == "test"
 ```
 
-### Testing Handler Composition
+### Testing handler composition
 
 ```python
 def test_handler_composition():
@@ -672,7 +680,7 @@ def test_handler_composition():
     assert mock_email.sent_count == 1
 ```
 
-### Mock Mediator
+### Mock mediator
 
 ```python
 class MockMediator:
@@ -699,34 +707,34 @@ def test_with_mock_mediator():
     assert isinstance(mock_mediator.sent_requests[2], SendEmailRequest)
 ```
 
-## Best Practices
+## Best practices
 
-### 1. One Mediator Instance Per Application
+### 1. One mediator instance per application
 
 ```python
-# ✅ GOOD: Single mediator instance
+# ✅ Good: Single mediator instance
 # app.py
 mediator = Mediator(services.provider())
 
 # Use same instance throughout application
 app.state.mediator = mediator
 
-# ❌ BAD: Creating multiple mediators
+# ❌ Bad: Creating multiple mediators
 def handle_request():
     mediator = Mediator(services.provider())  # Don't create per request
     return mediator.send(...)
 ```
 
-### 2. Inject Mediator into Handlers
+### 2. Inject mediator into handlers
 
 ```python
-# ✅ GOOD: Inject mediator
+# ✅ Good: Inject mediator
 class CreateOrderHandler(Handler[CreateOrderRequest]):
     def __init__(self, mediator, database):
         self.mediator = mediator
         self.database = database
 
-# ❌ BAD: Global mediator
+# ❌ Bad: Global mediator
 global_mediator = Mediator(services.provider())
 
 class CreateOrderHandler(Handler[CreateOrderRequest]):
@@ -734,10 +742,10 @@ class CreateOrderHandler(Handler[CreateOrderRequest]):
         global_mediator.send(...)  # Hard to test
 ```
 
-### 3. Don't Mix Mediator and Direct Handler Calls
+### 3. Don't mix mediator and direct handler calls
 
 ```python
-# ✅ GOOD: Consistent use of mediator
+# ✅ Good: Consistent use of mediator
 class OrderHandler(Handler[CreateOrderRequest]):
     def __init__(self, mediator):
         self.mediator = mediator
@@ -746,7 +754,7 @@ class OrderHandler(Handler[CreateOrderRequest]):
         self.mediator.send(ChargePaymentRequest(...))
         self.mediator.send(SendEmailRequest(...))
 
-# ❌ BAD: Mixing patterns
+# ❌ Bad: Mixing patterns
 class OrderHandler(Handler[CreateOrderRequest]):
     def __init__(self, mediator, email_handler):
         self.mediator = mediator
@@ -757,13 +765,13 @@ class OrderHandler(Handler[CreateOrderRequest]):
         self.email_handler(SendEmailRequest(...))  # Inconsistent
 ```
 
-### 4. Keep Mediator Simple
+### 4. Keep mediator simple
 
 ```python
-# ✅ GOOD: Simple mediator, complex logic in handlers
+# ✅ Good: Simple mediator, complex logic in handlers
 mediator = Mediator(services.provider())
 
-# ❌ BAD: Complex mediator with business logic
+# ❌ Bad: Complex mediator with business logic
 class BusinessLogicMediator(Mediator):
     def send(self, request):
         if isinstance(request, CreateUserRequest):
@@ -773,10 +781,10 @@ class BusinessLogicMediator(Mediator):
         return super().send(request)
 ```
 
-### 5. Use Type Hints
+### 5. Use type hints
 
 ```python
-# ✅ GOOD: Full type hints
+# ✅ Good: Full type hints
 def process_user_request(mediator: Mediator) -> CreateUserResponse:
     response: CreateUserResponse = mediator.send(
         CreateUserRequest(username="test", email="test@example.com")
@@ -784,7 +792,7 @@ def process_user_request(mediator: Mediator) -> CreateUserResponse:
     return response
 ```
 
-## Common Use Cases
+## Common use cases
 
 ### Web API
 
@@ -807,7 +815,7 @@ def get_user(user_id):
     return jsonify({'user_id': response.user_id, 'username': response.username})
 ```
 
-### CLI Application
+### CLI application
 
 ```python
 import click
@@ -834,7 +842,7 @@ def get_user(user_id):
     click.echo(f"User: {response.username} (ID: {response.user_id})")
 ```
 
-### Background Jobs
+### Background jobs
 
 ```python
 from celery import Celery
@@ -854,7 +862,7 @@ def send_report():
     return {'report_url': response.url}
 ```
 
-### Message Queue Consumer
+### Message queue consumer
 
 ```python
 from kafka import KafkaConsumer
@@ -880,7 +888,7 @@ for message in consumer:
         mediator.send(req)
 ```
 
-### GraphQL Resolver
+### GraphQL resolver
 
 ```python
 import strawberry
@@ -904,7 +912,7 @@ class Query:
 
 ---
 
-## Next Steps
+## Next steps
 
 - Learn about [Dependency Injection](dependency-injection.md) - How to wire up handlers
 - Explore [Handlers](handlers.md) - Writing handler implementations

@@ -1,6 +1,6 @@
 # Handler
 
-## Synchronous Handler
+## Synchronous handler
 
 For synchronous request processing:
 
@@ -11,7 +11,7 @@ For synchronous request processing:
       members_order: source
       heading_level: 3
 
-## Asynchronous Handler
+## Asynchronous handler
 
 For asynchronous request processing with `async`/`await`:
 
@@ -29,11 +29,14 @@ For asynchronous request processing with `async`/`await`:
 ### Sync Handler
 
 ```python
+from dataclasses import dataclass
 from pymediate import Handler, Request
 
+@dataclass
 class MyResponse:
     value: int
 
+@dataclass
 class MyRequest(Request[MyResponse]):
     data: str
 
@@ -42,15 +45,18 @@ class MyHandler(Handler[MyRequest]):
         return MyResponse(value=len(request.data))
 ```
 
-### Async Handler
+### Async handler
 
 ```python
+from dataclasses import dataclass
 from pymediate.aio import Handler
 from pymediate import Request
 
+@dataclass
 class MyResponse:
     value: int
 
+@dataclass
 class MyRequest(Request[MyResponse]):
     data: str
 
@@ -64,5 +70,6 @@ class MyAsyncHandler(Handler[MyRequest]):
 ---
 
 For detailed usage guide, see:
-- [Handlers Guide](../guide/handlers.md)
-- [Async/Await Examples](../examples/async.md)
+
+- [Handlers guide](../guide/handlers.md)
+- [Async/await examples](../examples/async.md)

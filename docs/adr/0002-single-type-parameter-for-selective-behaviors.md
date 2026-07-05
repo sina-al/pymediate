@@ -1,14 +1,14 @@
-# ADR 0002: Single Type Parameter for Selective Pipeline Behaviors
+# ADR 0002: Single type parameter for selective pipeline behaviors
 
-**Status:** Proposed
-**Date:** 2025-01-XX
+**Status:** Accepted
+**Date:** 2025-10-25
 **Author:** Claude
 **Context:** Supersedes ADR-0001 based on future vision for selective behaviors
 **Reviewers:** @sina-al
 
 ## Context
 
-### Future Vision: Selective Behaviors Based on Request Mixins
+### Future vision: Selective behaviors based on request mixins
 
 The long-term goal is to support **selective behaviors** that only apply to specific request types or mixins:
 
@@ -43,7 +43,7 @@ class GetUserRequest(Request[UserResponse], CacheableMixin):
     ttl: int = 600
 ```
 
-### Desired Behavior Pattern
+### Desired behavior pattern
 
 ```python
 class AuthorizationBehavior(PipelineBehavior[AuthMixin]):
@@ -64,14 +64,14 @@ class CachingBehavior(PipelineBehavior[CacheableMixin]):
         return result
 ```
 
-### Key Insight
+### Key insight
 
 When behaviors are **selective**, the priorities shift:
 
-| Aspect | Current Importance | Future Importance |
+| Aspect | Current importance | Future importance |
 |--------|-------------------|-------------------|
-| Request type matching | Medium | **CRITICAL** |
-| Request type safety | High | **CRITICAL** |
+| Request type matching | Medium | **Critical** |
+| Request type safety | High | **Critical** |
 | Response type safety | High | **Medium** |
 | Verbosity reduction | Low | **HIGH** |
 
@@ -80,7 +80,7 @@ When behaviors are **selective**, the priorities shift:
 - They pass through whatever the handler returns
 - Type safety at behavior level is less important than type safety at handler level
 
-## Proposed Solution: Single Type Parameter with Request Focus
+## Proposed solution: Single type parameter with request focus
 
 ### Design
 
@@ -209,7 +209,7 @@ class PipelineBehavior[TRequest: Request](ABC):
         ...
 ```
 
-### Mediator Integration
+### Mediator integration
 
 ```python
 class Mediator:
@@ -232,9 +232,9 @@ class Mediator:
         return pipeline(request)
 ```
 
-### Example Usage Scenarios
+### Example usage scenarios
 
-#### 1. Authorization Behavior (Mixin-Based)
+#### 1. Authorization behavior (mixin-based)
 
 ```python
 from dataclasses import dataclass
@@ -285,7 +285,7 @@ class GetProductRequest(Request[ProductResponse]):
     # No AuthMixin - auth behaviors won't apply!
 ```
 
-#### 2. Caching Behavior (Mixin-Based)
+#### 2. Caching behavior (mixin-based)
 
 ```python
 class CacheableMixin:
@@ -314,7 +314,7 @@ class GetUserRequest(Request[UserResponse], CacheableMixin):
     ttl: int = 600
 ```
 
-#### 3. Universal Behavior (Applies to All)
+#### 3. Universal behavior (applies to all)
 
 ```python
 class LoggingBehavior(PipelineBehavior[Request]):
@@ -331,7 +331,7 @@ class LoggingBehavior(PipelineBehavior[Request]):
             raise
 ```
 
-#### 4. Specific Request Type
+#### 4. Specific request type
 
 ```python
 class CreateOrderValidationBehavior(PipelineBehavior[CreateOrderRequest]):
@@ -345,7 +345,7 @@ class CreateOrderValidationBehavior(PipelineBehavior[CreateOrderRequest]):
         return next()
 ```
 
-#### 5. Custom Matching Logic
+#### 5. Custom matching logic
 
 ```python
 class BusinessHoursBehavior(PipelineBehavior[Request]):
@@ -363,7 +363,7 @@ class BusinessHoursBehavior(PipelineBehavior[Request]):
         return next()
 ```
 
-## Pros and Cons
+## Pros and cons
 
 ### Pros
 
@@ -381,7 +381,7 @@ class BusinessHoursBehavior(PipelineBehavior[Request]):
 ❌ **Manual type assertions** - If you care about response, must annotate manually
 ❌ **Potential confusion** - Developers might expect response type to be inferred
 
-### Mitigations for Cons
+### Mitigations for cons
 
 1. **Documentation** - Clearly explain response type is not statically checked
 2. **Convention** - Behaviors typically don't modify responses, just pass through
@@ -393,9 +393,9 @@ class BusinessHoursBehavior(PipelineBehavior[Request]):
        return result
    ```
 
-## Comparison: Current vs Proposed
+## Comparison: Current vs. proposed
 
-### Current (Two Type Parameters)
+### Current (two type parameters)
 
 ```python
 # Must specify both
@@ -410,7 +410,7 @@ class AuthBehavior(PipelineBehavior[AuthMixin, Any]):  # What's the response? An
 
 **Problem:** If response is always `Any` for selective behaviors, why specify it?
 
-### Proposed (One Type Parameter)
+### Proposed (one type parameter)
 
 ```python
 # Only specify what matters
@@ -423,7 +423,7 @@ class AuthBehavior(PipelineBehavior[AuthMixin]):
         ...
 ```
 
-## Migration Path
+## Migration path
 
 This would be a **breaking change** requiring major version bump.
 
@@ -448,7 +448,7 @@ class Behavior(PipelineBehavior[Request]):
     ...
 ```
 
-### Migration Tool
+### Migration tool
 
 Provide codemod script:
 ```python
@@ -461,7 +461,7 @@ PipelineBehavior[CreateUserRequest]
 
 ## Decision
 
-**RECOMMENDATION: Adopt Single Type Parameter Design**
+**Recommendation: Adopt single type parameter design**
 
 ### Rationale
 
@@ -471,7 +471,7 @@ PipelineBehavior[CreateUserRequest]
 4. **Response type safety is handler's job** - Not behavior's job
 5. **Honest about limitations** - `Any` response is honest vs. lie that we can infer it
 
-### When to Use Which
+### When to use which
 
 | Use Case | Type Parameter | Reasoning |
 |----------|----------------|-----------|
@@ -480,7 +480,7 @@ PipelineBehavior[CreateUserRequest]
 | Specific request | `PipelineBehavior[CreateOrderRequest]` | Only this request type |
 | Custom selection | Override `should_apply()` | Complex matching logic |
 
-## Open Questions
+## Open questions
 
 1. **Should we support multiple type parameters for OR matching?**
    ```python
@@ -488,14 +488,14 @@ PipelineBehavior[CreateUserRequest]
        # Applies to either
        ...
    ```
-   - Probably NO - use `should_apply()` for complex logic
+   - Probably not - use `should_apply()` for complex logic
 
 2. **Should `apply_to_subclasses` be configurable per behavior?**
    ```python
    class ExactMatchBehavior(PipelineBehavior[CreateOrderRequest]):
        apply_to_subclasses = False  # Only CreateOrderRequest, not subclasses
    ```
-   - Probably YES - useful for very specific behaviors
+   - Probably yes - useful for very specific behaviors
 
 3. **Should we provide type utilities for response annotation?**
    ```python
@@ -505,23 +505,23 @@ PipelineBehavior[CreateUserRequest]
        # ResponseOf[MyRequest] = MyResponse (extracted at runtime)
        ...
    ```
-   - Probably NO - doesn't help static type checking
+   - Probably not - doesn't help static type checking
 
-## Implementation Checklist
+## Implementation checklist
 
-- [ ] Update `PipelineBehavior` base class signature
-- [ ] Add `should_apply()` class method
-- [ ] Add `__get_request_type__()` helper
-- [ ] Update `Mediator.send()` to filter behaviors
-- [ ] Update `Pipeline` to work with filtered behaviors
-- [ ] Add comprehensive tests for selective application
-- [ ] Update all documentation and examples
-- [ ] Provide migration guide
-- [ ] Update ADR-0001 status to "Superseded"
+- [x] Update `PipelineBehavior` base class signature
+- [x] Add `should_apply()` class method
+- [x] Add `__get_request_type__()` helper
+- [x] Update `Mediator.send()` to filter behaviors
+- [x] Update `Pipeline` to work with filtered behaviors
+- [x] Add comprehensive tests for selective application
+- [x] Update all documentation and examples
+- [ ] Provide migration guide - not needed: no released version ever shipped the two-parameter design (only `v0.1.0` exists, and it already ships this single-parameter `PipelineBehavior`)
+- [x] Update ADR-0001 status to "Superseded"
 
 ## Conclusion
 
-The single type parameter design is **superior** given the future vision of selective behaviors based on request mixins. It's simpler, clearer, and matches the actual usage pattern better than trying to maintain response type safety that's impossible to achieve statically.
+The single type parameter design is superior given the future vision of selective behaviors based on request mixins. It's simpler, clearer, and matches the actual usage pattern better than trying to maintain response type safety that's impossible to achieve statically.
 
 The trade-off (losing response type safety at behavior level) is acceptable because:
 1. Handlers still have full response type safety

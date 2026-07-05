@@ -1,6 +1,6 @@
 # Mediator
 
-## Synchronous Mediator
+## Synchronous mediator
 
 For routing synchronous requests to handlers:
 
@@ -11,7 +11,7 @@ For routing synchronous requests to handlers:
       members_order: source
       heading_level: 3
 
-## Asynchronous Mediator
+## Asynchronous mediator
 
 For routing asynchronous requests to async handlers:
 
@@ -26,20 +26,20 @@ For routing asynchronous requests to async handlers:
 
 ## Usage
 
-### Sync Mediator
+### Sync mediator
 
 ```python
 from pymediate import Mediator, Services
 
 services = Services()
 services.add(MyHandler())
-mediator = Mediator(resolver)
+mediator = Mediator(services.provider())
 
 # Send a request - blocks until handler completes
 response = mediator.send(MyRequest(data="example"))
 ```
 
-### Async Mediator
+### Async mediator
 
 ```python
 import asyncio
@@ -49,7 +49,7 @@ from pymediate import Services
 async def main():
     services = Services()
     services.add(MyAsyncHandler())
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     # Send a request - awaits handler completion
     response = await mediator.send(MyRequest(data="example"))
@@ -67,5 +67,6 @@ asyncio.run(main())
 ---
 
 For detailed usage guide, see:
-- [Mediator Guide](../guide/mediator.md)
-- [Async/Await Examples](../examples/async.md)
+
+- [Mediator guide](../guide/mediator.md)
+- [Async/await examples](../examples/async.md)

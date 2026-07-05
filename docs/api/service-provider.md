@@ -1,8 +1,8 @@
-# Service Provider
+# Service provider
 
 The service provider system in PyMediate provides flexible service registration and resolution.
 
-## ServiceProvider Protocol
+## `ServiceProvider` protocol
 
 ::: pymediate.service.ServiceProvider
     options:

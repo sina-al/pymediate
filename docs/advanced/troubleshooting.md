@@ -2,9 +2,9 @@
 
 This guide covers common issues you might encounter when using PyMediate and how to resolve them.
 
-## Installation Issues
+## Installation issues
 
-### DependencyInjectorServiceProvider Not Available
+### `DependencyInjectorServiceProvider` not available
 
 **Problem:** You get an error when trying to use `DependencyInjectorServiceProvider`:
 
@@ -50,7 +50,7 @@ from pymediate.providers import DependencyInjectorServiceProvider
 print("DependencyInjectorServiceProvider is available!")
 ```
 
-### Import Errors After Installation
+### Import errors after installation
 
 **Problem:** You installed PyMediate but imports are failing.
 
@@ -74,9 +74,9 @@ print("DependencyInjectorServiceProvider is available!")
    python --version  # Should be 3.12 or higher
    ```
 
-## Runtime Issues
+## Runtime issues
 
-### HandlerNotFoundError
+### `HandlerNotFoundError`
 
 **Problem:** You get `HandlerNotFoundError` when sending a request:
 
@@ -85,7 +85,7 @@ response = mediator.send(MyRequest())
 # HandlerNotFoundError: No handler registered for request type 'MyRequest'
 ```
 
-**Causes and Solutions:**
+**Causes and solutions:**
 
 1. **Handler not registered:**
    ```python
@@ -127,12 +127,19 @@ response = mediator.send(MyRequest())
 **Debugging:** The error message includes a list of available handlers:
 
 ```
-HandlerNotFoundError: No handler registered for request type 'MyRequest'
+No handler registered for request type 'MyRequest'
 
-Available handlers: CreateUserRequest, UpdateUserRequest, DeleteUserRequest
+💡 Possible solutions:
+  1. Register a handler: services.add(your_handler_instance)
+  2. Ensure your DI container has a provider for this handler
+  3. Verify MyRequest inherits from Request[ResponseType]
+
+📋 Available handlers: CreateUserRequest, UpdateUserRequest, DeleteUserRequest
+
+📚 Learn more: https://sina-al.github.io/pymediate/guide/handlers
 ```
 
-### InvalidHandlerSignatureError
+### `InvalidHandlerSignatureError`
 
 **Problem:** You get `InvalidHandlerSignatureError` when defining a handler:
 
@@ -198,13 +205,13 @@ class MyHandler(Handler[MyRequest]):
            return MyResponse()
    ```
 
-### DI Container Resolution Failures
+### DI container resolution failures
 
 **Problem:** Calling a provider through `DependencyInjectorServiceProvider` raises an error from
 the `dependency-injector` container itself (e.g. a missing dependency or a circular reference),
 rather than a PyMediate-specific exception.
 
-**Causes and Solutions:**
+**Causes and solutions:**
 
 1. **Missing dependencies in handler:**
    ```python
@@ -236,7 +243,7 @@ rather than a PyMediate-specific exception.
        handler_b = providers.Factory(HandlerB, handler_a=handler_a)  # ✅
    ```
 
-### HandlerAlreadyRegisteredError
+### `HandlerAlreadyRegisteredError`
 
 **Problem:** You get `HandlerAlreadyRegisteredError` when trying to define a second handler for the same request:
 
@@ -254,11 +261,11 @@ class CreateUserHandlerV2(Handler[CreateUserRequest]):  # ❌ Error!
 
 **Cause:** PyMediate enforces a strict one-handler-per-request-type policy. Each request type can only have a single handler. This prevents ambiguity about which handler should process a request and helps catch accidental duplicate registrations early.
 
-**Why This Policy Exists:**
+**Why this policy exists:**
 
-1. **Clarity:** Always know exactly which handler will process a request
-2. **Early Detection:** Catch configuration mistakes at class definition time
-3. **Simplicity:** No need to reason about handler precedence or ordering
+1. **Clarity.** Always know exactly which handler will process a request.
+2. **Early detection.** Catch configuration mistakes at class-definition time.
+3. **Simplicity.** No need to reason about handler precedence or ordering.
 
 **Solutions:**
 
@@ -319,7 +326,7 @@ class CreateUserHandlerV2(Handler[CreateUserRequest]):  # ❌ Error!
            return UserResponse(user_id=user.id, username=user.username)
    ```
 
-**Understanding the Error Message:**
+**Understanding the error message:**
 
 The error provides helpful context including:
 
@@ -338,17 +345,31 @@ Attempting to register: CreateUserHandlerV2
    /path/to/handlers.py:42
 
 💡 Each request type can only have ONE handler.
+
+Solutions:
+  1. Remove one of the handler class definitions
+  2. Use different request types for different behaviors:
+     class CreateUserRequestV1(Request[Response]): ...
+     class CreateUserRequestV2(Request[Response]): ...
+
+  3. Compose handlers to combine behaviors:
+     class ComposedHandler(Handler[MyRequest]):
+         def __call__(self, request):
+             # Combine both behaviors here
+             ...
+
+📚 Learn more: https://sina-al.github.io/pymediate/advanced/troubleshooting
 ```
 
-**Debugging Tips:**
+**Debugging tips:**
 
-1. **Check for duplicate imports:** Sometimes the same handler class is imported and defined multiple times
-2. **Review test isolation:** If you see this error in tests, ensure your tests properly clean up registries between runs
-3. **Check module-level definitions:** If handlers are defined at module level and imported multiple times, this can cause issues
+1. **Check for duplicate imports.** Sometimes the same handler class is imported and defined multiple times.
+2. **Review test isolation.** If you see this error in tests, ensure your tests properly clean up registries between runs.
+3. **Check module-level definitions.** If handlers are defined at module level and imported multiple times, this can cause issues.
 
-## Type Checking Issues
+## Type checking issues
 
-### MyPy Errors
+### mypy errors
 
 **Problem:** MyPy reports type errors with PyMediate code.
 
@@ -373,12 +394,14 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 # Type inference works correctly
-mediator = Mediator(Services())
+services = Services()
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
 response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 # response is correctly inferred as UserResponse
 ```
 
-### Response Type Not Inferred
+### Response type not inferred
 
 **Problem:** Your IDE or type checker doesn't infer the response type correctly.
 
@@ -394,9 +417,9 @@ class CreateUserRequest(Request[UserResponse]):
     username: str
 ```
 
-## Documentation Build Issues
+## Documentation build issues
 
-### MkDocs Build Fails
+### MkDocs build fails
 
 **Problem:** Documentation build fails with errors.
 
@@ -413,33 +436,27 @@ class CreateUserRequest(Request[UserResponse]):
    ```
 
 3. Common issues:
-   - **Broken links:** Check all internal links in markdown files
-   - **Missing files:** Ensure all referenced files exist
-   - **Invalid YAML:** Check `mkdocs.yml` syntax
+      - **Broken links.** Check all internal links in markdown files.
+      - **Missing files.** Ensure all referenced files exist.
+      - **Invalid YAML.** Check `mkdocs.yml` syntax.
 
-## Getting Help
+## Getting help
 
 If you encounter an issue not covered here:
 
-1. **Check the documentation:**
-   - [User Guide](../guide/requests-responses.md)
-   - [API Reference](../api/request.md)
-   - [Examples](../examples/basic.md)
+1. **Check the documentation.**
+      - [User guide](../guide/requests-responses.md)
+      - [API reference](../api/request.md)
+      - [Examples](../examples/basic.md)
+2. **Search existing issues.** [GitHub Issues](https://github.com/sina-al/pymediate/issues).
+3. **Ask for help.** [GitHub Discussions](https://github.com/sina-al/pymediate/discussions).
+4. **Report a bug.** [Create an issue](https://github.com/sina-al/pymediate/issues/new).
 
-2. **Search existing issues:**
-   - [GitHub Issues](https://github.com/sina-al/pymediate/issues)
-
-3. **Ask for help:**
-   - [GitHub Discussions](https://github.com/sina-al/pymediate/discussions)
-
-4. **Report a bug:**
-   - [Create an issue](https://github.com/sina-al/pymediate/issues/new)
-
-## Common Best Practices
+## Common best practices
 
 To avoid common issues:
 
-1. **Always use type annotations:**
+1. **Always use type annotations.**
    ```python
    # ✅ Good
    def __call__(self, request: MyRequest) -> MyResponse:
@@ -450,7 +467,7 @@ To avoid common issues:
        ...
    ```
 
-2. **Register handlers before using the mediator:**
+2. **Register handlers before using the mediator.**
    ```python
    # ✅ Good
    services.add(MyHandler())
@@ -462,7 +479,7 @@ To avoid common issues:
    response = mediator.send(MyRequest())  # Handler not registered yet!
    ```
 
-3. **Use dataclasses for requests and responses:**
+3. **Use dataclasses for requests and responses.**
    ```python
    # ✅ Good
    @dataclass
@@ -475,7 +492,7 @@ To avoid common issues:
            self.field = field
    ```
 
-4. **Keep handlers focused:**
+4. **Keep handlers focused.**
    ```python
    # ✅ Good - one handler per request type
    class CreateUserHandler(Handler[CreateUserRequest]):

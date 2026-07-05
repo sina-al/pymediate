@@ -9,4 +9,4 @@
 
 ---
 
-For detailed usage guide, see [Requests & Responses Guide](../guide/requests-responses.md).
+For detailed usage guide, see [Requests and responses](../guide/requests-responses.md).

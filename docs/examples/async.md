@@ -1,8 +1,8 @@
-# Async/Await Support
+# Async/await support
 
 PyMediate provides first-class support for asynchronous operations through the `pymediate.aio` package. This allows you to write handlers and mediators that work seamlessly with Python's `async`/`await` syntax.
 
-## Quick Start
+## Quick start
 
 The async API mirrors the synchronous API, with handlers using `async def __call__` and mediators using `await send()`:
 
@@ -31,7 +31,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 async def main():
     services = Services()
     services.add(CreateUserHandler())
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     response = await mediator.send(CreateUserRequest(
         username="alice",
@@ -42,16 +42,16 @@ async def main():
 asyncio.run(main())
 ```
 
-## Key Differences from Sync API
+## Key differences from sync API
 
 | Aspect | Sync API | Async API |
 |--------|----------|-----------|
 | Import | `from pymediate import Handler, Mediator` | `from pymediate.aio import Handler, Mediator` |
-| Handler Method | `def __call__(self, request) -> Response` | `async def __call__(self, request) -> Response` |
-| Mediator Send | `response = mediator.send(request)` | `response = await mediator.send(request)` |
-| Request/Resolver | Same - `from pymediate import Request, Services` | Same - `from pymediate import Request, Services` |
+| Handler method | `def __call__(self, request) -> Response` | `async def __call__(self, request) -> Response` |
+| Mediator send | `response = mediator.send(request)` | `response = await mediator.send(request)` |
+| Request/Services | Same: `from pymediate import Request, Services` | Same: `from pymediate import Request, Services` |
 
-## Async Database Operations
+## Async database operations
 
 Here's a realistic example with async database access:
 
@@ -121,7 +121,7 @@ async def main():
     services = Services()
     services.add(GetUserHandler(db))
     services.add(CreateUserHandler(db))
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     # Create a user
     create_response = await mediator.send(CreateUserRequest(
@@ -137,7 +137,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## Concurrent Request Processing
+## Concurrent request processing
 
 One of the key benefits of async is the ability to process multiple requests concurrently:
 
@@ -170,7 +170,7 @@ class FetchApiHandler(Handler[FetchApiRequest]):
 async def main():
     services = Services()
     services.add(FetchApiHandler())
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     # Process multiple requests concurrently
     start = asyncio.get_event_loop().time()
@@ -192,7 +192,7 @@ async def main():
 asyncio.run(main())
 ```
 
-## Error Handling
+## Error handling
 
 Error handling works the same way in async handlers:
 
@@ -224,7 +224,7 @@ class ProcessHandler(Handler[ProcessRequest]):
 async def main():
     services = Services()
     services.add(ProcessHandler())
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     try:
         response = await mediator.send(ProcessRequest(value=-1))
@@ -237,20 +237,23 @@ async def main():
 asyncio.run(main())
 ```
 
-## Mixing Sync and Async
+## Mixing sync and async
 
 You can have both sync and async handlers in the same application. Simply use the appropriate imports:
 
 ```python
+from dataclasses import dataclass
 from pymediate import Handler as SyncHandler
 from pymediate.aio import Handler as AsyncHandler
 from pymediate import Request, Mediator as SyncMediator
 from pymediate.aio import Mediator as AsyncMediator
 
 # Sync request/handler
+@dataclass
 class SyncResponse:
     value: int
 
+@dataclass
 class SyncRequest(Request[SyncResponse]):
     pass
 
@@ -259,9 +262,11 @@ class MySyncHandler(SyncHandler[SyncRequest]):
         return SyncResponse(value=42)
 
 # Async request/handler
+@dataclass
 class AsyncResponse:
     value: int
 
+@dataclass
 class AsyncRequest(Request[AsyncResponse]):
     pass
 
@@ -271,17 +276,20 @@ class MyAsyncHandler(AsyncHandler[AsyncRequest]):
         return AsyncResponse(value=42)
 ```
 
-## Type Safety
+## Type safety
 
 The async API maintains full type safety. Mypy will catch type errors:
 
 ```python
+from dataclasses import dataclass
 from pymediate import Request
 from pymediate.aio import Handler
 
+@dataclass
 class Response:
     value: int
 
+@dataclass
 class MyRequest(Request[Response]):
     pass
 
@@ -297,23 +305,23 @@ class GoodHandler(Handler[MyRequest]):
         return Response(value=42)
 ```
 
-## Best Practices
+## Best practices
 
-1. **Use async for I/O-bound operations**: Database queries, API calls, file I/O
-2. **Use sync for CPU-bound operations**: Heavy computation, data processing
-3. **Process requests concurrently**: Use `asyncio.gather()` for parallel requests
-4. **Handle errors appropriately**: Use try/except in handlers and at the call site
-5. **Keep handlers focused**: Each handler should do one thing well
-6. **Test both sync and async paths**: Ensure handlers work correctly in isolation
+1. **Use async for I/O-bound operations.** Database queries, API calls, file I/O.
+2. **Use sync for CPU-bound operations.** Heavy computation, data processing.
+3. **Process requests concurrently.** Use `asyncio.gather()` for parallel requests.
+4. **Handle errors appropriately.** Use try/except in handlers and at the call site.
+5. **Keep handlers focused.** Each handler should do one thing well.
+6. **Test both sync and async paths.** Ensure handlers work correctly in isolation.
 
-## Performance Considerations
+## Performance considerations
 
-- **Async is not always faster**: For CPU-bound tasks, sync may be better
-- **Concurrent != Parallel**: Async is concurrent but single-threaded
-- **I/O benefits the most**: Async shines when waiting for external resources
-- **Context switching overhead**: Very simple operations may be slower with async
+- **Async is not always faster.** For CPU-bound tasks, sync may be better.
+- **Concurrent is not parallel.** Async is concurrent but single-threaded.
+- **I/O benefits the most.** Async shines when waiting for external resources.
+- **Context-switching overhead.** Very simple operations may be slower with async.
 
-## Integration with Async Frameworks
+## Integration with async frameworks
 
 ### FastAPI
 
@@ -326,7 +334,8 @@ app = FastAPI()
 
 # Setup mediator (typically done at startup)
 services = Services()
-mediator = Mediator(resolver)
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
 
 # Dependency injection
 def get_mediator() -> Mediator:
@@ -370,7 +379,7 @@ app["mediator"] = mediator
 app.router.add_post("/users/", create_user)
 ```
 
-## See Also
+## See also
 
 - [Handlers Guide](../guide/handlers.md)
 - [Mediator Guide](../guide/mediator.md)

@@ -1,33 +1,33 @@
-# Error Handling
+# Error handling
 
 PyMediate provides a comprehensive error handling system with helpful error messages, documentation links, and best practices for managing errors in your application.
 
-## Table of Contents
+## Table of contents
 
-- [Error Philosophy](#error-philosophy)
-- [Built-in Error Types](#built-in-error-types)
-- [Handling Errors](#handling-errors)
-- [Custom Error Types](#custom-error-types)
-- [Error Messages](#error-messages)
-- [Error Propagation](#error-propagation)
-- [Validation Errors](#validation-errors)
-- [Domain Errors](#domain-errors)
-- [Result Types](#result-types)
-- [Error Recovery](#error-recovery)
-- [Testing Error Cases](#testing-error-cases)
-- [Best Practices](#best-practices)
+- [Error philosophy](#error-philosophy)
+- [Built-in error types](#built-in-error-types)
+- [Handling errors](#handling-errors)
+- [Custom error types](#custom-error-types)
+- [Error messages](#error-messages)
+- [Error propagation](#error-propagation)
+- [Validation errors](#validation-errors)
+- [Domain errors](#domain-errors)
+- [Result types](#result-types)
+- [Error recovery](#error-recovery)
+- [Testing error cases](#testing-error-cases)
+- [Best practices](#best-practices)
 
-## Error Philosophy
+## Error philosophy
 
 PyMediate follows these principles for error handling:
 
-1. **Fail Fast**: Errors should be caught as early as possible
-2. **Helpful Messages**: Errors include solutions and documentation links
-3. **Type Safety**: Custom exception hierarchy for precise error handling
-4. **Framework Independent**: Errors work with any adapter (web, CLI, etc.)
-5. **Testable**: Easy to test error conditions
+1. **Fail fast.** Errors should be caught as early as possible.
+2. **Helpful messages.** Errors include solutions and documentation links.
+3. **Type safety.** A custom exception hierarchy enables precise error handling.
+4. **Framework independent.** Errors work with any adapter (web, CLI, and so on).
+5. **Testable.** Easy to test error conditions.
 
-## Built-in Error Types
+## Built-in error types
 
 PyMediate provides several custom exception types, all inheriting from `PyMediateError`.
 
@@ -60,7 +60,7 @@ except HandlerNotFoundError as e:
     print(f"Available handlers: {e.available_handlers}")
 ```
 
-**Error Message Example:**
+Example error message:
 ```
 No handler registered for request type 'CreateUserRequest'
 
@@ -90,7 +90,7 @@ except InvalidHandlerSignatureError as e:
     print(f"Issue: {e.issue}")
 ```
 
-**Error Message Example:**
+Example error message:
 ```
 Invalid handler signature in CreateUserHandler: __call__ must have exactly one parameter
 
@@ -142,9 +142,9 @@ except ResponseTypeMismatchError as e:
     print(f"Got: {e.actual_type.__name__}")
 ```
 
-## Handling Errors
+## Handling errors
 
-### Basic Error Handling
+### Basic error handling
 
 ```python
 from pymediate import HandlerNotFoundError
@@ -162,7 +162,7 @@ except Exception as e:
     print(f"Unexpected error: {e}")
 ```
 
-### Specific Error Handling
+### Specific error handling
 
 ```python
 from pymediate import HandlerNotFoundError
@@ -174,7 +174,7 @@ except HandlerNotFoundError as e:
     print(f"Handler not found: {e}")
 ```
 
-### Error Context
+### Error context
 
 ```python
 from pymediate import PyMediateError
@@ -184,13 +184,13 @@ try:
 except PyMediateError as e:
     # All PyMediate errors include docs_path
     if e.docs_path:
-        print(f"See documentation: https://docs.pymediate.com/{e.docs_path}")
+        print(f"See documentation: https://sina-al.github.io/pymediate/{e.docs_path}")
     raise
 ```
 
-## Custom Error Types
+## Custom error types
 
-### Domain-Specific Errors
+### Domain-specific errors
 
 ```python
 class UserAlreadyExistsError(Exception):
@@ -208,7 +208,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return CreateUserResponse(user_id=user_id, username=request.username)
 ```
 
-### Error with Context
+### Error with context
 
 ```python
 class PaymentFailedError(Exception):
@@ -238,7 +238,7 @@ class ProcessPaymentHandler(Handler[ProcessPaymentRequest]):
         return ProcessPaymentResponse(payment_id=payment_id, status="success")
 ```
 
-### Error Hierarchy
+### Error hierarchy
 
 ```python
 class ApplicationError(Exception):
@@ -271,25 +271,25 @@ class InvalidEmailError(ValidationError):
         super().__init__(f"Invalid email format: {email}")
 ```
 
-## Error Messages
+## Error messages
 
-### Helpful Error Messages
+### Helpful error messages
 
 ```python
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        # ✅ GOOD: Helpful error message
+        # ✅ Good: Helpful error message
         if len(request.username) < 3:
             raise ValueError(
                 f"Username must be at least 3 characters (got {len(request.username)})"
             )
 
-        # ❌ BAD: Vague error message
+        # ❌ Bad: Vague error message
         if len(request.username) < 3:
             raise ValueError("Invalid username")
 ```
 
-### Error Messages with Solutions
+### Error messages with solutions
 
 ```python
 class ValidateOrderHandler(Handler[ValidateOrderRequest]):
@@ -304,7 +304,7 @@ class ValidateOrderHandler(Handler[ValidateOrderRequest]):
             )
 ```
 
-### Error Messages with Context
+### Error messages with context
 
 ```python
 class UpdateProductHandler(Handler[UpdateProductRequest]):
@@ -326,12 +326,12 @@ class UpdateProductHandler(Handler[UpdateProductRequest]):
             )
 ```
 
-## Error Propagation
+## Error propagation
 
-### Let Errors Propagate
+### Let errors propagate
 
 ```python
-# ✅ GOOD: Let errors propagate naturally
+# ✅ Good: Let errors propagate naturally
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         # Validation errors propagate automatically
@@ -345,10 +345,10 @@ except ValueError as e:
     print(f"Validation failed: {e}")
 ```
 
-### Don't Swallow Errors
+### Don't swallow errors
 
 ```python
-# ❌ BAD: Swallowing errors
+# ❌ Bad: Swallowing errors
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         try:
@@ -358,7 +358,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
             # Swallowed! Caller doesn't know what happened
             return CreateUserResponse(user_id=0, username="")
 
-# ✅ GOOD: Let errors propagate
+# ✅ Good: Let errors propagate
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         # Errors propagate to caller
@@ -366,7 +366,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return CreateUserResponse(user_id=user_id, username=request.username)
 ```
 
-### Wrap and Re-raise
+### Wrap and re-raise
 
 ```python
 class CreateUserHandler(Handler[CreateUserRequest]):
@@ -381,9 +381,9 @@ class CreateUserHandler(Handler[CreateUserRequest]):
             ) from e
 ```
 
-## Validation Errors
+## Validation errors
 
-### Request Validation
+### Request validation
 
 ```python
 @dataclass
@@ -417,7 +417,7 @@ class CreateUserRequest(Request[CreateUserResponse]):
             )
 ```
 
-### Business Rule Validation
+### Business rule validation
 
 ```python
 class TransferMoneyHandler(Handler[TransferMoneyRequest]):
@@ -453,9 +453,9 @@ class TransferMoneyHandler(Handler[TransferMoneyRequest]):
         )
 ```
 
-## Domain Errors
+## Domain errors
 
-### Specific Domain Errors
+### Specific domain errors
 
 ```python
 # E-commerce domain errors
@@ -512,18 +512,14 @@ class PlaceOrderHandler(Handler[PlaceOrderRequest]):
         return PlaceOrderResponse(order_id=order_id)
 ```
 
-## Result Types
+## Result types
 
 Instead of throwing exceptions, use result types for expected failures.
 
-### Simple Result Type
+### Simple result type
 
 ```python
 from dataclasses import dataclass
-from typing import Generic, TypeVar
-
-T = TypeVar('T')
-E = TypeVar('E')
 
 @dataclass
 class Success[T]:
@@ -545,7 +541,7 @@ class Failure[E]:
     def is_failure(self) -> bool:
         return True
 
-Result = Success[T] | Failure[E]
+type Result[T, E] = Success[T] | Failure[E]
 
 # Usage
 @dataclass
@@ -568,7 +564,7 @@ else:
     print(f"Payment failed: {response.result.error}")
 ```
 
-### Rich Result Type
+### Rich result type
 
 ```python
 @dataclass
@@ -616,9 +612,9 @@ class CreateUserHandler(Handler[CreateUserRequest]):
             )
 ```
 
-## Error Recovery
+## Error recovery
 
-### Retry Logic
+### Retry logic
 
 ```python
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -634,7 +630,7 @@ class FetchDataHandler(Handler[FetchDataRequest]):
         return FetchDataResponse(data=data)
 ```
 
-### Fallback Values
+### Fallback values
 
 ```python
 class GetUserHandler(Handler[GetUserRequest]):
@@ -665,7 +661,7 @@ class GetUserHandler(Handler[GetUserRequest]):
             )
 ```
 
-### Circuit Breaker
+### Circuit breaker
 
 ```python
 from circuitbreaker import circuit
@@ -679,9 +675,9 @@ class ExternalAPIHandler(Handler[ExternalAPIRequest]):
         return ExternalAPIResponse(data=data)
 ```
 
-## Testing Error Cases
+## Testing error cases
 
-### Testing Validation Errors
+### Testing validation errors
 
 ```python
 import pytest
@@ -699,7 +695,7 @@ def test_create_user_underage():
         CreateUserRequest(username="alice", email="alice@example.com", age=16)
 ```
 
-### Testing Domain Errors
+### Testing domain errors
 
 ```python
 def test_transfer_insufficient_funds():
@@ -722,14 +718,14 @@ def test_transfer_insufficient_funds():
     assert exc_info.value.available == 50.0
 ```
 
-### Testing PyMediate Errors
+### Testing PyMediate errors
 
 ```python
 from pymediate import HandlerNotFoundError
 
 def test_handler_not_found():
     services = Services()
-    mediator = Mediator(resolver)
+    mediator = Mediator(services.provider())
 
     with pytest.raises(HandlerNotFoundError) as exc_info:
         mediator.send(UnregisteredRequest())
@@ -737,12 +733,12 @@ def test_handler_not_found():
     assert exc_info.value.request_type == UnregisteredRequest
 ```
 
-## Best Practices
+## Best practices
 
-### 1. Use Specific Exception Types
+### 1. Use specific exception types
 
 ```python
-# ✅ GOOD: Specific exception types
+# ✅ Good: Specific exception types
 class UserNotFoundError(Exception):
     pass
 
@@ -765,24 +761,24 @@ except InvalidCredentialsError:
     return {"error": "Invalid credentials"}, 401
 ```
 
-### 2. Include Context in Error Messages
+### 2. Include context in error messages
 
 ```python
-# ✅ GOOD: Context included
+# ✅ Good: Context included
 raise ValueError(
     f"Failed to process order {order_id}: "
     f"product {product_id} out of stock "
     f"(requested: {requested}, available: {available})"
 )
 
-# ❌ BAD: No context
+# ❌ Bad: No context
 raise ValueError("Out of stock")
 ```
 
-### 3. Fail Fast with Validation
+### 3. Fail fast with validation
 
 ```python
-# ✅ GOOD: Validate in __post_init__
+# ✅ Good: Validate in __post_init__
 @dataclass
 class CreateUserRequest(Request[UserResponse]):
     email: str
@@ -791,29 +787,29 @@ class CreateUserRequest(Request[UserResponse]):
         if "@" not in self.email:
             raise ValueError("Invalid email")
 
-# ❌ BAD: Validate in handler
+# ❌ Bad: Validate in handler
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request):
         if "@" not in request.email:  # Too late!
             raise ValueError("Invalid email")
 ```
 
-### 4. Don't Use Exceptions for Control Flow
+### 4. Don't use exceptions for control flow
 
 ```python
-# ❌ BAD: Using exceptions for control flow
+# ❌ Bad: Using exceptions for control flow
 try:
     user = self.database.get_user(user_id)
 except UserNotFoundError:
     user = self.create_default_user()
 
-# ✅ GOOD: Check explicitly
+# ✅ Good: Check explicitly
 user = self.database.get_user(user_id)
 if not user:
     user = self.create_default_user()
 ```
 
-### 5. Log Errors Before Re-raising
+### 5. Log errors before re-raising
 
 ```python
 class CreateUserHandler(Handler[CreateUserRequest]):
@@ -832,7 +828,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 
 ---
 
-## Next Steps
+## Next steps
 
 - Learn about [Handlers](handlers.md) - Implementing error handling in handlers
 - Explore [Best Practices](../advanced/best-practices.md) - Advanced techniques

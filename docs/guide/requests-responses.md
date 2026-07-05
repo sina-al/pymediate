@@ -1,8 +1,8 @@
-# Requests and Responses
+# Requests and responses
 
 Requests and responses are the fundamental building blocks of PyMediate. They represent **messages** that flow through your application, completely independent of any delivery mechanism (HTTP, CLI, message queue, etc.).
 
-## The Core Concept
+## The core concept
 
 At its heart, PyMediate encourages you to think of your application as a series of **requests** and **responses** (or **commands** and **queries** in CQRS terminology). This is a powerful architectural pattern that creates clear boundaries between your:
 
@@ -11,7 +11,7 @@ At its heart, PyMediate encourages you to think of your application as a series 
 
 ```python
 # This request represents "create a user" in your domain
-# It knows NOTHING about HTTP, FastAPI, Flask, CLI, etc.
+# It knows nothing about HTTP, FastAPI, Flask, CLI, and so on
 @dataclass
 class CreateUserRequest(Request[UserCreated]):
     username: str
@@ -26,16 +26,16 @@ class UserCreated:
     created_at: datetime
 ```
 
-## Framework Independence: The Hexagonal Architecture Principle
+## Framework independence: The hexagonal architecture principle
 
 One of the most powerful aspects of the request/response pattern is **framework independence**. Your core application logic should not depend on Flask, FastAPI, Django, or any other framework.
 
-### The Problem with Framework-Coupled Code
+### The problem with framework-coupled code
 
 Traditional web applications often look like this:
 
 ```python
-# ❌ BAD: Business logic coupled to Flask
+# ❌ Bad: Business logic coupled to Flask
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
@@ -66,12 +66,12 @@ def create_user():
 - Can't run in a cloud function or message queue
 - Business rules are scattered across routes
 
-### The Solution: Request/Response Pattern
+### The solution: Request/response pattern
 
 With PyMediate, your business logic is completely decoupled:
 
 ```python
-# ✅ GOOD: Business logic independent of delivery mechanism
+# ✅ Good: Business logic independent of delivery mechanism
 
 # 1. Domain layer - framework independent
 @dataclass
@@ -245,7 +245,7 @@ def lambda_handler(event, context):
         }
 ```
 
-### Adapter 5: Message Queue Consumer
+### Adapter 5: Message queue consumer
 
 ```python
 # RabbitMQ/Kafka consumer - processes async messages
@@ -274,15 +274,15 @@ for message in consumer:
         # Send to dead letter queue
 ```
 
-## The Power of Adapter Independence
+## The power of adapter independence
 
 Notice how:
 
-1. **Business logic never changed** - `CreateUserHandler` is identical
-2. **Same validation rules** - consistent across all adapters
-3. **Same error handling** - domain errors handled consistently
-4. **Easy testing** - test business logic without any framework
-5. **Mix and match** - Use Flask for web, Kafka for async, Lambda for events
+1. **Business logic never changed.** `CreateUserHandler` is identical across every adapter.
+2. **Same validation rules.** Consistent across all adapters.
+3. **Same error handling.** Domain errors are handled consistently.
+4. **Easy testing.** Test business logic without any framework.
+5. **Mix and match.** Use Flask for web, Kafka for async, Lambda for events.
 
 This is the essence of **Hexagonal Architecture** (also called Ports and Adapters):
 
@@ -322,7 +322,7 @@ This is the essence of **Hexagonal Architecture** (also called Ports and Adapter
 └─────────────────────────────────────────────────────┘
 ```
 
-## CQRS: Commands vs Queries
+## CQRS: Commands vs queries
 
 CQRS (Command Query Responsibility Segregation) is a pattern that separates operations that change state from those that read state.
 
@@ -375,11 +375,11 @@ class GetUserStatisticsQuery(Request[UserStatistics]):
 
 ### Benefits of CQRS
 
-1. **Clear Intent**: Method names make it obvious what happens
-2. **Optimized Operations**: Can optimize reads and writes separately
-3. **Scalability**: Can scale read and write databases independently
-4. **Audit Trail**: Commands are perfect for event sourcing
-5. **Caching**: Queries can be aggressively cached
+1. **Clear intent.** Method names make it obvious what happens.
+2. **Optimized operations.** Reads and writes can be optimized separately.
+3. **Scalability.** Read and write databases can scale independently.
+4. **Audit trail.** Commands are well suited to event sourcing.
+5. **Caching.** Queries can be cached aggressively.
 
 ```python
 # Example: Separate read/write databases
@@ -400,28 +400,28 @@ class GetUserHandler(Handler[GetUserQuery]):
         return self.read_db.get_user(request.user_id)
 ```
 
-## Request Design Patterns
+## Request design patterns
 
-### 1. Immutable Value Objects
+### 1. Immutable value objects
 
 Requests should be immutable to prevent bugs:
 
 ```python
-# ✓ Good - frozen dataclass (immutable)
+# ✅ Good: Frozen dataclass (immutable)
 @dataclass(frozen=True)
 class TransferMoneyRequest(Request[TransferCompleted]):
     from_account: str
     to_account: str
     amount: Decimal
 
-# ✗ Bad - mutable state
+# ❌ Bad: Mutable state
 class TransferMoneyRequest(Request[TransferCompleted]):
     def __init__(self):
         self.from_account = None  # Can be changed!
         self.to_account = None
 ```
 
-### 2. Rich Domain Validation
+### 2. Rich domain validation
 
 Include business rules in your requests:
 
@@ -446,7 +446,7 @@ class CreateOrderRequest(Request[OrderCreated]):
             raise ValueError("Order value exceeds maximum allowed")
 ```
 
-### 3. Request Versioning
+### 3. Request versioning
 
 Handle API evolution with versioned requests:
 
@@ -473,7 +473,7 @@ def translate_v1_to_v2(v1: CreateUserRequestV1) -> CreateUserRequestV2:
     )
 ```
 
-### 4. Nested Value Objects
+### 4. Nested value objects
 
 Use composition for complex domains:
 
@@ -499,9 +499,9 @@ class CreateOrderRequest(Request[OrderCreated]):
     billing_address: Address
 ```
 
-## Response Design Patterns
+## Response design patterns
 
-### 1. Rich Response Objects
+### 1. Rich response objects
 
 Return all data the caller might need:
 
@@ -518,7 +518,7 @@ class UserCreated:
     is_email_verified: bool
 ```
 
-### 2. Result Objects (Success/Failure)
+### 2. Result objects (success/failure)
 
 Explicit success/failure handling:
 
@@ -584,7 +584,7 @@ class ListUsersQuery(Request[PaginatedUsers]):
     sort_order: str = "desc"
 ```
 
-## Testing Without Frameworks
+## Testing without frameworks
 
 Framework independence makes testing trivial:
 
@@ -622,7 +622,7 @@ def test_validation():
         handler(request)
 ```
 
-## Real-World Example: E-commerce
+## Real-world example: E-commerce
 
 Complete example showing framework independence:
 
@@ -692,7 +692,7 @@ class PlaceOrderHandler(Handler[PlaceOrderRequest]):
         )
 ```
 
-**Web API Adapter:**
+#### Web API adapter
 
 ```python
 @app.post("/orders")
@@ -708,7 +708,7 @@ async def place_order_web(dto: PlaceOrderDTO):
     return {"order_id": result.order_id}
 ```
 
-**Scheduled Job:**
+#### Scheduled job
 
 ```python
 @scheduler.task
@@ -729,18 +729,18 @@ def process_abandoned_carts():
                 email.send_out_of_stock_notification(cart.customer_id)
 ```
 
-## Best Practices
+## Best practices
 
-### 1. Keep Requests Simple
+### 1. Keep requests simple
 
 ```python
-# ✓ Good - simple data transfer
+# ✅ Good: Simple data transfer
 @dataclass
 class UpdateUserEmailRequest(Request[EmailUpdated]):
     user_id: int
     new_email: str
 
-# ✗ Bad - too much logic
+# ❌ Bad: Too much logic
 class UpdateUserEmailRequest(Request[EmailUpdated]):
     def __init__(self, user_id: int, new_email: str):
         self.user_id = user_id
@@ -748,10 +748,10 @@ class UpdateUserEmailRequest(Request[EmailUpdated]):
         self.validated = self.validate()  # Don't do this
 ```
 
-### 2. Use Type Hints
+### 2. Use type hints
 
 ```python
-# ✓ Good - clear types
+# ✅ Good: Clear types
 @dataclass
 class SearchProductsQuery(Request[ProductList]):
     search_term: str
@@ -759,13 +759,13 @@ class SearchProductsQuery(Request[ProductList]):
     max_price: Decimal | None
     categories: list[str]
 
-# ✗ Bad - unclear types
+# ❌ Bad: Unclear types
 class SearchProductsQuery(Request[ProductList]):
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 ```
 
-### 3. Namespace by Feature
+### 3. Namespace by feature
 
 ```python
 # Organize by business capability
@@ -781,7 +781,7 @@ app/
         handlers.py
 ```
 
-## See Also
+## See also
 
 - [Handlers](handlers.md) - Implementing business logic
 - [Hexagonal Architecture](../advanced/best-practices.md) - Architectural patterns

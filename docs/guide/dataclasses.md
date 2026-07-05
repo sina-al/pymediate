@@ -2,32 +2,32 @@
 
 PyMediate has first-class support for Python dataclasses, making it easy to create type-safe, validated requests and responses with minimal boilerplate.
 
-## Table of Contents
+## Table of contents
 
-- [Why Dataclasses?](#why-dataclasses)
-- [Basic Usage](#basic-usage)
-- [Request Dataclasses](#request-dataclasses)
-- [Response Dataclasses](#response-dataclasses)
-- [Advanced Features](#advanced-features)
+- [Why dataclasses?](#why-dataclasses)
+- [Basic usage](#basic-usage)
+- [Request dataclasses](#request-dataclasses)
+- [Response dataclasses](#response-dataclasses)
+- [Advanced features](#advanced-features)
 - [Validation](#validation)
-- [Frozen Dataclasses](#frozen-dataclasses)
-- [Nested Dataclasses](#nested-dataclasses)
-- [Default Values and Factories](#default-values-and-factories)
-- [Dataclass Mixins](#dataclass-mixins)
-- [Testing with Dataclasses](#testing-with-dataclasses)
-- [Best Practices](#best-practices)
-- [Common Patterns](#common-patterns)
+- [Frozen dataclasses](#frozen-dataclasses)
+- [Nested dataclasses](#nested-dataclasses)
+- [Default values and factories](#default-values-and-factories)
+- [Dataclass mixins](#dataclass-mixins)
+- [Testing with dataclasses](#testing-with-dataclasses)
+- [Best practices](#best-practices)
+- [Common patterns](#common-patterns)
 
-## Why Dataclasses?
+## Why dataclasses?
 
 Dataclasses provide several benefits for PyMediate applications:
 
-1. **Type Safety**: Full mypy/pyright support with type hints
-2. **Less Boilerplate**: Auto-generated `__init__`, `__repr__`, `__eq__`
-3. **Immutability**: Use `frozen=True` for immutable requests
-4. **Validation**: Use `__post_init__` for custom validation
-5. **IDE Support**: Better auto-completion and refactoring
-6. **Serialization**: Easy JSON/dict conversion
+1. **Type safety.** Full mypy/pyright support with type hints.
+2. **Less boilerplate.** Auto-generated `__init__`, `__repr__`, `__eq__`.
+3. **Immutability.** Use `frozen=True` for immutable requests.
+4. **Validation.** Use `__post_init__` for custom validation.
+5. **IDE support.** Better auto-completion and refactoring.
+6. **Serialization.** Easy JSON/dict conversion.
 
 ```python
 from dataclasses import dataclass
@@ -63,9 +63,9 @@ class CreateUserRequest(Request[CreateUserResponse]):
         return self.username == other.username and self.email == other.email
 ```
 
-## Basic Usage
+## Basic usage
 
-### Minimal Example
+### Minimal example
 
 ```python
 from dataclasses import dataclass
@@ -84,25 +84,25 @@ class HelloHandler(Handler[HelloRequest]):
         return HelloResponse(message=f"Hello, {request.name}!")
 ```
 
-### Type Hints are Required
+### Type hints are required
 
 ```python
-# ✅ GOOD: Type hints present
+# ✅ Good: Type hints present
 @dataclass
 class UserRequest(Request[UserResponse]):
     username: str  # Type hint required
     age: int       # Type hint required
 
-# ❌ BAD: Missing type hints
+# ❌ Bad: Missing type hints
 @dataclass
 class UserRequest(Request[UserResponse]):
     username       # Error: type hint required
     age           # Error: type hint required
 ```
 
-## Request Dataclasses
+## Request dataclasses
 
-### Simple Request
+### Simple request
 
 ```python
 @dataclass
@@ -110,7 +110,7 @@ class GetUserRequest(Request[UserResponse]):
     user_id: int
 ```
 
-### Request with Multiple Fields
+### Request with multiple fields
 
 ```python
 @dataclass
@@ -123,7 +123,7 @@ class CreateProductRequest(Request[ProductResponse]):
     tags: list[str]
 ```
 
-### Request with Optional Fields
+### Request with optional fields
 
 ```python
 @dataclass
@@ -134,7 +134,7 @@ class UpdateUserRequest(Request[UserResponse]):
     age: int | None = None
 ```
 
-### Request with Default Values
+### Request with default values
 
 ```python
 @dataclass
@@ -145,9 +145,9 @@ class SearchRequest(Request[SearchResponse]):
     sort_by: str = "relevance"
 ```
 
-## Response Dataclasses
+## Response dataclasses
 
-### Simple Response
+### Simple response
 
 ```python
 @dataclass
@@ -156,7 +156,7 @@ class UserResponse:
     username: str
 ```
 
-### Rich Response with Multiple Fields
+### Rich response with multiple fields
 
 ```python
 @dataclass
@@ -174,7 +174,7 @@ class ProductResponse:
     average_rating: float
 ```
 
-### Response with Optional Data
+### Response with optional data
 
 ```python
 @dataclass
@@ -187,7 +187,7 @@ class UserProfileResponse:
     location: str | None = None
 ```
 
-### Response with Status
+### Response with status
 
 ```python
 @dataclass
@@ -198,9 +198,9 @@ class OperationResponse:
     data: dict | None = None
 ```
 
-## Advanced Features
+## Advanced features
 
-### Slots for Performance
+### Slots for performance
 
 ```python
 @dataclass(slots=True)
@@ -209,15 +209,14 @@ class HighPerformanceRequest(Request[Response]):
     action: str
 ```
 
-**Benefits:**
-- Faster attribute access
-- Lower memory usage (no `__dict__`)
-- Prevents adding attributes after initialization
+This trades off:
 
-**Drawback:**
-- Can't use with weak references
+- Faster attribute access.
+- Lower memory usage (no `__dict__`).
+- Prevents adding attributes after initialization.
+- Can't use with weak references.
 
-### Order Comparison
+### Order comparison
 
 ```python
 @dataclass(order=True)
@@ -231,7 +230,7 @@ req2 = PriorityRequest(priority=2, task_id=2)
 assert req1 < req2  # Compares by priority, then task_id
 ```
 
-### Exclude from Repr
+### Exclude from repr
 
 ```python
 from dataclasses import dataclass, field
@@ -245,7 +244,7 @@ print(LoginRequest(username="alice", password="secret123"))
 # Output: LoginRequest(username='alice')
 ```
 
-### Exclude from Comparison
+### Exclude from comparison
 
 ```python
 @dataclass
@@ -262,7 +261,7 @@ assert event1 == event2  # True (timestamp excluded from comparison)
 
 ## Validation
 
-### Basic Validation with __post_init__
+### Basic validation with `__post_init__`
 
 ```python
 @dataclass
@@ -282,7 +281,7 @@ class CreateUserRequest(Request[UserResponse]):
             raise ValueError("Must be 18 or older")
 ```
 
-### Complex Validation
+### Complex validation
 
 ```python
 @dataclass
@@ -315,7 +314,7 @@ class CreateProductRequest(Request[ProductResponse]):
             raise ValueError("Stock cannot be negative")
 ```
 
-### Data Normalization in __post_init__
+### Data normalization in `__post_init__`
 
 ```python
 @dataclass
@@ -331,43 +330,24 @@ class SearchRequest(Request[SearchResponse]):
         self.filters = list(set(self.filters))
 ```
 
-**Important:** This requires using `field(init=False)` or reassignment after `__init__`:
+**For a frozen dataclass**, plain attribute assignment in `__post_init__` raises `FrozenInstanceError` — a frozen dataclass overrides `__setattr__` to block it. Use `object.__setattr__` to bypass that check for the one-time normalization:
 
 ```python
-from dataclasses import dataclass, field
-
-@dataclass
-class SearchRequest(Request[SearchResponse]):
-    _query: str
-    _filters: list[str]
-
-    def __post_init__(self):
-        # Workaround: use object.__setattr__ for frozen dataclasses
-        object.__setattr__(self, 'query', self._query.strip().lower())
-        object.__setattr__(self, 'filters', list(set(self._filters)))
-
-    query: str = field(init=False)
-    filters: list[str] = field(init=False)
-```
-
-Or simpler with non-frozen:
-
-```python
-@dataclass
+@dataclass(frozen=True)
 class SearchRequest(Request[SearchResponse]):
     query: str
     filters: list[str]
 
     def __post_init__(self):
-        self.query = self.query.strip().lower()
-        self.filters = list(set(self.filters))
+        object.__setattr__(self, "query", self.query.strip().lower())
+        object.__setattr__(self, "filters", list(set(self.filters)))
 ```
 
-## Frozen Dataclasses
+## Frozen dataclasses
 
 Frozen dataclasses are immutable - perfect for requests.
 
-### Basic Frozen Request
+### Basic frozen request
 
 ```python
 @dataclass(frozen=True)
@@ -379,7 +359,7 @@ req = GetUserRequest(user_id=123)
 req.user_id = 456  # ❌ Error: cannot assign to field 'user_id'
 ```
 
-### Benefits of Frozen
+### Benefits of frozen dataclasses
 
 ```python
 @dataclass(frozen=True)
@@ -396,25 +376,25 @@ requests_cache[req] = response  # ✅ Works! Can use as dict key
 request_set = {req1, req2, req3}
 ```
 
-### Frozen with Mutable Defaults (Careful!)
+### Frozen with mutable defaults (be careful)
 
 ```python
 from dataclasses import dataclass, field
 
-# ❌ DANGEROUS: Mutable default with frozen
+# ❌ Dangerous: Mutable default with frozen
 @dataclass(frozen=True)
 class FilterRequest(Request[FilterResponse]):
     filters: list[str] = []  # Don't do this!
 
-# ✅ CORRECT: Use default_factory
+# ✅ Correct: Use default_factory
 @dataclass(frozen=True)
 class FilterRequest(Request[FilterResponse]):
     filters: list[str] = field(default_factory=list)
 ```
 
-## Nested Dataclasses
+## Nested dataclasses
 
-### Simple Nesting
+### Simple nesting
 
 ```python
 @dataclass
@@ -443,7 +423,7 @@ request = CreateUserRequest(
 )
 ```
 
-### Deep Nesting
+### Deep nesting
 
 ```python
 @dataclass
@@ -490,7 +470,7 @@ request = CreateOrderRequest(
 )
 ```
 
-### Nested Validation
+### Nested validation
 
 ```python
 @dataclass
@@ -515,9 +495,9 @@ class LocationRequest(Request[LocationResponse]):
             raise ValueError("Name is required")
 ```
 
-## Default Values and Factories
+## Default values and factories
 
-### Simple Defaults
+### Simple defaults
 
 ```python
 @dataclass
@@ -528,7 +508,7 @@ class SearchRequest(Request[SearchResponse]):
     sort: str = "relevance"
 ```
 
-### Default Factory for Mutable Types
+### Default factory for mutable types
 
 ```python
 from dataclasses import dataclass, field
@@ -542,14 +522,14 @@ class CreatePostRequest(Request[PostResponse]):
     metadata: dict = field(default_factory=dict)   # ✅ Correct
     created_at: datetime = field(default_factory=datetime.now)  # ✅ Correct
 
-# ❌ WRONG: Mutable defaults
+# ❌ Wrong: Mutable defaults
 @dataclass
 class BadRequest(Request[Response]):
     tags: list[str] = []  # All instances share same list!
     metadata: dict = {}   # All instances share same dict!
 ```
 
-### Custom Default Factory
+### Custom default factory
 
 ```python
 import uuid
@@ -570,9 +550,9 @@ req2 = TrackedRequest(action="update")
 assert req1.request_id != req2.request_id
 ```
 
-## Dataclass Mixins
+## Dataclass mixins
 
-### Timestamp Mixin
+### Timestamp mixin
 
 ```python
 from dataclasses import dataclass
@@ -592,7 +572,7 @@ req = CreateUserRequest(username="alice", email="alice@example.com")
 print(req.created_at)  # 2024-01-15 10:30:45.123456
 ```
 
-### Validation Mixin
+### Validation mixin
 
 ```python
 @dataclass
@@ -615,7 +595,7 @@ class UserRequestBase(EmailValidationMixin, Request[UserResponse]):
             raise ValueError("Username too short")
 ```
 
-### Pagination Mixin
+### Pagination mixin
 
 ```python
 @dataclass
@@ -638,7 +618,7 @@ class SearchUsersRequest(PaginationMixin, Request[SearchResponse]):
 req = SearchUsersRequest(query="alice", page=2, per_page=20)
 ```
 
-### Metadata Mixin
+### Metadata mixin
 
 ```python
 @dataclass
@@ -658,9 +638,9 @@ req.add_metadata("user_agent", "Mozilla/5.0")
 req.add_metadata("ip_address", "192.168.1.1")
 ```
 
-## Testing with Dataclasses
+## Testing with dataclasses
 
-### Easy Test Data Creation
+### Easy test data creation
 
 ```python
 import pytest
@@ -687,7 +667,7 @@ def test_create_user_different_age(base_user_request):
     assert request.age == 30  # Changed
 ```
 
-### Parametrized Testing
+### Parametrized testing
 
 ```python
 @pytest.mark.parametrize("username,email,expected_valid", [
@@ -706,7 +686,7 @@ def test_user_validation(username, email, expected_valid):
             CreateUserRequest(username=username, email=email)
 ```
 
-### Equality Testing
+### Equality testing
 
 ```python
 def test_request_equality():
@@ -718,7 +698,7 @@ def test_request_equality():
     assert req1 != req3  # Different values
 ```
 
-### Serialization Testing
+### Serialization testing
 
 ```python
 from dataclasses import asdict
@@ -735,12 +715,12 @@ def test_request_serialization():
     assert req == req2
 ```
 
-## Best Practices
+## Best practices
 
-### 1. Always Use Type Hints
+### 1. Always use type hints
 
 ```python
-# ✅ GOOD: Full type hints
+# ✅ Good: Full type hints
 @dataclass
 class UserRequest(Request[UserResponse]):
     user_id: int
@@ -748,47 +728,47 @@ class UserRequest(Request[UserResponse]):
     email: str
     age: int | None = None
 
-# ❌ BAD: Missing type hints
+# ❌ Bad: Missing type hints
 @dataclass
 class UserRequest(Request[UserResponse]):
     user_id  # Error
     username  # Error
 ```
 
-### 2. Use frozen=True for Requests
+### 2. Use `frozen=True` for requests
 
 ```python
-# ✅ GOOD: Immutable request
+# ✅ Good: Immutable request
 @dataclass(frozen=True)
 class GetUserRequest(Request[UserResponse]):
     user_id: int
 
-# ❌ QUESTIONABLE: Mutable request
+# ❌ Questionable: Mutable request
 @dataclass
 class GetUserRequest(Request[UserResponse]):
     user_id: int
 ```
 
-### 3. Use default_factory for Mutable Defaults
+### 3. Use `default_factory` for mutable defaults
 
 ```python
-# ✅ GOOD: default_factory for lists/dicts
+# ✅ Good: default_factory for lists/dicts
 @dataclass
 class FilterRequest(Request[FilterResponse]):
     tags: list[str] = field(default_factory=list)
     options: dict = field(default_factory=dict)
 
-# ❌ BAD: Mutable default values
+# ❌ Bad: Mutable default values
 @dataclass
 class FilterRequest(Request[FilterResponse]):
     tags: list[str] = []  # Shared between all instances!
     options: dict = {}    # Shared between all instances!
 ```
 
-### 4. Validate in __post_init__
+### 4. Validate in `__post_init__`
 
 ```python
-# ✅ GOOD: Validation at creation time
+# ✅ Good: Validation at creation time
 @dataclass
 class CreateUserRequest(Request[UserResponse]):
     email: str
@@ -800,17 +780,17 @@ class CreateUserRequest(Request[UserResponse]):
         if self.age < 18:
             raise ValueError("Must be 18+")
 
-# ❌ BAD: Validation in handler
+# ❌ Bad: Validation in handler
 class CreateUserHandler(Handler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> UserResponse:
         if "@" not in request.email:  # Too late!
             raise ValueError("Invalid email")
 ```
 
-### 5. Use Descriptive Field Names
+### 5. Use descriptive field names
 
 ```python
-# ✅ GOOD: Clear field names
+# ✅ Good: Clear field names
 @dataclass
 class SearchProductsRequest(Request[SearchResponse]):
     search_query: str
@@ -819,7 +799,7 @@ class SearchProductsRequest(Request[SearchResponse]):
     category_id: int
     include_out_of_stock: bool
 
-# ❌ BAD: Unclear abbreviations
+# ❌ Bad: Unclear abbreviations
 @dataclass
 class SearchProductsRequest(Request[SearchResponse]):
     q: str  # What does 'q' mean?
@@ -829,10 +809,10 @@ class SearchProductsRequest(Request[SearchResponse]):
     oos: bool  # Out of stock?
 ```
 
-### 6. Group Related Fields with Nested Dataclasses
+### 6. Group related fields with nested dataclasses
 
 ```python
-# ✅ GOOD: Nested dataclasses
+# ✅ Good: Nested dataclasses
 @dataclass
 class PriceRange:
     min_price: float
@@ -844,7 +824,7 @@ class SearchRequest(Request[SearchResponse]):
     price_range: PriceRange
     category: str
 
-# ❌ QUESTIONABLE: Flat structure
+# ❌ Questionable: Flat structure
 @dataclass
 class SearchRequest(Request[SearchResponse]):
     query: str
@@ -853,10 +833,10 @@ class SearchRequest(Request[SearchResponse]):
     category: str
 ```
 
-### 7. Use slots=True for High-Volume Requests
+### 7. Use `slots=True` for high-volume requests
 
 ```python
-# ✅ GOOD: Slots for frequently created objects
+# ✅ Good: Slots for frequently created objects
 @dataclass(slots=True, frozen=True)
 class LogEventRequest(Request[LogResponse]):
     event_type: str
@@ -866,15 +846,11 @@ class LogEventRequest(Request[LogResponse]):
 # Memory usage: ~40% less than regular dataclass
 ```
 
-## Common Patterns
+## Common patterns
 
-### Result Type
+### Result type
 
 ```python
-from typing import Generic, TypeVar
-
-T = TypeVar('T')
-
 @dataclass
 class Success[T]:
     value: T
@@ -884,7 +860,7 @@ class Failure:
     error: str
     error_code: str
 
-Result = Success[T] | Failure
+type Result[T] = Success[T] | Failure
 
 @dataclass
 class ProcessPaymentResponse:
@@ -900,7 +876,7 @@ response = ProcessPaymentResponse(
 )
 ```
 
-### Paginated Response
+### Paginated response
 
 ```python
 @dataclass
@@ -925,7 +901,7 @@ class GetUsersResponse:
     users: PaginatedResponse[User]
 ```
 
-### Audit Trail
+### Audit trail
 
 ```python
 @dataclass
@@ -942,7 +918,7 @@ class CreateDocumentRequest(Request[DocumentResponse]):
     audit: AuditInfo
 ```
 
-### Polymorphic Requests
+### Polymorphic requests
 
 ```python
 from abc import ABC
@@ -968,7 +944,7 @@ class PushNotificationRequest(BaseNotificationRequest):
 
 ---
 
-## Next Steps
+## Next steps
 
 - Learn about [Requests and Responses](requests-responses.md) - Design patterns
 - Explore [Handlers](handlers.md) - Processing dataclass requests
