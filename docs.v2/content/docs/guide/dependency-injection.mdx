@@ -1,0 +1,83 @@
+---
+title: Dependency injection
+description: Wiring handlers through a dependency-injector container via the optional di extra.
+---
+
+PyMediate ships optional support for [`dependency-injector`](https://python-dependency-injector.ets-labs.org/), so handlers get their dependencies from a DI container instead of being constructed by hand.
+
+```bash
+pip install 'pymediate[di]'
+```
+
+See [installation](/docs/getting-started/installation) for other package managers, and [troubleshooting](/docs/advanced/troubleshooting#dependencyinjectorserviceprovider-not-available) if the import fails.
+
+## Basic setup
+
+`DependencyInjectorServiceProvider` wraps a `dependency-injector` container and implements PyMediate's `ServiceProvider` [protocol](https://docs.python.org/3/library/typing.html#typing.Protocol), so it drops in wherever `Services.provider()` would go. It resolves handlers by their concrete type using type inspection — provider names in the container are irrelevant:
+
+```python
+from dependency_injector import containers, providers
+from pymediate import Handler, Mediator
+from pymediate.providers import DependencyInjectorServiceProvider
+
+class AppContainer(containers.DeclarativeContainer):
+    database = providers.Singleton(Database)
+
+    # The provider name can be anything — PyMediate matches by type, not by name
+    user_service = providers.Factory(CreateUserHandler, database=database)
+```
+
+```python
+container = AppContainer()
+provider = DependencyInjectorServiceProvider(container)
+mediator = Mediator(provider)
+
+response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+```
+
+<Callout type="warning" title="Build the provider outside the container">
+  Construct `DependencyInjectorServiceProvider` from a container you've already built — never
+  declare it as one of that container's own providers (for example via `providers.Self()`). Doing
+  so makes the container resolve itself while still scanning itself, which recurses until Python's
+  recursion limit is hit.
+</Callout>
+
+## Factory vs. Singleton providers
+
+Both provider types work — pick the one matching the handler's intended lifetime:
+
+```python
+class AppContainer(containers.DeclarativeContainer):
+    database = providers.Singleton(Database)
+
+    # Factory: a new handler instance on every resolution
+    create_user_handler = providers.Factory(CreateUserHandler, database=database)
+
+    # Singleton: one shared handler instance for the whole application
+    metrics_handler = providers.Singleton(RecordMetricsHandler, database=database)
+```
+
+Most handlers should be `Factory` unless they're genuinely stateless and safe to share. [Pipeline behaviors registered through the container](/docs/guide/pipeline-behaviors#di-container-integration) respect their scopes the same way, including `ContextLocalSingleton` for per-request lifetimes.
+
+## Testing with a container
+
+Override providers exactly as you would in any `dependency-injector` test:
+
+```python
+def test_create_user_with_container():
+    container = AppContainer()
+    container.database.override(providers.Singleton(InMemoryDatabase))
+
+    mediator = Mediator(DependencyInjectorServiceProvider(container))
+    response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+
+    assert response.username == "alice"
+```
+
+If a test doesn't need the container at all, construct the handler directly — see [testing without frameworks](/docs/guide/requests-responses#testing-without-frameworks).
+
+## See also
+
+- [Handlers](/docs/guide/handlers) — writing the handlers you'll wire up here
+- [Service provider API reference](/docs/api/service-provider) — the `ServiceProvider` protocol
+- [Troubleshooting](/docs/advanced/troubleshooting) — common DI setup issues

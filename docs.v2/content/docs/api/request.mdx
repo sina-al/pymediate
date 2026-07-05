@@ -1,0 +1,60 @@
+---
+title: Request
+description: API reference for the Request base class.
+---
+
+```python
+from pymediate import Request
+
+class Request[ResponseT]: ...
+```
+
+Base class for all requests, carrying the expected response type as its type parameter. Inheriting from `Request[ResponseType]` is what enables response-type inference at every `mediator.send()` call site and PyMediate's runtime validation of handlers.
+
+The response type is extracted and registered automatically when the subclass is defined (via `__init_subclass__`) — at import time, with no per-request overhead.
+
+## Type parameters
+
+| Parameter | Description |
+| --- | --- |
+| `ResponseT` | The type of response handlers return for this request |
+
+## Usage
+
+With dataclasses (recommended):
+
+```python
+from dataclasses import dataclass
+from pymediate import Request
+
+@dataclass
+class UserCreatedResponse:
+    user_id: int
+    username: str
+
+@dataclass
+class CreateUserRequest(Request[UserCreatedResponse]):
+    username: str
+    email: str
+```
+
+With regular classes:
+
+```python
+class CreateUserRequest(Request[UserCreatedResponse]):
+    def __init__(self, name: str, email: str):
+        self.name = name
+        self.email = email
+```
+
+<Callout type="warning" title="Always parameterize">
+  `class MyRequest(Request):` without a type argument type-checks but loses response-type
+  inference entirely — `mediator.send()` will return `Any`. See
+  [type safety](/docs/advanced/type-safety).
+</Callout>
+
+## See also
+
+- [Handler](/docs/api/handler) — the class that processes requests
+- [Requests and responses guide](/docs/guide/requests-responses) — message design patterns
+- [Dataclasses with PyMediate](/docs/guide/dataclasses) — dataclass-specific patterns

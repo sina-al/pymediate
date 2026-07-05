@@ -1,0 +1,175 @@
+---
+title: CQRS pattern
+description: Separating the command (write) and query (read) sides of a feature with CQRS.
+---
+
+CQRS (Command Query Responsibility Segregation) separates operations that change state (commands) from operations that read state (queries). PyMediate doesn't enforce CQRS — it's a naming and design convention layered on top of requests and handlers — but the two map onto each other cleanly. See [requests and responses: CQRS](/docs/guide/requests-responses#cqrs-commands-and-queries) for the underlying concepts.
+
+This example separates a product catalog into a write side (commands, backed by a primary store) and a read side (queries, backed by a read-optimized store) — the main reason teams reach for CQRS in the first place.
+
+```python
+from dataclasses import dataclass, field
+from pymediate import Request, Handler, Mediator, Services
+
+@dataclass
+class Product:
+    product_id: int
+    name: str
+    price: float
+    stock: int
+
+class ProductWriteStore:
+    """Simulates a write-optimized primary database."""
+    def __init__(self):
+        self._products: dict[int, Product] = {}
+        self._next_id = 1
+
+    def create(self, name: str, price: float, stock: int) -> Product:
+        product = Product(product_id=self._next_id, name=name, price=price, stock=stock)
+        self._products[product.product_id] = product
+        self._next_id += 1
+        return product
+
+    def adjust_stock(self, product_id: int, delta: int) -> Product:
+        product = self._products[product_id]
+        product.stock += delta
+        return product
+
+class ProductReadStore:
+    """Simulates a read-optimized replica, kept in sync separately."""
+    def __init__(self, write_store: ProductWriteStore):
+        self._write_store = write_store
+
+    def find(self, product_id: int) -> Product | None:
+        return self._write_store._products.get(product_id)
+
+    def search(self, min_price: float = 0) -> list[Product]:
+        return [p for p in self._write_store._products.values() if p.price >= min_price]
+```
+
+## Commands
+
+Commands change state and return only what the caller needs to proceed — an ID, a new count, a status:
+
+```python
+@dataclass
+class CreateProductResponse:
+    product_id: int
+
+@dataclass
+class CreateProductCommand(Request[CreateProductResponse]):
+    name: str
+    price: float
+    stock: int = 0
+
+class CreateProductHandler(Handler[CreateProductCommand]):
+    def __init__(self, store: ProductWriteStore):
+        self.store = store
+
+    def __call__(self, request: CreateProductCommand) -> CreateProductResponse:
+        product = self.store.create(request.name, request.price, request.stock)
+        return CreateProductResponse(product_id=product.product_id)
+
+@dataclass
+class AdjustStockResponse:
+    product_id: int
+    new_stock: int
+
+@dataclass
+class AdjustStockCommand(Request[AdjustStockResponse]):
+    product_id: int
+    delta: int
+
+class AdjustStockHandler(Handler[AdjustStockCommand]):
+    def __init__(self, store: ProductWriteStore):
+        self.store = store
+
+    def __call__(self, request: AdjustStockCommand) -> AdjustStockResponse:
+        product = self.store.adjust_stock(request.product_id, request.delta)
+        return AdjustStockResponse(product_id=product.product_id, new_stock=product.stock)
+```
+
+## Queries
+
+Queries read state and return rich, fully-populated data — there's no reason to hold back fields a caller might need:
+
+```python
+@dataclass
+class GetProductResponse:
+    product_id: int
+    name: str
+    price: float
+    stock: int
+
+@dataclass
+class GetProductQuery(Request[GetProductResponse]):
+    product_id: int
+
+class GetProductHandler(Handler[GetProductQuery]):
+    def __init__(self, store: ProductReadStore):
+        self.store = store
+
+    def __call__(self, request: GetProductQuery) -> GetProductResponse:
+        product = self.store.find(request.product_id)
+        if product is None:
+            raise ValueError(f"Product {request.product_id} not found")
+        return GetProductResponse(**vars(product))
+
+@dataclass
+class SearchProductsResponse:
+    products: list[Product] = field(default_factory=list)
+
+@dataclass
+class SearchProductsQuery(Request[SearchProductsResponse]):
+    min_price: float = 0
+
+class SearchProductsHandler(Handler[SearchProductsQuery]):
+    def __init__(self, store: ProductReadStore):
+        self.store = store
+
+    def __call__(self, request: SearchProductsQuery) -> SearchProductsResponse:
+        return SearchProductsResponse(products=self.store.search(request.min_price))
+```
+
+## Wiring it together
+
+Both sides register on the same `Services` collection and go through the same `Mediator` — CQRS is a split in your domain model, not in PyMediate's dispatch mechanism:
+
+```python
+write_store = ProductWriteStore()
+read_store = ProductReadStore(write_store)
+
+services = Services()
+services.add(CreateProductHandler(write_store))
+services.add(AdjustStockHandler(write_store))
+services.add(GetProductHandler(read_store))
+services.add(SearchProductsHandler(read_store))
+mediator = Mediator(services.provider())
+
+created = mediator.send(CreateProductCommand(name="Keyboard", price=49.99, stock=10))
+print(created)
+# Output: CreateProductResponse(product_id=1)
+
+adjusted = mediator.send(AdjustStockCommand(product_id=created.product_id, delta=-1))
+print(adjusted)
+# Output: AdjustStockResponse(product_id=1, new_stock=9)
+
+fetched = mediator.send(GetProductQuery(product_id=created.product_id))
+print(fetched)
+# Output: GetProductResponse(product_id=1, name='Keyboard', price=49.99, stock=9)
+
+results = mediator.send(SearchProductsQuery(min_price=10))
+print(results)
+# Output: SearchProductsResponse(products=[Product(product_id=1, name='Keyboard', price=49.99, stock=9)])
+```
+
+<Callout type="info">
+  In a real system, `ProductReadStore` would typically be backed by a separate replica or a
+  denormalized read model kept in sync via events — this example keeps everything in one process
+  purely to stay runnable as a self-contained snippet.
+</Callout>
+
+## Next steps
+
+- [Requests and responses: CQRS](/docs/guide/requests-responses#cqrs-commands-and-queries) — the underlying design pattern
+- [Pipeline behaviors](/docs/examples/pipeline-behaviors) — apply different behaviors to commands vs. queries (for example, caching only queries)

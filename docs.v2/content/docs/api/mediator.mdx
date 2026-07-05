@@ -1,0 +1,96 @@
+---
+title: Mediator
+description: API reference for the sync and async Mediator classes.
+---
+
+The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `Handler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors.
+
+<Tabs items={['Sync', 'Async']}>
+  <Tab value="Sync">
+    ```python
+    from pymediate import Mediator
+
+    class Mediator:
+        def __init__(self, provider: ServiceProvider) -> None: ...
+
+        def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
+            """Send a request and get the typed response from its handler."""
+    ```
+  </Tab>
+  <Tab value="Async">
+    ```python
+    from pymediate.aio import Mediator
+
+    class Mediator:
+        def __init__(self, provider: ServiceProvider) -> None: ...
+
+        async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
+            """Send a request and await the typed response from its handler."""
+    ```
+  </Tab>
+</Tabs>
+
+## `send()`
+
+Resolves the handler registered for the request's type, discovers any registered `PipelineBehavior` instances that apply to this request, and invokes the handler — wrapped by those behaviors, if any.
+
+| | |
+| --- | --- |
+| **Args** | `request` — the request instance to send |
+| **Returns** | The handler's response, typed as `ResponseT` (inferred from `Request[ResponseT]`) |
+| **Raises** | `HandlerNotFoundError` — no handler is registered for the request type |
+
+Exceptions raised inside handlers propagate unchanged — `send()` never catches or wraps them. See [error handling](/docs/guide/error-handling).
+
+<Callout type="info" title="Zero-overhead fast path">
+  If no behaviors apply to a request, the handler is called directly with no
+  pipeline-construction overhead. Otherwise a pipeline is built per request from every applicable
+  behavior in registration order (first registered is outermost), then the handler.
+</Callout>
+
+## Usage
+
+```python
+from pymediate import Mediator, Services
+
+services = Services()
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
+
+response = mediator.send(CreateUserRequest(username="alice"))
+# response is typed as UserCreatedResponse
+```
+
+With a DI container:
+
+```python
+from pymediate.providers import DependencyInjectorServiceProvider
+
+mediator = Mediator(DependencyInjectorServiceProvider(AppContainer()))
+```
+
+With behaviors:
+
+```python
+from pymediate import PipelineBehavior, Request
+
+class LoggingBehavior(PipelineBehavior[Request]):
+    def __call__(self, request, next):
+        print(f"Before: {type(request).__name__}")
+        response = next()
+        print(f"After: {type(request).__name__}")
+        return response
+
+services = Services()
+services.add(LoggingBehavior())     # registered first = outermost
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
+```
+
+`Mediator` isn't designed for subclassing — compose [pipeline behaviors](/docs/guide/pipeline-behaviors) instead.
+
+## See also
+
+- [Services / ServiceProvider](/docs/api/service-provider) — building the provider
+- [Pipeline](/docs/api/pipeline) — behavior and pipeline APIs
+- [The mediator guide](/docs/guide/mediator) — lifecycle and best practices

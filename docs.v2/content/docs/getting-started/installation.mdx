@@ -1,0 +1,89 @@
+---
+title: Installation
+description: Requirements and install options for PyMediate on Python 3.12+.
+---
+
+PyMediate is published on [PyPI](https://pypi.org/project/pymediate/) and installs with any Python package manager.
+
+## Requirements
+
+- Python **3.12 or higher** — PyMediate uses [PEP 695](https://peps.python.org/pep-0695/) type parameter syntax.
+- No required dependencies. The core is pure Python.
+- Optionally, `dependency-injector>=4.41.0` for DI container integration (installed via the `di` extra).
+
+## Install the core package
+
+<Tabs items={['pip', 'uv', 'poetry']}>
+  <Tab value="pip">
+    ```bash
+    pip install pymediate
+    ```
+  </Tab>
+  <Tab value="uv">
+    ```bash
+    uv add pymediate
+    ```
+  </Tab>
+  <Tab value="poetry">
+    ```bash
+    poetry add pymediate
+    ```
+  </Tab>
+</Tabs>
+
+## Install with dependency injection support
+
+The `di` extra adds the [`dependency-injector`](https://python-dependency-injector.ets-labs.org/) integration:
+
+<Tabs items={['pip', 'uv', 'poetry']}>
+  <Tab value="pip">
+    ```bash
+    pip install 'pymediate[di]'
+    ```
+  </Tab>
+  <Tab value="uv">
+    ```bash
+    uv add 'pymediate[di]'
+    ```
+  </Tab>
+  <Tab value="poetry">
+    ```bash
+    poetry add 'pymediate[di]'
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="info">
+  `DependencyInjectorServiceProvider` only imports successfully when `dependency-injector` is
+  installed. Without the `di` extra, `from pymediate.providers import
+  DependencyInjectorServiceProvider` raises `ModuleNotFoundError`. See
+  [troubleshooting](/docs/advanced/troubleshooting#dependencyinjectorserviceprovider-not-available)
+  if you hit this.
+</Callout>
+
+## Verify the install
+
+```python
+import pymediate
+
+print(pymediate.__version__)
+```
+
+## Development install
+
+To contribute to PyMediate or run its test suite:
+
+```bash
+git clone https://github.com/sina-al/pymediate.git
+cd pymediate
+
+# Install with all extras and dev dependencies using uv
+uv sync --all-extras
+
+# Or in editable mode with pip
+pip install -e '.[di,dev]'
+```
+
+## Next steps
+
+Head to the [quick start](/docs/getting-started/quick-start) to send your first request.

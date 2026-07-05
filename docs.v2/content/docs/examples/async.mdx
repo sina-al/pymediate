@@ -1,0 +1,236 @@
+---
+title: Async/await support
+description: Using the async mirror API (pymediate.aio) — async handlers, concurrent dispatch, and mixing sync with async.
+---
+
+PyMediate's async support lives in `pymediate.aio`, a structural mirror of the sync API: handlers use `async def __call__`, mediators use `await mediator.send()`, and everything else — requests, `Services`, registration — is identical.
+
+## Quick start
+
+```python
+import asyncio
+from dataclasses import dataclass
+from pymediate import Request, Services
+from pymediate.aio import Handler, Mediator
+
+@dataclass
+class UserResponse:
+    user_id: int
+    username: str
+
+@dataclass
+class CreateUserRequest(Request[UserResponse]):
+    username: str
+    email: str
+
+class CreateUserHandler(Handler[CreateUserRequest]):
+    async def __call__(self, request: CreateUserRequest) -> UserResponse:
+        await asyncio.sleep(0.1)  # simulated async I/O
+        return UserResponse(user_id=1, username=request.username)
+
+async def main():
+    services = Services()
+    services.add(CreateUserHandler())
+    mediator = Mediator(services.provider())
+
+    response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+    print(f"Created user {response.username} with ID {response.user_id}")
+
+asyncio.run(main())
+```
+
+## Sync vs. async at a glance
+
+| Aspect | Sync API | Async API |
+| --- | --- | --- |
+| Import | `from pymediate import Handler, Mediator` | `from pymediate.aio import Handler, Mediator` |
+| Handler method | `def __call__(self, request)` | `async def __call__(self, request)` |
+| Dispatch | `mediator.send(request)` | `await mediator.send(request)` |
+| Request / Services | `from pymediate import Request, Services` | Same — shared between both APIs |
+
+## Async database operations
+
+A realistic example with async database access:
+
+```python
+import asyncio
+from dataclasses import dataclass
+from pymediate import Request, Services
+from pymediate.aio import Handler, Mediator
+
+class AsyncDatabase:
+    async def get_user(self, user_id: int) -> dict | None:
+        await asyncio.sleep(0.05)  # simulate I/O
+        return {"id": user_id, "name": "Alice", "email": "alice@example.com"}
+
+    async def create_user(self, name: str, email: str) -> int:
+        await asyncio.sleep(0.1)
+        return 42
+
+@dataclass
+class GetUserResponse:
+    user_id: int
+    name: str
+    email: str
+
+@dataclass
+class GetUserRequest(Request[GetUserResponse]):
+    user_id: int
+
+class GetUserHandler(Handler[GetUserRequest]):
+    def __init__(self, db: AsyncDatabase):
+        self.db = db
+
+    async def __call__(self, request: GetUserRequest) -> GetUserResponse:
+        user = await self.db.get_user(request.user_id)
+        if not user:
+            raise ValueError(f"User {request.user_id} not found")
+        return GetUserResponse(user_id=user["id"], name=user["name"], email=user["email"])
+
+async def main():
+    db = AsyncDatabase()
+    services = Services()
+    services.add(GetUserHandler(db))
+    mediator = Mediator(services.provider())
+
+    response = await mediator.send(GetUserRequest(user_id=42))
+    print(f"Retrieved user: {response.name} ({response.email})")
+
+asyncio.run(main())
+```
+
+## Concurrent dispatch
+
+The headline benefit of async: multiple requests in flight at once with `asyncio.gather`:
+
+```python
+@dataclass
+class ApiResponse:
+    data: str
+
+@dataclass
+class FetchApiRequest(Request[ApiResponse]):
+    endpoint: str
+    delay: float  # simulated API latency
+
+class FetchApiHandler(Handler[FetchApiRequest]):
+    async def __call__(self, request: FetchApiRequest) -> ApiResponse:
+        await asyncio.sleep(request.delay)
+        return ApiResponse(data=f"Data from {request.endpoint}")
+
+async def main():
+    services = Services()
+    services.add(FetchApiHandler())
+    mediator = Mediator(services.provider())
+
+    responses = await asyncio.gather(
+        mediator.send(FetchApiRequest("/users", 0.5)),
+        mediator.send(FetchApiRequest("/posts", 0.3)),
+        mediator.send(FetchApiRequest("/comments", 0.4)),
+    )
+    # Total wall time ≈ 0.5s (the max), not 1.2s (the sum)
+```
+
+## Error handling
+
+Exactly as in the sync API — handlers raise ordinary exceptions and `await mediator.send()` lets them propagate:
+
+```python
+class ProcessHandler(Handler[ProcessRequest]):
+    async def __call__(self, request: ProcessRequest) -> ProcessResponse:
+        if request.value < 0:
+            raise ValidationError("Value must be non-negative")
+        await asyncio.sleep(0.1)
+        return ProcessResponse(result=request.value * 2)
+
+try:
+    response = await mediator.send(ProcessRequest(value=-1))
+except ValidationError as e:
+    print(f"Validation failed: {e}")
+```
+
+## Signature validation
+
+The async API validates handler shapes at class-definition time, just like the sync one — including that `__call__` is actually async:
+
+```python
+from pymediate.aio import Handler
+
+# Fails at definition: __call__ must be async
+class BadHandler(Handler[MyRequest]):
+    def __call__(self, request: MyRequest) -> Response:
+        return Response(value=42)
+# InvalidHandlerSignatureError: __call__ must be async
+
+# Correct
+class GoodHandler(Handler[MyRequest]):
+    async def __call__(self, request: MyRequest) -> Response:
+        return Response(value=42)
+```
+
+## Mixing sync and async
+
+One application can use both — sync handlers behind a sync `Mediator`, async handlers behind an async one. Alias the imports to keep them straight:
+
+```python
+from pymediate import Request, Handler as SyncHandler, Mediator as SyncMediator
+from pymediate.aio import Handler as AsyncHandler, Mediator as AsyncMediator
+```
+
+Each request type has exactly one handler (sync *or* async), and each mediator dispatches only to its own kind — see [the mediator](/docs/guide/mediator#the-async-mediator).
+
+## Choosing sync or async
+
+- **Async for I/O-bound work** — database queries, HTTP calls, file I/O. This is where concurrency pays off.
+- **Sync for CPU-bound work** — async is concurrent, not parallel; heavy computation gains nothing and pays event-loop overhead.
+- **Fan out with `gather`** where sub-requests are independent.
+
+## Integration with async frameworks
+
+<Tabs items={['FastAPI', 'aiohttp']}>
+  <Tab value="FastAPI">
+    ```python
+    from fastapi import FastAPI, Depends
+    from pymediate import Services
+    from pymediate.aio import Mediator
+
+    app = FastAPI()
+
+    services = Services()
+    services.add(CreateUserHandler())
+    mediator = Mediator(services.provider())
+
+    def get_mediator() -> Mediator:
+        return mediator
+
+    @app.post("/users/")
+    async def create_user(username: str, email: str, mediator: Mediator = Depends(get_mediator)):
+        response = await mediator.send(CreateUserRequest(username=username, email=email))
+        return {"user_id": response.user_id, "username": response.username}
+    ```
+  </Tab>
+  <Tab value="aiohttp">
+    ```python
+    from aiohttp import web
+
+    async def create_user(request):
+        mediator = request.app["mediator"]
+        data = await request.json()
+
+        response = await mediator.send(
+            CreateUserRequest(username=data["username"], email=data["email"])
+        )
+        return web.json_response({"user_id": response.user_id, "username": response.username})
+
+    app = web.Application()
+    app["mediator"] = mediator
+    app.router.add_post("/users/", create_user)
+    ```
+  </Tab>
+</Tabs>
+
+## See also
+
+- [FastAPI example](/docs/examples/fastapi) — the full integration including error mapping
+- [Handlers guide](/docs/guide/handlers) — async handler design
+- [Type safety](/docs/advanced/type-safety) — how definition-time validation works

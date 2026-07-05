@@ -1,0 +1,202 @@
+---
+title: Troubleshooting
+description: Common installation, typing, and runtime issues — and how to resolve them.
+---
+
+Common issues you might encounter when using PyMediate, and how to resolve them.
+
+## Installation issues
+
+### `DependencyInjectorServiceProvider` not available
+
+```python
+from pymediate.providers import DependencyInjectorServiceProvider
+# ModuleNotFoundError: No module named 'dependency_injector'
+```
+
+**Cause:** `dependency-injector` is an optional dependency, not installed by default.
+
+**Solution:** Install with the `di` extra:
+
+<Tabs items={['pip', 'uv', 'poetry']}>
+  <Tab value="pip">
+    ```bash
+    pip install 'pymediate[di]'
+    ```
+  </Tab>
+  <Tab value="uv">
+    ```bash
+    uv add 'pymediate[di]'
+    ```
+  </Tab>
+  <Tab value="poetry">
+    ```bash
+    poetry add 'pymediate[di]'
+    ```
+  </Tab>
+</Tabs>
+
+Installing `dependency-injector` separately also works.
+
+### Import errors after installation
+
+Verify the install (`pip show pymediate`), reinstall if needed, and confirm your Python version is **3.12 or higher** — PyMediate's PEP 695 syntax won't import on older interpreters.
+
+## Runtime issues
+
+### `HandlerNotFoundError`
+
+```python
+response = mediator.send(MyRequest())
+# HandlerNotFoundError: No handler registered for request type 'MyRequest'
+```
+
+Three usual causes:
+
+1. **The handler was never registered:**
+
+   ```python
+   services = Services()
+   services.add(MyHandler())   # this line was missing
+   mediator = Mediator(services.provider())
+   ```
+
+2. **The request class doesn't inherit `Request[ResponseT]`:**
+
+   ```python
+   class MyRequest:                      # missing inheritance
+       ...
+
+   class MyRequest(Request[MyResponse]):  # correct
+       ...
+   ```
+
+3. **A DI container is missing the handler's provider:**
+
+   ```python
+   class AppContainer(containers.DeclarativeContainer):
+       my_handler = providers.Factory(MyHandler)   # add this
+   ```
+
+The error message itself lists the handlers that *are* registered, which usually pinpoints the gap immediately.
+
+### `InvalidHandlerSignatureError`
+
+Raised at class-definition time when `__call__` has the wrong shape. The signature must annotate both the parameter and the return, and they must match the declared request type and its response type:
+
+```python
+# Wrong: missing annotations
+class MyHandler(Handler[MyRequest]):
+    def __call__(self, request):
+        return MyResponse()
+
+# Correct
+class MyHandler(Handler[MyRequest]):
+    def __call__(self, request: MyRequest) -> MyResponse:
+        return MyResponse()
+```
+
+The same applies to a parameter type that doesn't match `Handler[MyRequest]`, and (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the async API, `__call__` must also be `async def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
+
+### `HandlerAlreadyRegisteredError`
+
+```python
+class CreateUserHandler(Handler[CreateUserRequest]): ...
+
+class CreateUserHandlerV2(Handler[CreateUserRequest]): ...
+# HandlerAlreadyRegisteredError: Handler already registered for 'CreateUserRequest'
+```
+
+**Cause:** PyMediate enforces one handler per request type, registered at class-definition time in a process-wide registry. This guarantees you always know which handler processes a request, catches configuration mistakes early, and removes any need to reason about handler precedence.
+
+**Solutions, in order of likelihood:**
+
+1. **Remove the duplicate.** Usually the second definition is an accident (a copy-paste, or a module imported under two names).
+
+2. **Use distinct request types** if the two handlers genuinely do different things:
+
+   ```python
+   @dataclass
+   class CreateUserRequest(Request[UserResponse]):
+       username: str
+       email: str
+
+   @dataclass
+   class CreateAdminUserRequest(Request[UserResponse]):
+       username: str
+       email: str
+       admin_level: int
+   ```
+
+3. **Compose behaviors into one handler** if you were splitting a single responsibility:
+
+   ```python
+   class CreateUserHandler(Handler[CreateUserRequest]):
+       def __init__(self, validator: UserValidator, mailer: EmailService):
+           self.validator = validator
+           self.mailer = mailer
+
+       def __call__(self, request: CreateUserRequest) -> UserResponse:
+           self.validator.validate(request)
+           user = self.create_user(request)
+           self.mailer.send_welcome_email(user)
+           return UserResponse(user_id=user.id, username=user.username)
+   ```
+
+The error message includes the existing handler's name and, when available, the file and line where it was first registered.
+
+<Callout type="info" title="Seeing this in tests?">
+  The registry is shared across the whole process, so two test files defining a handler for the
+  same request type collide at collection time. Vary behavior through the constructor instead of
+  redefining classes — see [testing: the handler registry is
+  global](/docs/advanced/testing#a-test-isolation-gotcha-the-handler-registry-is-global).
+</Callout>
+
+### DI container resolution failures
+
+Errors raised from inside `dependency-injector` (rather than PyMediate exceptions) usually mean the container graph is incomplete:
+
+```python
+# Missing dependency
+class AppContainer(containers.DeclarativeContainer):
+    my_handler = providers.Factory(MyHandler)              # MyHandler needs a Database
+
+# Fixed
+class AppContainer(containers.DeclarativeContainer):
+    database = providers.Singleton(Database)
+    my_handler = providers.Factory(MyHandler, database=database)
+```
+
+Circular provider references (`handler_a` depends on `handler_b` depends on `handler_a`) also surface here — restructure the design, or route the interaction through the mediator instead of direct references.
+
+## Type checking issues
+
+### Response type not inferred
+
+If your IDE or mypy types `mediator.send(...)` as `Any`, the request is almost certainly missing its type parameter:
+
+```python
+# No inference — bare Request
+class CreateUserRequest(Request):
+    username: str
+
+# Inference works — parameterized
+class CreateUserRequest(Request[UserResponse]):
+    username: str
+```
+
+See [type safety](/docs/advanced/type-safety) for the full picture of what mypy checks versus what PyMediate validates at import time.
+
+## Avoiding trouble in the first place
+
+- **Always annotate handler signatures** — parameter and return.
+- **Register handlers before building the mediator.**
+- **Use dataclasses** for requests and responses.
+- **One handler per request type** — a handler that `isinstance`-switches over request types is fighting the design.
+
+## Getting help
+
+1. Search the [user guide](/docs/guide/requests-responses), [API reference](/docs/api/request), and [examples](/docs/examples/basic).
+2. Search [existing issues](https://github.com/sina-al/pymediate/issues).
+3. Ask in [GitHub Discussions](https://github.com/sina-al/pymediate/discussions).
+4. [Report a bug](https://github.com/sina-al/pymediate/issues/new).

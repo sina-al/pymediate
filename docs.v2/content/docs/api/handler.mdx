@@ -1,0 +1,96 @@
+---
+title: Handler
+description: API reference for the sync and async Handler base classes.
+---
+
+Handlers contain the business logic for processing requests. They declare only the request type — the response type is inferred from that request's `Request[ResponseT]` definition.
+
+<Tabs items={['Sync', 'Async']}>
+  <Tab value="Sync">
+    ```python
+    from abc import abstractmethod
+    from typing import Any
+    from pymediate import Handler
+
+    class Handler[RequestT](ABC):
+        @abstractmethod
+        def __call__(self, request: RequestT) -> Any:
+            """Handle the request and return a response."""
+    ```
+  </Tab>
+  <Tab value="Async">
+    ```python
+    from abc import abstractmethod
+    from typing import Any
+    from pymediate.aio import Handler
+
+    class Handler[RequestT](ABC):
+        @abstractmethod
+        async def __call__(self, request: RequestT) -> Any:
+            """Handle the request asynchronously and return a response."""
+    ```
+  </Tab>
+</Tabs>
+
+## Type parameters
+
+| Parameter | Description |
+| --- | --- |
+| `RequestT` | The request type this handler processes |
+
+## Definition-time validation
+
+`Handler` validates every subclass via `__init_subclass__` the moment the class is defined — at import time, not dispatch time. It checks that:
+
+- `__call__` exists and is implemented
+- `__call__` is sync (or async, for `pymediate.aio.Handler`)
+- the `__call__` parameter annotation matches the declared request type
+- the `__call__` return annotation matches the request's declared response type
+
+| Raises | When |
+| --- | --- |
+| `InvalidHandlerSignatureError` | `__call__` signature is malformed (missing annotations, wrong arity, wrong sync/async) |
+| `InvalidRequestTypeError` | The type parameter isn't a `Request` subclass |
+| `ResponseTypeMismatchError` | The return annotation disagrees with the request's response type |
+| `HandlerAlreadyRegisteredError` | A handler is already registered for this request type |
+
+See [type safety](/docs/advanced/type-safety) for how this interacts with mypy's static checks.
+
+## Usage
+
+```python
+from dataclasses import dataclass
+from pymediate import Handler, Request
+
+@dataclass
+class UserResponse:
+    user_id: int
+    username: str
+
+@dataclass
+class CreateUserRequest(Request[UserResponse]):
+    username: str
+    email: str
+
+class CreateUserHandler(Handler[CreateUserRequest]):
+    def __init__(self, database: Database):
+        self.database = database
+
+    def __call__(self, request: CreateUserRequest) -> UserResponse:
+        user_id = self.database.insert_user(username=request.username, email=request.email)
+        return UserResponse(user_id=user_id, username=request.username)
+```
+
+As an ABC, `Handler` can't be instantiated directly, and mypy flags subclasses that omit `__call__` or type its request parameter incorrectly.
+
+<Callout type="info" title="One handler per request type">
+  The handler registry is process-wide and populated at class definition. Defining a second
+  handler for a request type that already has one raises `HandlerAlreadyRegisteredError` — see
+  [troubleshooting](/docs/advanced/troubleshooting#handleralreadyregisterederror).
+</Callout>
+
+## See also
+
+- [Request](/docs/api/request) — the request base class
+- [Mediator](/docs/api/mediator) — routes requests to handlers
+- [Handlers guide](/docs/guide/handlers) — design patterns and best practices

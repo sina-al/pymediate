@@ -1,0 +1,314 @@
+---
+title: Requests and responses
+description: Requests and responses as framework-independent messages, and how they enable hexagonal architecture and CQRS.
+---
+
+Requests and responses are the messages that flow through a PyMediate application. They describe *what* should happen and *what came back* — and they know nothing about HTTP, CLIs, message queues, or any other delivery mechanism.
+
+```python
+# "Create a user" in your domain — no Flask, no FastAPI, no HTTP
+@dataclass
+class CreateUserRequest(Request[UserCreated]):
+    username: str
+    email: str
+    password: str
+
+@dataclass
+class UserCreated:
+    user_id: int
+    username: str
+    created_at: datetime
+```
+
+## Framework independence
+
+Traditional web code mixes business logic with delivery concerns:
+
+```python
+# Business logic coupled to Flask
+@app.route('/users', methods=['POST'])
+def create_user():
+    data = request.get_json()
+    if not data['username']:                          # validation mixed with HTTP
+        return jsonify({'error': 'Username required'}), 400
+    user_id = database.insert_user(data['username'], data['email'])  # DB mixed with HTTP
+    return jsonify({'user_id': user_id}), 201         # response formation mixed with logic
+```
+
+That logic can't be reused from a CLI, can't be tested without HTTP mocking, and can't move to another framework without a rewrite.
+
+With PyMediate, the business logic lives in a handler that could run anywhere:
+
+```python
+class CreateUserHandler(Handler[CreateUserRequest]):
+    def __init__(self, user_repository: UserRepository):
+        self.user_repository = user_repository
+
+    def __call__(self, request: CreateUserRequest) -> UserCreated:
+        if not request.username:
+            raise ValidationError("Username required")
+
+        user = self.user_repository.create(
+            username=request.username,
+            email=request.email,
+            password=hash_password(request.password),
+        )
+        return UserCreated(user_id=user.id, username=user.username, created_at=user.created_at)
+```
+
+Every delivery mechanism becomes a thin adapter that translates its input into a request and sends it:
+
+<Tabs items={['FastAPI', 'Flask', 'CLI', 'AWS Lambda']}>
+  <Tab value="FastAPI">
+    ```python
+    from fastapi import FastAPI, HTTPException
+    from pydantic import BaseModel
+
+    app = FastAPI()
+
+    class CreateUserDTO(BaseModel):
+        username: str
+        email: str
+        password: str
+
+    @app.post("/users")
+    async def create_user_endpoint(dto: CreateUserDTO):
+        domain_request = CreateUserRequest(
+            username=dto.username, email=dto.email, password=dto.password
+        )
+        try:
+            result = mediator.send(domain_request)
+            return {"user_id": result.user_id, "username": result.username}
+        except ValidationError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    ```
+  </Tab>
+  <Tab value="Flask">
+    ```python
+    from flask import Flask, request, jsonify
+
+    app = Flask(__name__)
+
+    @app.route('/users', methods=['POST'])
+    def create_user_endpoint():
+        data = request.get_json()
+        domain_request = CreateUserRequest(
+            username=data['username'], email=data['email'], password=data['password']
+        )
+        try:
+            result = mediator.send(domain_request)
+            return jsonify({'user_id': result.user_id, 'username': result.username}), 201
+        except ValidationError as e:
+            return jsonify({'error': str(e)}), 400
+    ```
+  </Tab>
+  <Tab value="CLI">
+    ```python
+    import click
+
+    @click.command()
+    @click.option('--username', prompt=True)
+    @click.option('--email', prompt=True)
+    @click.password_option()
+    def create_user(username: str, email: str, password: str):
+        domain_request = CreateUserRequest(username=username, email=email, password=password)
+        try:
+            result = mediator.send(domain_request)
+            click.echo(f"User created: {result.username} (ID: {result.user_id})")
+        except ValidationError as e:
+            click.echo(f"Error: {e}", err=True)
+    ```
+  </Tab>
+  <Tab value="AWS Lambda">
+    ```python
+    import json
+
+    def lambda_handler(event, context):
+        body = json.loads(event['body'])
+        domain_request = CreateUserRequest(
+            username=body['username'], email=body['email'], password=body['password']
+        )
+        try:
+            result = mediator.send(domain_request)
+            return {'statusCode': 201, 'body': json.dumps({'user_id': result.user_id})}
+        except ValidationError as e:
+            return {'statusCode': 400, 'body': json.dumps({'error': str(e)})}
+    ```
+  </Tab>
+</Tabs>
+
+The handler, its validation rules, and its error handling never change between adapters. This is [hexagonal architecture](<https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)>) (ports and adapters):
+
+- **Core (domain)** — requests, handlers, business logic
+- **Port** — the `Mediator` interface
+- **Adapters** — routes, endpoints, commands, functions, consumers
+
+## CQRS: commands and queries
+
+[CQRS](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs) separates operations that change state from operations that read it. With PyMediate this is a naming convention over request types, not extra machinery.
+
+**Commands** change state and return minimal data:
+
+```python
+@dataclass
+class CreateUserCommand(Request[UserCreated]):
+    username: str
+    email: str
+    password: str
+
+@dataclass
+class DeleteUserCommand(Request[UserDeleted]):
+    user_id: int
+```
+
+**Queries** read state and return rich data:
+
+```python
+@dataclass
+class GetUserQuery(Request[UserDetails]):
+    user_id: int
+
+@dataclass
+class SearchUsersQuery(Request[UserList]):
+    search_term: str
+    page: int = 1
+    page_size: int = 20
+```
+
+Because each side has its own handlers, reads and writes can be optimized — or scaled — independently:
+
+```python
+class CreateUserHandler(Handler[CreateUserCommand]):
+    def __init__(self, write_db: WriteDatabase):
+        self.write_db = write_db
+
+class GetUserHandler(Handler[GetUserQuery]):
+    def __init__(self, read_db: ReadDatabase):
+        self.read_db = read_db
+```
+
+See the [CQRS example](/docs/examples/cqrs) for a complete feature.
+
+## Request design patterns
+
+### Immutable value objects
+
+Freeze requests so they can't be mutated mid-flight:
+
+```python
+@dataclass(frozen=True)
+class TransferMoneyRequest(Request[TransferCompleted]):
+    from_account: str
+    to_account: str
+    amount: Decimal
+```
+
+### Validation at construction
+
+`__post_init__` catches invalid requests before they ever reach a handler:
+
+```python
+@dataclass
+class CreateOrderRequest(Request[OrderCreated]):
+    customer_id: int
+    items: list[OrderItem]
+    discount_code: str | None = None
+
+    def __post_init__(self):
+        if not self.items:
+            raise ValueError("Order must have at least one item")
+        if len(self.items) > 100:
+            raise ValueError("Order cannot exceed 100 items")
+```
+
+### Composition with nested value objects
+
+```python
+@dataclass(frozen=True)
+class Address:
+    street: str
+    city: str
+    postal_code: str
+    country: str
+
+@dataclass(frozen=True)
+class CreateOrderRequest(Request[OrderCreated]):
+    customer_id: int
+    items: list[OrderItem]
+    shipping_address: Address
+    billing_address: Address
+```
+
+## Response design patterns
+
+### Rich responses
+
+Return everything the caller plausibly needs, so they don't have to issue a follow-up query:
+
+```python
+@dataclass
+class UserCreated:
+    user_id: int
+    username: str
+    email: str
+    created_at: datetime
+    activation_token: str
+    profile_url: str
+```
+
+### Explicit result objects
+
+When failure is a normal outcome rather than an exception, model it in the response:
+
+```python
+@dataclass
+class PaymentResult:
+    success: bool
+    transaction_id: str | None
+    error_code: str | None
+    retry_allowed: bool
+```
+
+### Pagination
+
+```python
+@dataclass
+class PaginatedUsers:
+    users: list[UserSummary]
+    total_count: int
+    page: int
+    has_next: bool
+
+@dataclass
+class ListUsersQuery(Request[PaginatedUsers]):
+    page: int = 1
+    page_size: int = 20
+    sort_by: str = "created_at"
+```
+
+## Testing without frameworks
+
+Because requests are framework-free, testing the business logic requires no HTTP mocking at all:
+
+```python
+def test_create_user():
+    fake_repo = InMemoryUserRepository()
+    handler = CreateUserHandler(fake_repo)
+
+    result = handler(CreateUserRequest(username="alice", email="alice@example.com", password="secret123"))
+
+    assert result.username == "alice"
+    assert fake_repo.count() == 1
+```
+
+## Best practices
+
+- **Keep requests simple.** They're data carriers — no business logic, no side effects in constructors.
+- **Type every field.** `username: str`, not `**kwargs`. The type checker is doing the wiring here.
+- **Organize by feature.** Group requests and handlers by business capability (`orders/`, `users/`, `payments/`), not by kind.
+
+## See also
+
+- [Handlers](/docs/guide/handlers) — implementing the business logic side
+- [Dataclasses with PyMediate](/docs/guide/dataclasses) — patterns for request/response dataclasses
+- [Testing](/docs/advanced/testing) — testing strategies in depth

@@ -1,0 +1,120 @@
+---
+title: Pipeline
+description: API reference for PipelineBehavior and Pipeline, sync and async.
+---
+
+Pipeline behaviors wrap request processing with middleware-style logic; a `Pipeline` chains behaviors around a handler. Both exist in sync (`pymediate` / `pymediate.pipeline`) and async (`pymediate.aio`) variants.
+
+## PipelineBehavior
+
+<Tabs items={['Sync', 'Async']}>
+  <Tab value="Sync">
+    ```python
+    from collections.abc import Callable
+    from typing import Any
+    from pymediate import PipelineBehavior, Request
+
+    class PipelineBehavior[RequestT: Request[Any]](ABC):
+        @classmethod
+        def should_apply(cls, request: Request[Any]) -> bool:
+            """Determine if this behavior should apply to the given request."""
+
+        @abstractmethod
+        def __call__(self, request: RequestT, next: Callable[[], Any]) -> Any:
+            """Execute the behavior's logic and call next to continue the pipeline."""
+    ```
+  </Tab>
+  <Tab value="Async">
+    ```python
+    from collections.abc import Awaitable, Callable
+    from typing import Any
+    from pymediate.aio import PipelineBehavior
+
+    class PipelineBehavior[RequestT: Request[Any]](ABC):
+        @classmethod
+        def should_apply(cls, request: Request[Any]) -> bool: ...
+
+        @abstractmethod
+        async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
+            """Execute the behavior's async logic and await next to continue the pipeline."""
+    ```
+  </Tab>
+</Tabs>
+
+### Type parameters
+
+| Parameter | Description |
+| --- | --- |
+| `RequestT` | Which requests this behavior wraps: `Request` for all, a specific request type, or a mixin |
+
+### `__call__(request, next)`
+
+The behavior's body. `next` is a callable representing the rest of the pipeline — remaining behaviors and, ultimately, the handler. Call it (or `await` it in the async variant) to continue; skip it to short-circuit.
+
+| | |
+| --- | --- |
+| **Args** | `request` — the request being processed; `next` — continues the pipeline and returns the response |
+| **Returns** | The response (usually the result of `next()`, possibly transformed) |
+
+### `should_apply(request)` <span className="text-fd-muted-foreground text-sm">classmethod</span>
+
+Decides whether the behavior wraps a given request. The default implementation is an `isinstance` check against `RequestT`. Override it for matching logic beyond types:
+
+```python
+class BusinessHoursBehavior(PipelineBehavior[Request]):
+    @classmethod
+    def should_apply(cls, request: Request) -> bool:
+        return 9 <= datetime.now().hour < 17
+```
+
+## Pipeline
+
+<Tabs items={['Sync', 'Async']}>
+  <Tab value="Sync">
+    ```python
+    from pymediate.pipeline import Pipeline
+
+    class Pipeline[RequestT, ResponseT]:
+        def __init__(self, behaviors: Sequence[Any], handler: Handler[RequestT]) -> None:
+            """Initialize a pipeline with behaviors and a handler."""
+
+        def __call__(self, request: RequestT) -> ResponseT:
+            """Process a request through the pipeline."""
+    ```
+  </Tab>
+  <Tab value="Async">
+    ```python
+    from pymediate.aio.pipeline import Pipeline
+
+    class Pipeline[RequestT, ResponseT]:
+        def __init__(self, behaviors: Sequence[Any], handler: Handler[RequestT]) -> None: ...
+
+        async def __call__(self, request: RequestT) -> ResponseT: ...
+    ```
+  </Tab>
+</Tabs>
+
+Combines behaviors and a handler into one callable. Behaviors execute in the order given — first is outermost:
+
+```python
+from pymediate.pipeline import Pipeline
+
+pipeline = Pipeline(
+    behaviors=[
+        LoggingBehavior(logger),    # outermost
+        ValidationBehavior(),
+        TimingBehavior(metrics),    # innermost
+    ],
+    handler=GetUserHandler(database),
+)
+
+response = pipeline(GetUserRequest(user_id=123))
+```
+
+You rarely construct a `Pipeline` yourself — the mediator builds one per request from registered behaviors automatically. Manual construction is useful for testing behavior combinations and one-off workflows. See [pipeline behaviors guide](/docs/guide/pipeline-behaviors#manual-pipeline-construction).
+
+## See also
+
+- [Pipeline behaviors guide](/docs/guide/pipeline-behaviors) — concepts, ordering, recipes
+- [Pipeline behavior examples](/docs/examples/pipeline-behaviors) — runnable recipes
+- [Mediator](/docs/api/mediator) — how behaviors are discovered at dispatch

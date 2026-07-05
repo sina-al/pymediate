@@ -2,6 +2,69 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+@theme {
+  --font-sans:
+    var(--font-geist), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* PyMediate brand */
+  --color-pm-cyan: #22d3ee;
+  --color-pm-violet: #8b5cf6;
+}
+
+/*
+ * Midnight signal — light
+ * Cool near-white canvas, violet primary.
+ */
+:root {
+  --color-fd-background: hsl(240 40% 99%);
+  --color-fd-foreground: hsl(240 25% 9%);
+  --color-fd-muted: hsl(240 22% 95.5%);
+  --color-fd-muted-foreground: hsl(240 10% 42%);
+  --color-fd-popover: hsl(0 0% 100%);
+  --color-fd-popover-foreground: hsl(240 25% 12%);
+  --color-fd-card: hsl(240 30% 97.5%);
+  --color-fd-card-foreground: hsl(240 25% 9%);
+  --color-fd-border: hsl(240 20% 55% / 22%);
+  --color-fd-primary: hsl(258 72% 51%);
+  --color-fd-primary-foreground: hsl(0 0% 100%);
+  --color-fd-secondary: hsl(240 22% 94%);
+  --color-fd-secondary-foreground: hsl(240 25% 12%);
+  --color-fd-accent: hsl(240 25% 60% / 16%);
+  --color-fd-accent-foreground: hsl(240 25% 12%);
+  --color-fd-ring: hsl(258 72% 51%);
+}
+
+/*
+ * Midnight signal — dark
+ * Near-black canvas with a hint of blue, electric cyan primary.
+ */
+.dark {
+  --color-fd-background: hsl(240 27% 4.5%);
+  --color-fd-foreground: hsl(240 15% 92%);
+  --color-fd-muted: hsl(240 20% 10%);
+  --color-fd-muted-foreground: hsl(240 10% 65%);
+  --color-fd-popover: hsl(240 24% 7%);
+  --color-fd-popover-foreground: hsl(240 15% 90%);
+  --color-fd-card: hsl(240 24% 6.5%);
+  --color-fd-card-foreground: hsl(240 15% 92%);
+  --color-fd-border: hsl(240 30% 65% / 14%);
+  --color-fd-primary: hsl(189 92% 58%);
+  --color-fd-primary-foreground: hsl(240 27% 6%);
+  --color-fd-secondary: hsl(240 20% 11%);
+  --color-fd-secondary-foreground: hsl(240 15% 90%);
+  --color-fd-accent: hsl(240 30% 58% / 18%);
+  --color-fd-accent-foreground: hsl(240 15% 92%);
+  --color-fd-ring: hsl(189 92% 58%);
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: hsl(240 20% 10.5%);
+  --color-fd-secondary: hsl(240 20% 13%);
+  --color-fd-muted-foreground: hsl(240 10% 70%);
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -9,4 +72,109 @@ html {
 html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* ---------- brand utilities ---------- */
+
+.pm-gradient-text {
+  background: linear-gradient(100deg, var(--color-pm-cyan) 0%, var(--color-pm-violet) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.pm-gradient-border {
+  position: relative;
+  background:
+    linear-gradient(var(--color-fd-card), var(--color-fd-card)) padding-box,
+    linear-gradient(120deg, color-mix(in oklab, var(--color-pm-cyan) 55%, transparent),
+        color-mix(in oklab, var(--color-pm-violet) 55%, transparent))
+      border-box;
+  border: 1px solid transparent;
+}
+
+/* soft radial glow behind hero content */
+.pm-hero-glow {
+  background:
+    radial-gradient(
+      42rem 22rem at 50% 0%,
+      color-mix(in oklab, var(--color-pm-cyan) 9%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      36rem 20rem at 62% 8%,
+      color-mix(in oklab, var(--color-pm-violet) 8%, transparent),
+      transparent 70%
+    );
+}
+
+.dark .pm-hero-glow {
+  background:
+    radial-gradient(
+      42rem 22rem at 50% 0%,
+      color-mix(in oklab, var(--color-pm-cyan) 14%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      36rem 20rem at 62% 8%,
+      color-mix(in oklab, var(--color-pm-violet) 13%, transparent),
+      transparent 70%
+    );
+}
+
+/* faint dotted grid backdrop */
+.pm-grid-bg {
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--color-fd-foreground) 9%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  mask-image: radial-gradient(60rem 30rem at 50% 0%, black 30%, transparent 75%);
+}
+
+/* ---------- entrance animation ---------- */
+
+@keyframes pm-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pm-fade-up {
+  animation: pm-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- dispatch-flow diagram ---------- */
+
+@keyframes pm-node-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.pm-node-pulse {
+  animation: pm-node-pulse 2.4s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-fade-up,
+  .pm-node-pulse {
+    animation: none;
+  }
+  .pm-flow-motion {
+    display: none;
+  }
 }

@@ -1,0 +1,301 @@
+---
+title: Pipeline behaviors
+description: Middleware-style cross-cutting concerns — logging, validation, caching, transactions — via PipelineBehavior.
+---
+
+Pipeline behaviors are middleware that wrap request processing. They implement cross-cutting concerns — logging, validation, caching, transactions, retries — without modifying handler code. The concept comes from [MediatR](https://github.com/jbogard/MediatR)'s `IPipelineBehavior` in the .NET ecosystem.
+
+## The pipeline chain
+
+Behaviors nest around the handler. Each one runs code before and after everything inside it:
+
+```
+Request → Behavior 1 → Behavior 2 → Behavior 3 → Handler
+                                                    ↓
+Response ← Behavior 1 ← Behavior 2 ← Behavior 3 ← Handler
+```
+
+A behavior inherits from `PipelineBehavior` and implements `__call__` with two parameters — the request, and `next`, a callable that continues the pipeline:
+
+```python
+from collections.abc import Callable
+from typing import Any
+from pymediate import Request, PipelineBehavior
+
+class MyBehavior(PipelineBehavior[Request]):
+    def __call__(self, request: Request, next: Callable[[], Any]) -> Any:
+        print(f"Before: {type(request).__name__}")   # pre-processing
+        response = next()                             # continue the chain
+        print(f"After: {type(response).__name__}")   # post-processing
+        return response
+```
+
+<Callout type="warning" title="Always call next() — unless you mean not to">
+  `next()` is the rest of the pipeline: the remaining behaviors and, ultimately, the handler. If a
+  behavior doesn't call it, the handler never executes — which is exactly what you want for
+  short-circuiting (cache hits, authorization failures) and a silent bug otherwise.
+</Callout>
+
+## When to use behaviors
+
+Behaviors are for concerns that apply *across* handlers: logging and auditing, performance monitoring, validation, caching, transaction management, authentication and authorization, rate limiting, retries.
+
+They are **not** for handler-specific logic, business rules, or request transformation — that all belongs in handlers and request types. If a behavior needs complex conditionals to decide what to do, it probably shouldn't be a behavior.
+
+## Universal, selective, and mixin-based behaviors
+
+The type parameter decides which requests a behavior wraps:
+
+```python
+from pymediate import Request, PipelineBehavior
+
+# Universal — applies to every request
+class LoggingBehavior(PipelineBehavior[Request]):
+    def __call__(self, request, next):
+        print(f"Processing: {type(request).__name__}")
+        return next()
+
+# Selective — only wraps CreateUserRequest
+class CreateUserValidation(PipelineBehavior[CreateUserRequest]):
+    def __call__(self, request, next):
+        if not request.username:
+            raise ValueError("Username required")
+        return next()
+
+# Mixin-based — wraps any request that includes AuthMixin
+class AuthMixin:
+    principal: Principal
+
+class AuthenticationBehavior(PipelineBehavior[AuthMixin]):
+    def __call__(self, request, next):
+        if not request.principal.is_authenticated:
+            raise Unauthorized()
+        return next()
+
+class CreateUserRequest(Request[UserResponse], AuthMixin):
+    username: str
+    principal: Principal
+# AuthenticationBehavior applies here because of the mixin
+```
+
+The mediator filters behaviors per request with `isinstance()` checks. For matching logic beyond the type parameter, override `should_apply()`:
+
+```python
+class BusinessHoursOnlyBehavior(PipelineBehavior[Request]):
+    @classmethod
+    def should_apply(cls, request: Request) -> bool:
+        return 9 <= datetime.now().hour < 17
+```
+
+## Registration and ordering
+
+Register behaviors like any other service — the mediator discovers them automatically:
+
+```python
+services = Services()
+services.add(LoggingBehavior())      # applies to all requests
+services.add(ValidationBehavior())   # applies to CreateUserRequest only
+services.add(GetUserHandler())
+services.add(CreateUserHandler())
+
+mediator = Mediator(services.provider())
+
+response = mediator.send(GetUserRequest(user_id=123))
+# Output: Processing: GetUserRequest
+```
+
+**Registration order is execution order** — first registered is outermost:
+
+```python
+services.add(LoggingBehavior())      # first (outermost)
+services.add(ValidationBehavior())   # second
+services.add(TimingBehavior())       # third (innermost, closest to the handler)
+```
+
+Order the pipeline logically: authorization before validation, validation before caching, logging outermost so it sees everything. When no behavior applies to a request, the mediator calls the handler directly — there's zero pipeline overhead on that path.
+
+## Behavior recipes
+
+### Logging
+
+```python
+from datetime import datetime
+from pymediate import Request, PipelineBehavior
+
+class LoggingBehavior(PipelineBehavior[Request]):
+    def __init__(self, logger):
+        self.logger = logger
+
+    def __call__(self, request, next):
+        name = type(request).__name__
+        start = datetime.now()
+        self.logger.info(f"Processing: {name}")
+        try:
+            response = next()
+            duration = (datetime.now() - start).total_seconds()
+            self.logger.info(f"Completed: {name} in {duration:.3f}s")
+            return response
+        except Exception as e:
+            self.logger.error(f"Failed: {name} - {e}")
+            raise
+```
+
+### Caching (with short-circuit)
+
+```python
+import hashlib, json
+
+class CachingBehavior(PipelineBehavior[Request]):
+    def __init__(self, cache_store, ttl=300):
+        self.cache = cache_store
+        self.ttl = ttl
+
+    def __call__(self, request, next):
+        key = self._generate_key(request)
+        cached = self.cache.get(key)
+        if cached is not None:
+            return cached          # short-circuit: handler never runs
+
+        response = next()
+        self.cache.set(key, response, ttl=self.ttl)
+        return response
+
+    def _generate_key(self, request):
+        data = json.dumps(request.__dict__, sort_keys=True)
+        return hashlib.sha256(f"{type(request).__name__}:{data}".encode()).hexdigest()
+```
+
+### Transactions
+
+```python
+class TransactionBehavior(PipelineBehavior[Request]):
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+
+    def __call__(self, request, next):
+        session = self.session_factory()
+        try:
+            session.begin()
+            response = next()
+            session.commit()
+            return response
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+```
+
+### Retry with backoff
+
+```python
+import time
+
+class RetryBehavior(PipelineBehavior[Request]):
+    def __init__(self, max_attempts=3, base_delay=0.1):
+        self.max_attempts = max_attempts
+        self.base_delay = base_delay
+
+    def __call__(self, request, next):
+        for attempt in range(self.max_attempts):
+            try:
+                return next()
+            except Exception:
+                if attempt == self.max_attempts - 1:
+                    raise
+                time.sleep(self.base_delay * (2 ** attempt))
+```
+
+### Per-request context
+
+Attach metadata (request ID, timestamp) that handlers can read via a `contextvars.ContextVar`, without threading it through parameters:
+
+```python
+from contextvars import ContextVar
+
+request_context: ContextVar[dict] = ContextVar("request_context")
+
+class RequestContextBehavior(PipelineBehavior[Request]):
+    def __call__(self, request, next):
+        token = request_context.set({
+            "request_id": generate_id(),
+            "request_type": type(request).__name__,
+        })
+        try:
+            return next()
+        finally:
+            request_context.reset(token)
+```
+
+More complete, runnable recipes live in the [pipeline behavior examples](/docs/examples/pipeline-behaviors).
+
+## Async behaviors
+
+Async pipelines use `pymediate.aio` — same structure, `await next()` instead of `next()`:
+
+```python
+from pymediate import Request
+from pymediate.aio import PipelineBehavior
+
+class AsyncTransactionBehavior(PipelineBehavior[Request]):
+    def __init__(self, async_session):
+        self.session = async_session
+
+    async def __call__(self, request, next):
+        async with self.session.begin():
+            return await next()
+        # commits on success, rolls back on exception
+```
+
+## DI container integration
+
+Behaviors resolved from a [dependency-injector container](/docs/guide/dependency-injection) respect their lifecycle scopes:
+
+```python
+from dependency_injector import containers, providers
+from pymediate.providers import DependencyInjectorServiceProvider
+
+class Container(containers.DeclarativeContainer):
+    # new instance per resolution
+    logging = providers.Factory(LoggingBehavior, logger=providers.Dependency())
+
+    # one shared instance application-wide
+    cache = providers.Singleton(CacheBehavior, ttl=300)
+
+    # one instance per logical scope (e.g. per web request), via contextvars
+    transaction = providers.ContextLocalSingleton(TransactionBehavior, db=providers.Dependency())
+
+mediator = Mediator(DependencyInjectorServiceProvider(Container()))
+```
+
+## Manual pipeline construction
+
+For fine-grained control — testing behavior combinations, one-off workflows — build a `Pipeline` directly instead of going through the mediator:
+
+```python
+from pymediate.pipeline import Pipeline
+
+pipeline = Pipeline(
+    behaviors=[
+        LoggingBehavior(logger),   # outermost
+        ValidationBehavior(),
+        TimingBehavior(metrics),   # innermost
+    ],
+    handler=GetUserHandler(database),
+)
+
+response = pipeline(GetUserRequest(user_id=123))
+```
+
+## Best practices
+
+- **Keep behaviors focused** — one concern per behavior, composed in order.
+- **Order deliberately** — auth → validation → caching → handler, with logging outermost.
+- **Short-circuit intentionally** — skipping `next()` is a feature for caches and guards, a bug anywhere else.
+- **Document behavior contracts** — what a behavior requires of requests/responses (hashable, serializable) belongs in its docstring.
+
+## Next steps
+
+- [Pipeline behavior examples](/docs/examples/pipeline-behaviors) — complete runnable recipes
+- [Pipeline API reference](/docs/api/pipeline) — `PipelineBehavior` and `Pipeline` signatures
+- [The mediator](/docs/guide/mediator) — how behaviors integrate with dispatch

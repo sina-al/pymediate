@@ -1,0 +1,289 @@
+---
+title: Pipeline behaviors
+description: Real-world behavior recipes — logging, Redis caching, transactions, retries, auth, and a full composed pipeline.
+---
+
+Real-world examples of pipeline behaviors implementing cross-cutting concerns. For the concepts — universal vs. selective behaviors, ordering, `should_apply()` — see the [pipeline behaviors guide](/docs/guide/pipeline-behaviors).
+
+All of these register with `Services` like any other component and are auto-discovered by the mediator:
+
+```python
+services = Services()
+services.add(LoggingBehavior(logger))          # outermost
+services.add(RedisCachingBehavior(redis))      # inner
+services.add(GetUserHandler(database))
+mediator = Mediator(services.provider())
+```
+
+## Logging with error tracking
+
+```python
+from datetime import datetime
+from pymediate import Request, PipelineBehavior
+
+class LoggingBehavior(PipelineBehavior[Request]):
+    def __init__(self, logger):
+        self.logger = logger
+
+    def __call__(self, request, next):
+        name = type(request).__name__
+        self.logger.info(f"[{datetime.now()}] Processing: {name}")
+        try:
+            response = next()
+            self.logger.info(f"[{datetime.now()}] Success: {name}")
+            return response
+        except Exception as e:
+            self.logger.error(f"[{datetime.now()}] Error: {name} - {e}")
+            raise
+```
+
+## Performance monitoring with slow-request alerts
+
+```python
+import time
+
+class PerformanceMonitoringBehavior(PipelineBehavior[Request]):
+    def __init__(self, metrics_collector, slow_threshold=1.0):
+        self.metrics = metrics_collector
+        self.slow_threshold = slow_threshold
+
+    def __call__(self, request, next):
+        start = time.perf_counter()
+        request_type = type(request).__name__
+        try:
+            response = next()
+            duration = time.perf_counter() - start
+            self.metrics.record_request(request_type=request_type, duration=duration, status="success")
+            if duration > self.slow_threshold:
+                self.metrics.alert_slow_request(request_type=request_type, duration=duration)
+            return response
+        except Exception as e:
+            duration = time.perf_counter() - start
+            self.metrics.record_request(
+                request_type=request_type, duration=duration,
+                status="error", error_type=type(e).__name__,
+            )
+            raise
+```
+
+## Caching with Redis
+
+```python
+import hashlib
+import json
+import pickle
+
+class RedisCachingBehavior(PipelineBehavior[Request]):
+    def __init__(self, redis_client, ttl=300, key_prefix="cache"):
+        self.redis = redis_client
+        self.ttl = ttl
+        self.key_prefix = key_prefix
+
+    def __call__(self, request, next):
+        cache_key = self._generate_cache_key(request)
+
+        cached_data = self.redis.get(cache_key)
+        if cached_data:
+            return pickle.loads(cached_data)   # cache hit — handler never runs
+
+        response = next()
+        self.redis.setex(cache_key, self.ttl, pickle.dumps(response))
+        return response
+
+    def _generate_cache_key(self, request):
+        request_data = json.dumps(
+            {k: str(v) for k, v in request.__dict__.items()}, sort_keys=True
+        )
+        digest = hashlib.sha256(request_data.encode()).hexdigest()[:16]
+        return f"{self.key_prefix}:{type(request).__name__}:{digest}"
+```
+
+<Callout type="info">
+  In a CQRS setup, make this a selective behavior over your query base class —
+  `PipelineBehavior[BaseQuery]` — so commands are never cached. See the
+  [CQRS example](/docs/examples/cqrs).
+</Callout>
+
+## Database transactions (SQLAlchemy)
+
+```python
+class TransactionBehavior(PipelineBehavior[Request]):
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+
+    def __call__(self, request, next):
+        session = self.session_factory()
+        try:
+            session.begin()
+            response = next()
+            session.commit()
+            return response
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+```
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+engine = create_engine("postgresql://localhost/mydb")
+services.add(TransactionBehavior(sessionmaker(bind=engine)))
+```
+
+## Retry with exponential backoff and jitter
+
+```python
+import random
+import time
+
+class RetryBehavior(PipelineBehavior[Request]):
+    def __init__(self, max_attempts=3, base_delay=0.1, max_delay=10.0, jitter=True):
+        self.max_attempts = max_attempts
+        self.base_delay = base_delay
+        self.max_delay = max_delay
+        self.jitter = jitter
+
+    def __call__(self, request, next):
+        for attempt in range(1, self.max_attempts + 1):
+            try:
+                return next()
+            except (ConnectionError, TimeoutError):
+                if attempt == self.max_attempts:
+                    raise
+                delay = min(self.base_delay * (2 ** (attempt - 1)), self.max_delay)
+                if self.jitter:
+                    delay = delay * (0.5 + random.random())  # avoid thundering herd
+                time.sleep(delay)
+```
+
+Note the behavior retries only *transient* errors (`ConnectionError`, `TimeoutError`) — domain errors propagate immediately.
+
+## Authentication and authorization
+
+Two cooperating behaviors: the first verifies the token and attaches the user, the second checks permissions. Ordering matters — register authentication first.
+
+```python
+class AuthenticationBehavior(PipelineBehavior[Request]):
+    def __init__(self, token_service):
+        self.token_service = token_service
+
+    def __call__(self, request, next):
+        if not hasattr(request, "auth_token"):
+            raise AuthenticationError("No authentication token provided")
+
+        user = self.token_service.verify_token(request.auth_token)
+        if not user:
+            raise AuthenticationError("Invalid or expired token")
+
+        request.current_user = user   # available to downstream behaviors and the handler
+        return next()
+
+class AuthorizationBehavior(PipelineBehavior[Request]):
+    def __init__(self, permission_service):
+        self.permissions = permission_service
+
+    def __call__(self, request, next):
+        if not hasattr(request, "required_permission"):
+            return next()   # nothing to check
+
+        user = getattr(request, "current_user", None)
+        if user is None:
+            raise AuthorizationError("User not authenticated")
+
+        if not self.permissions.user_has_permission(user.id, request.required_permission):
+            raise AuthorizationError(f"User {user.id} lacks permission: {request.required_permission}")
+
+        return next()
+```
+
+```python
+from typing import Any
+
+@dataclass
+class DeleteUserRequest(Request[DeleteUserResponse]):
+    user_id: int
+    auth_token: str
+    current_user: Any = None          # set by AuthenticationBehavior
+
+    required_permission = "users.delete"
+```
+
+## Async pipeline
+
+Async behaviors subclass `pymediate.aio.PipelineBehavior` and `await next()`:
+
+```python
+import pickle
+from pymediate import Request
+from pymediate.aio import PipelineBehavior
+
+class AsyncLoggingBehavior(PipelineBehavior[Request]):
+    async def __call__(self, request, next):
+        print(f"[START] {type(request).__name__}")
+        response = await next()
+        print(f"[END] {type(request).__name__}")
+        return response
+
+class AsyncCachingBehavior(PipelineBehavior[Request]):
+    def __init__(self, redis_client):
+        self.redis = redis_client
+
+    async def __call__(self, request, next):
+        cache_key = f"{type(request).__name__}:{hash(request)}"
+
+        cached = await self.redis.get(cache_key)
+        if cached:
+            return pickle.loads(cached)
+
+        response = await next()
+        await self.redis.setex(cache_key, 300, pickle.dumps(response))
+        return response
+
+class AsyncTransactionBehavior(PipelineBehavior[Request]):
+    def __init__(self, async_session):
+        self.session = async_session
+
+    async def __call__(self, request, next):
+        async with self.session.begin():
+            return await next()   # commits on success, rolls back on exception
+```
+
+## A complete composed pipeline
+
+An e-commerce order flow with the full stack of concerns. Registration order is execution order, outermost first:
+
+```python
+services = Services()
+services.add(LoggingBehavior(logger))                     # 1. log everything
+services.add(PerformanceMonitoringBehavior(metrics))      # 2. track timing
+services.add(AuthenticationBehavior(token_service))       # 3. verify identity
+services.add(RateLimitBehavior(redis_client))             # 4. prevent abuse
+services.add(AuditBehavior(audit_log))                    # 5. compliance trail
+services.add(TransactionBehavior(session_factory))        # 6. innermost: transaction
+services.add(CreateOrderHandler(database, payment_service))
+
+mediator = Mediator(services.provider())
+
+response = mediator.send(CreateOrderRequest(
+    user_id=123,
+    items=[
+        {"product_id": 456, "quantity": 2, "price": 29.99},
+        {"product_id": 789, "quantity": 1, "price": 49.99},
+    ],
+    payment_method="credit_card",
+    auth_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+))
+
+print(f"Order created: {response.order_id}")
+```
+
+Each behavior stays independently testable; each deployment picks the subset it needs.
+
+## See also
+
+- [Pipeline behaviors guide](/docs/guide/pipeline-behaviors) — concepts and matching rules
+- [Pipeline API reference](/docs/api/pipeline) — `PipelineBehavior` and `Pipeline` signatures
+- [Async examples](/docs/examples/async) — more on the async API

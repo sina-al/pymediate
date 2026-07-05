@@ -1,0 +1,162 @@
+---
+title: FastAPI integration
+description: Wiring a Mediator into FastAPI routes with Depends() — no framework-specific glue needed.
+---
+
+PyMediate has no FastAPI-specific integration code — it doesn't need one. FastAPI's `Depends()` is enough to inject a single, application-wide `Mediator` into your route handlers, keeping endpoints as thin translation layers over domain requests. See [framework independence](/docs/guide/requests-responses#framework-independence) for why that separation is worth keeping.
+
+## Setup
+
+Build the mediator once, at import time, and expose it through a dependency:
+
+```python
+from dataclasses import dataclass
+from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
+from pymediate import Request, Handler, Mediator, Services, HandlerNotFoundError
+
+@dataclass
+class CreateUserResponse:
+    user_id: int
+    username: str
+
+@dataclass
+class CreateUserRequest(Request[CreateUserResponse]):
+    username: str
+    email: str
+
+    def __post_init__(self):
+        if "@" not in self.email:
+            raise ValueError("Invalid email address")
+
+class CreateUserHandler(Handler[CreateUserRequest]):
+    def __init__(self):
+        self._next_id = 1
+
+    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
+        user_id = self._next_id
+        self._next_id += 1
+        return CreateUserResponse(user_id=user_id, username=request.username)
+
+services = Services()
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
+
+def get_mediator() -> Mediator:
+    return mediator
+
+app = FastAPI()
+```
+
+## A command endpoint
+
+The route only translates: a Pydantic model comes in, a `Request` goes to the mediator, a dict goes out. Validation errors raised in `__post_init__` become a 422; everything else about the request's shape is Pydantic's job, not the handler's.
+
+```python
+class CreateUserBody(BaseModel):
+    username: str
+    email: str
+
+@app.post("/users")
+def create_user(body: CreateUserBody, mediator: Mediator = Depends(get_mediator)):
+    try:
+        request = CreateUserRequest(username=body.username, email=body.email)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    response = mediator.send(request)
+    return {"user_id": response.user_id, "username": response.username}
+```
+
+```python
+# POST /users {"username": "alice", "email": "alice@example.com"}
+# -> 200 {"user_id": 1, "username": "alice"}
+
+# POST /users {"username": "bob", "email": "bad-email"}
+# -> 422 {"detail": "Invalid email address"}
+```
+
+## A query endpoint
+
+Path and query parameters map directly onto request fields:
+
+```python
+@dataclass
+class GetUserResponse:
+    user_id: int
+    username: str
+
+@dataclass
+class GetUserRequest(Request[GetUserResponse]):
+    user_id: int
+
+class GetUserHandler(Handler[GetUserRequest]):
+    def __call__(self, request: GetUserRequest) -> GetUserResponse:
+        if request.user_id != 1:
+            raise ValueError("User not found")
+        return GetUserResponse(user_id=1, username="alice")
+
+services.add(GetUserHandler())
+
+@app.get("/users/{user_id}")
+def get_user(user_id: int, mediator: Mediator = Depends(get_mediator)):
+    try:
+        response = mediator.send(GetUserRequest(user_id=user_id))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HandlerNotFoundError as e:
+        # A handler is missing from services — a deployment/config bug, not a client error
+        raise HTTPException(status_code=500, detail="Server misconfigured") from e
+
+    return {"user_id": response.user_id, "username": response.username}
+```
+
+<Callout type="info">
+  Catch `HandlerNotFoundError` separately from your domain's own exceptions: it means the
+  application is misconfigured (a handler was never registered), not that the client sent bad
+  input — so it deserves a 500, not a 404. See [error handling](/docs/guide/error-handling) for
+  the rest of PyMediate's exception hierarchy.
+</Callout>
+
+## Async routes
+
+If your handlers do real I/O, use `pymediate.aio` and `async def` routes — FastAPI awaits them the same way. A sync and an async handler can't both be registered for the *same* request type (each request type has exactly one handler, sync or async, fixed at class-definition time) — so an async route needs its own request/handler pair, and typically its own `Services`/`Mediator` kept separate from the sync ones above.
+
+```python
+from pymediate import Services
+from pymediate.aio import Handler as AsyncHandler, Mediator as AsyncMediator
+
+@dataclass
+class FetchProfileResponse:
+    user_id: int
+    bio: str
+
+@dataclass
+class FetchProfileRequest(Request[FetchProfileResponse]):
+    user_id: int
+
+class FetchProfileHandler(AsyncHandler[FetchProfileRequest]):
+    async def __call__(self, request: FetchProfileRequest) -> FetchProfileResponse:
+        bio = await profile_service.fetch_bio(request.user_id)
+        return FetchProfileResponse(user_id=request.user_id, bio=bio)
+
+async_services = Services()
+async_services.add(FetchProfileHandler())
+async_mediator = AsyncMediator(async_services.provider())
+
+def get_async_mediator() -> AsyncMediator:
+    return async_mediator
+
+@app.get("/users/{user_id}/profile")
+async def get_profile(user_id: int, mediator: AsyncMediator = Depends(get_async_mediator)):
+    response = await mediator.send(FetchProfileRequest(user_id=user_id))
+    return {"user_id": response.user_id, "bio": response.bio}
+```
+
+See [the mediator: async](/docs/guide/mediator#the-async-mediator) for why a sync and an async mediator never route to each other's handlers.
+
+## Next steps
+
+- [Error handling](/docs/guide/error-handling) — mapping domain errors to HTTP responses at the edge
+- [Async/await support](/docs/examples/async) — choosing between the sync and async APIs
+- [Dependency injection](/docs/guide/dependency-injection) — wiring handlers through a DI container
