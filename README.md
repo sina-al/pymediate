@@ -24,14 +24,14 @@
 
 ## Features
 
-- **Type Safety**: Full runtime validation with mypy support
-- **Zero Convention**: No naming conventions - uses type inspection
-- **Async/Await Support**: First-class async handlers and mediators via `pymediate.aio`
-- **DI Ready**: Built-in dependency-injector integration
-- **Dataclass Friendly**: Works seamlessly with `@dataclass` and Request[T] inheritance
-- **Well Tested**: comprehensive test suite
+- **Type safe.** Full runtime validation with mypy support.
+- **Zero convention.** No naming conventions — uses type inspection.
+- **Async/await support.** First-class async handlers and mediators via `pymediate.aio`.
+- **DI ready.** Built-in `dependency-injector` integration.
+- **Dataclass friendly.** Works seamlessly with `@dataclass` and `Request[T]` inheritance.
+- **Well tested.** Comprehensive test suite.
 
-## Quick Example
+## Quick example
 
 ```python
 from dataclasses import dataclass
@@ -63,7 +63,7 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 print(f"User {response.username} created with ID {response.user_id}")
 ```
 
-### Async Support
+### Async support
 
 PyMediate provides first-class async/await support through the `pymediate.aio` package:
 
@@ -102,12 +102,13 @@ asyncio.run(main())
 ```
 
 **Key differences for async:**
-- Import from `pymediate.aio` instead of `pymediate`
-- Handler's `__call__` method must be `async def`
-- Use `await mediator.send(...)` instead of `mediator.send(...)`
-- Supports concurrent request handling with `asyncio.gather()`
 
-### Pipeline Behaviors
+- Import from `pymediate.aio` instead of `pymediate`.
+- The handler's `__call__` method must be `async def`.
+- Use `await mediator.send(...)` instead of `mediator.send(...)`.
+- Supports concurrent request handling with `asyncio.gather()`.
+
+### Pipeline behaviors
 
 PyMediate supports pipeline behaviors (middleware) that automatically wrap request processing for cross-cutting concerns like logging, validation, caching, and more:
 
@@ -132,7 +133,7 @@ class ValidationBehavior(PipelineBehavior[CreateUser]):
 
 # Register behaviors and handlers
 services = Services()
-services.add(LoggingBehavior())       # Applied to ALL requests
+services.add(LoggingBehavior())       # Applied to all requests
 services.add(ValidationBehavior())    # Only applied to CreateUser
 services.add(CreateUserHandler())
 
@@ -145,7 +146,7 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 # Completed: CreateUser
 ```
 
-Behaviors can be **universal** (`PipelineBehavior[Request]`) or **selective** (`PipelineBehavior[SpecificRequest]`), applying only to matching request types or mixins. They are resolved per request, respecting DI container scopes (Transient, Scoped, Singleton). See the [Pipeline Behaviors Guide](https://sina-al.github.io/pymediate/guide/pipeline-behaviors/) for more examples.
+Behaviors can be **universal** (`PipelineBehavior[Request]`) or **selective** (`PipelineBehavior[SpecificRequest]`), applying only to matching request types or mixins. They're resolved per request and work with any `dependency-injector` provider lifetime — `Factory`, `Singleton`, or a scoped variant like `ContextLocalSingleton`. See the [Pipeline behaviors guide](https://sina-al.github.io/pymediate/guide/pipeline-behaviors/) for more examples.
 
 ## Installation
 
@@ -159,16 +160,16 @@ pip install pymediate[di]
 
 ## Documentation
 
-**[📚 Full Documentation](https://sina-al.github.io/pymediate/)**
+**[📚 Full documentation](https://sina-al.github.io/pymediate/)**
 
-- [Quick Start](https://sina-al.github.io/pymediate/getting-started/quick-start/)
-- [User Guide](https://sina-al.github.io/pymediate/guide/requests-responses/)
+- [Quick start](https://sina-al.github.io/pymediate/getting-started/quick-start/)
+- [User guide](https://sina-al.github.io/pymediate/guide/requests-responses/)
 - [Examples](https://sina-al.github.io/pymediate/examples/basic/)
-- [API Reference](https://sina-al.github.io/pymediate/api/request/)
+- [API reference](https://sina-al.github.io/pymediate/api/request/)
 
 ## Development
 
-### Quick Start
+### Quick start
 
 ```bash
 # Clone and install
@@ -186,7 +187,7 @@ poe check:all
 poe
 ```
 
-### Available Commands
+### Available commands
 
 PyMediate uses [Poe the Poet](https://poethepoet.natn.io/) for task running. Run `poe` to see all commands, or check [`tasks.toml`](tasks.toml).
 
@@ -197,13 +198,13 @@ PyMediate uses [Poe the Poet](https://poethepoet.natn.io/) for task running. Run
 
 ## Requirements
 
-- Python 3.12+
-- Optional: `dependency-injector>=4.41.0` for DI support
+- Python 3.12+.
+- Optional: `dependency-injector>=4.41.0` for DI support.
 
 ## Contributing
 
-Contributions are welcome! Check the docs for guidelines.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.

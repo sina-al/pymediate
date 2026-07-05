@@ -1124,20 +1124,22 @@ from dependency_injector import containers, providers
 from pymediate.providers import DependencyInjectorServiceProvider
 
 class Container(containers.DeclarativeContainer):
-    # Transient = new instance per request
-    logging = providers.Transient(
+    # Factory = new instance every time it's resolved
+    logging = providers.Factory(
         LoggingBehavior,
         logger=providers.Dependency()
     )
 
-    # Singleton = shared across all requests
+    # Singleton = one shared instance across the whole application
     cache = providers.Singleton(
         CacheBehavior,
         ttl=300
     )
 
-    # Scoped = new instance per scope (e.g., per web request)
-    transaction = providers.Scoped(
+    # ContextLocalSingleton = one instance per logical scope (for example, per web
+    # request), using contextvars - not a new instance per call, but not a single
+    # shared instance either
+    transaction = providers.ContextLocalSingleton(
         TransactionBehavior,
         db=providers.Dependency()
     )

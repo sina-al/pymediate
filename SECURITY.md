@@ -1,11 +1,11 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+## Supported versions
 
 PyMediate is pre-1.0 (`0.x`). Security fixes are made against the latest release on the
 `main` branch; older `0.x` releases are not backported.
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
 Please report security vulnerabilities privately rather than opening a public issue.
 
@@ -16,7 +16,7 @@ discussion with the maintainer and lets us coordinate a fix before any public di
 If you're unable to use that, open a regular issue asking to be contacted privately and
 we'll follow up.
 
-## What to Expect
+## What to expect
 
 This is a solo-maintained open source project — there's no formal SLA, but reports are
 taken seriously and acknowledged as soon as possible. Once a fix is available, it will be

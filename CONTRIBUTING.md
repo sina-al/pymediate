@@ -37,9 +37,9 @@ Run `uv run poe` with no arguments to see every available task.
   (`feat:`, `fix:`, `docs:`, `chore:`, etc.) — this is enforced by CI and also feeds the
   auto-generated changelog.
 - **Public API changes**: diffs to `__all__` in `src/pymediate/__init__.py`, the `Handler`
-  class, or the resolver/`ServiceProvider` protocol are treated as potential breaking
-  changes. Nontrivial design or API changes should include an ADR in `docs/adr/`
-  (see existing ones for the template).
+  class, or the `ServiceProvider` protocol are treated as potential breaking changes.
+  Nontrivial design or API changes should include an ADR in `docs/adr/` (see existing
+  ones for the template).
 
 ## The mypy-snippet tests
 
