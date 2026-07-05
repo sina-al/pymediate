@@ -2,13 +2,29 @@
 
 All notable changes to this project are documented here. Generated from Conventional
 Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the first entry.
-## [Unreleased]
+## [0.1.2] - 2026-07-05
 
 ### Documentation
 
 - Apply Microsoft writing style to top-level docs, fix stale DI terminology ([3a47ee7](https://github.com/sina-al/pymediate/commit/3a47ee7aa81b7160b9b2cc53e128875d623ec255))
 
 - Remove Zero convention and Dataclass friendly from feature lists ([7798b81](https://github.com/sina-al/pymediate/commit/7798b815c46a5ae186351830558c367f380cd1e0))
+
+- Audit and rewrite all public docstrings, enforce the policy going forward ([f2ac40e](https://github.com/sina-al/pymediate/commit/f2ac40effd836990e799b16020443d9da2e05152))
+
+
+### Features
+
+- Adopt ZeroVer and automate minor/patch bump assessment ([ccb653f](https://github.com/sina-al/pymediate/commit/ccb653f26581a1a0e3a828a3cf7637fc9388cd6e))
+
+
+### Fixes
+
+- Correct CHANGELOG.md missing the 0.1.1 release and fix the process ([ae5bacb](https://github.com/sina-al/pymediate/commit/ae5bacb99456234ec2370ae6b450d4d2397ed01f))
+
+- Apply_to_subclasses had no effect on PipelineBehavior.should_apply() ([8bdffd4](https://github.com/sina-al/pymediate/commit/8bdffd464636d9f57c34c140b5e3d6435e8849e1))
+
+- Don't count tooling-only feat commits toward a minor bump ([5ab4946](https://github.com/sina-al/pymediate/commit/5ab4946561c1b91f78e892b4d63a65cab90e6568))
 
 ## [0.1.1] - 2026-07-05
 
