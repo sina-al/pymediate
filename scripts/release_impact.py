@@ -35,7 +35,10 @@ Recommendation rules, in priority order:
        produced a false "minor" recommendation in testing even though nothing in the real API
        had changed. Parsing the AST at both revisions and comparing symbol names sidesteps that
        - string content, including code fences inside a docstring, is never treated as code.
-    4. Any `feat:` commit, with no signal above -> minor, "new functionality added".
+    4. Any `feat:` commit that touches `src/pymediate/` (the shipped package - a `feat:` to
+       scripts/, docs/, or repo config never reaches an installed `pip install pymediate`, so
+       it isn't a new feature from a consumer's perspective), with no signal above -> minor,
+       "new functionality added".
     5. Otherwise -> patch, "no breaking surface or new feature detected".
 
 Usage:
@@ -78,6 +81,7 @@ class Commit:
     type: str | None
     breaking: bool
     description: str
+    touches_package: bool
 
 
 @dataclass
@@ -95,6 +99,17 @@ def run_git(*args: str) -> str:
 
 def last_tag() -> str:
     return run_git("describe", "--tags", "--abbrev=0").strip()
+
+
+def commit_touches_package(sha: str) -> bool:
+    """Check whether a commit changed anything under src/pymediate/ (the shipped package).
+
+    A `feat:` commit that only touches scripts/, docs/, or repo config (like this very
+    script's own introduction) never reaches an installed `pip install pymediate` - it isn't
+    a new feature from a consumer's perspective, so it shouldn't trigger a minor bump.
+    """
+    changed = run_git("diff-tree", "--no-commit-id", "--name-only", "-r", sha)
+    return any(line.startswith("src/pymediate/") for line in changed.splitlines())
 
 
 def commits_since(rev_range: str) -> list[Commit]:
@@ -121,6 +136,7 @@ def commits_since(rev_range: str) -> list[Commit]:
                 type=commit_type,
                 breaking=header_breaking or body_breaking,
                 description=match.group("desc") if match else subject,
+                touches_package=commit_touches_package(sha),
             )
         )
     return commits
@@ -216,7 +232,7 @@ def assess(
             reasons.append(f"removed public symbol(s) in {rel_path}: {', '.join(names)}")
         return Assessment("minor", reasons)
 
-    feats = [c for c in commits if c.type == "feat"]
+    feats = [c for c in commits if c.type == "feat" and c.touches_package]
     if feats:
         for c in feats:
             reasons.append(f'new feature: {c.sha} "{c.description}"')
@@ -251,6 +267,7 @@ def print_report(
             print(f"  {commit_type} ({len(group)}):")
             for c in group:
                 marker = " [BREAKING]" if c.breaking else ""
+                marker += "" if c.touches_package else " [no package changes]"
                 print(f"    {c.sha}  {c.description}{marker}")
         print()
 
