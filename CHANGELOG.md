@@ -2,6 +2,54 @@
 
 All notable changes to this project are documented here. Generated from Conventional
 Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the first entry.
+## [0.1.3] - 2026-07-05
+
+### Documentation
+
+- Link well-known constructs on first mention, fix broken See also, tighten structure ([8e78fc4](https://github.com/sina-al/pymediate/commit/8e78fc4d8817f95b6e02810fe4633012a23f231f))
+
+- Overhaul error-handling guide, trim mediator docs, apply MS style ([b4458e7](https://github.com/sina-al/pymediate/commit/b4458e7d4a184283c8fde4ec6f06ac968b09111b))
+
+- Update errors section ([8f75fe8](https://github.com/sina-al/pymediate/commit/8f75fe871c4069c05cf56cf7c7fbdead0608d344))
+
+- Refine error section ([1ba9e22](https://github.com/sina-al/pymediate/commit/1ba9e227fc2f3740d989afc325a2df6b60212c24))
+
+- Correct mediator section ([2e96984](https://github.com/sina-al/pymediate/commit/2e96984f7cfdb663d5d557bbaebc3ed063621f88))
+
+- Stop publishing changelog on docs site ([63571b5](https://github.com/sina-al/pymediate/commit/63571b57acfd266ec76ec05960e522fb7f8bc8cb))
+
+
+### Features
+
+- Add github-actions-security skill and wire it into config ([75afa0b](https://github.com/sina-al/pymediate/commit/75afa0bd1412ba40521814b13fc06bf51c04b479))
+
+- Generate CLAUDE.md context files for API signatures and ADR index ([7590bdb](https://github.com/sina-al/pymediate/commit/7590bdb0c89a2844bc1bfb61a43d074c5d6f308d))
+
+- Build fumadocs v2 site with original brand and full content migration ([cea27af](https://github.com/sina-al/pymediate/commit/cea27af0684012716e6802c48e063bd7df85c6df))
+
+
+### Fixes
+
+- Point pnpm/action-setup at docs.v2/package.json ([2becc09](https://github.com/sina-al/pymediate/commit/2becc09b5b25b995841a873d988619c875fedd74))
+
+- Correct error docs path ([d480fce](https://github.com/sina-al/pymediate/commit/d480fcebe6b032759156cb20970ca6ead0ae5062))
+
+
+### Miscellaneous
+
+- Scope workflow triggers to changed files and rename for clarity ([a97d792](https://github.com/sina-al/pymediate/commit/a97d792acc021e82dafe6808d24f46ab2fa4f639))
+
+- Pin all third-party actions to full commit SHAs ([83c8e01](https://github.com/sina-al/pymediate/commit/83c8e010f8bd420182c4a007d439a2b662888a70))
+
+- Tidy docs ([a64d4b0](https://github.com/sina-al/pymediate/commit/a64d4b00d698059de5442150d1158e9c7cc227b4))
+
+- Scaffold v2 documentation site ([e59be29](https://github.com/sina-al/pymediate/commit/e59be299f1b5779577f7b82b912d0ea3362bf5dc))
+
+
+### Refactoring
+
+- Drop generated ADR index, keep cross-reference as prose ([91e74f8](https://github.com/sina-al/pymediate/commit/91e74f80b8d8fdfe0550f584ac045a4ed0338e37))
+
 ## [0.1.2] - 2026-07-05
 
 ### Documentation
@@ -25,6 +73,11 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 - Apply_to_subclasses had no effect on PipelineBehavior.should_apply() ([8bdffd4](https://github.com/sina-al/pymediate/commit/8bdffd464636d9f57c34c140b5e3d6435e8849e1))
 
 - Don't count tooling-only feat commits toward a minor bump ([5ab4946](https://github.com/sina-al/pymediate/commit/5ab4946561c1b91f78e892b4d63a65cab90e6568))
+
+
+### Miscellaneous
+
+- *(release)* V0.1.2 ([8d2c06b](https://github.com/sina-al/pymediate/commit/8d2c06b651bf40fd8a5e94698ce0497babd7b123))
 
 ## [0.1.1] - 2026-07-05
 
