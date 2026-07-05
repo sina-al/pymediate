@@ -89,29 +89,40 @@ the `http_status` attribute — pins your core to one transport.
 
 ### Why this matters
 
-The cost stays hidden until you run the same handler somewhere other than the web.
-`PlaceOrderHandler` is just a class, so the natural move is to drive it from a nightly CLI
-importer or a message-queue worker as well as from the API — and that's exactly where an
-HTTP status baked into the core turns absurd.
+The coupling costs nothing on the day you write it. It sends the bill the day you try to
+reuse the core — which is the whole reason the core exists. Suppose the shop needs a second
+entry point: a nightly batch script that replays failed orders from a partner's CSV feed.
+`PlaceOrderHandler` is just a class, so this should be the mediator pattern's easiest win —
+point a new script at the same `mediator.send()` call and go home. You write it and run it.
 
-- **A nightly stock-reconciliation script** crashes at 3 a.m. with `404 Not Found` — a "Not
-  Found" *HTTP response* from a program that never received an HTTP request and has no client
-  waiting on one. A missing product here should print `Product not found: 42` and exit
-  non-zero; instead the on-call engineer is paged to debug a web error in a job with no web
-  server.
-- **A payments worker** decides whether to retry or dead-letter a message by branching on the
-  failure. Reading `err.http_status` and finding `409` tells it nothing useful: that number
-  was invented to describe a conflict *to a browser*, and now core retry logic is divining
-  business intent from a web convention that doesn't belong here.
+```
+$ python replay_orders.py
+Traceback (most recent call last):
+  File "replay_orders.py", line 40, in <module>
+    response = mediator.send(PlaceOrderRequest(...))
+  ...
+  File "shop/handlers.py", line 12, in __call__
+    raise HTTPException(status_code=404, detail="Product not found")
+fastapi.exceptions.HTTPException: 404: Product not found
+```
 
-The absurdity is the tell. An HTTP status code in a program with no HTTP request means the
-wrong layer owns the decision. So the core stays framework-blind, and each deployment
-translates domain errors into whatever its edge actually speaks — HTTP status codes at a web
-boundary, exit codes and stderr at a CLI, ack or nack at a queue.
+A batch script just failed with an HTTP error. There's no server in this program, no client,
+no request — nothing a 404 could be sent *to* — yet there it is at the bottom of the
+traceback. Look at what it took to get even this far: `replay_orders.py` can't run without
+FastAPI installed, because the domain can't say "product not found" without it. To catch the
+error and skip the row, the batch script must `import fastapi` too. A CSV-processing job now
+carries a web framework as a load-bearing dependency, and every future entry point — the
+queue consumer, the admin CLI, the test suite — inherits the same passenger.
 
-That independence comes directly from the domain-error design above. Because handlers raise
-typed, transport-agnostic exceptions, the *translation* to a framework response lives in one
-place at the edge of the app, and the core never imports the framework at all.
+Swapping frameworks is where it fully unravels: migrating FastAPI to Flask should mean
+rewriting routes, but your *handlers* raise `fastapi.exceptions.HTTPException`, so the
+migration now reaches into the domain layer — the one part of the codebase the architecture
+promised would never care.
+
+That's the real cost: the leak doesn't hurt where you wrote it, it hurts everywhere you
+planned to go next. Keep transport out of the domain and every new edge is just a new
+translation; let it in and every new edge inherits a framework it has no use for. Which
+raises the practical question — where should that translation live?
 
 ## Mapping domain errors at the edge
 
