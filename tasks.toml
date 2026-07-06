@@ -20,10 +20,10 @@ test.cmd = "pytest tests/"
 "test:failed".help = "Re-run only the tests that failed last time (--lf)"
 "test:failed".cmd = "pytest --lf tests/"
 
-"test:specific".help = "Run one test file (usage: poe test:specific test_handler.py)"
-"test:specific".cmd = "pytest tests/${test_file} -v"
-"test:specific".args = [
-    { name = "test_file", positional = true, required = true, help = "Test file under tests/, e.g. test_handler.py" },
+"test:one".help = "Run one test file by short name (usage: poe test:one registry -> pytest tests/test_registry.py)"
+"test:one".cmd = "pytest tests/test_${name}.py -v"
+"test:one".args = [
+    { name = "name", positional = true, required = true, help = "Short name, e.g. 'registry' for tests/test_registry.py" },
 ]
 
 "test:release".help = "Run tests with coverage gated at the release floor of 95% (poe fails below it)"
