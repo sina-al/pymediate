@@ -5,82 +5,113 @@
 test.help = "Run all tests"
 test.cmd = "pytest tests/"
 
-"test:cov".help = "Run tests with coverage report"
+"test:cov".help = "Run tests with a human-readable coverage report (terminal + HTML)"
 "test:cov".cmd = "pytest --cov=pymediate --cov-report=term-missing --cov-report=html"
 
-"test:watch".help = "Run tests in watch mode"
+"test:watch".help = "Run tests in watch mode, re-running on file changes"
 "test:watch".cmd = "pytest-watch tests/"
 
-"test:verbose".help = "Run tests with verbose output"
+"test:verbose".help = "Run tests with verbose (-v) output"
 "test:verbose".cmd = "pytest tests/ -v"
 
-"test:fast".help = "Run tests without coverage (fast)"
+"test:fast".help = "Run tests without coverage instrumentation, stopping at the first failure (-x)"
 "test:fast".cmd = "pytest tests/ -x"
 
-"test:failed".help = "Run only failed tests from last run"
+"test:failed".help = "Re-run only the tests that failed last time (--lf)"
 "test:failed".cmd = "pytest --lf tests/"
 
-"test:specific".help = "Run specific test file (usage: poe test:specific test_handler.py)"
+"test:specific".help = "Run one test file (usage: poe test:specific test_handler.py)"
 "test:specific".cmd = "pytest tests/${test_file} -v"
 "test:specific".args = [
-    { name = "test_file", positional = true, required = true },
+    { name = "test_file", positional = true, required = true, help = "Test file under tests/, e.g. test_handler.py" },
 ]
 
-"test:release".help = "Run tests with coverage, gated at the release coverage floor (95%)"
+"test:release".help = "Run tests with coverage gated at the release floor of 95% (poe fails below it)"
 "test:release".cmd = "pytest --cov=pymediate --cov-report=term-missing --cov-fail-under=95"
+
+"test:cov-xml".help = "Run tests with an XML coverage report (used by test.yml; orgoro/coverage reads coverage.xml to comment on PRs)"
+"test:cov-xml".cmd = "pytest tests/ --tb=short --cov=pymediate --cov-report=xml --cov-report=term-missing"
+
+"test:cov-json".help = "Run tests with a JSON coverage report (used by pr.yml's diff-coverage PR comment, which reads coverage.json)"
+"test:cov-json".cmd = "pytest tests/ --cov=pymediate --cov-report=json --cov-report=term-missing"
 
 # ========== Type Checking ==========
 
 type.help = "Run mypy type checking on source code"
 type.cmd = "mypy src/pymediate/ --strict"
 
-"type:all".help = "Run mypy on source and tests"
+"type:all".help = "Run mypy on source and tests (excludes the deliberately type-invalid tests/mypy/snippets/errors/)"
 "type:all".cmd = "mypy src/pymediate/ tests/ --strict --exclude 'tests/mypy/snippets/errors/'"
 
-"type:report".help = "Generate mypy coverage report"
+"type:report".help = "Generate an HTML mypy coverage report into mypy-report/"
 "type:report".cmd = "mypy src/pymediate/ --strict --html-report mypy-report"
 
 # ========== Linting & Formatting ==========
 
-lint.help = "Run ruff linter (check only)"
+lint.help = "Run the ruff linter (check only, no changes made)"
 lint.cmd = "ruff check src/ tests/ scripts/"
 
-"lint:fix".help = "Run ruff linter and auto-fix issues"
+"lint:fix".help = "Run the ruff linter and auto-fix what it safely can"
 "lint:fix".cmd = "ruff check --fix src/ tests/ scripts/"
 
-format.help = "Run ruff formatter"
+format.help = "Run the ruff formatter, rewriting files in place"
 format.cmd = "ruff format src/ tests/ scripts/"
 
-"format:check".help = "Check formatting without making changes"
+"format:check".help = "Check formatting without changing any files (used by CI)"
 "format:check".cmd = "ruff format --check src/ tests/ scripts/"
 
-fix.help = "Run linter with fixes and formatter (full cleanup)"
+fix.help = "Full local cleanup: ruff lint --fix, then ruff format"
 fix.sequence = ["lint:fix", "format"]
 
 # ========== Quality Checks ==========
 
-check.help = "Run all quality checks (type, lint, format check)"
+check.help = "Run all quality checks: type, lint, format check (no tests)"
 check.sequence = ["type", "lint", "format:check"]
 
 "check:all".help = "Run all quality checks plus tests with coverage"
 "check:all".sequence = ["type:all", "lint", "format:check", "test:cov"]
 
-ci.help = "Run full CI suite (same as CI pipeline)"
+ci.help = "Run the full local CI suite (mirrors what checks.yml/test.yml enforce)"
 ci.sequence = ["check:all"]
+
+# ========== API Compatibility ==========
+
+"api:check".help = """
+Check the public API for breaking changes against a git ref, via griffe \
+(default: latest tag; usage: poe api:check -a origin/main -f oneline). \
+Informational only — PyMediate follows ZeroVer, so a breaking change \
+is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section).\
+"""
+"api:check".cmd = "uvx --from griffe==2.1.0 griffe check pymediate -s src"
+
+# ========== Security ==========
+
+security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"
+security.cmd = "uv run --with safety safety check"
 
 # ========== Documentation ==========
 
-"docs:serve".help = "Start MkDocs dev server with live reload"
+"docs:serve".help = "Start the MkDocs dev server with live reload"
 "docs:serve".cmd = "mkdocs serve"
 
-"docs:build".help = "Build documentation site"
+"docs:build".help = "Build the documentation site in strict mode (warnings fail the build)"
 "docs:build".cmd = "mkdocs build --strict"
 
 "docs:deploy".help = "Deploy documentation to GitHub Pages"
 "docs:deploy".cmd = "mkdocs gh-deploy --force"
 
-"docs:clean".help = "Clean built documentation"
+"docs:clean".help = "Remove the built documentation site/ directory"
 "docs:clean".cmd = "rm -rf site/"
+
+# ========== Build & Publish ==========
+
+build.help = "Build the sdist and wheel into dist/"
+build.cmd = "uv build"
+
+"build:check".help = "Validate the built distributions in dist/ with twine (run poe build first)"
+# Explicit extensions, not "dist/*": poe's cmd-type globbing (unlike a real shell) matches
+# dotfiles too, and `uv build` writes a `dist/.gitignore` that twine can't parse as a package.
+"build:check".cmd = "uvx twine check dist/*.tar.gz dist/*.whl"
 
 # ========== Release ==========
 
@@ -90,15 +121,39 @@ ci.sequence = ["check:all"]
 changelog.help = "Regenerate CHANGELOG.md from Conventional Commits (git-cliff)"
 changelog.cmd = "python3 scripts/generate_changelog.py"
 
+"release:notes".help = "Generate release notes for the current tag only, stripped of the header (used by release.yml to fill in the GitHub Release body)"
+"release:notes".cmd = "uvx git-cliff --current --strip header -o RELEASE_NOTES.md"
+
 "version:bump".help = "Bump the version in pyproject.toml + __init__.py (usage: poe version:bump patch|minor|major|X.Y.Z)"
 "version:bump".cmd = "python3 scripts/bump_version.py"
 
-"release:verify-version".help = "Verify release tag, pyproject.toml, and __init__.py versions match (usage: poe release:verify-version --tag vX.Y.Z)"
+"release:verify-version".help = "Verify release tag, pyproject.toml, and __init__.py versions all match (usage: poe release:verify-version --tag vX.Y.Z)"
 "release:verify-version".cmd = "python3 scripts/verify_release_version.py"
+
+# ========== PR Helpers ==========
+
+"pr:size".help = "Show files/lines changed vs a base ref and warn if the diff looks large (usage: poe pr:size --base origin/main)"
+"pr:size".args = [
+    { name = "base", options = ["--base"], default = "origin/main", help = "Git ref to diff against" },
+]
+"pr:size".shell = """
+    files=$(git diff --name-only ${base}...HEAD | wc -l)
+    lines=$(git diff --stat ${base}...HEAD | tail -1 | awk '{print $4+$6}')
+
+    echo "Files changed: $files"
+    echo "Lines changed: $lines"
+
+    if [ "$files" -gt 50 ]; then
+        echo "Warning: Large PR with $files files changed. Consider splitting."
+    fi
+    if [ "$lines" -gt 1000 ]; then
+        echo "Warning: Large PR with $lines lines changed. Consider splitting."
+    fi
+"""
 
 # ========== Development ==========
 
-install.help = "Install package in editable mode with dev dependencies"
+install.help = "Install the package in editable mode with dev + test dependencies"
 install.cmd = "uv sync --all-extras --group test"
 
 "update-uv".help = "Bump the pinned uv version (pyproject.toml + local install) to the latest release"
@@ -113,25 +168,22 @@ install.cmd = "uv sync --all-extras --group test"
 "context:check".help = "Fail if CLAUDE.md's API signatures block is stale"
 "context:check".cmd = "python3 scripts/update_context.py --check"
 
-"api:check".help = "Check the public API for breaking changes against a git ref (default: latest tag; usage: poe api:check -a origin/main)"
-"api:check".cmd = "uvx --from griffe==2.1.0 griffe check pymediate -s src"
-
 clean.help = "Clean build artifacts, cache files, and coverage reports"
 clean.cmd = """
     rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache .ruff_cache \
     htmlcov/ .coverage coverage.xml mypy-report/ site/
 """
 
-"clean:all".help = "Clean everything including venv"
+"clean:all".help = "Clean everything, including build artifacts (alias for clean; kept for discoverability)"
 "clean:all".sequence = ["clean"]
 
 # ========== Quick Commands ==========
 
-dev.help = "Quick dev workflow: fix code and run tests"
+dev.help = "Quick dev loop: fix code, then run fast tests"
 dev.sequence = ["fix", "test:fast"]
 
-pr.help = "Prepare for PR: run all checks"
+pr.help = "Prepare for a PR: fix code, then run all quality checks and tests with coverage"
 pr.sequence = ["fix", "check:all"]
 
-all.help = "Run everything: fix, check, and test with coverage"
+all.help = "Run everything: fix, check, and test with coverage (alias for pr; kept for discoverability)"
 all.sequence = ["fix", "check:all"]

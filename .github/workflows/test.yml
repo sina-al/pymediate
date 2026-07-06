@@ -82,8 +82,7 @@ jobs:
           uv sync --group test --all-extras
 
       - name: Test
-        run: |
-          uv run pytest tests/ --tb=short --cov=pymediate --cov-report=xml --cov-report=term-missing
+        run: uv run poe test:cov-xml
 
       - name: Report coverage
         # PR-comment action; a no-op on plain pushes (e.g. to main), so skip it there.

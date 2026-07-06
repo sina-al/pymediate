@@ -82,21 +82,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+
+      - name: Sync dependencies
+        run: uv sync --only-dev
+
       - name: Check PR size
-        run: |
-          FILES_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | wc -l)
-          LINES_CHANGED=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | awk '{print $4+$6}')
-
-          echo "Files changed: $FILES_CHANGED"
-          echo "Lines changed: $LINES_CHANGED"
-
-          if [ "$FILES_CHANGED" -gt 50 ]; then
-            echo "Warning: Large PR with $FILES_CHANGED files changed. Consider splitting."
-          fi
-
-          if [ "$LINES_CHANGED" -gt 1000 ]; then
-            echo "Warning: Large PR with $LINES_CHANGED lines changed. Consider splitting."
-          fi
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: uv run poe pr:size --base "$BASE_REF"
 
   test-coverage-diff:
     name: Test Coverage Diff
@@ -125,8 +122,7 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Run tests with coverage
-        run: |
-          uv run pytest tests/ --cov=pymediate --cov-report=json --cov-report=term-missing
+        run: uv run poe test:cov-json
 
       - name: Upload coverage report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -210,9 +206,8 @@ jobs:
           uv sync --all-extras --all-groups
 
       - name: Run safety check
-        run: |
-          uv pip install --system safety
-          safety check --json || true
+        # Not blocking, matching prior behavior: this is a heads-up, not a merge gate.
+        run: uv run poe security --json || true
 
   all-checks-passed:
     name: All Checks Passed
