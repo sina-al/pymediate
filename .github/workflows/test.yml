@@ -3,7 +3,7 @@ name: Tests
 on:
   push:
     branches: [main]
-    paths: &code-paths
+    paths:
       - "src/**"
       - "tests/**"
       - "pyproject.toml"
@@ -13,7 +13,6 @@ on:
       - ".github/workflows/test.yml"
   pull_request:
     branches: [main]
-    paths: *code-paths
   workflow_dispatch:
 
 concurrency:
@@ -21,9 +20,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            code:
+              - "src/**"
+              - "tests/**"
+              - "pyproject.toml"
+              - "uv.lock"
+              - "tasks.toml"
+              - "pytest.ini"
+              - ".github/workflows/test.yml"
+
   test:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true')
     permissions:
       contents: read
       pull-requests: write
@@ -67,3 +94,17 @@ jobs:
         with:
           coverageFile: ./coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  test-suite:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    needs: [changes, test]
+    if: always()
+    steps:
+      - name: Check test result
+        run: |
+          if [[ "${{ needs.test.result }}" == "failure" ]]; then
+            echo "Test matrix failed"
+            exit 1
+          fi
+          echo "Tests passed (or were skipped: no relevant changes)"

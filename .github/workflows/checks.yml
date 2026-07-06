@@ -3,7 +3,7 @@ name: Checks
 on:
   push:
     branches: [main]
-    paths: &code-paths
+    paths:
       - "src/**"
       - "tests/**"
       - "scripts/**"
@@ -15,7 +15,6 @@ on:
       - ".github/workflows/checks.yml"
   pull_request:
     branches: [main]
-    paths: *code-paths
   workflow_dispatch:
 
 concurrency:
@@ -23,9 +22,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Checks
+  changes:
+    name: Detect Changed Files
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            code:
+              - "src/**"
+              - "tests/**"
+              - "scripts/**"
+              - "pyproject.toml"
+              - "uv.lock"
+              - "tasks.toml"
+              - "ruff.toml"
+              - "mypy.ini"
+              - ".github/workflows/checks.yml"
+
+  check:
+    name: Run Checks
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true')
 
     steps:
       - name: Checkout
@@ -54,3 +83,17 @@ jobs:
       - name: Type check
         run: |
           uv run poe type
+
+  checks-summary:
+    name: Checks
+    runs-on: ubuntu-latest
+    needs: [changes, check]
+    if: always()
+    steps:
+      - name: Check result
+        run: |
+          if [[ "${{ needs.check.result }}" == "failure" ]]; then
+            echo "Checks failed"
+            exit 1
+          fi
+          echo "Checks passed (or were skipped: no relevant changes)"
