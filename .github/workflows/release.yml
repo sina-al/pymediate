@@ -48,29 +48,10 @@ jobs:
           uv run poe format:check
 
       - name: Verify version consistency
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
         run: |
-          VERSION_TAG="${{ github.ref_name }}"
-          VERSION_TAG="${VERSION_TAG#v}"
-
-          # Check pyproject.toml version
-          PYPROJECT_VERSION=$(grep "^version = " pyproject.toml | cut -d'"' -f2)
-
-          # Check __init__.py version
-          INIT_VERSION=$(grep "__version__ = " src/pymediate/__init__.py | cut -d'"' -f2)
-
-          echo "Tag version: $VERSION_TAG"
-          echo "pyproject.toml version: $PYPROJECT_VERSION"
-          echo "__init__.py version: $INIT_VERSION"
-
-          if [ "$VERSION_TAG" != "$PYPROJECT_VERSION" ]; then
-            echo "Error: Tag version doesn't match pyproject.toml"
-            exit 1
-          fi
-
-          if [ "$VERSION_TAG" != "$INIT_VERSION" ]; then
-            echo "Error: Tag version doesn't match __init__.py"
-            exit 1
-          fi
+          uv run poe release:verify-version --tag "$VERSION_TAG"
 
   build-package:
     name: Build Package
