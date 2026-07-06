@@ -59,7 +59,9 @@ match `.github/workflows/*.yml`.
 Before adding a new file under `.github/workflows/**` or editing an existing one, apply the
 `github-actions-security` skill (action pinning, least-privilege `permissions:`, script-injection
 prevention, OIDC over long-lived secrets, safe trigger scoping). This applies any time the task
-touches a workflow file, not only when security is mentioned explicitly.
+touches a workflow file, not only when security is mentioned explicitly. After editing, run
+`uv run poe actions:lint` (zizmor) — `checks.yml` enforces it in CI, so a finding you don't fix
+or explicitly ignore (with a justification comment) will fail the PR.
 
 ## Quality bar (all enforced in CI, not optional)
 
@@ -145,29 +147,41 @@ Since major can never carry a signal, minor and patch split that job between the
 commits and the flagged API surface since the last tag, and the `/release` skill runs it and
 asks you to confirm the recommendation before bumping.
 
+## Branch/merge policy
+
+`main` is ruleset-protected: PRs only (squash merge only, so the PR title *is* the commit
+message on `main` — Conventional Commits format is enforced on titles by `pr.yml`), one
+maintainer review, required checks `Checks` / `Test Suite` / `Documentation` /
+`All Checks Passed`, CodeQL. Separate rulesets block branch and tag creation repo-wide —
+contributors work from forks; only the maintainer (admin bypass), the Copilot coding agent,
+and Dependabot can create branches, and only the maintainer can tag. The
+`python-coverage-comment-action-data` branch is machine-managed (coverage badge data), not
+code. A solo maintainer can't approve their own PRs, so the maintainer's own PRs merge via
+admin bypass after checks are green — that's expected, not a misconfiguration.
+
 ## Release process
 
 Use the `/release` skill for the full step-by-step checklist. Summary below.
 
-Tag-triggered (`v*.*.*`) via `release.yml`. The workflow hard-fails if the tag version doesn't
-match both `pyproject.toml`'s `version` and `src/pymediate/__init__.py`'s `__version__`. Bump
-both together with `uv run poe version:bump patch|minor` (or an explicit `X.Y.Z` — see
-"Versioning" above for why `major` isn't part of the normal flow) —
-it wraps `uv version` (which only touches `pyproject.toml`; `uv_build` has no dynamic-versioning
-support unlike Hatchling) and syncs `__init__.py` to match. Add `--dry-run` to preview.
+Releases are dispatch-driven and human-in-the-loop: `gh workflow run prepare-release.yml
+-f bump=auto` runs `release:impact` (minor-vs-patch recommendation — see "Versioning"
+above), bumps the version via `poe version:bump` (which syncs `pyproject.toml` and
+`__init__.py` together; `uv_build` has no dynamic-versioning support), regenerates
+`CHANGELOG.md` via `poe changelog` ([git-cliff](https://git-cliff.org/), config in
+`cliff.toml`), and opens a release PR with the impact report in its body. Merging that PR
+(the human approval) triggers `tag-release.yml`, which tags the squash commit `vX.Y.Z` and
+thereby starts `release.yml`. Both prepare/tag workflows need the `RELEASE_PR_TOKEN`
+fine-grained PAT secret (so the PR triggers checks and the tag clears tag-guard — the
+default `GITHUB_TOKEN` can do neither).
 
-Before tagging, run `uv run poe changelog` to regenerate `CHANGELOG.md` (via
-[git-cliff](https://git-cliff.org/), config in `cliff.toml`) from Conventional Commits, and
-commit it alongside the version bump. `release.yml` separately generates the GitHub Release
-body for just the new tag's commits — the persisted `CHANGELOG.md` and the per-release notes
-are two different git-cliff invocations, not duplicated effort.
-
-Publishing uses `uv publish` with Trusted Publishing (OIDC) — no stored credentials — staged
-through TestPyPI first (`publish-testpypi` job) and gating the real `publish-pypi` job on that
-succeeding. Requires: `pypi` and `testpypi` GitHub environments (already created) and a Trusted
-Publisher registered on **both** pypi.org and test.pypi.org for this repo/workflow — they're
-separate services with separate registrations. Register a *pending* publisher on each before
-the first release, since the project doesn't exist on either index yet.
+`release.yml` hard-fails if the tag version doesn't match both `pyproject.toml` and
+`__init__.py`'s `__version__`. It generates the GitHub Release body for just the new tag's
+commits — the persisted `CHANGELOG.md` and the per-release notes are two different
+git-cliff invocations, not duplicated effort. Publishing uses `uv publish` with Trusted
+Publishing (OIDC) — no stored credentials — staged through TestPyPI first, then pausing at
+the `pypi` environment's required-reviewer gate for the maintainer's final approval before
+the real PyPI publish. Requires a Trusted Publisher registered on **both** pypi.org and
+test.pypi.org for this repo/workflow — separate services, separate registrations.
 
 ## Docs
 

@@ -4,10 +4,26 @@ Thanks for considering a contribution. This is a small, solo-maintained library,
 proposals in scope with a quick issue first if you're planning something larger than a
 bug fix.
 
+## How contributions work
+
+- **Fork, then PR.** Branches can't be pushed to this repository — repository rulesets
+  block branch creation for everyone but the maintainer. Fork the repo, work on a branch
+  in your fork, and open a pull request against `main`.
+- **All merges are squash merges.** Your PR lands as a single commit whose message is the
+  PR title — that's why the Conventional Commits title format below is enforced: the
+  changelog is generated directly from those commits.
+- **Every PR needs the maintainer's review** and the required checks green before merge:
+  *Checks* (ruff format/lint, mypy strict, zizmor workflow lint), *Test Suite*
+  (pytest across Python 3.12–3.14 with coverage), *Documentation* (docs build, when docs
+  change), and *All Checks Passed* (PR metadata, size, coverage diff, breaking-change
+  scan, dependency review). Checks that aren't relevant to your change (e.g. docs checks
+  on a code-only PR) pass automatically as skipped.
+- Pushing new commits after an approval dismisses it — the updated PR needs re-review.
+
 ## Setup
 
 ```bash
-git clone https://github.com/sina-al/pymediate.git
+git clone https://github.com/<your-username>/pymediate.git
 cd pymediate
 uv sync --all-extras --group test
 ```

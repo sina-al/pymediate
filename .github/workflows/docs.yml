@@ -6,11 +6,11 @@ on:
     paths:
       - "docs.v2/**"
       - ".github/workflows/docs.yml"
+  # No paths filter on pull_request: the "Documentation" summary job below is a required
+  # status check, so it must always report on PRs — it passes as "skipped" when the changes
+  # job detects no docs changes, instead of hanging the PR forever.
   pull_request:
     branches: [main]
-    paths:
-      - "docs.v2/**"
-      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 # Least privilege by default; the deploy job grants itself pages/id-token scopes.
@@ -28,15 +28,42 @@ env:
   NEXT_PUBLIC_SITE_URL: https://pymediate.sina-al.uk
 
 jobs:
+  changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            docs:
+              - "docs.v2/**"
+              - ".github/workflows/docs.yml"
+
   build:
     name: Build documentation
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.docs == 'true')
     defaults:
       run:
         working-directory: docs.v2
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
@@ -68,6 +95,20 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
           path: docs.v2/out/
+
+  docs-summary:
+    name: Documentation
+    runs-on: ubuntu-latest
+    needs: [changes, build]
+    if: always()
+    steps:
+      - name: Check build result
+        run: |
+          if [[ "${{ needs.build.result }}" == "failure" ]]; then
+            echo "Documentation build failed"
+            exit 1
+          fi
+          echo "Documentation build passed (or was skipped: no docs changes)"
 
   deploy:
     name: Deploy documentation

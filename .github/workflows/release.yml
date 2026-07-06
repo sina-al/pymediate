@@ -4,11 +4,14 @@ on:
   push:
     tags:
       - "v*.*.*"
+  # Manual fallback: dispatch *on a tag ref* (gh workflow run release.yml --ref vX.Y.Z)
+  # so github.ref_name is the version tag the consistency check expects. The normal path
+  # is prepare-release.yml -> merge release PR -> tag-release.yml -> the tag push above.
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release (e.g., 0.2.0)"
-        required: true
+
+# Least privilege by default; jobs that need more grant it themselves.
+permissions:
+  contents: read
 
 jobs:
   validate-release:
@@ -29,6 +32,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
 
       - name: Install dependencies
         run: |
@@ -66,6 +71,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
 
       - name: Sync dependencies
         run: uv sync --only-dev
@@ -138,6 +145,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
 
       - name: Sync dependencies
         run: uv sync --only-dev
@@ -152,14 +161,21 @@ jobs:
         run: uv run poe release:notes
 
       - name: Create Release
-        uses: softprops/action-gh-release@7c4723f7a335432393329f8f1c564994ce50185d # v3
-        with:
-          files: dist/*
-          body_path: RELEASE_NOTES.md
-          draft: false
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+        # Plain `gh release create` instead of a third-party action: one less thing in the
+        # supply chain of the release path (zizmor's superfluous-actions audit).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          args=()
+          if [[ "$TAG" == *alpha* || "$TAG" == *beta* || "$TAG" == *rc* ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$TAG" dist/* \
+            --title "$TAG" \
+            --notes-file RELEASE_NOTES.md \
+            --verify-tag \
+            "${args[@]}"
 
   publish-testpypi:
     name: Publish to TestPyPI
@@ -169,6 +185,7 @@ jobs:
       name: testpypi
       url: https://test.pypi.org/p/pymediate/
     permissions:
+      contents: read
       id-token: write
 
     steps:
@@ -179,6 +196,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
 
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -198,6 +217,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/pymediate/
     permissions:
+      contents: read
       id-token: write
 
     steps:
@@ -208,6 +228,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
 
       - name: Download artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8

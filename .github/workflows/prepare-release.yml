@@ -1,0 +1,107 @@
+name: Prepare Release
+
+# Dispatch-driven, human-in-the-loop release entry point:
+#
+#   1. Maintainer dispatches this workflow (bump = auto | patch | minor).
+#   2. It runs release:impact (commit + public-API-surface analysis), picks the bump
+#      kind (the RECOMMENDATION line when bump=auto), bumps the version, regenerates
+#      CHANGELOG.md, and opens a release PR with the full impact report in the body.
+#   3. The maintainer reviews and merges that PR — that merge is the human approval.
+#      tag-release.yml then tags the squash commit, which triggers release.yml.
+#
+# Dispatching requires write access, so only the maintainer can start this.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump kind (auto = follow release:impact's recommendation)"
+        type: choice
+        options: [auto, patch, minor]
+        default: auto
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Open release PR
+    runs-on: ubuntu-latest
+    steps:
+      # RELEASE_PR_TOKEN is a fine-grained PAT (this repo only; contents + pull-requests
+      # write). It's used instead of GITHUB_TOKEN so the release PR triggers the normal
+      # pull_request check runs (GITHUB_TOKEN-created PRs don't, by GitHub's
+      # anti-recursion rule), and so the branch push clears the branch-guard ruleset.
+      # Credentials deliberately persist: the push step below needs them.
+      - name: Checkout code # zizmor: ignore[artipacked]
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PR_TOKEN }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+
+      - name: Sync dependencies
+        run: uv sync --only-dev
+
+      - name: Assess release impact
+        run: |
+          uv run poe release:impact | tee impact.txt
+
+      - name: Determine bump kind
+        id: bump
+        env:
+          BUMP_INPUT: ${{ inputs.bump }}
+        run: |
+          if [ "$BUMP_INPUT" = "auto" ]; then
+            kind=$(grep -oE 'RECOMMENDATION: (minor|patch)' impact.txt | awk '{print $2}')
+            if [ -z "$kind" ]; then
+              echo "Could not parse a RECOMMENDATION line from release:impact output" >&2
+              exit 1
+            fi
+          else
+            kind="$BUMP_INPUT"
+          fi
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "Bump kind: $kind"
+
+      - name: Bump version and regenerate changelog
+        env:
+          KIND: ${{ steps.bump.outputs.kind }}
+        run: |
+          uv run poe version:bump "$KIND"
+          uv run poe changelog
+
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+        run: |
+          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          BRANCH="release/v${VERSION}"
+
+          git config user.name "sina-al"
+          git config user.email "27771210+sina-al@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add pyproject.toml src/pymediate/__init__.py CHANGELOG.md
+          git diff --quiet uv.lock || git add uv.lock
+          git commit -m "chore(release): v${VERSION}"
+          git push origin "$BRANCH"
+
+          {
+            echo "Automated release PR for **v${VERSION}**. Merging this PR tags the release"
+            echo "and starts the publish pipeline (validate -> build -> TestPyPI -> approval -> PyPI)."
+            echo
+            echo "## Release impact report"
+            echo
+            echo '```'
+            cat impact.txt
+            echo '```'
+          } > pr-body.md
+
+          gh pr create \
+            --title "chore(release): v${VERSION}" \
+            --body-file pr-body.md \
+            --base main \
+            --head "$BRANCH"

@@ -1,111 +1,107 @@
 ---
 name: release
-description: Cut a versioned release of pymediate — bump the version, regenerate the changelog, tag, and push, which triggers release.yml's test -> build -> GitHub Release -> TestPyPI -> PyPI pipeline. Use when asked to release, publish, or cut/ship a new version.
+description: Cut a versioned release of pymediate — dispatch the Prepare Release workflow, review and merge the release PR it opens, then approve the PyPI environment gate. Use when asked to release, publish, or cut/ship a new version.
 ---
 
 # /release — cut a versioned release
 
-All the real logic lives in `scripts/bump_version.py`, `scripts/release_impact.py`,
-`cliff.toml`, and `release.yml` — this skill is a checklist through them, not a re-description
-of what they do. See `CLAUDE.md`'s "Versioning" section for the minor-vs-patch policy (PyMediate
-follows [ZeroVer](https://0ver.org/) — major never moves) and "Release process" for the
-underlying mechanics (why the version is hand-synced in two places, why TestPyPI gates PyPI,
-etc.).
+The release process is workflow-driven and human-in-the-loop. The real logic lives in
+`prepare-release.yml`, `tag-release.yml`, `release.yml`, `scripts/bump_version.py`,
+`scripts/release_impact.py`, and `cliff.toml` — this skill is a checklist through them.
+See `CLAUDE.md`'s "Versioning" section for the minor-vs-patch policy (PyMediate follows
+[ZeroVer](https://0ver.org/) — major never moves).
 
-**Tagging and pushing a release is irreversible-adjacent** (a version can never be re-uploaded
-to PyPI once published) — confirm the version and changelog with the user before pushing the
-tag. Don't do it silently as part of a larger task.
+**Publishing is irreversible** (a version can never be re-uploaded to PyPI once published) —
+confirm the version and changelog with the user at the release-PR stage. Don't merge a
+release PR silently as part of a larger task.
+
+## Flow overview
+
+```
+gh workflow run prepare-release.yml     (maintainer-only: dispatch needs write access)
+        │  runs release:impact, bumps version, regenerates CHANGELOG.md
+        ▼
+release PR  "chore(release): vX.Y.Z"    ← human-in-the-loop #1: review & merge
+        │  merge (squash) → tag-release.yml tags the squash commit as vX.Y.Z
+        ▼
+release.yml   validate → build → test-install → GitHub Release → TestPyPI
+        │
+        ▼
+pypi environment approval                ← human-in-the-loop #2: approve in Actions UI
+        │  (only reachable if TestPyPI succeeded)
+        ▼
+PyPI
+```
 
 ## Pre-flight
 
-- Confirm you're on `main`, the working tree is clean (`git status`), and the latest commit on
-  `origin/main` has green CI (Tests / Checks / Documentation) — check with `gh run list`.
-- If this is the **first-ever release**: a Trusted Publisher must already be registered on both
-  pypi.org and test.pypi.org for `sina-al/pymediate`, workflow `release.yml`, environments
-  `pypi` / `testpypi` respectively (one-time, manual, on PyPI's own site — nothing in this repo
-  can do it). If that's not done yet, stop and tell the user, don't tag.
+- Confirm `main` is green (`gh run list`) and there are unreleased commits worth shipping.
+- If this is the **first-ever release**: a Trusted Publisher must already be registered on
+  both pypi.org and test.pypi.org for `sina-al/pymediate`, workflow `release.yml`,
+  environments `pypi` / `testpypi` respectively (one-time, manual, on PyPI's own site).
+  If that's not done yet, stop and tell the user, don't dispatch.
+- The `RELEASE_PR_TOKEN` repo secret (fine-grained PAT: this repo, contents +
+  pull-requests write) must exist and be unexpired — `prepare-release.yml` and
+  `tag-release.yml` both fail without it.
 
 ## Steps
 
-1. **Assess the version bump.** Run the impact script and read its report:
+1. **Dispatch the prepare workflow:**
    ```bash
-   uv run poe release:impact
+   gh workflow run prepare-release.yml -f bump=auto   # or bump=patch / bump=minor
    ```
-   It classifies commits since the last tag by Conventional Commit type and separately diffs
-   the CI-flagged breaking-change surfaces (`__all__` in `__init__.py`, `Handler`,
-   `ServiceProvider`) via `ast`, then prints a `RECOMMENDATION: minor|patch` line with itemized
-   reasoning — see `scripts/release_impact.py`'s module docstring for exactly how it weighs
-   commit messages against the diff, and CLAUDE.md's "Versioning" section for why the choice is
-   only ever minor or patch (never major). **Present the recommendation and its reasoning to the
-   user and get explicit confirmation** of which kind to bump before continuing — it's a
-   heuristic over a diff, not a guarantee (e.g. it can't distinguish a genuinely removed public
-   method from one that moved to a private helper of the same name), so treat it as a
-   well-evidenced starting point for a human call, not an automatic answer.
+   `auto` follows `release:impact`'s `RECOMMENDATION:` line (commit classification +
+   AST diff of the flagged API surfaces). It's a heuristic over a diff, not a guarantee —
+   the release PR body includes the full report so you can second-guess it.
 
-2. **Bump the version.** Preview first, then apply the kind confirmed in step 1:
-   ```bash
-   uv run poe version:bump patch --dry-run   # or minor / an explicit X.Y.Z
-   uv run poe version:bump patch
-   ```
-   This updates `pyproject.toml` and `src/pymediate/__init__.py` together (see `scripts/bump_version.py`).
+2. **Review the release PR** it opens (`chore(release): vX.Y.Z` from branch
+   `release/vX.Y.Z`). Check:
+   - The bump kind matches the impact report's reasoning (present both to the user and
+     get explicit confirmation before merging).
+   - `CHANGELOG.md`'s new entry is headed `## [X.Y.Z] - <date>`, **not** `## [Unreleased]`,
+     and nothing landed in the catch-all "Other" group that should've been categorized.
+   - Wait for the PR's checks to go green.
 
-3. **Regenerate the changelog:**
-   ```bash
-   uv run poe changelog
-   ```
-   git-cliff only headers a version once a matching tag exists in git — since this step runs
-   *before* tagging (step 5), a bare `git-cliff` invocation here would dump the new release's
-   commits under a permanent `[Unreleased]` heading instead of `[X.Y.Z]` (this happened for real
-   in v0.1.1 — see `scripts/generate_changelog.py`'s docstring). The `changelog` task wraps
-   git-cliff with `--tag vX.Y.Z` (the version just bumped in step 2) specifically to avoid this,
-   falling back to plain git-cliff if that tag somehow already exists. Skim the new
-   `CHANGELOG.md` entry after running it — confirm it's headed `## [X.Y.Z] - <date>`, not
-   `## [Unreleased]`, and that nothing landed in the catch-all "Other" group that should've been
-   categorized.
+3. **Merge the release PR.** Note: as a solo maintainer you can't approve your own PR
+   (the PAT authors it as you), so the required-approval rule can only be satisfied by
+   bypass — merge with `gh pr merge <n> --squash --admin` *after* visually confirming the
+   checks are green. Merging is the point of no return for the tag: `tag-release.yml`
+   immediately tags the squash commit, which starts `release.yml`.
 
-4. **Review and commit:**
-   ```bash
-   git diff
-   git add pyproject.toml src/pymediate/__init__.py CHANGELOG.md uv.lock
-   git commit -m "chore(release): vX.Y.Z"
-   git push origin main
-   ```
-   (`uv.lock` may or may not have changed — include it only if `git diff` shows it did.)
-
-5. **Tag and push** — this is what actually triggers `release.yml`:
-   ```bash
-   git tag vX.Y.Z
-   git push origin vX.Y.Z
-   ```
-   `workflow_dispatch` also exists on `release.yml` but is currently non-functional (its
-   `version` input is unwired, and the version-consistency check reads `github.ref_name`, which
-   is a branch name, not a version, on a manual trigger) — the tag push above is the only
-   reliable path right now.
-
-6. **Watch the pipeline:**
+4. **Watch the pipeline:**
    ```bash
    gh run watch $(gh run list --workflow=release.yml --limit 1 --json databaseId --jq '.[0].databaseId')
    ```
-   Job order: `validate-release` (tests/type/lint + tag-vs-file version check) →
-   `build-package` → `test-install` (wheel install across 3 OSes × 3 Python versions) →
-   `create-release` (GitHub Release + git-cliff notes) → `publish-testpypi` → `publish-pypi`.
-   TestPyPI gates the real publish — if it fails, PyPI is never touched.
+   Job order: `validate-release` (full tests/type/lint + tag-vs-file version check) →
+   `build-package` → `test-install` (wheel install across 3 OSes × 3 Pythons) →
+   `create-release` (GitHub Release + git-cliff notes) → `publish-testpypi` →
+   **waits at the `pypi` environment** → `publish-pypi`.
 
-7. **Verify after it's green:**
-   - GitHub Release exists at `https://github.com/sina-al/pymediate/releases/tag/vX.Y.Z` with
-     the right notes attached.
+5. **Approve the PyPI publish.** Once TestPyPI has succeeded, the `publish-pypi` job sits
+   pending on the `pypi` environment's required-reviewer gate. Approve it from the run
+   page (or `gh run view` → the review URL). This is the final confirmation — TestPyPI
+   failing means this gate is never even reachable.
+
+6. **Verify after it's green:**
+   - GitHub Release exists at `https://github.com/sina-al/pymediate/releases/tag/vX.Y.Z`.
    - `https://pypi.org/project/pymediate/` shows the new version.
-   - `CHANGELOG.md` on `main` has a real `## [X.Y.Z] - <date>` section for this release (not
-     still sitting under `## [Unreleased]`) — this is the step 3 check again, but re-confirm it
-     post-push since that's the actual persisted file readers see.
-   - Optionally, in a scratch venv: `pip install pymediate==X.Y.Z` and a quick smoke import.
+   - `CHANGELOG.md` on `main` has the real `## [X.Y.Z] - <date>` section.
+   - Optionally, in a scratch venv: `pip install pymediate==X.Y.Z` + smoke import.
+
+## Manual fallback (the old tag-push flow)
+
+If the workflows are unavailable, the pre-automation flow still works — run steps locally
+(`poe release:impact`, `poe version:bump`, `poe changelog`), commit to `main` (admin
+bypass), then `git tag vX.Y.Z && git push origin vX.Y.Z` (tag-guard permits the
+maintainer). Alternatively dispatch `release.yml` directly **on a tag ref**:
+`gh workflow run release.yml --ref vX.Y.Z` — dispatching it on a branch ref fails the
+version-consistency check by design.
 
 ## If something fails partway
 
-Each job only runs once its dependencies succeed, and nothing is retried automatically. Fix the
-underlying issue, then re-run the specific failed job from the Actions UI or
-`gh run rerun <run-id> --failed` — re-running is safe since none of the steps are destructive
-(PyPI/TestPyPI publishes of the same version simply fail again rather than double-publishing).
-The one exception: if `publish-testpypi` or `publish-pypi` partially succeeded then a later step
-failed, that version is now stuck on that index — bump to the next patch version rather than
-trying to reuse it.
+Each job only runs once its dependencies succeed; nothing retries automatically. Fix the
+issue, then `gh run rerun <run-id> --failed` — re-running is safe (PyPI/TestPyPI publishes
+of the same version fail rather than double-publish). The one exception: if a publish job
+partially succeeded, that version is stuck on that index — cut the next patch version
+rather than reusing it. If `prepare-release.yml` produced a bad release PR, close it
+unmerged and delete the `release/vX.Y.Z` branch; nothing has been tagged yet.

@@ -89,6 +89,9 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"
 security.cmd = "uv run --with safety safety check"
 
+"actions:lint".help = "Lint .github/workflows/ for security issues with zizmor (pass --format github in CI for inline PR annotations)"
+"actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"
+
 # ========== Documentation ==========
 
 "docs:serve".help = "Start the MkDocs dev server with live reload"

@@ -12,7 +12,7 @@ on:
       - "tasks.toml"
       - "ruff.toml"
       - "mypy.ini"
-      - ".github/workflows/checks.yml"
+      - ".github/workflows/**"
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -20,6 +20,10 @@ on:
 concurrency:
   group: "checks-${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
+
+# Least privilege: no job here needs more than repo read.
+permissions:
+  contents: read
 
 jobs:
   changes:
@@ -31,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Detect changed paths
         id: filter
@@ -46,7 +52,7 @@ jobs:
               - "tasks.toml"
               - "ruff.toml"
               - "mypy.ini"
-              - ".github/workflows/checks.yml"
+              - ".github/workflows/**"
 
   check:
     name: Run Checks
@@ -59,6 +65,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -83,6 +91,14 @@ jobs:
       - name: Type check
         run: |
           uv run poe type
+
+      - name: Lint workflows (zizmor)
+        # GH_TOKEN enables zizmor's online audits (e.g. checking action pins against
+        # published releases); --format github annotates findings inline on the PR.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run poe actions:lint --format github
 
   checks-summary:
     name: Checks

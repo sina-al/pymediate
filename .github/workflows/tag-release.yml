@@ -1,0 +1,38 @@
+name: Tag Release
+
+# Second half of the release flow: when a release PR (opened by prepare-release.yml)
+# is merged, tag the squash commit as vX.Y.Z. The tag is created with RELEASE_PR_TOKEN
+# (acting as the maintainer) for two reasons: it clears the tag-guard ruleset, and —
+# unlike GITHUB_TOKEN — the resulting tag-push event actually triggers release.yml's
+# `on: push: tags` pipeline (GITHUB_TOKEN events don't start workflows).
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    name: Tag merged release
+    runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/v')
+    steps:
+      - name: Create release tag
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          if [[ ! "$HEAD_REF" =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Head ref '$HEAD_REF' is not a valid release branch name" >&2
+            exit 1
+          fi
+          TAG="${HEAD_REF#release/}"
+          echo "Tagging $MERGE_SHA as $TAG"
+          gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/${TAG}" \
+            -f sha="$MERGE_SHA"

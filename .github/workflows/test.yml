@@ -19,6 +19,10 @@ concurrency:
   group: "test-${{ github.workflow }}-${{ github.ref }}"
   cancel-in-progress: true
 
+# Least privilege by default; jobs that need more grant it themselves.
+permissions:
+  contents: read
+
 jobs:
   changes:
     name: Detect Changed Files
@@ -29,6 +33,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Detect changed paths
         id: filter
@@ -53,7 +59,6 @@ jobs:
       (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true')
     permissions:
       contents: read
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +70,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -84,15 +91,45 @@ jobs:
       - name: Test
         run: uv run poe test:cov-xml
 
-      - name: Report coverage
-        # PR-comment action; a no-op on plain pushes (e.g. to main), so skip it there.
-        # Pinned to an exact release rather than a floating major tag: v3 has moved past
-        # v3.3.1 to an unreleased commit that turns this skip into a hard failure.
-        if: github.event_name == 'pull_request'
-        uses: orgoro/coverage@53d6a49e69e38cf1606ea91ee3f4e64e2754fabb # v3.3.1
+  coverage-badge:
+    # Stores coverage badge data on the python-coverage-comment-action-data branch
+    # (explicitly excluded from the branch-guard ruleset), which the README's shields.io
+    # coverage badge reads. PR coverage comments come from pr.yml + coverage-comment.yml,
+    # not from this job.
+    name: Update Coverage Badge
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          coverageFile: ./coverage.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+
+      - name: Sync dependencies
+        run: uv sync --group test --all-extras
+
+      - name: Run tests with coverage
+        run: uv run poe test:cov-xml
+
+      - name: Save coverage badge data
+        uses: py-cov-action/python-coverage-comment-action@50d15ff8768f6d897b04e5a0805bd1a98f7096c4 # v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 95
+          MINIMUM_ORANGE: 90
 
   test-suite:
     name: Test Suite
