@@ -2,6 +2,39 @@
 
 All notable changes to this project are documented here. Generated from Conventional
 Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the first entry.
+## [0.1.4] - 2026-07-06
+
+### Features
+
+- *(ci)* Replace grep-based breaking-change check with griffe ([661024d](https://github.com/sina-al/pymediate/commit/661024d52bbc3f91a5953eaad0e2b53f16705523))
+
+- *(ci)* Lock down repo governance and automate the release flow ([89f1271](https://github.com/sina-al/pymediate/commit/89f1271c0e30793bdf6ee8d335c1f3d36e604d91))
+
+
+### Fixes
+
+- *(ci)* Grant pull-requests write permission to test job ([4904ed7](https://github.com/sina-al/pymediate/commit/4904ed76599dcdefa94cda822914f6e82e89da28))
+
+- *(ci)* Make required status checks resilient to matrix names and skipped paths ([e126f52](https://github.com/sina-al/pymediate/commit/e126f52019c4f9ea1913879a44f4a4450ed0405f))
+
+
+### Miscellaneous
+
+- Cosmetic tailwind fixes ([fd374f5](https://github.com/sina-al/pymediate/commit/fd374f5c9169363d899cf38943f53c00a2171b1c))
+
+- Trim PR template to what CI doesn't already check ([0cf780a](https://github.com/sina-al/pymediate/commit/0cf780a5170def0b5c313c44277bfe983de671a3))
+
+- Change token name ([6a27141](https://github.com/sina-al/pymediate/commit/6a271416c50b0d9e103589d29af9ed69eddc48ca))
+
+
+### Refactoring
+
+- Extract release version consistency check into script ([bb3803e](https://github.com/sina-al/pymediate/commit/bb3803e830eb64a815abbab436284d2c50e25966))
+
+- *(ci)* Route workflow tool invocations through poe tasks ([7e6583a](https://github.com/sina-al/pymediate/commit/7e6583aa9e0aabec5b99207a1f7ef4bf14a38c10))
+
+- *(tasks)* Rename test:specific to test:one with short-name arg ([6f720a4](https://github.com/sina-al/pymediate/commit/6f720a4092dd3dc59c76b117238c3ce96093edb8))
+
 ## [0.1.3] - 2026-07-05
 
 ### Documentation
@@ -44,6 +77,8 @@ Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the 
 - Tidy docs ([a64d4b0](https://github.com/sina-al/pymediate/commit/a64d4b00d698059de5442150d1158e9c7cc227b4))
 
 - Scaffold v2 documentation site ([e59be29](https://github.com/sina-al/pymediate/commit/e59be299f1b5779577f7b82b912d0ea3362bf5dc))
+
+- *(release)* V0.1.3 ([fb16f24](https://github.com/sina-al/pymediate/commit/fb16f246b06c858a3d00a6143e1f614c06a2d95a))
 
 
 ### Refactoring
