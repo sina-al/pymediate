@@ -113,6 +113,9 @@ install.cmd = "uv sync --all-extras --group test"
 "context:check".help = "Fail if CLAUDE.md's API signatures block is stale"
 "context:check".cmd = "python3 scripts/update_context.py --check"
 
+"api:check".help = "Check the public API for breaking changes against a git ref (default: latest tag; usage: poe api:check -a origin/main)"
+"api:check".cmd = "uvx --from griffe==2.1.0 griffe check pymediate -s src"
+
 clean.help = "Clean build artifacts, cache files, and coverage reports"
 clean.cmd = """
     rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache .ruff_cache \

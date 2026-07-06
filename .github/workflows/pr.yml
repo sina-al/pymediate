@@ -153,24 +153,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check for breaking changes in public API
-        run: |
-          echo "Checking for potential breaking changes..."
+      - name: Setup uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
 
-          # Check if __init__.py exports changed
-          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/__init__.py | grep -E "^[-+].*__all__"; then
-            echo "Warning: Changes detected in __all__ exports - potential breaking change"
-          fi
+      - name: Sync dependencies
+        run: uv sync --only-dev
 
-          # Check if the ServiceProvider protocol changed
-          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/service.py | grep -E "^[-+].*class ServiceProvider"; then
-            echo "Warning: Changes detected in ServiceProvider protocol - potential breaking change"
-          fi
-
-          # Check if handler signature changed
-          if git diff origin/${{ github.base_ref }}...HEAD -- src/pymediate/handler.py | grep -E "^[-+].*class Handler"; then
-            echo "Warning: Changes detected in Handler class - potential breaking change"
-          fi
+      - name: Check public API for breaking changes
+        # Signature-level diff of the public API against the PR's base ref, via griffe
+        # (already a transitive dep here through mkdocstrings). Informational only, same
+        # as before: ZeroVer allows breaking changes with a minor bump, so this warns
+        # rather than fails the build.
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: uv run poe api:check -a "$BASE_REF" -f github || true
 
   dependency-review:
     name: Dependency Review
