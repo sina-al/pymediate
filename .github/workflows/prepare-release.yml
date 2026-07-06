@@ -27,16 +27,11 @@ jobs:
     name: Open release PR
     runs-on: ubuntu-latest
     steps:
-      # RELEASE_PR_TOKEN is a fine-grained PAT (this repo only; contents + pull-requests
-      # write). It's used instead of GITHUB_TOKEN so the release PR triggers the normal
-      # pull_request check runs (GITHUB_TOKEN-created PRs don't, by GitHub's
-      # anti-recursion rule), and so the branch push clears the branch-guard ruleset.
-      # Credentials deliberately persist: the push step below needs them.
       - name: Checkout code # zizmor: ignore[artipacked]
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PR_TOKEN }}
+          token: ${{ secrets.PYMEDIATE_RELEASE_TOKEN }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
@@ -76,7 +71,7 @@ jobs:
 
       - name: Open release PR
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.PYMEDIATE_RELEASE_TOKEN }}
         run: |
           VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           BRANCH="release/v${VERSION}"
