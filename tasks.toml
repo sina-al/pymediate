@@ -93,6 +93,9 @@ changelog.cmd = "python3 scripts/generate_changelog.py"
 "version:bump".help = "Bump the version in pyproject.toml + __init__.py (usage: poe version:bump patch|minor|major|X.Y.Z)"
 "version:bump".cmd = "python3 scripts/bump_version.py"
 
+"release:verify-version".help = "Verify release tag, pyproject.toml, and __init__.py versions match (usage: poe release:verify-version --tag vX.Y.Z)"
+"release:verify-version".cmd = "python3 scripts/verify_release_version.py"
+
 # ========== Development ==========
 
 install.help = "Install package in editable mode with dev dependencies"
