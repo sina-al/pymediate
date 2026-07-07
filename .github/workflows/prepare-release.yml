@@ -27,11 +27,26 @@ jobs:
     name: Open release PR
     runs-on: ubuntu-latest
     steps:
+      # Mint a short-lived (~1h) installation token for the pymediate-releaser GitHub App.
+      # This replaces a long-lived personal access token: the App has its own bot identity
+      # (so the release branch/PR aren't attributed to a human), nothing to rotate, and -
+      # unlike GITHUB_TOKEN - a PR it opens still triggers the required pull_request checks.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.PYMEDIATE_RELEASER_APP_ID }}
+          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
+          # Scope the token below the App's install permissions: push the release branch
+          # (contents) and open the PR (pull-requests). Nothing else.
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Checkout code # zizmor: ignore[artipacked]
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.PYMEDIATE_RELEASE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
@@ -71,13 +86,19 @@ jobs:
 
       - name: Open release PR
         env:
-          GH_TOKEN: ${{ secrets.PYMEDIATE_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           BRANCH="release/v${VERSION}"
 
-          git config user.name "sina-al"
-          git config user.email "27771210+sina-al@users.noreply.github.com"
+          # Attribute the release commit to the App's own bot identity. The bot user id is
+          # looked up from the app slug (a trusted action output) so the noreply email matches
+          # GitHub's <id>+<slug>[bot]@users.noreply.github.com convention and the commit shows
+          # as verified/authored by the App rather than a human.
+          BOT_USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${BOT_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add pyproject.toml src/pymediate/__init__.py CHANGELOG.md
           git diff --quiet uv.lock || git add uv.lock

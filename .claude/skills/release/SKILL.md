@@ -40,9 +40,10 @@ PyPI
   both pypi.org and test.pypi.org for `sina-al/pymediate`, workflow `release.yml`,
   environments `pypi` / `testpypi` respectively (one-time, manual, on PyPI's own site).
   If that's not done yet, stop and tell the user, don't dispatch.
-- The `RELEASE_PR_TOKEN` repo secret (fine-grained PAT: this repo, contents +
-  pull-requests write) must exist and be unexpired — `prepare-release.yml` and
-  `tag-release.yml` both fail without it.
+- The `pymediate-releaser` GitHub App must be installed on this repo with its
+  `PYMEDIATE_RELEASER_APP_ID` repo variable and `PYMEDIATE_RELEASER_PRIVATE_KEY` secret set —
+  `prepare-release.yml` and `tag-release.yml` mint a token from it and both fail without it.
+  (The App also needs to remain a `tag-guard` ruleset bypass actor so tagging clears the guard.)
 
 ## Steps
 

@@ -170,9 +170,14 @@ above), bumps the version via `poe version:bump` (which syncs `pyproject.toml` a
 `CHANGELOG.md` via `poe changelog` ([git-cliff](https://git-cliff.org/), config in
 `cliff.toml`), and opens a release PR with the impact report in its body. Merging that PR
 (the human approval) triggers `tag-release.yml`, which tags the squash commit `vX.Y.Z` and
-thereby starts `release.yml`. Both prepare/tag workflows need the `RELEASE_PR_TOKEN`
-fine-grained PAT secret (so the PR triggers checks and the tag clears tag-guard — the
-default `GITHUB_TOKEN` can do neither).
+thereby starts `release.yml`. Both prepare/tag workflows authenticate as the
+`pymediate-releaser` GitHub App — each mints a short-lived installation token via
+`actions/create-github-app-token` from the `PYMEDIATE_RELEASER_APP_ID` repo variable and
+`PYMEDIATE_RELEASER_PRIVATE_KEY` secret. The App identity (not the default `GITHUB_TOKEN`)
+is what makes the release PR trigger its required checks and the tag-push trigger
+`release.yml`; the App is a `tag-guard` bypass actor so it can create the tag. (This
+replaced an earlier long-lived fine-grained PAT — a GitHub App has its own bot identity,
+nothing to rotate, and per-job-scoped token permissions.)
 
 `release.yml` hard-fails if the tag version doesn't match both `pyproject.toml` and
 `__init__.py`'s `__version__`. It generates the GitHub Release body for just the new tag's
