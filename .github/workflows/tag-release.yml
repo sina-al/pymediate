@@ -1,7 +1,7 @@
 name: Tag Release
 
 # Second half of the release flow: when a release PR (opened by prepare-release.yml)
-# is merged, tag the squash commit as vX.Y.Z. The tag is created with RELEASE_PR_TOKEN
+# is merged, tag the squash commit as vX.Y.Z. The tag is created with PYMEDIATE_RELEASE_TOKEN
 # (acting as the maintainer) for two reasons: it clears the tag-guard ruleset, and —
 # unlike GITHUB_TOKEN — the resulting tag-push event actually triggers release.yml's
 # `on: push: tags` pipeline (GITHUB_TOKEN events don't start workflows).
@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Create release tag
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.PYMEDIATE_RELEASE_TOKEN }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
