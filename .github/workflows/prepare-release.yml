@@ -88,6 +88,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          KIND: ${{ steps.bump.outputs.kind }}
         run: |
           VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           BRANCH="release/v${VERSION}"
@@ -105,15 +106,31 @@ jobs:
           git commit -m "chore(release): v${VERSION}"
           git push origin "$BRANCH"
 
+          # Pull the compare range and recommendation reasons out of the impact report for a
+          # short summary up top; the full report is still there, just collapsed below it.
+          COMPARING=$(grep '^Comparing' impact.txt | sed 's/^Comparing //')
+          REASONS=$(awk '/^RECOMMENDATION:/{f=1; next} f && NF' impact.txt | sed 's/^  - /- /')
+          KIND_TITLE=$(awk '{print toupper(substr($0,1,1)) substr($0,2)}' <<< "$KIND")
+
           {
-            echo "Automated release PR for **v${VERSION}**. Merging this PR tags the release"
-            echo "and starts the publish pipeline (validate -> build -> TestPyPI -> approval -> PyPI)."
+            echo "## v${VERSION} — ${KIND_TITLE} release"
             echo
-            echo "## Release impact report"
+            echo "\`${COMPARING}\`"
+            echo
+            echo "${REASONS}"
+            echo
+            echo "### On merge"
+            echo "1. Tags this commit \`v${VERSION}\`"
+            echo "2. Builds, publishes to TestPyPI, then pauses for your approval before publishing to PyPI"
+            echo
+            echo "<details>"
+            echo "<summary>Full release impact report</summary>"
             echo
             echo '```'
             cat impact.txt
             echo '```'
+            echo
+            echo "</details>"
           } > pr-body.md
 
           gh pr create \
