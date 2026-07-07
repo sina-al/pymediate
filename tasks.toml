@@ -98,7 +98,7 @@ Scan dependencies for known vulnerabilities with pip-audit, formatted as markdow
 tool and stays fully open against the OSV/PyPA advisory databases, unlike safety's \
 increasingly gated free tier.\
 """
-"security:pip-audit".cmd = "uv run --with pip-audit pip-audit --format markdown"
+"security:pip-audit".cmd = "uv run --with pip-audit pip-audit --format markdown --skip-editable"
 
 "actions:lint".help = "Lint .github/workflows/ for security issues with zizmor (pass --format github in CI for inline PR annotations)"
 "actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"
