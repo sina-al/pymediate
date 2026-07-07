@@ -45,7 +45,12 @@ def main() -> None:
     version = current_version()
     tag = f"v{version}"
 
-    cmd = ["uvx", "git-cliff", "--output", str(CHANGELOG)]
+    # --include-path keeps the changelog to changes in the shipped package: a commit that
+    # only touched docs/, scripts/, .github/, or the README never reaches an installed
+    # `pip install pymediate`, so it shouldn't appear in the user-facing changelog. (This
+    # is the same src/pymediate/** lens release_impact.py uses to decide what counts as a
+    # feature.) Version-section boundaries are preserved under the filter.
+    cmd = ["uvx", "git-cliff", "--include-path", "src/pymediate/**", "--output", str(CHANGELOG)]
     if tag_exists(tag):
         print(f"{tag} already exists - regenerating from real tag history (no --tag override).")
     else:

@@ -38,19 +38,23 @@ filter_unconventional = true
 require_conventional = false
 split_commits = false
 protect_breaking_commits = false
+# Only user-facing types reach the changelog: a test/build/style/ci/chore commit (even one
+# touching the package) isn't something a `pip install pymediate` consumer needs to read
+# about, and neither is the release bump itself (chore(release)). Path filtering — only
+# commits touching src/pymediate/** — is applied at invocation time (see
+# scripts/generate_changelog.py and the release:notes poe task), so a docs/readme/workflow/
+# script-only change never produces an entry either, regardless of its type.
 commit_parsers = [
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore\\(deps.*\\)", skip = true },
     { message = "^feat", group = "Features" },
     { message = "^fix", group = "Fixes" },
-    { message = "^docs", group = "Documentation" },
     { message = "^perf", group = "Performance" },
     { message = "^refactor", group = "Refactoring" },
-    { message = "^style", group = "Style" },
-    { message = "^test", group = "Testing" },
-    { message = "^build", group = "Build system" },
-    { message = "^chore\\(deps.*\\)", skip = true },
-    { message = "^chore|^ci", group = "Miscellaneous" },
+    { message = "^docs", group = "Documentation" },
     { message = "^revert", group = "Reverts" },
-    { message = ".*", group = "Other" },
+    { message = "^style|^test|^build|^ci|^chore", skip = true },
+    { message = ".*", skip = true },
 ]
 filter_commits = false
 fail_on_unmatched_commit = false

@@ -125,7 +125,7 @@ changelog.help = "Regenerate CHANGELOG.md from Conventional Commits (git-cliff)"
 changelog.cmd = "python3 scripts/generate_changelog.py"
 
 "release:notes".help = "Generate release notes for the current tag only, stripped of the header (used by release.yml to fill in the GitHub Release body)"
-"release:notes".cmd = "uvx git-cliff --current --strip header -o RELEASE_NOTES.md"
+"release:notes".cmd = "uvx git-cliff --current --include-path src/pymediate/** --strip header -o RELEASE_NOTES.md"
 
 "version:bump".help = "Bump the version in pyproject.toml + __init__.py (usage: poe version:bump patch|minor|major|X.Y.Z)"
 "version:bump".cmd = "python3 scripts/bump_version.py"

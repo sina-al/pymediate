@@ -1,5 +1,10 @@
 [run]
 source = src/pymediate
+# Store repo-relative paths in the .coverage data file. Required by
+# py-cov-action/python-coverage-comment-action, which re-runs `coverage json` in a fresh
+# checkout: with absolute paths that fails with "No source for code", which was breaking the
+# PR "Test Coverage Diff" / "All Checks Passed" required check.
+relative_files = true
 omit =
     */tests/*
     */__pycache__/*

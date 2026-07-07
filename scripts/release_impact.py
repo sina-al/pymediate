@@ -17,24 +17,25 @@ Neither signal alone is reliable enough to trust on its own:
   diff for "did anything break" has no clear stopping rule.
 
 So this script combines both: it classifies commits since the last tag by Conventional
-Commit type (for a fast read of *intent*), and separately diffs the exact three surfaces
-CLAUDE.md and CONTRIBUTING.md already single out as this project's own definition of
-"breaking" - `__all__` in `src/pymediate/__init__.py`, `Handler`, and the `ServiceProvider`
-protocol (for *evidence*). A recommendation follows from whichever signal is strongest, but
-the full report is always printed so a human can override it.
+Commit type (for a fast read of *intent*), and separately runs `griffe check` - the same
+public-API differ this repo uses in CI (`poe api:check`, .github/workflows/pr.yml) - to
+detect what actually broke at the signature level (for *evidence*), plus a cheap pure-git
+check for names dropped from `__all__` as an offline fast-path. A recommendation follows
+from whichever signal is strongest, but the full report is always printed so a human can
+override it.
 
 Recommendation rules, in priority order:
     1. An explicit Conventional Commits breaking marker (`!` after the type/scope, or a
        `BREAKING CHANGE:` footer) -> minor, "explicit breaking-change marker".
     2. A name removed from `__all__` -> minor, "public export removed".
-    3. A public class or method removed (not just added) from handler.py, aio/handler.py, or
-       service.py -> minor, "possible signature change in a flagged breaking-change surface".
-       This is symbol-level, via `ast` on the file at each revision - not a textual diff grep,
-       because a textual grep for removed `def`/`class` lines also matches lines inside a
-       removed docstring's example code block (e.g. an old `Architecture Notes` sample), which
-       produced a false "minor" recommendation in testing even though nothing in the real API
-       had changed. Parsing the AST at both revisions and comparing symbol names sidesteps that
-       - string content, including code fences inside a docstring, is never treated as code.
+    3. A signature-level public-API break reported by `griffe check` (a removed or changed
+       public class/function/method/attribute anywhere in the package) -> minor. This reuses
+       the repo's own breaking-change tool rather than a hand-rolled AST diff, so it catches
+       changed signatures - not only removals - and pinpoints the exact symbol and line.
+       griffe writes findings to stderr and does not exit non-zero for them, so the signal is
+       stderr lines matching a "path:line:" finding shape. griffe can be over-eager (it flags
+       e.g. a public constant's value changing); that's why the full report is printed and a
+       human confirms - over-recommending minor is the safe direction under ZeroVer.
     4. Any `feat:` commit that touches `src/pymediate/` (the shipped package - a `feat:` to
        scripts/, docs/, or repo config never reaches an installed `pip install pymediate`, so
        it isn't a new feature from a consumer's perspective), with no signal above -> minor,
@@ -58,13 +59,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# The breaking-change surfaces CLAUDE.md ("Quality bar") and CONTRIBUTING.md already name.
-BREAKING_SURFACE_FILES = [
-    "src/pymediate/__init__.py",
-    "src/pymediate/handler.py",
-    "src/pymediate/aio/handler.py",
-    "src/pymediate/service.py",
-]
+# griffe check invocation, pinned to match this repo's CI breaking-change check
+# (see the `api:check` poe task and .github/workflows/pr.yml).
+GRIFFE_CHECK = ["uvx", "--from", "griffe==2.1.0", "griffe", "check", "pymediate", "-s", "src"]
+
+# A griffe finding line looks like "src/pymediate/foo.py:12: Symbol: message".
+GRIFFE_FINDING_RE = re.compile(r"^\S+:\d+:")
 
 CONVENTIONAL_COMMIT_RE = re.compile(
     r"^(?P<type>[a-zA-Z]+)(?:\([^)]*\))?(?P<breaking>!)?:\s*(?P<desc>.+)$"
@@ -170,50 +170,29 @@ def diff_all(from_rev: str, to_rev: str) -> tuple[list[str], list[str]]:
     return sorted(after - before), sorted(before - after)
 
 
-def public_symbols(source: str) -> set[str]:
-    """Collect dotted names of public top-level classes/functions and public class methods.
+def griffe_breaking_changes(from_rev: str, to_rev: str) -> list[str]:
+    """Signature-level public-API breaking changes between two revisions, via `griffe check`.
 
-    AST-based, not a text search - a string literal (including a docstring's example code
-    block) is never mistaken for an actual `def`/`class` statement, unlike a line-based diff.
+    Reuses this repo's CI breaking-change tool (`poe api:check`) instead of a bespoke AST
+    diff, so it catches changed signatures - not only removed symbols - anywhere in the
+    public API. Compares `from_rev` (older) against `to_rev` (newer; the working tree when
+    that's HEAD). griffe writes findings to stderr and does not set a non-zero exit for them,
+    so the signal is stderr lines matching the "path:line:" finding shape.
     """
-    tree = ast.parse(source)
-    symbols: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
-            symbols.add(node.name)
-            for child in node.body:
-                if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef) and (
-                    not child.name.startswith("_") or child.name.startswith("__")
-                ):
-                    symbols.add(f"{node.name}.{child.name}")
-        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith(
-            "_"
-        ):
-            symbols.add(node.name)
-    return symbols
-
-
-def removed_defs_in_surface(from_rev: str, to_rev: str) -> dict[str, list[str]]:
-    """For each breaking-surface file, list public symbols present before but missing after."""
-    removed_by_file: dict[str, list[str]] = {}
-    for rel_path in BREAKING_SURFACE_FILES:
-        before_src = file_at_rev(from_rev, rel_path)
-        after_src = file_at_rev(to_rev, rel_path)
-        if before_src is None or after_src is None:
-            continue
-        before = public_symbols(before_src)
-        after = public_symbols(after_src)
-        removed = sorted(before - after)
-        if removed:
-            removed_by_file[rel_path] = removed
-    return removed_by_file
+    cmd = [*GRIFFE_CHECK, "-a", from_rev]
+    if to_rev not in ("HEAD", ""):
+        cmd += ["-b", to_rev]
+    result = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)
+    return [
+        line.strip() for line in result.stderr.splitlines() if GRIFFE_FINDING_RE.match(line.strip())
+    ]
 
 
 def assess(
     commits: list[Commit],
     added: list[str],
     removed: list[str],
-    removed_defs: dict[str, list[str]],
+    breaking_changes: list[str],
 ) -> Assessment:
     reasons = []
 
@@ -227,9 +206,9 @@ def assess(
         reasons.append(f"removed from __all__: {', '.join(removed)}")
         return Assessment("minor", reasons)
 
-    if removed_defs:
-        for rel_path, names in removed_defs.items():
-            reasons.append(f"removed public symbol(s) in {rel_path}: {', '.join(names)}")
+    if breaking_changes:
+        for change in breaking_changes:
+            reasons.append(f"public API break (griffe): {change}")
         return Assessment("minor", reasons)
 
     feats = [c for c in commits if c.type == "feat" and c.touches_package]
@@ -251,7 +230,7 @@ def print_report(
     commits: list[Commit],
     added: list[str],
     removed: list[str],
-    removed_defs: dict[str, list[str]],
+    breaking_changes: list[str],
     result: Assessment,
 ) -> None:
     print(f"Comparing {from_rev}..{to_rev}\n")
@@ -276,14 +255,12 @@ def print_report(
     print(f"  removed: {removed or '(none)'}")
     print()
 
-    print("Breaking-surface files (__init__.py, handler.py, aio/handler.py, service.py):")
-    if removed_defs:
-        for rel_path, names in removed_defs.items():
-            print(f"  {rel_path}:")
-            for name in names:
-                print(f"    - {name}")
+    print("Public API breaking changes (griffe check):")
+    if breaking_changes:
+        for change in breaking_changes:
+            print(f"  - {change}")
     else:
-        print("  (no removed public symbols)")
+        print("  (none detected)")
     print()
 
     print(f"RECOMMENDATION: {result.recommendation}")
@@ -306,10 +283,10 @@ def main() -> None:
 
     commits = commits_since(f"{from_rev}..{to_rev}")
     added, removed = diff_all(from_rev, to_rev)
-    removed_defs = removed_defs_in_surface(from_rev, to_rev)
-    result = assess(commits, added, removed, removed_defs)
+    breaking_changes = griffe_breaking_changes(from_rev, to_rev)
+    result = assess(commits, added, removed, breaking_changes)
 
-    print_report(from_rev, to_rev, commits, added, removed, removed_defs, result)
+    print_report(from_rev, to_rev, commits, added, removed, breaking_changes, result)
 
 
 if __name__ == "__main__":
