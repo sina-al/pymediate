@@ -35,6 +35,9 @@ test.cmd = "pytest tests/"
 "test:cov-json".help = "Run tests with a JSON coverage report (used by pr.yml's diff-coverage PR comment, which reads coverage.json)"
 "test:cov-json".cmd = "pytest tests/ --cov=pymediate --cov-report=json --cov-report=term-missing"
 
+"test:junit".help = "Run tests with a JUnit XML report (used by release-pr-report.yml's test-results PR comment)"
+"test:junit".cmd = "pytest tests/ --tb=short --junit-xml=junit.xml"
+
 # ========== Type Checking ==========
 
 type.help = "Run mypy type checking on source code"
@@ -88,6 +91,14 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 
 security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"
 security.cmd = "uv run --with safety safety check"
+
+"security:pip-audit".help = """
+Scan dependencies for known vulnerabilities with pip-audit, formatted as markdown \
+(used by release-pr-report.yml's vulnerability PR comment). pip-audit is the official PyPA \
+tool and stays fully open against the OSV/PyPA advisory databases, unlike safety's \
+increasingly gated free tier.\
+"""
+"security:pip-audit".cmd = "uv run --with pip-audit pip-audit --format markdown"
 
 "actions:lint".help = "Lint .github/workflows/ for security issues with zizmor (pass --format github in CI for inline PR annotations)"
 "actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"

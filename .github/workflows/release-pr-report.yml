@@ -1,0 +1,145 @@
+name: Release PR Report
+
+# Extra reporting scoped only to release PRs (opened by prepare-release.yml on a release/vX.Y.Z
+# branch): a per-Python-version test results comment and a dependency vulnerability comment.
+# Regular PRs don't get these - they already get a leaner check-run-only signal from pr.yml/
+# test.yml, and coverage + the API breaking-change report are already covered for every PR
+# (pr.yml's test-coverage-diff job; the release impact report embedded in the PR body by
+# prepare-release.yml). Every job here is gated on the head ref so this workflow is a no-op
+# (all jobs skipped) for anything that isn't a release branch.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: "release-pr-report-${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-results:
+    name: Test Results (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'release/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
+        with:
+          enable-cache: false
+
+      - name: Sync dependencies
+        run: uv sync --group test --all-extras
+
+      - name: Run tests with JUnit output
+        run: uv run poe test:junit
+
+      - name: Upload JUnit results
+        if: "!cancelled()"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: junit-${{ matrix.python-version }}
+          path: junit.xml
+
+  publish-test-results:
+    name: Publish Test Results
+    runs-on: ubuntu-latest
+    needs: test-results
+    if: "!cancelled() && startsWith(github.head_ref, 'release/v')"
+    permissions:
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Download JUnit results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: junit-*
+          path: junit-results
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
+        with:
+          files: "junit-results/**/junit.xml"
+          check_name: "Release Test Results"
+          comment_title: "Test Results"
+
+  vulnerability-audit:
+    name: Vulnerability Audit (pip-audit)
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'release/v')
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
+        with:
+          enable-cache: false
+
+      - name: Sync dependencies
+        run: uv sync --all-extras --group test
+
+      - name: Run pip-audit
+        # Informational, not a merge gate (matches pr.yml's existing security-scan job) - the
+        # comment posts regardless of whether vulnerabilities were found.
+        run: uv run poe security:pip-audit > pip-audit.md || true
+
+      - name: Comment results
+        uses: actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71 # v9.0.0
+        with:
+          script: |
+            const fs = require("fs");
+            const marker = "<!-- release-pr-report:pip-audit -->";
+            const report = fs.readFileSync("pip-audit.md", "utf8");
+            const body = `${marker}\n## Dependency Vulnerability Audit (pip-audit)\n\n${report}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
