@@ -1,15 +1,12 @@
 name: Prepare Release
 
-# Dispatch-driven, human-in-the-loop release entry point:
+# TEMPORARILY DISABLED — being rewritten for the two-branch release model
+# (ops overhaul phase 3, https://github.com/sina-al/pymediate/issues/23).
 #
-#   1. Maintainer dispatches this workflow (bump = auto | patch | minor).
-#   2. It runs release:impact (commit + public-API-surface analysis), picks the bump
-#      kind (the RECOMMENDATION line when bump=auto), bumps the version, regenerates
-#      CHANGELOG.md, and opens a release PR with the full impact report in the body.
-#   3. The maintainer reviews and merges that PR — that merge is the human approval.
-#      tag-release.yml then tags the squash commit, which triggers release.yml.
-#
-# Dispatching requires write access, so only the maintainer can start this.
+# The previous implementation bumped committed version strings (pyproject.toml +
+# __init__.py) and regenerated CHANGELOG.md; both were removed when versioning became
+# tag-derived (hatch-vcs). The rewrite opens a zero-commit release PR from a cut branch
+# release/vX.Y.Z into the permanent `stable` branch instead.
 on:
   workflow_dispatch:
     inputs:
@@ -19,122 +16,16 @@ on:
         options: [auto, patch, minor]
         default: auto
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
-  prepare:
-    name: Open release PR
+  disabled:
+    name: Disabled pending rewrite
     runs-on: ubuntu-latest
     steps:
-      # Mint a short-lived (~1h) installation token for the pymediate-releaser GitHub App.
-      # This replaces a long-lived personal access token: the App has its own bot identity
-      # (so the release branch/PR aren't attributed to a human), nothing to rotate, and -
-      # unlike GITHUB_TOKEN - a PR it opens still triggers the required pull_request checks.
-      - name: Mint app token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ vars.PYMEDIATE_RELEASER_APP_ID }}
-          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
-          # Scope the token below the App's install permissions: push the release branch
-          # (contents) and open the PR (pull-requests). Nothing else.
-          permission-contents: write
-          permission-pull-requests: write
-
-      - name: Checkout code # zizmor: ignore[artipacked]
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
-        with:
-          enable-cache: false
-
-      - name: Sync dependencies
-        run: uv sync --only-dev
-
-      - name: Assess release impact
+      - name: Explain and fail
         run: |
-          uv run poe release:impact | tee impact.txt
-
-      - name: Determine bump kind
-        id: bump
-        env:
-          BUMP_INPUT: ${{ inputs.bump }}
-        run: |
-          if [ "$BUMP_INPUT" = "auto" ]; then
-            kind=$(grep -oE 'RECOMMENDATION: (minor|patch)' impact.txt | awk '{print $2}')
-            if [ -z "$kind" ]; then
-              echo "Could not parse a RECOMMENDATION line from release:impact output" >&2
-              exit 1
-            fi
-          else
-            kind="$BUMP_INPUT"
-          fi
-          echo "kind=$kind" >> "$GITHUB_OUTPUT"
-          echo "Bump kind: $kind"
-
-      - name: Bump version and regenerate changelog
-        env:
-          KIND: ${{ steps.bump.outputs.kind }}
-        run: |
-          uv run poe version:bump "$KIND"
-          uv run poe changelog
-
-      - name: Open release PR
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-          KIND: ${{ steps.bump.outputs.kind }}
-        run: |
-          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          BRANCH="release/v${VERSION}"
-
-          # Attribute the release commit to the App's own bot identity. The bot user id is
-          # looked up from the app slug (a trusted action output) so the noreply email matches
-          # GitHub's <id>+<slug>[bot]@users.noreply.github.com convention and the commit shows
-          # as verified/authored by the App rather than a human.
-          BOT_USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
-          git config user.name "${APP_SLUG}[bot]"
-          git config user.email "${BOT_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git add pyproject.toml src/pymediate/__init__.py CHANGELOG.md
-          git diff --quiet uv.lock || git add uv.lock
-          git commit -m "chore(release): v${VERSION}"
-          git push origin "$BRANCH"
-
-          # Pull the compare range and recommendation reasons out of the impact report for a
-          # short summary up top; the full report is still there, just collapsed below it.
-          COMPARING=$(grep '^Comparing' impact.txt | sed 's/^Comparing //')
-          REASONS=$(awk '/^RECOMMENDATION:/{f=1; next} f && NF' impact.txt | sed 's/^  - /- /')
-          KIND_TITLE=$(awk '{print toupper(substr($0,1,1)) substr($0,2)}' <<< "$KIND")
-
-          {
-            echo "## v${VERSION} — ${KIND_TITLE} release"
-            echo
-            echo "\`${COMPARING}\`"
-            echo
-            echo "${REASONS}"
-            echo
-            echo "### On merge"
-            echo "1. Tags this commit \`v${VERSION}\`"
-            echo "2. Builds, publishes to TestPyPI, then pauses for your approval before publishing to PyPI"
-            echo
-            echo "<details>"
-            echo "<summary>Full release impact report</summary>"
-            echo
-            echo '```'
-            cat impact.txt
-            echo '```'
-            echo
-            echo "</details>"
-          } > pr-body.md
-
-          gh pr create \
-            --title "chore(release): v${VERSION}" \
-            --body-file pr-body.md \
-            --base main \
-            --head "$BRANCH"
+          echo "::error::prepare-release is disabled while the release pipeline is rewritten" \
+            "for the two-branch model (see issue #23). No release can be prepared until" \
+            "ops overhaul phase 3 lands."
+          exit 1

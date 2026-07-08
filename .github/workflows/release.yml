@@ -53,10 +53,18 @@ jobs:
           uv run poe format:check
 
       - name: Verify version consistency
+        # The version is tag-derived (hatch-vcs), so there are no version strings in the repo
+        # to cross-check anymore; instead assert that the version hatch-vcs computes from THIS
+        # checkout equals the tag that triggered the run.
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          uv run poe release:verify-version --tag "$VERSION_TAG"
+          BUILT_VERSION=$(uvx --with hatch-vcs hatchling version)
+          if [ "$BUILT_VERSION" != "${VERSION_TAG#v}" ]; then
+            echo "Tag $VERSION_TAG does not match hatch-vcs version $BUILT_VERSION" >&2
+            exit 1
+          fi
+          echo "Version OK: $BUILT_VERSION"
 
   build-package:
     name: Build Package
@@ -67,6 +75,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
+          # hatch-vcs derives the version from git tags; a shallow checkout would build a
+          # bogus dev version instead of the release version.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Install uv
