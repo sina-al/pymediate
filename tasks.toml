@@ -132,17 +132,8 @@ build.cmd = "uv build"
 "release:impact".help = "Recommend minor vs. patch by diffing commits/API surface since the last tag (usage: poe release:impact --from vX.Y.Z --to REV)"
 "release:impact".cmd = "python3 scripts/release_impact.py"
 
-changelog.help = "Regenerate CHANGELOG.md from Conventional Commits (git-cliff)"
-changelog.cmd = "python3 scripts/generate_changelog.py"
-
 "release:notes".help = "Generate release notes for the current tag only, stripped of the header (used by release.yml to fill in the GitHub Release body)"
 "release:notes".cmd = "uvx git-cliff --current --include-path src/pymediate/** --strip header -o RELEASE_NOTES.md"
-
-"version:bump".help = "Bump the version in pyproject.toml + __init__.py (usage: poe version:bump patch|minor|major|X.Y.Z)"
-"version:bump".cmd = "python3 scripts/bump_version.py"
-
-"release:verify-version".help = "Verify release tag, pyproject.toml, and __init__.py versions all match (usage: poe release:verify-version --tag vX.Y.Z)"
-"release:verify-version".cmd = "python3 scripts/verify_release_version.py"
 
 # ========== PR Helpers ==========
 

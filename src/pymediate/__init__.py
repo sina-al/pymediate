@@ -68,6 +68,8 @@ Async Support:
 For more information, see the documentation at https://sina-al.github.io/pymediate/
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .errors import (
     HandlerAlreadyRegisteredError,
     HandlerNotFoundError,
@@ -101,4 +103,9 @@ __all__ = [
     "ResponseTypeMismatchError",
 ]
 
-__version__ = "0.1.4"
+# The distribution version is derived from git tags at build time (hatch-vcs); the
+# installed package metadata is the only source of truth for it at runtime.
+try:
+    __version__ = version("pymediate")
+except PackageNotFoundError:  # pragma: no cover - source tree used without an install
+    __version__ = "0.0.0+unknown"

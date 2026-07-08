@@ -161,17 +161,18 @@ admin bypass after checks are green — that's expected, not a misconfiguration.
 
 ## Release process
 
-Use the `/release` skill for the full step-by-step checklist. Summary below.
+> **UNDER RECONSTRUCTION (July 2026 ops overhaul, issues #21–#27).** The release pipeline
+> is being rewritten around a two-branch model: a permanent `stable` branch holding the last
+> approved cut, zero-commit release PRs (`release/vX.Y.Z` cut branch → `stable`) whose diff
+> is exactly last-release→proposed, and tag-derived versioning. `prepare-release.yml` is a
+> disabled stub until phase 3 (issue #23) lands. The paragraphs below describe the parts
+> that still hold; the full rewrite of this section lands with OPERATIONS.md in phase 6.
 
-Releases are dispatch-driven and human-in-the-loop: `gh workflow run prepare-release.yml
--f bump=auto` runs `release:impact` (minor-vs-patch recommendation — see "Versioning"
-above), bumps the version via `poe version:bump` (which syncs `pyproject.toml` and
-`__init__.py` together; `uv_build` has no dynamic-versioning support), regenerates
-`CHANGELOG.md` via `poe changelog` ([git-cliff](https://git-cliff.org/), config in
-`cliff.toml`), and opens a release PR with the impact report in its body. Merging that PR
-(the human approval) triggers `tag-release.yml`, which tags the squash commit `vX.Y.Z` and
-thereby starts `release.yml`. Both prepare/tag workflows authenticate as the
-`pymediate-releaser` GitHub App — each mints a short-lived installation token via
+The version is derived from git tags by hatch-vcs — there are no version strings in the
+repo, no bump commits, and no committed `CHANGELOG.md` (changelogs are rendered on demand
+by [git-cliff](https://git-cliff.org/), config in `cliff.toml`, into the release PR body
+and the GitHub Release notes). Release workflows authenticate as the `pymediate-releaser`
+GitHub App — each mints a short-lived installation token via
 `actions/create-github-app-token` from the `PYMEDIATE_RELEASER_APP_ID` repo variable and
 `PYMEDIATE_RELEASER_PRIVATE_KEY` secret. The App identity (not the default `GITHUB_TOKEN`)
 is what makes the release PR trigger its required checks and the tag-push trigger
@@ -179,10 +180,9 @@ is what makes the release PR trigger its required checks and the tag-push trigge
 replaced an earlier long-lived fine-grained PAT — a GitHub App has its own bot identity,
 nothing to rotate, and per-job-scoped token permissions.)
 
-`release.yml` hard-fails if the tag version doesn't match both `pyproject.toml` and
-`__init__.py`'s `__version__`. It generates the GitHub Release body for just the new tag's
-commits — the persisted `CHANGELOG.md` and the per-release notes are two different
-git-cliff invocations, not duplicated effort. Publishing uses `uv publish` with Trusted
+`release.yml` hard-fails if the tag doesn't match the version hatch-vcs derives from the
+tagged checkout. It generates the GitHub Release body for just the new tag's
+commits. Publishing uses `uv publish` with Trusted
 Publishing (OIDC) — no stored credentials — staged through TestPyPI first, then pausing at
 the `pypi` environment's required-reviewer gate for the maintainer's final approval before
 the real PyPI publish. Requires a Trusted Publisher registered on **both** pypi.org and
