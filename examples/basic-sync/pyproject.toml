@@ -1,0 +1,19 @@
+[project]
+name = "pymediate-example-basic-sync"
+version = "0.1.0"
+description = "Minimal synchronous PyMediate example: typed requests, handlers, and a mediator"
+requires-python = ">=3.12"
+dependencies = [
+    # Loose lower bound per the examples contract: the release pipeline re-pins this to the
+    # exact release candidate on TestPyPI (scripts/run_examples.py).
+    "pymediate>=0.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.uv]
+# An example is an application, not a distributable package: nothing to build or install.
+package = false

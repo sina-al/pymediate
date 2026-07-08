@@ -135,6 +135,9 @@ build.cmd = "uv build"
 "release:notes".help = "Generate release notes for the current tag only, stripped of the header (used by release.yml to fill in the GitHub Release body)"
 "release:notes".cmd = "uvx git-cliff --current --include-path src/pymediate/** --strip header -o RELEASE_NOTES.md"
 
+"examples:test".help = "Run every examples/ project's tests against a released pymediate version (usage: poe examples:test --version 0.1.4 --index https://pypi.org/simple/; release.yml runs this against TestPyPI)"
+"examples:test".cmd = "python3 scripts/run_examples.py"
+
 # ========== PR Helpers ==========
 
 "pr:size".help = "Show files/lines changed vs a base ref and warn if the diff looks large (usage: poe pr:size --base origin/main)"
