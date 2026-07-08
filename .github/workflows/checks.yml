@@ -14,7 +14,7 @@ on:
       - "mypy.ini"
       - ".github/workflows/**"
   pull_request:
-    branches: [main]
+    branches: [main, stable]
   workflow_dispatch:
 
 concurrency:

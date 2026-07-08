@@ -10,7 +10,7 @@ on:
   # status check, so it must always report on PRs — it passes as "skipped" when the changes
   # job detects no docs changes, instead of hanging the PR forever.
   pull_request:
-    branches: [main]
+    branches: [main, stable]
   workflow_dispatch:
 
 # Least privilege by default; the deploy job grants itself pages/id-token scopes.

@@ -1,15 +1,24 @@
 name: Tag Release
 
-# Second half of the release flow: when a release PR (opened by prepare-release.yml)
-# is merged, tag the squash commit as vX.Y.Z. The tag is created with a short-lived token
-# minted for the pymediate-releaser GitHub App for two reasons: the App is a tag-guard
-# bypass actor (so the tag clears the ruleset), and — unlike GITHUB_TOKEN — the resulting
+# Second half of the release flow: reacts to a release PR (opened by prepare-release.yml,
+# head release/vX.Y.Z, base stable) being closed.
+#
+#   - Merged   -> tag the merge commit vX.Y.Z. Its tree is identical to the cut branch's
+#                 tree (stable only ever receives cuts of main, so the merge can never
+#                 introduce changes), i.e. the tag points at exactly what the required
+#                 checks ran on. The tag push starts release.yml.
+#   - Unmerged -> delete the cut branch, making "close the PR" a consequence-free
+#                 rejection. (Merged branches are deleted by the repo's
+#                 delete-branch-on-merge setting.)
+#
+# Both paths use a short-lived token minted for the pymediate-releaser GitHub App: the App
+# is a tag-guard/branch-guard bypass actor, and — unlike GITHUB_TOKEN — the resulting
 # tag-push event actually triggers release.yml's `on: push: tags` pipeline (GITHUB_TOKEN
 # events don't start workflows).
 on:
   pull_request:
     types: [closed]
-    branches: [main]
+    branches: [stable]
 
 permissions:
   contents: read
@@ -46,3 +55,31 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
             -f ref="refs/tags/${TAG}" \
             -f sha="$MERGE_SHA"
+
+  cleanup:
+    name: Delete rejected cut branch
+    runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.merged == false &&
+      startsWith(github.event.pull_request.head.ref, 'release/v')
+    steps:
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.PYMEDIATE_RELEASER_APP_ID }}
+          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
+          # Scope the token to only what cleanup needs: delete the branch ref (contents).
+          permission-contents: write
+
+      - name: Delete cut branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [[ ! "$HEAD_REF" =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Head ref '$HEAD_REF' is not a release branch; leaving it alone" >&2
+            exit 0
+          fi
+          echo "Deleting rejected cut branch $HEAD_REF"
+          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${HEAD_REF}"

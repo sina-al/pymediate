@@ -10,7 +10,9 @@ name: Release PR Report
 
 on:
   pull_request:
-    branches: [main]
+    # Release PRs target `stable` (two-branch model); the head-ref gates on the jobs below
+    # keep this a no-op for anything that isn't a release/vX.Y.Z cut branch.
+    branches: [stable]
     types: [opened, synchronize, reopened]
 
 concurrency:

@@ -9,7 +9,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, stable]
   schedule:
     - cron: "30 4 * * 1" # weekly, Monday 04:30 UTC - matches the previous default-setup schedule
   workflow_dispatch:
