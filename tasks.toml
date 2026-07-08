@@ -35,6 +35,9 @@ test.cmd = "pytest tests/"
 "test:cov-json".help = "Run tests with a JSON coverage report (used by pr.yml's diff-coverage PR comment, which reads coverage.json)"
 "test:cov-json".cmd = "pytest tests/ --cov=pymediate --cov-report=json --cov-report=term-missing"
 
+"test:junit".help = "Run tests with a JUnit XML report (used by release-pr-report.yml's test-results PR comment)"
+"test:junit".cmd = "pytest tests/ --tb=short --junit-xml=junit.xml"
+
 # ========== Type Checking ==========
 
 type.help = "Run mypy type checking on source code"
@@ -89,6 +92,14 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"
 security.cmd = "uv run --with safety safety check"
 
+"security:pip-audit".help = """
+Scan dependencies for known vulnerabilities with pip-audit, formatted as markdown \
+(used by release-pr-report.yml's vulnerability PR comment). pip-audit is the official PyPA \
+tool and stays fully open against the OSV/PyPA advisory databases, unlike safety's \
+increasingly gated free tier.\
+"""
+"security:pip-audit".cmd = "uv run --with pip-audit pip-audit --format markdown --skip-editable"
+
 "actions:lint".help = "Lint .github/workflows/ for security issues with zizmor (pass --format github in CI for inline PR annotations)"
 "actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"
 
@@ -121,17 +132,11 @@ build.cmd = "uv build"
 "release:impact".help = "Recommend minor vs. patch by diffing commits/API surface since the last tag (usage: poe release:impact --from vX.Y.Z --to REV)"
 "release:impact".cmd = "python3 scripts/release_impact.py"
 
-changelog.help = "Regenerate CHANGELOG.md from Conventional Commits (git-cliff)"
-changelog.cmd = "python3 scripts/generate_changelog.py"
-
 "release:notes".help = "Generate release notes for the current tag only, stripped of the header (used by release.yml to fill in the GitHub Release body)"
 "release:notes".cmd = "uvx git-cliff --current --include-path src/pymediate/** --strip header -o RELEASE_NOTES.md"
 
-"version:bump".help = "Bump the version in pyproject.toml + __init__.py (usage: poe version:bump patch|minor|major|X.Y.Z)"
-"version:bump".cmd = "python3 scripts/bump_version.py"
-
-"release:verify-version".help = "Verify release tag, pyproject.toml, and __init__.py versions all match (usage: poe release:verify-version --tag vX.Y.Z)"
-"release:verify-version".cmd = "python3 scripts/verify_release_version.py"
+"examples:test".help = "Run every examples/ project's tests against a released pymediate version (usage: poe examples:test --version 0.1.4 --index https://pypi.org/simple/; release.yml runs this against TestPyPI)"
+"examples:test".cmd = "python3 scripts/run_examples.py"
 
 # ========== PR Helpers ==========
 

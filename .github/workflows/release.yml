@@ -1,12 +1,22 @@
 name: Release
 
+# Publishing pipeline, started by tag-release.yml pushing a vX.Y.Z tag (the tag points at
+# a merge commit on `stable` whose tree the release PR's required checks already ran on).
+#
+# Order is deliberate (see OPERATIONS.md): everything that can fail runs BEFORE anything
+# user-visible is created, and the GitHub Release is created last so a rejected or failed
+# release leaves nothing behind except the tag and (past that stage) a burned TestPyPI
+# version — TestPyPI/PyPI filenames are immutable forever, so a version that reached
+# TestPyPI is dead and the retry is simply the next version.
+#
+#   validate -> build (+ provenance attestation) -> install matrix -> TestPyPI
+#     -> examples suite against TestPyPI -> [pypi environment gate] -> PyPI -> GitHub Release
 on:
   push:
     tags:
       - "v*.*.*"
   # Manual fallback: dispatch *on a tag ref* (gh workflow run release.yml --ref vX.Y.Z)
-  # so github.ref_name is the version tag the consistency check expects. The normal path
-  # is prepare-release.yml -> merge release PR -> tag-release.yml -> the tag push above.
+  # so github.ref_name is the version tag the consistency check expects.
   workflow_dispatch:
 
 # Least privilege by default; jobs that need more grant it themselves.
@@ -53,20 +63,37 @@ jobs:
           uv run poe format:check
 
       - name: Verify version consistency
+        # The version is tag-derived (hatch-vcs), so there are no version strings in the repo
+        # to cross-check anymore; instead assert that the version hatch-vcs computes from THIS
+        # checkout equals the tag that triggered the run.
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          uv run poe release:verify-version --tag "$VERSION_TAG"
+          BUILT_VERSION=$(uvx --with hatch-vcs hatchling version)
+          if [ "$BUILT_VERSION" != "${VERSION_TAG#v}" ]; then
+            echo "Tag $VERSION_TAG does not match hatch-vcs version $BUILT_VERSION" >&2
+            exit 1
+          fi
+          echo "Version OK: $BUILT_VERSION"
 
   build-package:
     name: Build Package
     runs-on: ubuntu-latest
     needs: validate-release
+    permissions:
+      contents: read
+      # Sign build provenance attestations (verifiable with `gh attestation verify`):
+      # cryptographic proof that these artifacts were built by this workflow in this repo.
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
+          # hatch-vcs derives the version from git tags; a shallow checkout would build a
+          # bogus dev version instead of the release version.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Install uv
@@ -82,6 +109,13 @@ jobs:
 
       - name: Check package with twine
         run: uv run poe build:check
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
 
       - name: Upload artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -129,10 +163,108 @@ jobs:
         run: |
           python -c "from pymediate.providers import DependencyInjectorServiceProvider; print('DI import successful')"
 
+  publish-testpypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-package, test-install]
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/pymediate/
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
+        with:
+          enable-cache: false
+
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        run: |
+          uv publish --index testpypi --trusted-publishing always
+
+  examples:
+    name: Examples against TestPyPI
+    runs-on: ubuntu-latest
+    needs: publish-testpypi
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
+        with:
+          enable-cache: false
+
+      - name: Run examples suite against the TestPyPI release
+        # Each examples/<name>/ is a standalone uv project pinned to the version just
+        # published on TestPyPI (only pymediate resolves there; its dependencies come from
+        # real PyPI). The examples contract and runner land with ops-overhaul phase 4
+        # (issue #24); until then this passes with a notice.
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
+        run: |
+          if ! ls examples/*/pyproject.toml >/dev/null 2>&1; then
+            echo "::notice::No examples/ projects yet (see issue #24); skipping examples stage."
+            exit 0
+          fi
+          uv sync --only-dev
+          uv run python scripts/run_examples.py --version "${VERSION_TAG#v}" \
+            --index https://test.pypi.org/simple/
+
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: examples
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pymediate/
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
+        with:
+          enable-cache: false
+
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        run: |
+          uv publish --trusted-publishing always
+
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [validate-release, build-package, test-install]
+    # Last on purpose: a release that never reached PyPI should not present itself to the
+    # world as released. Everything before the pypi gate is retractable-by-design.
+    needs: publish-pypi
     permissions:
       contents: write
 
@@ -176,67 +308,3 @@ jobs:
             --notes-file RELEASE_NOTES.md \
             --verify-tag \
             "${args[@]}"
-
-  publish-testpypi:
-    name: Publish to TestPyPI
-    runs-on: ubuntu-latest
-    needs: create-release
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/pymediate/
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          persist-credentials: false
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
-        with:
-          enable-cache: false
-
-      - name: Download artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: dist
-          path: dist/
-
-      - name: Publish to TestPyPI
-        run: |
-          uv publish --index testpypi --trusted-publishing always
-
-  publish-pypi:
-    name: Publish to PyPI
-    runs-on: ubuntu-latest
-    needs: publish-testpypi
-    environment:
-      name: pypi
-      url: https://pypi.org/p/pymediate/
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-        with:
-          persist-credentials: false
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
-        with:
-          enable-cache: false
-
-      - name: Download artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: dist
-          path: dist/
-
-      - name: Publish to PyPI
-        run: |
-          uv publish --trusted-publishing always

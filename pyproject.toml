@@ -1,6 +1,6 @@
 [project]
 name = "pymediate"
-version = "0.1.4"
+dynamic = ["version"]
 description = "A type-safe mediator pattern implementation for Python 3.12+"
 readme = "README.md"
 authors = [
@@ -59,8 +59,22 @@ docs = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.11.26,<0.12"]
-build-backend = "uv_build"
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
+
+# The version is derived from git tags (vX.Y.Z) at build time — there is no version string
+# in the repo. Untagged builds get a dev version (e.g. 0.1.5.dev3+g1a2b3c4). Release tags are
+# created by tag-release.yml when a release PR merges into `stable`; see OPERATIONS.md.
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+# Only for environments where git metadata is unavailable entirely (e.g. building from a
+# bare source tree); CI checkouts fetch tags so releases never hit this.
+fallback_version = "0.0.0+unknown"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pymediate"]
 
 [tool.uv]
 # Single source of truth for the uv version: read locally by `uv` itself (errors on mismatch)

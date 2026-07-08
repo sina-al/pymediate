@@ -2,7 +2,9 @@ name: PR
 
 on:
   pull_request:
-    branches: [main]
+    # `stable` only receives release PRs (cuts of main opened by prepare-release.yml);
+    # running the same checks there is what makes the release PR the green gate.
+    branches: [main, stable]
     types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
@@ -84,6 +86,9 @@ jobs:
   size-check:
     name: PR Size Check
     runs-on: ubuntu-latest
+    # Release PRs (base stable) are the accumulated delta since the last release — large by
+    # construction, so size warnings would be pure noise there.
+    if: github.base_ref != 'stable'
 
     steps:
       - name: Checkout code
@@ -197,6 +202,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.deps == 'true'
+    permissions:
+      contents: read
+      # Only release PRs get a sticky comment (see release-pr-report.yml for the rest of that
+      # bundle); regular PRs keep today's behavior, a check-run summary only.
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -208,6 +218,7 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
+          comment-summary-in-pr: ${{ startsWith(github.head_ref, 'release/v') && 'always' || 'never' }}
 
   security-scan:
     name: Security Scan

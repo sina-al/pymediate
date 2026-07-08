@@ -21,8 +21,16 @@ if you change one, check whether the other needs the equivalent change.
     system" below. Not ordinary code.
 - `docs/` — MkDocs source; see "Docs" below.
   - `docs/adr/` — architecture decision records for nontrivial design changes; see "ADRs" below.
+- `examples/` — standalone uv projects demonstrating the package against its *released*
+  PyPI distribution (not the source tree); each satisfies the contract in
+  `examples/README.md`, and the release pipeline runs them all against the TestPyPI
+  candidate via `scripts/run_examples.py`. Not covered by the library's lint/type/coverage
+  scopes.
 - `scripts/` — standalone maintenance scripts (e.g. `update_uv.py`), invoked via `poe` tasks,
   not part of the package. Still linted/formatted (`poe lint`/`format`/`format:check` cover it).
+- `OPERATIONS.md` — the reference for how code gets in (contribution lanes) and releases
+  get out (two-branch model, rulesets, identities). Read it before touching anything
+  release- or ruleset-related.
 - `assets/` — static files referenced elsewhere (currently just `logo.svg`, used in
   `README.md`); not part of the package, not built or published.
 - `.github/workflows/` — CI pipelines; see "GitHub Actions workflows" below.
@@ -143,45 +151,55 @@ Since major can never carry a signal, minor and patch split that job between the
   `Handler` or the `ServiceProvider` protocol.
 - **Patch** (`0.1.X`) — bug fixes, docs, refactors, tooling — anything with no public API impact.
 
-`scripts/release_impact.py` (via `poe release:impact`) automates this assessment by diffing
-commits and the flagged API surface since the last tag, and the `/release` skill runs it and
-asks you to confirm the recommendation before bumping.
+The version exists **only as a git tag** — hatch-vcs derives it at build time, `__version__`
+reads installed package metadata, and there are no version strings, bump commits, or
+committed CHANGELOG.md in the repo (changelogs are rendered by git-cliff, config in
+`cliff.toml`, into the release PR body and GitHub Release notes). A version that reached
+TestPyPI is burned forever — the retry is the next version, never a re-upload.
+`scripts/release_impact.py` (via `poe release:impact`) recommends minor-vs-patch by diffing
+commits and the flagged API surface since the last tag; `prepare-release.yml -f bump=auto`
+follows it.
 
 ## Branch/merge policy
 
-`main` is ruleset-protected: PRs only (squash merge only, so the PR title *is* the commit
-message on `main` — Conventional Commits format is enforced on titles by `pr.yml`), one
-maintainer review, required checks `Checks` / `Test Suite` / `Documentation` /
-`All Checks Passed`, CodeQL. Separate rulesets block branch and tag creation repo-wide —
-contributors work from forks; only the maintainer (admin bypass), the Copilot coding agent,
-and Dependabot can create branches, and only the maintainer can tag. The
-`python-coverage-comment-action-data` branch is machine-managed (coverage badge data), not
-code. A solo maintainer can't approve their own PRs, so the maintainer's own PRs merge via
-admin bypass after checks are green — that's expected, not a misconfiguration.
+Two long-lived branches — see `OPERATIONS.md` for the full model and enforcement inventory:
+
+- **`main`** is the trunk and **may be red** — the maintainer pushes directly (ruleset
+  bypass; that's lane 1, sanctioned, not a misconfiguration). Everyone else: PRs only,
+  squash merge only (so the PR title *is* the commit message — Conventional Commits format
+  enforced by `pr.yml`), required checks `Checks` / `Test Suite` / `Documentation` /
+  `All Checks Passed`, CodeQL. Dependabot patch-level PRs auto-merge once green
+  (`dependabot-automerge.yml`); minor/major wait for review.
+- **`stable`** holds the released history: one merge commit per release, each tagged. Only
+  release PRs (cut branches `release/vX.Y.Z` opened by `prepare-release.yml`) target it;
+  merge commits only, required checks plus `Release Test Results`, **no bypass actors** —
+  a red release PR cannot be merged without editing the ruleset itself.
+
+branch-guard/tag-guard block branch and tag creation repo-wide — contributors work from
+forks; only the maintainer, Dependabot, and the `pymediate-releaser` App can create
+branches, and only the maintainer and the App can tag. The
+`python-coverage-comment-action-data` branch is machine-managed (coverage badge data).
 
 ## Release process
 
-Use the `/release` skill for the full step-by-step checklist. Summary below.
+Use the `/release` skill for the step-by-step checklist; `OPERATIONS.md` documents the
+model. Short version: `gh workflow run prepare-release.yml -f bump=auto` opens a
+zero-commit release PR (`release/vX.Y.Z` cut of main → `stable`) whose **diff is everything
+since the last release** — reviewing it is the release review. Closing it is a
+consequence-free rejection (the cut branch auto-deletes); merging it makes `tag-release.yml`
+tag the merge commit, which runs `release.yml`: validate → build (+ provenance attestation)
+→ install matrix → TestPyPI → examples suite against the TestPyPI artifact
+(`scripts/run_examples.py`) → the `pypi` environment's required-reviewer gate → PyPI →
+GitHub Release last.
 
-Releases are dispatch-driven and human-in-the-loop: `gh workflow run prepare-release.yml
--f bump=auto` runs `release:impact` (minor-vs-patch recommendation — see "Versioning"
-above), bumps the version via `poe version:bump` (which syncs `pyproject.toml` and
-`__init__.py` together; `uv_build` has no dynamic-versioning support), regenerates
-`CHANGELOG.md` via `poe changelog` ([git-cliff](https://git-cliff.org/), config in
-`cliff.toml`), and opens a release PR with the impact report in its body. Merging that PR
-(the human approval) triggers `tag-release.yml`, which tags the squash commit `vX.Y.Z` and
-thereby starts `release.yml`. Both prepare/tag workflows need the `RELEASE_PR_TOKEN`
-fine-grained PAT secret (so the PR triggers checks and the tag clears tag-guard — the
-default `GITHUB_TOKEN` can do neither).
-
-`release.yml` hard-fails if the tag version doesn't match both `pyproject.toml` and
-`__init__.py`'s `__version__`. It generates the GitHub Release body for just the new tag's
-commits — the persisted `CHANGELOG.md` and the per-release notes are two different
-git-cliff invocations, not duplicated effort. Publishing uses `uv publish` with Trusted
-Publishing (OIDC) — no stored credentials — staged through TestPyPI first, then pausing at
-the `pypi` environment's required-reviewer gate for the maintainer's final approval before
-the real PyPI publish. Requires a Trusted Publisher registered on **both** pypi.org and
-test.pypi.org for this repo/workflow — separate services, separate registrations.
+Release workflows authenticate as the `pymediate-releaser` GitHub App — short-lived
+installation tokens minted per job via `actions/create-github-app-token` from the
+`PYMEDIATE_RELEASER_APP_ID` repo variable and `PYMEDIATE_RELEASER_PRIVATE_KEY` secret. The
+App identity (not `GITHUB_TOKEN`) is what makes the release PR trigger its required checks
+and the tag-push trigger `release.yml`. Publishing uses Trusted Publishing (OIDC), no
+stored credentials, registered on **both** pypi.org and test.pypi.org — separate services,
+separate registrations. `release.yml` hard-fails if the tag doesn't match the version
+hatch-vcs derives from the tagged checkout.
 
 ## Docs
 

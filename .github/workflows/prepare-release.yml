@@ -1,15 +1,19 @@
 name: Prepare Release
 
-# Dispatch-driven, human-in-the-loop release entry point:
+# Release entry point for the two-branch model (see OPERATIONS.md):
 #
 #   1. Maintainer dispatches this workflow (bump = auto | patch | minor).
-#   2. It runs release:impact (commit + public-API-surface analysis), picks the bump
-#      kind (the RECOMMENDATION line when bump=auto), bumps the version, regenerates
-#      CHANGELOG.md, and opens a release PR with the full impact report in the body.
-#   3. The maintainer reviews and merges that PR — that merge is the human approval.
-#      tag-release.yml then tags the squash commit, which triggers release.yml.
+#   2. It computes the next version from the last release tag (versions are tag-derived;
+#      nothing in the repo changes), force-pushes a zero-commit cut branch
+#      release/vX.Y.Z pointing at main's current HEAD, and opens a PR into `stable`.
+#      Because `stable` always sits at the last approved cut, that PR's diff is exactly
+#      last-release -> proposed release.
+#   3. The maintainer reviews (full diff, changelog, impact report, test/security
+#      comments) and merges — or closes, which is consequence-free: tag-release.yml
+#      deletes the cut branch, and the next dispatch starts clean.
 #
-# Dispatching requires write access, so only the maintainer can start this.
+# Dispatching requires write access, so only the maintainer can start this. Re-dispatch
+# is idempotent: any superseded open release PR is closed and its branch replaced.
 on:
   workflow_dispatch:
     inputs:
@@ -27,11 +31,24 @@ jobs:
     name: Open release PR
     runs-on: ubuntu-latest
     steps:
+      # Mint a short-lived (~1h) installation token for the pymediate-releaser GitHub App.
+      # The App has its own bot identity, nothing to rotate, and — unlike GITHUB_TOKEN —
+      # a PR it opens still triggers the required pull_request checks.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.PYMEDIATE_RELEASER_APP_ID }}
+          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
+          # Push the cut branch (contents) and open/close PRs (pull-requests). Nothing else.
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Checkout code # zizmor: ignore[artipacked]
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.PYMEDIATE_RELEASE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3 # v8.3.0
@@ -62,41 +79,114 @@ jobs:
           echo "kind=$kind" >> "$GITHUB_OUTPUT"
           echo "Bump kind: $kind"
 
-      - name: Bump version and regenerate changelog
+      - name: Compute next version
+        id: version
         env:
           KIND: ${{ steps.bump.outputs.kind }}
+        # Versions are tag-derived (hatch-vcs), so "bumping" is pure arithmetic on the last
+        # tag. A version whose tag already exists is burned (e.g. a release that failed
+        # after its TestPyPI publish — filenames there are immutable forever), so patch
+        # forward past any existing tag until we find a free one.
         run: |
-          uv run poe version:bump "$KIND"
-          uv run poe changelog
+          LAST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*')
+          IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
+          if [ "$KIND" = "minor" ]; then
+            MINOR=$((MINOR + 1)); PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+          while git rev-parse -q --verify "refs/tags/v${MAJOR}.${MINOR}.${PATCH}" >/dev/null; do
+            PATCH=$((PATCH + 1))
+          done
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "Last release: ${LAST_TAG} -> proposed: v${VERSION} (${KIND})"
+          {
+            echo "version=${VERSION}"
+            echo "last_tag=${LAST_TAG}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Render changelog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        # --unreleased = commits since the last tag; --tag labels them as the proposed
+        # release. Same commit-type and src/pymediate/** path filtering as the release
+        # notes (cliff.toml + release:notes task).
+        run: |
+          uvx git-cliff --unreleased --tag "v${VERSION}" \
+            --include-path 'src/pymediate/**' --strip header -o changelog.md
+          cat changelog.md
+
+      - name: Close superseded release PRs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        # A dispatch supersedes any release PR still open for a *different* version (e.g.
+        # you re-dispatched with another bump kind, or a burned version moved the number
+        # on). Same-version PRs are kept: the branch force-push below updates them in
+        # place. tag-release.yml deletes the closed PRs' cut branches.
+        run: |
+          gh pr list --base stable --state open --json number,headRefName \
+            --jq ".[] | select(.headRefName | startswith(\"release/v\")) | select(.headRefName != \"release/v${VERSION}\") | .number" |
+          while read -r pr; do
+            echo "Closing superseded release PR #${pr}"
+            gh pr close "$pr" --comment "Superseded by a new release dispatch (v${VERSION})."
+          done
+
+      - name: Push cut branch
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        # Zero-commit cut: the branch is just a ref to main's HEAD. Force-push makes
+        # re-dispatch idempotent — cut branches are machine-owned, never hand-edited.
+        run: |
+          git push --force origin "HEAD:refs/heads/release/v${VERSION}"
 
       - name: Open release PR
         env:
-          GH_TOKEN: ${{ secrets.PYMEDIATE_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          LAST_TAG: ${{ steps.version.outputs.last_tag }}
+          KIND: ${{ steps.bump.outputs.kind }}
         run: |
-          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           BRANCH="release/v${VERSION}"
-
-          git config user.name "sina-al"
-          git config user.email "27771210+sina-al@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git add pyproject.toml src/pymediate/__init__.py CHANGELOG.md
-          git diff --quiet uv.lock || git add uv.lock
-          git commit -m "chore(release): v${VERSION}"
-          git push origin "$BRANCH"
+          KIND_TITLE=$(awk '{print toupper(substr($0,1,1)) substr($0,2)}' <<< "$KIND")
+          REASONS=$(awk '/^RECOMMENDATION:/{f=1; next} f && NF' impact.txt | sed 's/^  - /- /')
 
           {
-            echo "Automated release PR for **v${VERSION}**. Merging this PR tags the release"
-            echo "and starts the publish pipeline (validate -> build -> TestPyPI -> approval -> PyPI)."
+            echo "## v${VERSION} — ${KIND_TITLE} release"
             echo
-            echo "## Release impact report"
+            echo "This PR's diff is everything since \`${LAST_TAG}\` — reviewing it reviews the release."
+            echo
+            echo "${REASONS}"
+            echo
+            echo "## Changelog"
+            echo
+            cat changelog.md
+            echo
+            echo "### On merge"
+            echo "1. \`tag-release.yml\` tags the merge commit \`v${VERSION}\` (the version is tag-derived; nothing else moves)"
+            echo "2. \`release.yml\` validates, builds + attests, publishes to TestPyPI, runs the examples suite against it, then pauses at the \`pypi\` environment gate for your final approval"
+            echo
+            echo "### To reject"
+            echo "Close this PR. The cut branch is deleted automatically and a fresh dispatch starts clean. A version only burns once it reaches TestPyPI."
+            echo
+            echo "<details>"
+            echo "<summary>Full release impact report</summary>"
             echo
             echo '```'
             cat impact.txt
             echo '```'
+            echo
+            echo "</details>"
           } > pr-body.md
 
-          gh pr create \
-            --title "chore(release): v${VERSION}" \
-            --body-file pr-body.md \
-            --base main \
-            --head "$BRANCH"
+          EXISTING=$(gh pr list --base stable --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing release PR #${EXISTING}"
+            gh pr edit "$EXISTING" --title "chore(release): v${VERSION}" --body-file pr-body.md
+          else
+            gh pr create \
+              --title "chore(release): v${VERSION}" \
+              --body-file pr-body.md \
+              --base stable \
+              --head "$BRANCH"
+          fi
