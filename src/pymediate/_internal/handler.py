@@ -5,10 +5,25 @@ validation, and registration logic that is common between sync and async handler
 """
 
 import inspect
-from typing import Any, get_args, get_origin
+from typing import Any, get_args, get_origin, get_type_hints
 
 from .. import errors
 from . import registry
+
+
+def _qualified_name(annotation: object) -> str:
+    """Render a type annotation as a module-qualified name for error messages.
+
+    Falls back to ``str()`` for anything without ``__qualname__``/``__name__``
+    (e.g. an unresolved string annotation). Builtins are shown unqualified.
+    """
+    qualname = getattr(annotation, "__qualname__", None) or getattr(annotation, "__name__", None)
+    if qualname is None:
+        return str(annotation)
+    module = getattr(annotation, "__module__", None)
+    if module is None or module == "builtins":
+        return str(qualname)
+    return f"{module}.{qualname}"
 
 
 def _validate_call_signature(
@@ -59,24 +74,30 @@ def _validate_call_signature(
             cls, "__call__ request parameter must have type annotation"
         )
 
-    if request_param.annotation != expected_request_type:
-        param_name = (
-            request_param.annotation.__name__
-            if hasattr(request_param.annotation, "__name__")
-            else str(request_param.annotation)
-        )
-        expected_name = expected_request_type.__name__
-        raise errors.InvalidHandlerSignatureError(
-            cls,
-            f"__call__ parameter must be of type {expected_name}, got {param_name}",
-        )
-
-    # Validate return type
+    # Validate return type is present
     if sig.return_annotation == inspect.Signature.empty:
         raise errors.InvalidHandlerSignatureError(cls, "__call__ must have return type annotation")
 
-    if sig.return_annotation != expected_response_type:
-        raise errors.ResponseTypeMismatchError(cls, expected_response_type, sig.return_annotation)
+    # Resolve string/forward-ref annotations, e.g. under `from __future__ import
+    # annotations` (PEP 563), where signature annotations are stored as strings.
+    # If resolution fails (a name that isn't importable in the method's module),
+    # fall back to the raw annotations so the comparison below reports the mismatch.
+    try:
+        hints = get_type_hints(call_method)
+    except Exception:
+        hints = {}
+    request_annotation = hints.get(request_param.name, request_param.annotation)
+    return_annotation = hints.get("return", sig.return_annotation)
+
+    if request_annotation != expected_request_type:
+        raise errors.InvalidHandlerSignatureError(
+            cls,
+            f"__call__ parameter must be of type {_qualified_name(expected_request_type)}, "
+            f"got {_qualified_name(request_annotation)}",
+        )
+
+    if return_annotation != expected_response_type:
+        raise errors.ResponseTypeMismatchError(cls, expected_response_type, return_annotation)
 
 
 class HandlerBaseMixin[RequestT]:
