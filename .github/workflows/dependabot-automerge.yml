@@ -1,0 +1,43 @@
+name: Dependabot Auto-merge
+
+# Auto-merges Dependabot PRs that are *patch-level only*, following GitHub's documented
+# pattern (fetch-metadata + gh pr merge --auto). Minor and major bumps still wait for the
+# maintainer's review. `--auto` respects main-guard: the merge only happens once all
+# required checks pass — this never merges a red PR.
+#
+# Notes for the suspicious reader:
+#   - Trigger is plain `pull_request` from a same-repo Dependabot branch; no fork code
+#     runs with secrets (Dependabot-triggered runs also only receive Dependabot secrets).
+#   - The GITHUB_TOKEN approval satisfies main-guard's 1-approval requirement
+#     (require_code_owner_review was dropped for exactly this; only write-access actors
+#     can approve, so this doesn't open review to outsiders).
+#   - For grouped updates, fetch-metadata reports the *highest* bump in the group, so a
+#     group containing anything above patch is left for human review.
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  automerge:
+    name: Auto-merge patch updates
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'sina-al/pymediate'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve and enable auto-merge
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr review --approve "$PR_URL"
+          gh pr merge --auto --squash "$PR_URL"
