@@ -12,7 +12,7 @@ on:
       - "pytest.ini"
       - ".github/workflows/test.yml"
   pull_request:
-    branches: [main]
+    branches: [main, stable]
   workflow_dispatch:
 
 concurrency:

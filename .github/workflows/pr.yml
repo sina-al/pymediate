@@ -2,7 +2,9 @@ name: PR
 
 on:
   pull_request:
-    branches: [main]
+    # `stable` only receives release PRs (cuts of main opened by prepare-release.yml);
+    # running the same checks there is what makes the release PR the green gate.
+    branches: [main, stable]
     types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
@@ -84,6 +86,9 @@ jobs:
   size-check:
     name: PR Size Check
     runs-on: ubuntu-latest
+    # Release PRs (base stable) are the accumulated delta since the last release — large by
+    # construction, so size warnings would be pure noise there.
+    if: github.base_ref != 'stable'
 
     steps:
       - name: Checkout code
