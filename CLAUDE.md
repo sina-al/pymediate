@@ -35,8 +35,11 @@ if you change one, check whether the other needs the equivalent change.
   `README.md`); not part of the package, not built or published.
 - `.github/workflows/` — CI pipelines; see "GitHub Actions workflows" below.
 - `.claude/` — Claude Code config for this repo: `settings.json`, project-specific skills
-  (`adr`, `release`, `update-uv`), and `.claude/context/*.md` — generated files imported into
-  this CLAUDE.md (see "API Signatures" and "ADRs" below); regenerate, don't hand-edit.
+  (`adr`, `release`, `update-uv`, `compare`), and `.claude/context/*.md`:
+  `api-signatures.md` is generated and imported into this CLAUDE.md (see "API Signatures"
+  below) — regenerate, don't hand-edit; `mediator-survey.md` is the `/compare` skill's
+  anonymized competitor knowledge base backing `docs.v2`'s comparison page — updated by
+  that skill, and it must never contain library names or other identifying details.
 
 ## Dev workflow — use `poe`, not raw tool invocations
 
