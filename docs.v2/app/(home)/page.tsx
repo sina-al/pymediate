@@ -155,8 +155,9 @@ export default function HomePage() {
             className="pm-fade-up mt-6 max-w-2xl text-pretty text-base text-fd-muted-foreground sm:text-lg"
             style={{ animationDelay: '120ms' }}
           >
-            PyMediate routes typed requests to their handlers through one mediator — response types
-            inferred end to end, first-class async, zero runtime dependencies.
+            PyMediate decouples the code that asks from the code that does — without the usual
+            price. Response types stay inferred, your editor keeps autocompleting, and wiring
+            mistakes surface at import, not in production.
           </p>
           <div
             className="pm-fade-up mt-8 flex flex-col items-center gap-4 sm:flex-row"
@@ -255,6 +256,10 @@ export default function HomePage() {
           <FlaskConical aria-hidden className="size-5 text-fd-primary" />
           <h2 className="text-3xl font-semibold tracking-tight">Why a mediator?</h2>
         </div>
+        <p className="mt-4 max-w-2xl text-fd-muted-foreground">
+          Every direct call couples two features a little more, and the knot only tightens as the
+          codebase grows. Put one mediator between them and the coupling stops accumulating:
+        </p>
         <div className="mt-10 grid gap-8 md:grid-cols-3">
           {reasons.map((reason, i) => (
             <div key={reason.title}>

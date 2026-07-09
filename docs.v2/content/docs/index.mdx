@@ -12,13 +12,17 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 
 ## Why PyMediate?
 
-Most mediator implementations in Python rely on naming conventions, string registries, or decorators that erase types. PyMediate takes a different approach:
+Decoupling usually costs you your tools. The moment a request stops calling its handler directly, the link between them retreats somewhere the type checker can't follow — a string registry, a `bind()` call, a naming convention. `send()` starts returning `Any`. Your editor stops autocompleting the response. And a wiring mistake stops being a red squiggle in your editor and becomes a failed request in production.
 
-- **Type inspection, not naming conventions.** A handler declares the request it handles with `Handler[CreateUser]` — the link is in the type system, not in a magic string.
-- **The response type is declared once.** A request inherits `Request[UserCreated]`, and from then on `mediator.send()` returns `UserCreated` everywhere — inferred by mypy, no casts.
-- **Validation at class-definition time.** Handler signatures are checked when the class is defined. Wiring mistakes surface at import, not when a request fails in production.
-- **Zero runtime dependencies.** The core is pure Python 3.12+ built on [PEP 695](https://peps.python.org/pep-0695/) generics. `dependency-injector` support is an optional extra.
-- **A structural async mirror.** `pymediate.aio` mirrors the sync API class for class — switch the import, add `await`, and everything else stays the same.
+PyMediate exists because Python 3.12 made that trade unnecessary. The whole pattern now fits inside the type system, so you keep everything you'd have with a direct call:
+
+- **The link is a type, not a string.** `Handler[CreateUser]` declares what a handler handles, and dispatch is keyed on the class itself. Rename the request and every handler follows in the refactor; two modules defining a `CreateUser` can't collide by name; and there's no separate registration step where a mismatched pair hides until dispatch.
+- **You always know what comes back.** A request inherits `Request[UserCreated]`, and from then on `mediator.send()` returns `UserCreated` everywhere — inferred by mypy, autocompleted by your editor, no casts. The response can be any type at all: no framework base class, no serialization methods.
+- **Wiring mistakes can't reach production.** Handler signatures are validated the moment the class is defined — a wrong parameter type, a missing return type, a sync/async mixup all raise at import. A second handler for the same request raises immediately, pointing at the file and line of the first, instead of silently winning (or losing).
+- **Sync code isn't a second-class citizen.** `pymediate.aio` mirrors the sync API class for class — switch the import, add `await`, done. And if your codebase is synchronous, you get a real API, not an event loop smuggled in through the back door.
+- **It travels light.** The core is pure Python 3.12+ built on [PEP 695](https://peps.python.org/pep-0695/) generics, ships `py.typed`, and is checked under `mypy --strict`. Zero runtime dependencies — no required serialization library, no mandatory DI container. `dependency-injector` support is an optional extra.
+
+None of this is hand-waving. Before writing this page, we read the source of the most popular mediator libraries in the Python ecosystem — every point above is a gap we found there.
 
 ## The moving parts
 
