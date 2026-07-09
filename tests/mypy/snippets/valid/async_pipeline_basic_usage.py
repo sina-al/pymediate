@@ -1,12 +1,11 @@
-"""Async pipeline behavior type inference - should pass mypy."""
+"""Async behavior authoring and typed dispatch through the mediator - should pass mypy."""
 
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from pymediate import Request
-from pymediate.aio import Handler
-from pymediate.aio.pipeline import Pipeline, PipelineBehavior
+from pymediate import Request, Services
+from pymediate.aio import Handler, Mediator, PipelineBehavior
 
 
 @dataclass
@@ -39,13 +38,13 @@ class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest]):
 
 
 async def main() -> None:
-    # Async pipeline type inference test
-    handler = CreateUserHandler()
-    logging = AsyncLoggingBehavior()
-    pipeline: Pipeline[CreateUserRequest, UserResponse] = Pipeline([logging], handler)
+    services = Services()
+    services.add(AsyncLoggingBehavior())
+    services.add(CreateUserHandler())
+    mediator = Mediator(services.provider())
 
     request = CreateUserRequest(username="alice")
-    response = await pipeline(request)
+    response = await mediator.send(request)
 
     # Mypy should infer response as UserResponse
     user_id: int = response.user_id

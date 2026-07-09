@@ -1,10 +1,9 @@
-"""Pipeline behavior modifying response - type safety should be maintained."""
+"""Behavior modifying the response - type safety should be maintained."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline, PipelineBehavior
+from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
 
 
 @dataclass
@@ -38,11 +37,12 @@ class ProcessingBehavior(PipelineBehavior[ProcessRequest]):
         return response
 
 
-handler = ProcessHandler()
-behavior = ProcessingBehavior()
-pipeline: Pipeline[ProcessRequest, ProcessedResponse] = Pipeline([behavior], handler)
+services = Services()
+services.add(ProcessingBehavior())
+services.add(ProcessHandler())
+mediator = Mediator(services.provider())
 
-response = pipeline(ProcessRequest(data="test"))
+response = mediator.send(ProcessRequest(data="test"))
 
 # Mypy should know the response type and allow these accesses
 value: int = response.value

@@ -19,12 +19,20 @@ SNIPPETS_DIR = Path(__file__).parent / "snippets"
 VALID_DIR = SNIPPETS_DIR / "valid"
 ERRORS_DIR = SNIPPETS_DIR / "errors"
 
+# Dedicated config: the repo-root mypy.ini's [mypy-tests.*] section disables
+# error codes for the main test suite, and mypy resolves snippet files as
+# tests.mypy.snippets.* modules — without this override those suppressions
+# would mask the very errors the snippets exist to catch.
+SNIPPETS_MYPY_CONFIG = Path(__file__).parent / "mypy_snippets.ini"
+
 
 def run_mypy_on_file(file_path: Path, strict: bool = True) -> tuple[int, str, str]:
     """
     Run mypy on a file and return exit code, stdout, and stderr.
 
     Uses the mypy API directly for better performance and integration.
+    Runs against the snippet-specific config file, never the repo-root
+    mypy.ini, so per-module suppressions can't leak into the snippets.
 
     Args:
         file_path: Path to the Python file to check
@@ -35,6 +43,8 @@ def run_mypy_on_file(file_path: Path, strict: bool = True) -> tuple[int, str, st
     """
     args = [
         str(file_path),
+        "--config-file",
+        str(SNIPPETS_MYPY_CONFIG),
         "--show-error-codes",
         "--no-error-summary",
     ]

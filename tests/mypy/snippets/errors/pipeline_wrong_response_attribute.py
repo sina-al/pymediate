@@ -1,9 +1,9 @@
-"""Accessing non-existent attribute on pipeline response - should fail mypy."""
+"""Accessing a non-existent attribute with a behavior registered - should fail mypy."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
-from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline
+from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
 
 
 @dataclass
@@ -22,16 +22,20 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=1, username=request.username)
 
 
-class LoggingBehavior:
-    def __call__(self, request: CreateUserRequest, next):  # type: ignore[no-untyped-def]
+class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
+    def __call__(
+        self, request: CreateUserRequest, next: Callable[[], UserResponse]
+    ) -> UserResponse:
         return next()
 
 
-handler = CreateUserHandler()
-pipeline = Pipeline([LoggingBehavior()], handler)
+services = Services()
+services.add(LoggingBehavior())
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
 
 request = CreateUserRequest(username="alice")
-response = pipeline(request)
+response = mediator.send(request)
 
 # This should fail - UserResponse doesn't have an 'email' attribute
-email: str = response.email  # type: ignore[attr-defined]
+email: str = response.email

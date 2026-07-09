@@ -1,10 +1,9 @@
-"""Pipeline with multiple behaviors - type inference should work correctly."""
+"""Multiple typed behaviors around one handler - type inference should work correctly."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline, PipelineBehavior
+from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
 
 
 @dataclass
@@ -56,19 +55,16 @@ class ValidationBehavior(PipelineBehavior[CreateOrderRequest]):
         return next()
 
 
-# Create pipeline with multiple behaviors
-handler = CreateOrderHandler()
-pipeline: Pipeline[CreateOrderRequest, OrderResponse] = Pipeline(
-    [
-        LoggingBehavior(),
-        TimingBehavior(),
-        ValidationBehavior(),
-    ],
-    handler,
-)
+# Register several behaviors; first registered is the outermost wrapper
+services = Services()
+services.add(LoggingBehavior())
+services.add(TimingBehavior())
+services.add(ValidationBehavior())
+services.add(CreateOrderHandler())
+mediator = Mediator(services.provider())
 
 request = CreateOrderRequest(items=["item1", "item2"])
-response = pipeline(request)
+response = mediator.send(request)
 
 # Type checking - mypy should know these fields exist
 order_id: int = response.order_id

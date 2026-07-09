@@ -1,10 +1,9 @@
-"""Basic pipeline behavior type inference - should pass mypy."""
+"""Behavior authoring and typed dispatch through the mediator - should pass mypy."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline, PipelineBehavior
+from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
 
 
 @dataclass
@@ -33,14 +32,14 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
         return response
 
 
-# Pipeline type inference test
-handler = CreateUserHandler()
-logging = LoggingBehavior()
-pipeline: Pipeline[CreateUserRequest, UserResponse] = Pipeline([logging], handler)
+services = Services()
+services.add(LoggingBehavior())
+services.add(CreateUserHandler())
+mediator = Mediator(services.provider())
 
 request = CreateUserRequest(username="alice")
-response = pipeline(request)
+response = mediator.send(request)
 
-# Mypy should infer response as UserResponse
+# Mypy should infer response as UserResponse, behaviors notwithstanding
 user_id: int = response.user_id
 username: str = response.username
