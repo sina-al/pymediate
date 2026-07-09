@@ -52,7 +52,8 @@ check on the exact tree being released, and `stable`'s ruleset will not merge wi
               ├── comments: per-Python test results, coverage, pip-audit,
               │   dependency review, API breaking-change report vs last release
               └── required checks (the green gate): Checks, Test Suite,
-                  Documentation, All Checks Passed, Release Test Results, CodeQL
+                  Documentation, All Checks Passed, Release Test Results, Examples
+                  (every example against a wheel built from the cut), CodeQL
                                         │
               close PR ──► cut branch auto-deleted; zero consequence; done
                                         │
@@ -104,10 +105,20 @@ changelog is rendered by git-cliff into the release PR body and the GitHub Relea
 ### Examples as release verification
 
 Every `examples/<name>/` is a standalone uv project that depends on pymediate from PyPI
-like any downstream user (see `examples/README.md` for the contract). After the TestPyPI
-publish, `scripts/run_examples.py` re-pins each example to the candidate version — via an
-*explicit* uv index, so only pymediate resolves from TestPyPI while its dependencies stay
-on real PyPI — and runs its tests. All examples must pass before the PyPI gate is offered.
+like any downstream user (see `examples/README.md` for the contract). They gate a release
+twice, via the two modes of `scripts/run_examples.py`:
+
+1. **On the release PR** (required "Examples" check, wheel mode): every example runs
+   against a wheel built from the cut itself. A breaking change whose examples weren't
+   updated fails *here* — before the merge, so closing the PR costs nothing and no
+   version is burned. Consequence: shipping a breaking release means updating the
+   examples on main first; until that release publishes, the updated examples'
+   standalone `uv run pytest` fails against released PyPI — a bounded, expected window
+   that Dependabot's post-release re-lock closes.
+2. **After the TestPyPI publish** (index mode): each example re-pins to the candidate
+   version via an *explicit* uv index — only pymediate resolves from TestPyPI while its
+   dependencies stay on real PyPI — validating the true publish-and-install path. All
+   examples must pass before the PyPI gate is offered.
 
 ## Enforcement inventory
 
@@ -116,7 +127,7 @@ on real PyPI — and runs its tests. All examples must pass before the PyPI gate
 | Ruleset | Target | Rules | Bypass |
 |---|---|---|---|
 | `main-guard` | `main` | PR required (1 approval, squash only), required checks (strict), CodeQL, no deletion/force-push | maintainer (lane 1) |
-| `stable-guard` | `stable` | PR required (merge commit only), required checks incl. Release Test Results, CodeQL, no deletion/force-push | **none** |
+| `stable-guard` | `stable` | PR required (merge commit only), required checks incl. Release Test Results + Examples, CodeQL, no deletion/force-push | **none** |
 | `branch-guard` | all other branches | no create/update/delete | maintainer, Dependabot, releaser App |
 | `tag-guard` | all tags | no create/update/delete | maintainer, releaser App |
 
