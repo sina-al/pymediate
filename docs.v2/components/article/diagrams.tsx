@@ -460,3 +460,354 @@ export function SeamDiagram() {
     </figure>
   );
 }
+
+/** Before/after: the import arrow between domain and machinery reverses direction. */
+export function ArrowFlipDiagram() {
+  return (
+    <figure className="not-prose my-8">
+      <div className="overflow-x-auto rounded-xl border border-fd-border bg-fd-card/40 p-4">
+        <svg
+          viewBox="0 0 760 214"
+          className="w-full min-w-140"
+          role="img"
+          aria-label="Before: the domain imports SQLAlchemy, so the center depends on the edge. After: the Postgres adapter imports the domain's OrderStore protocol, so the edge depends on the center"
+          style={mono}
+        >
+          <defs>
+            <linearGradient id="pm-flip-g" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#22d3ee" />
+              <stop offset="1" stopColor="#8b5cf6" />
+            </linearGradient>
+            <marker
+              id="pm-flip-arrow"
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0 0 L8 4 L0 8 z" fill="var(--color-fd-muted-foreground)" />
+            </marker>
+            <marker
+              id="pm-flip-arrow-accent"
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0 0 L8 4 L0 8 z" fill="#8b5cf6" />
+            </marker>
+          </defs>
+
+          {/* before */}
+          <g>
+            <rect
+              x="24"
+              y="66"
+              width="150"
+              height="38"
+              rx="10"
+              fill="var(--color-fd-card)"
+              stroke="var(--color-fd-border)"
+            />
+            <text x="99" y="89" textAnchor="middle" fontSize="11" fill="var(--color-fd-foreground)">
+              core/handlers.py
+            </text>
+            <line
+              x1="174"
+              y1="85"
+              x2="240"
+              y2="85"
+              stroke="var(--color-fd-muted-foreground)"
+              strokeWidth="1.2"
+              markerEnd="url(#pm-flip-arrow)"
+            />
+            <text
+              x="208"
+              y="74"
+              textAnchor="middle"
+              fontSize="9"
+              fill="var(--color-fd-muted-foreground)"
+            >
+              imports
+            </text>
+            <rect
+              x="244"
+              y="66"
+              width="112"
+              height="38"
+              rx="10"
+              fill="var(--color-fd-card)"
+              stroke="var(--color-fd-border)"
+            />
+            <text x="300" y="89" textAnchor="middle" fontSize="11" fill="var(--color-fd-foreground)">
+              sqlalchemy
+            </text>
+            <text x="190" y="160" textAnchor="middle" fontSize="11" fill="var(--color-fd-foreground)">
+              before
+            </text>
+            <text
+              x="190"
+              y="177"
+              textAnchor="middle"
+              fontSize="9.5"
+              fill="var(--color-fd-muted-foreground)"
+            >
+              the center depends on the edge
+            </text>
+          </g>
+
+          <line x1="380" y1="20" x2="380" y2="194" stroke="var(--color-fd-border)" strokeWidth="1" />
+
+          {/* after */}
+          <g>
+            <rect
+              x="404"
+              y="66"
+              width="120"
+              height="38"
+              rx="10"
+              fill="var(--color-fd-card)"
+              stroke="url(#pm-flip-g)"
+              strokeWidth="1.2"
+            />
+            <text x="464" y="83" textAnchor="middle" fontSize="10.5" fill="var(--color-fd-foreground)">
+              core
+            </text>
+            <text
+              x="464"
+              y="97"
+              textAnchor="middle"
+              fontSize="8.5"
+              fill="var(--color-fd-muted-foreground)"
+            >
+              OrderStore (port)
+            </text>
+            <line
+              x1="612"
+              y1="85"
+              x2="530"
+              y2="85"
+              stroke="var(--color-pm-violet)"
+              strokeWidth="1.4"
+              markerEnd="url(#pm-flip-arrow-accent)"
+            />
+            <text
+              x="571"
+              y="74"
+              textAnchor="middle"
+              fontSize="9"
+              fill="var(--color-fd-muted-foreground)"
+            >
+              imports
+            </text>
+            <rect
+              x="616"
+              y="66"
+              width="128"
+              height="38"
+              rx="10"
+              fill="var(--color-fd-card)"
+              stroke="var(--color-fd-border)"
+            />
+            <text x="680" y="83" textAnchor="middle" fontSize="10.5" fill="var(--color-fd-foreground)">
+              adapters/postgres
+            </text>
+            <text
+              x="680"
+              y="97"
+              textAnchor="middle"
+              fontSize="8.5"
+              fill="var(--color-fd-muted-foreground)"
+            >
+              imports sqlalchemy too
+            </text>
+            <text x="574" y="160" textAnchor="middle" fontSize="11" fill="var(--color-fd-foreground)">
+              after
+            </text>
+            <text
+              x="574"
+              y="177"
+              textAnchor="middle"
+              fontSize="9.5"
+              fill="var(--color-fd-muted-foreground)"
+            >
+              the edge depends on the center
+            </text>
+          </g>
+        </svg>
+      </div>
+      <figcaption className="mt-3 text-center text-sm text-fd-muted-foreground">
+        Same imports, opposite direction: the adapter imports the domain&apos;s protocol, and the
+        domain imports nothing but Python.
+      </figcaption>
+    </figure>
+  );
+}
+
+/** The rings: core at the center, adapters around it, doorways at the rim. */
+export function RingsDiagram() {
+  const pill = (cx: number, cy: number, w: number, label: string) => (
+    <g key={label}>
+      <rect
+        x={cx - w / 2}
+        y={cy - 13}
+        width={w}
+        height="26"
+        rx="13"
+        fill="var(--color-fd-card)"
+        stroke="var(--color-fd-border)"
+      />
+      <text x={cx} y={cy + 4} textAnchor="middle" fontSize="10.5" fill="var(--color-fd-foreground)">
+        {label}
+      </text>
+    </g>
+  );
+  return (
+    <figure className="not-prose my-8">
+      <div className="overflow-x-auto rounded-xl border border-fd-border bg-fd-card/40 p-4">
+        <svg
+          viewBox="0 0 760 336"
+          className="w-full min-w-140"
+          role="img"
+          aria-label="Three concentric rings: the core (requests, handlers, ports) at the center, adapters like postgres, s3 and smtp on the middle ring, doorways like flask, worker and cli on the outer ring, with the composition root at the rim; dependency arrows point inward"
+          style={mono}
+        >
+          <defs>
+            <linearGradient id="pm-rings-g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#22d3ee" />
+              <stop offset="1" stopColor="#8b5cf6" />
+            </linearGradient>
+            <marker
+              id="pm-rings-arrow"
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M0 0 L8 4 L0 8 z" fill="var(--color-pm-violet)" />
+            </marker>
+          </defs>
+
+          <circle
+            cx="380"
+            cy="162"
+            r="148"
+            fill="none"
+            stroke="var(--color-fd-border)"
+            strokeWidth="1"
+          />
+          <circle
+            cx="380"
+            cy="162"
+            r="104"
+            fill="none"
+            stroke="var(--color-fd-border)"
+            strokeWidth="1"
+          />
+          <circle
+            cx="380"
+            cy="162"
+            r="56"
+            fill="var(--color-fd-card)"
+            stroke="url(#pm-rings-g)"
+            strokeWidth="1.4"
+          />
+          <text x="380" y="158" textAnchor="middle" fontSize="12" fill="var(--color-fd-foreground)">
+            core
+          </text>
+          <text
+            x="380"
+            y="174"
+            textAnchor="middle"
+            fontSize="8.5"
+            fill="var(--color-fd-muted-foreground)"
+          >
+            requests · handlers · ports
+          </text>
+
+          {/* ring names */}
+          <text
+            x="380"
+            y="80"
+            textAnchor="middle"
+            fontSize="9.5"
+            fill="var(--color-fd-muted-foreground)"
+          >
+            adapters
+          </text>
+          <text
+            x="380"
+            y="34"
+            textAnchor="middle"
+            fontSize="9.5"
+            fill="var(--color-fd-muted-foreground)"
+          >
+            doorways
+          </text>
+
+          {/* adapter pills */}
+          {pill(272, 162, 84, 'postgres')}
+          {pill(488, 162, 60, 'smtp')}
+          {pill(320, 252, 52, 's3')}
+
+          {/* doorway pills */}
+          {pill(246, 82, 60, 'flask')}
+          {pill(516, 82, 68, 'worker')}
+          {pill(452, 278, 50, 'cli')}
+
+          {/* inward dependency arrows */}
+          <line
+            x1="180"
+            y1="120"
+            x2="228"
+            y2="138"
+            stroke="var(--color-pm-violet)"
+            strokeWidth="1.3"
+            markerEnd="url(#pm-rings-arrow)"
+            opacity="0.85"
+          />
+          <text x="128" y="108" textAnchor="middle" fontSize="9.5" fill="var(--color-fd-muted-foreground)">
+            dependencies
+          </text>
+          <text x="128" y="121" textAnchor="middle" fontSize="9.5" fill="var(--color-fd-muted-foreground)">
+            point inward
+          </text>
+
+          {/* composition root */}
+          <rect
+            x="576"
+            y="286"
+            width="170"
+            height="30"
+            rx="10"
+            fill="var(--color-fd-card)"
+            stroke="var(--color-fd-border)"
+            strokeDasharray="4 4"
+          />
+          <text x="661" y="305" textAnchor="middle" fontSize="9.5" fill="var(--color-fd-foreground)">
+            main.py · composition root
+          </text>
+          <line
+            x1="576"
+            y1="296"
+            x2="500"
+            y2="262"
+            stroke="var(--color-fd-border)"
+            strokeWidth="1"
+            strokeDasharray="4 4"
+          />
+        </svg>
+      </div>
+      <figcaption className="mt-3 text-center text-sm text-fd-muted-foreground">
+        The core states its needs and imports nothing but Python; adapters and doorways depend
+        inward. The composition root is the one file where the rings are allowed to touch.
+      </figcaption>
+    </figure>
+  );
+}
