@@ -109,11 +109,13 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         # --unreleased = commits since the last tag; --tag labels them as the proposed
-        # release. Same commit-type and src/pymediate/** path filtering as the release
-        # notes (cliff.toml + release:notes task).
+        # release. Same commit-type and src/pymediate/** path filtering as the release notes
+        # (cliff.toml + release:notes task). --strip all drops both the header and the footer:
+        # the footer's compare link targets vX.Y.Z, which isn't tagged until this PR merges, so
+        # it would 404 in the PR body (the GitHub Release notes keep it — the tag exists there).
         run: |
           uvx git-cliff --unreleased --tag "v${VERSION}" \
-            --include-path 'src/pymediate/**' --strip header -o changelog.md
+            --include-path 'src/pymediate/**' --strip all -o changelog.md
           cat changelog.md
 
       - name: Close superseded release PRs

@@ -102,6 +102,24 @@ builds get dev versions (`0.2.0.dev3+g1a2b3c4`); `__version__` reads installed p
 metadata. There are no version strings, bump commits, or committed CHANGELOG.md — the
 changelog is rendered by git-cliff into the release PR body and the GitHub Release notes.
 
+### Release notes
+
+The **GitHub Release for each tag is the canonical, browsable changelog** — there is no
+committed `CHANGELOG.md` and, deliberately, no changelog page on the docs site (that would
+be a second source to keep in sync for no gain). git-cliff (`cliff.toml`) renders the notes
+from Conventional Commits, filtered to consumer-relevant changes: only user-facing commit
+types (`feat`/`fix`/`perf`/`refactor`/`docs`/`revert`) whose diff touches `src/pymediate/**`.
+The template groups by type, **hoists breaking changes into a `⚠️ Breaking Changes` section
+at the top** (under ZeroVer a breaking change is the entire signal of a minor bump), linkifies
+the `(#N)` PR reference every squash merge carries, and ends with a **`Full Changelog`
+compare link** to the previous tag. The same template feeds the release PR body (`--strip all`
+there drops the compare footer, since the tag doesn't exist until merge).
+
+One sharp edge, learned from v0.1.5's empty `[Unreleased]` notes: the `--include-path`
+glob **must be quoted** everywhere it appears (`tasks.toml`, `prepare-release.yml`) — an
+unquoted cmd-glob is expanded by poe/the shell into absolute paths that match no commit,
+silently emptying the changelog rather than failing.
+
 ### Examples as release verification
 
 Every `examples/<name>/` is a standalone uv project that depends on pymediate from PyPI
