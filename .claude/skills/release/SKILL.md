@@ -67,7 +67,9 @@ PyPI → GitHub Release (created last)
    - The changelog section in the PR body is complete and correctly categorized.
    - The diff (everything since the last release) contains nothing the user doesn't want
      to ship — this is the only review that lane-1 direct pushes ever get.
-   - All checks green, including "Release Test Results".
+   - All checks green, including "Release Test Results" and "Examples" (every
+     examples/ project against a wheel built from the cut — if this is red on a
+     breaking release, the examples on main need updating first; close, fix, re-dispatch).
 
 3. **Merge with a merge commit** (required; squash is blocked on stable):
    ```bash
