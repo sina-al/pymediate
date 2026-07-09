@@ -81,5 +81,8 @@ Quoted on the comparison page; replace only with numbers from a fresh local run 
 
 Methodology and its rationale live in `scripts/benchmark.py`'s docstring. The script is
 PEP 723 (`uv run https://pymediate.sina-al.uk/benchmark.py`), copied to the site root by
-`docs.v2`'s build script; `pymediate` stays deliberately unpinned there (zero runtime
-deps make the resolution a single wheel, and the run header prints the exact version).
+`docs.v2`'s build script; `pymediate` stays deliberately unpinned there (each run measures
+the latest release, and the run header prints the exact version). Its other deps (rich,
+typer) are output/CLI-only and never touch the timed loops. Quotable runs use the full
+defaults with `--format markdown`; `--only`, `--behaviors`, and `--format json` exist for
+exploration, not for the published table.

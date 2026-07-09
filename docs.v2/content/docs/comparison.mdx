@@ -40,7 +40,7 @@ The following results come from a 2020 Intel MacBook Pro running Python 3.13.0 (
 
 In practice, routing through the mediator costs about 1.5 microseconds over calling the handler yourself, and a pipeline behavior adds a few microseconds more. For scale, a single indexed database query costs hundreds of microseconds and a network round trip costs milliseconds — if your handler does any real work, dispatch overhead disappears into the noise. If you dispatch millions of trivial in-memory operations per second on a hot path, a mediator — any mediator — is the wrong tool, and you should skip this library too.
 
-Absolute numbers vary by machine. Treat the table as orders of magnitude, and rerun it yourself. The benchmark is a self-contained [uv script](https://docs.astral.sh/uv/guides/scripts/) served by this site — it resolves the latest PyMediate release (its only dependency; PyMediate itself has none) and prints the exact version it measured.
+Absolute numbers vary by machine. Treat the table as orders of magnitude, and rerun it yourself. The benchmark is a self-contained [uv script](https://docs.astral.sh/uv/guides/scripts/) served by this site — it resolves the latest PyMediate release, shows live progress while it measures, and prints the exact version it measured. Pass `--help` for the knobs: calls per sample, sync-only or async-only runs, pipeline depth, and markdown or JSON output.
 
 <Callout type="warn" title="Read scripts before you run them">
   This applies to any script fetched from a URL, this one included. The source is short and
