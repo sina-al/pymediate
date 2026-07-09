@@ -34,7 +34,7 @@
   // Exclude deliberate mypy error snippets (see CLAUDE.md) plus generated/cache dirs from
   // Pylance's own analysis, so nothing inadvertently gets indexed or squiggled.
   "python.analysis.exclude": [
-    "tests/mypy/snippets/errors/**",
+    "tests/typing/snippets/errors/**",
     "**/__pycache__",
     "**/.venv",
     "**/.mypy_cache",
@@ -47,7 +47,7 @@
 
   // The ms-python.mypy-type-checker extension runs mypy separately from Pylance and needs its
   // own exclude setting for the deliberately type-invalid snippets (see CLAUDE.md).
-  "mypy-type-checker.ignorePatterns": ["tests/mypy/snippets/errors/**"],
+  "mypy-type-checker.ignorePatterns": ["tests/typing/snippets/errors/**"],
 
   // File associations
   "files.associations": {

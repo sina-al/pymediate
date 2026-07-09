@@ -139,9 +139,13 @@ class HandlerAlreadyRegisteredError(PyMediateError):
 ### `pymediate.providers.dependency_injector`
 
 ```python
+class ContainerLike(Protocol):
+    """Structural type for dependency-injector containers."""
+    ...
+
 class DependencyInjectorServiceProvider:
     """ServiceProvider backed by a dependency-injector container."""
-    def __init__(self, container: containers.Container) -> None:
+    def __init__(self, container: ContainerLike) -> None:
         """Scan a dependency-injector container and cache its providers by type."""
         ...
     def get(self, service_type: type[Any]) -> Any:
