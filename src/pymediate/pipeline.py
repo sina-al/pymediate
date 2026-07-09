@@ -16,10 +16,9 @@ behavior can execute logic before and after the next behavior (or final handler)
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
-from typing import Any, ClassVar, cast, get_args, get_origin
+from collections.abc import Callable
+from typing import Any, ClassVar, get_args, get_origin
 
-from .handler import Handler
 from .request import Request
 
 
@@ -109,7 +108,8 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         For async behaviors, use `pymediate.aio.pipeline.PipelineBehavior` instead.
 
     See Also:
-        - Pipeline: Chains multiple behaviors together
+        - pymediate.Mediator.send: Discovers applicable behaviors and runs them
+          around the handler.
         - should_apply: Override to customize behavior selection logic
         - pymediate.aio.pipeline.PipelineBehavior: Async version
     """
@@ -175,18 +175,6 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
             return isinstance(request, match_type)
         return type(request) is match_type
 
-    @classmethod
-    def __get_request_type__(cls) -> type:
-        """Return RequestT from PipelineBehavior[RequestT].
-
-        The type parameter is resolved once, when the subclass is defined.
-
-        Returns:
-            The request type this behavior is parameterized with,
-            or Request if no type parameter specified.
-        """
-        return cls.__request_type__  # type: ignore[no-any-return]
-
     @abstractmethod
     def __call__(
         self,
@@ -213,132 +201,6 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         ...
 
 
-class Pipeline[RequestT, ResponseT]:
-    """Chains multiple pipeline behaviors together to form a request processing pipeline.
-
-    The Pipeline class combines multiple behaviors and a handler into a single callable
-    that processes requests through the behavior chain before reaching the final handler.
-
-    Behaviors are executed in the order provided, with each behavior wrapping the next
-    one, ultimately wrapping the final handler.
-
-    Type Parameters:
-        RequestT: The request type (must extend Request)
-        ResponseT: The response type returned by the handler
-
-    Examples:
-        Basic pipeline with logging and timing:
-            ```python
-            from pymediate import Handler, Request
-            from pymediate.pipeline import Pipeline
-
-            class UserCreatedResponse:
-                def __init__(self, user_id: int):
-                    self.user_id = user_id
-
-            class CreateUserRequest(Request[UserCreatedResponse]):
-                def __init__(self, username: str):
-                    self.username = username
-
-            class CreateUserHandler(Handler[CreateUserRequest]):
-                def __call__(self, request: CreateUserRequest) -> UserCreatedResponse:
-                    return UserCreatedResponse(user_id=1)
-
-            class LoggingBehavior:
-                def __call__(self, request, next):
-                    print(f"Handling: {type(request).__name__}")
-                    response = next()
-                    print(f"Handled: {type(request).__name__}")
-                    return response
-
-            handler = CreateUserHandler()
-            pipeline = Pipeline([LoggingBehavior()], handler)
-
-            response = pipeline(CreateUserRequest(username="alice"))
-            # Output:
-            # Handling: CreateUserRequest
-            # Handled: CreateUserRequest
-            ```
-
-        Pipeline without behaviors (equivalent to calling the handler directly):
-            ```python
-            pipeline = Pipeline([], handler)
-            response = pipeline(request)
-            ```
-
-    Note:
-        The behaviors list is evaluated left-to-right, so the first behavior
-        in the list is the outermost wrapper (executes first).
-
-        For async pipelines, use `pymediate.aio.pipeline.Pipeline` instead.
-
-    See Also:
-        - PipelineBehavior: Protocol for individual behaviors
-        - pymediate.aio.pipeline.Pipeline: Async version
-    """
-
-    def __init__(
-        self,
-        behaviors: Sequence[Any],
-        handler: Handler[RequestT],
-    ) -> None:
-        """Initialize a pipeline with behaviors and a handler.
-
-        Args:
-            behaviors: Sequence of behaviors to execute in order (can be empty)
-            handler: The final handler that processes the request
-
-        Note:
-            Behaviors are executed in the order provided in the sequence.
-            The first behavior in the sequence is the outermost wrapper.
-            The chain is composed here, once - mutating the sequence after
-            constructing the pipeline has no effect on it.
-        """
-        self._behaviors = behaviors
-        self._handler = handler
-
-        # Compose the chain inside out: the handler is the innermost step, and
-        # each behavior wraps the chain built so far.
-        chain: Callable[[RequestT], Any] = handler
-        for behavior in reversed(behaviors):
-            chain = _wrap(behavior, chain)
-        self._chain: Callable[[RequestT], Any] = chain
-
-    def __call__(self, request: RequestT) -> ResponseT:
-        """Process a request through the pipeline.
-
-        Executes each behavior in order, with each behavior wrapping the next,
-        ultimately calling the handler to produce the response.
-
-        Args:
-            request: The request to process
-
-        Returns:
-            The response from the handler, potentially modified by behaviors
-
-        Examples:
-            ```python
-            pipeline = Pipeline([logging, timing], handler)
-            response = pipeline(CreateUserRequest(username="alice"))
-            ```
-
-        Note:
-            If no behaviors are provided, this directly calls the handler.
-            Behaviors execute in the order they were provided to the constructor.
-        """
-        return cast(ResponseT, self._chain(request))
-
-
-def _wrap[RequestT](
-    behavior: Any, next_step: Callable[[RequestT], Any]
-) -> Callable[[RequestT], Any]:
-    def step(request: RequestT) -> Any:
-        return behavior(request, lambda: next_step(request))
-
-    return step
-
-
 __all__ = [
     "PipelineBehavior",
-    "Pipeline",
 ]

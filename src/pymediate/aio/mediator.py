@@ -1,8 +1,9 @@
 """Asynchronous mediator implementation for routing requests to handlers."""
 
 from .._internal.mediator import MediatorMixin
+from .._internal.pipeline import compose_async
 from ..request import Request
-from .pipeline import Pipeline, PipelineBehavior
+from .pipeline import PipelineBehavior
 
 
 class Mediator(MediatorMixin):
@@ -132,13 +133,14 @@ class Mediator(MediatorMixin):
 
         See Also:
             - PipelineBehavior: Base class for behaviors auto-discovered by send().
-            - Pipeline: Compose behaviors and a handler manually, without a mediator.
+              To run one without a mediator, call it directly:
+              `await behavior(request, lambda: handler(request))`.
             - pymediate.Mediator: Sync mediator variant.
         """
         handler = self._resolve_handler(request)
         behaviors = self._resolve_behaviors(request, PipelineBehavior)
 
-        # Fast path: no applicable behaviors means no pipeline construction at all.
+        # Fast path: no applicable behaviors means no chain construction at all.
         if not behaviors:
             return await handler(request)  # type: ignore[no-any-return]
-        return await Pipeline(behaviors, handler)(request)
+        return await compose_async(behaviors, handler)(request)  # type: ignore[no-any-return]

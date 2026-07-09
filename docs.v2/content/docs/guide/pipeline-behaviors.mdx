@@ -268,24 +268,19 @@ class Container(containers.DeclarativeContainer):
 mediator = Mediator(DependencyInjectorServiceProvider(Container()))
 ```
 
-## Manual pipeline construction
+## Running a behavior without a mediator
 
-For fine-grained control — testing behavior combinations, one-off workflows — build a `Pipeline` directly instead of going through the mediator:
+A behavior is just a callable taking the request and a zero-argument `next`. To exercise one in isolation — in a unit test, say — call it directly:
 
 ```python
-from pymediate.pipeline import Pipeline
+behavior = LoggingBehavior(logger)
+handler = GetUserHandler(database)
+request = GetUserRequest(user_id=123)
 
-pipeline = Pipeline(
-    behaviors=[
-        LoggingBehavior(logger),   # outermost
-        ValidationBehavior(),
-        TimingBehavior(metrics),   # innermost
-    ],
-    handler=GetUserHandler(database),
-)
-
-response = pipeline(GetUserRequest(user_id=123))
+response = behavior(request, lambda: handler(request))
 ```
+
+For anything beyond a one-off, register the behaviors and let the mediator chain them — ordering, selection via `should_apply`, and provider lifetimes all come from registration.
 
 ## Best practices
 
@@ -297,5 +292,5 @@ response = pipeline(GetUserRequest(user_id=123))
 ## Next steps
 
 - [Pipeline behavior examples](/docs/examples/pipeline-behaviors) — complete runnable recipes
-- [Pipeline API reference](/docs/api/pipeline) — `PipelineBehavior` and `Pipeline` signatures
+- [Pipeline API reference](/docs/api/pipeline) — `PipelineBehavior` signatures
 - [The mediator](/docs/guide/mediator) — how behaviors integrate with dispatch

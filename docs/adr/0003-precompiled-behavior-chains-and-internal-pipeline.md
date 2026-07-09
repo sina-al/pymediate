@@ -1,9 +1,9 @@
 # ADR 0003: Precompiled behavior chains and an internal pipeline
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-07-09
 **Author:** Claude
-**Reviewers:** @sina-al
+**Reviewers:** @sina-al (accepted 2026-07-09)
 
 ## Context
 

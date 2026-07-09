@@ -1,9 +1,9 @@
 ---
 title: Pipeline
-description: API reference for PipelineBehavior and Pipeline, sync and async.
+description: API reference for PipelineBehavior, sync and async.
 ---
 
-Pipeline behaviors wrap request processing with middleware-style logic; a `Pipeline` chains behaviors around a handler. Both exist in sync (`pymediate` / `pymediate.pipeline`) and async (`pymediate.aio`) variants.
+Pipeline behaviors wrap request processing with middleware-style logic. The mediator discovers registered behaviors at dispatch and chains them around the handler for you. Sync (`pymediate`) and async (`pymediate.aio`) variants exist.
 
 ## PipelineBehavior
 
@@ -67,51 +67,43 @@ class BusinessHoursBehavior(PipelineBehavior[Request]):
         return 9 <= datetime.now().hour < 17
 ```
 
-## Pipeline
+## Running a behavior without a mediator
+
+There is no public pipeline class — the chain the mediator builds is internal. To exercise a behavior in isolation (in a unit test, say), call it directly; `next` is just a zero-argument callable:
 
 <Tabs items={['Sync', 'Async']}>
   <Tab value="Sync">
     ```python
-    from pymediate.pipeline import Pipeline
+    behavior = LoggingBehavior(logger)
+    handler = GetUserHandler(database)
+    request = GetUserRequest(user_id=123)
 
-    class Pipeline[RequestT, ResponseT]:
-        def __init__(self, behaviors: Sequence[Any], handler: Handler[RequestT]) -> None:
-            """Initialize a pipeline with behaviors and a handler."""
-
-        def __call__(self, request: RequestT) -> ResponseT:
-            """Process a request through the pipeline."""
+    response = behavior(request, lambda: handler(request))
     ```
   </Tab>
   <Tab value="Async">
     ```python
-    from pymediate.aio.pipeline import Pipeline
+    behavior = LoggingBehavior(logger)
+    handler = GetUserHandler(database)
+    request = GetUserRequest(user_id=123)
 
-    class Pipeline[RequestT, ResponseT]:
-        def __init__(self, behaviors: Sequence[Any], handler: Handler[RequestT]) -> None: ...
-
-        async def __call__(self, request: RequestT) -> ResponseT: ...
+    response = await behavior(request, lambda: handler(request))
     ```
   </Tab>
 </Tabs>
 
-Combines behaviors and a handler into one callable. Behaviors execute in the order given — first is outermost:
+For anything beyond a one-off, register the behaviors and let the mediator run them — ordering, selection via `should_apply`, and provider lifetimes all come from registration:
 
 ```python
-from pymediate.pipeline import Pipeline
+services = Services()
+services.add(LoggingBehavior(logger))     # first registered = outermost
+services.add(ValidationBehavior())
+services.add(TimingBehavior(metrics))     # last registered = innermost
+services.add(GetUserHandler(database))
 
-pipeline = Pipeline(
-    behaviors=[
-        LoggingBehavior(logger),    # outermost
-        ValidationBehavior(),
-        TimingBehavior(metrics),    # innermost
-    ],
-    handler=GetUserHandler(database),
-)
-
-response = pipeline(GetUserRequest(user_id=123))
+mediator = Mediator(services.provider())
+response = mediator.send(GetUserRequest(user_id=123))
 ```
-
-You rarely construct a `Pipeline` yourself — the mediator builds one per request from registered behaviors automatically. Manual construction is useful for testing behavior combinations and one-off workflows. See [pipeline behaviors guide](/docs/guide/pipeline-behaviors#manual-pipeline-construction).
 
 ## See also
 

@@ -6,7 +6,8 @@ from typing import Any
 import pytest
 
 from pymediate import Handler, Request
-from pymediate.pipeline import Pipeline, PipelineBehavior
+from pymediate._internal.pipeline import compose
+from pymediate.pipeline import PipelineBehavior
 
 
 # Fixtures: Request and Response types
@@ -129,7 +130,7 @@ class ExceptionBehavior(PipelineBehavior[SampleRequest]):
 def test_pipeline_with_no_behaviors() -> None:
     """Test that pipeline with no behaviors just calls the handler."""
     handler = SampleHandler()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([], handler)
+    pipeline = compose([], handler)
 
     request = SampleRequest(value=5)
     response = pipeline(request)
@@ -142,7 +143,7 @@ def test_pipeline_with_single_behavior() -> None:
     log: list[str] = []
     handler = SampleHandler()
     behavior = LoggingBehavior(log)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([behavior], handler)
+    pipeline = compose([behavior], handler)
 
     request = SampleRequest(value=3)
     response = pipeline(request)
@@ -159,7 +160,7 @@ def test_pipeline_with_multiple_behaviors() -> None:
     timing = TimingBehavior(log)
 
     # Order: logging first, then timing
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([logging, timing], handler)
+    pipeline = compose([logging, timing], handler)
 
     request = SampleRequest(value=4)
     response = pipeline(request)
@@ -208,7 +209,7 @@ def test_pipeline_behavior_execution_order() -> None:
             log.append("third_after")
             return response
 
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
+    pipeline = compose(
         [FirstBehavior(), SecondBehavior(), ThirdBehavior()],
         handler,
     )
@@ -232,7 +233,7 @@ def test_pipeline_behavior_can_modify_response() -> None:
     """Test that behaviors can modify the response."""
     handler = SampleHandler()
     multiplier = ModifyingBehavior(3)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([multiplier], handler)
+    pipeline = compose([multiplier], handler)
 
     request = SampleRequest(value=5)
     response = pipeline(request)
@@ -248,9 +249,7 @@ def test_pipeline_multiple_modifying_behaviors() -> None:
     multiply_by_3 = ModifyingBehavior(3)
 
     # Order: multiply_by_2 first, then multiply_by_3
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
-        [multiply_by_2, multiply_by_3], handler
-    )
+    pipeline = compose([multiply_by_2, multiply_by_3], handler)
 
     request = SampleRequest(value=5)
     response = pipeline(request)
@@ -265,7 +264,7 @@ def test_pipeline_behavior_can_short_circuit() -> None:
     """Test that behavior can short-circuit the pipeline by not calling next."""
     handler = SampleHandler()
     short_circuit = ShortCircuitBehavior(should_short_circuit=True)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([short_circuit], handler)
+    pipeline = compose([short_circuit], handler)
 
     request = SampleRequest(value=5)
     response = pipeline(request)
@@ -280,13 +279,13 @@ def test_pipeline_short_circuit_only_when_needed() -> None:
 
     # First test: no short-circuit
     no_short_circuit = ShortCircuitBehavior(should_short_circuit=False)
-    pipeline1: Pipeline[SampleRequest, SampleResponse] = Pipeline([no_short_circuit], handler)
+    pipeline1 = compose([no_short_circuit], handler)
     response1 = pipeline1(SampleRequest(value=5))
     assert response1.value == 10  # Normal handler execution
 
     # Second test: with short-circuit
     with_short_circuit = ShortCircuitBehavior(should_short_circuit=True)
-    pipeline2: Pipeline[SampleRequest, SampleResponse] = Pipeline([with_short_circuit], handler)
+    pipeline2 = compose([with_short_circuit], handler)
     response2 = pipeline2(SampleRequest(value=5))
     assert response2.value == -1  # Short-circuited
 
@@ -295,7 +294,7 @@ def test_pipeline_validation_behavior() -> None:
     """Test validation behavior that checks request before processing."""
     handler = SampleHandler()
     validation = ValidationBehavior()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([validation], handler)
+    pipeline = compose([validation], handler)
 
     # Valid request should work
     valid_request = SampleRequest(value=5)
@@ -316,9 +315,7 @@ def test_pipeline_exception_handling_behavior() -> None:
     exception_handler = ExceptionBehavior(log)
 
     # exception_handler wraps validation
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
-        [exception_handler, validation], handler
-    )
+    pipeline = compose([exception_handler, validation], handler)
 
     invalid_request = SampleRequest(value=-1)
     with pytest.raises(ValueError):
@@ -339,9 +336,7 @@ def test_pipeline_complex_scenario() -> None:
     multiplier = ModifyingBehavior(2)
 
     # Order: logging -> timing -> validation -> multiplier -> handler
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
-        [logging, timing, validation, multiplier], handler
-    )
+    pipeline = compose([logging, timing, validation, multiplier], handler)
 
     request = SampleRequest(value=3)
     response = pipeline(request)
@@ -371,7 +366,7 @@ def test_pipeline_with_stateful_behavior() -> None:
 
     handler = SampleHandler()
     counter = CountingBehavior()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([counter], handler)
+    pipeline = compose([counter], handler)
 
     # Call pipeline multiple times
     pipeline(SampleRequest(value=1))
@@ -384,7 +379,7 @@ def test_pipeline_with_stateful_behavior() -> None:
 def test_pipeline_type_safety() -> None:
     """Test that pipeline maintains type safety."""
     handler = SampleHandler()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([LoggingBehavior([])], handler)
+    pipeline = compose([LoggingBehavior([])], handler)
 
     request = SampleRequest(value=5)
     response = pipeline(request)
@@ -412,7 +407,7 @@ def test_pipeline_behavior_accessing_request() -> None:
     log: list[str] = []
     handler = SampleHandler()
     inspector = RequestInspectingBehavior(log)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([inspector], handler)
+    pipeline = compose([inspector], handler)
 
     pipeline(SampleRequest(value=42))
 
@@ -434,7 +429,7 @@ def test_pipeline_behavior_modifying_response_object() -> None:
 
     handler = SampleHandler()
     injector = ResponseLogInjector()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([injector], handler)
+    pipeline = compose([injector], handler)
 
     response = pipeline(SampleRequest(value=1))
 
@@ -444,7 +439,7 @@ def test_pipeline_behavior_modifying_response_object() -> None:
 def test_empty_behaviors_list() -> None:
     """Test that empty behaviors list works correctly."""
     handler = SampleHandler()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([], handler)
+    pipeline = compose([], handler)
 
     response = pipeline(SampleRequest(value=7))
     assert response.value == 14  # 7 * 2, just the handler
@@ -477,7 +472,7 @@ def test_pipeline_with_different_request_response_types() -> None:
 
     handler = StringHandler()
     behavior = UppercaseBehavior()
-    pipeline: Pipeline[StringRequest, StringResponse] = Pipeline([behavior], handler)
+    pipeline = compose([behavior], handler)
 
     response = pipeline(StringRequest(text="hello"))
     assert response.message == "HELLO!"
@@ -490,7 +485,7 @@ def test_should_apply_universal_behavior_via_bare_request() -> None:
         def __call__(self, request: Request[Any], next: Callable[[], Any]) -> Any:
             return next()
 
-    assert UniversalBehavior.__get_request_type__() is Request
+    assert UniversalBehavior.__request_type__ is Request
     assert UniversalBehavior.should_apply(SampleRequest(value=1)) is True
 
 
@@ -506,7 +501,7 @@ def test_get_request_type_fallback_when_not_parameterized() -> None:
         def __call__(self, request: Request[Any], next: Callable[[], Any]) -> Any:
             return next()
 
-    assert BareBehavior.__get_request_type__() is Request
+    assert BareBehavior.__request_type__ is Request
     assert BareBehavior.should_apply(SampleRequest(value=1)) is True
 
 
