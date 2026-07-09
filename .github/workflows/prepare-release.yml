@@ -88,7 +88,11 @@ jobs:
         # after its TestPyPI publish — filenames there are immutable forever), so patch
         # forward past any existing tag until we find a free one.
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*')
+          # Not `git describe`: release tags land on stable's merge commits, which are
+          # never ancestors of main, so describe from this (main) checkout would be stuck
+          # at the last pre-two-branch tag forever (v0.2.0's PR changelog over-reported
+          # because of this). The highest version tag repo-wide is the real last release.
+          LAST_TAG=$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1)
           IFS=. read -r MAJOR MINOR PATCH <<< "${LAST_TAG#v}"
           if [ "$KIND" = "minor" ]; then
             MINOR=$((MINOR + 1)); PATCH=0
@@ -108,13 +112,17 @@ jobs:
       - name: Render changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        # --unreleased = commits since the last tag; --tag labels them as the proposed
-        # release. Same commit-type and src/pymediate/** path filtering as the release notes
-        # (cliff.toml + release:notes task). --strip all drops both the header and the footer:
-        # the footer's compare link targets vX.Y.Z, which isn't tagged until this PR merges, so
+          LAST_TAG: ${{ steps.version.outputs.last_tag }}
+        # The explicit `LAST_TAG..` range replaces --unreleased: cliff's "unreleased" means
+        # "since the last tag on this history", and release tags aren't on main's history
+        # (see the version step). The range works because the tagged merge commit contains
+        # main up to the cut. --tag labels the commits as the proposed release. Same
+        # commit-type and src/pymediate/** path filtering as the release notes (cliff.toml +
+        # release:notes task). --strip all drops both the header and the footer: the
+        # footer's compare link targets vX.Y.Z, which isn't tagged until this PR merges, so
         # it would 404 in the PR body (the GitHub Release notes keep it — the tag exists there).
         run: |
-          uvx git-cliff --unreleased --tag "v${VERSION}" \
+          uvx git-cliff "${LAST_TAG}.." --tag "v${VERSION}" \
             --include-path 'src/pymediate/**' --strip all -o changelog.md
           cat changelog.md
 
