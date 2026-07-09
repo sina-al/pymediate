@@ -1,7 +1,13 @@
 version: 2
 updates:
   - package-ecosystem: "uv"
-    directory: "/"
+    # "/" is the library itself; "/examples/*" keeps each example's committed uv.lock
+    # tracking the latest published pymediate (the examples contract pins loosely with
+    # >=, so only the lockfile moves — and a pymediate patch bump auto-merges via
+    # dependabot-automerge.yml).
+    directories:
+      - "/"
+      - "/examples/*"
     schedule:
       interval: "weekly"
     groups:
