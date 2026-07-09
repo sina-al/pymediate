@@ -5,6 +5,12 @@ description: A source-level comparison with the Python mediator ecosystem, and w
 
 Two questions come up whenever you evaluate a library like this: why not one of the alternatives, and what does the indirection cost? This page answers both with evidence you can check.
 
+## What decoupling usually costs
+
+Decoupling usually costs you your tools. The moment a request stops calling its handler directly, the link between them retreats somewhere the type checker can't follow — a string registry, a `bind()` call, a naming convention. `send()` starts returning `Any`. Your editor stops autocompleting the response. And a wiring mistake stops being a red squiggle in your editor and becomes a failed request in production.
+
+PyMediate's bet is that Python 3.12 made that trade unnecessary — the whole pattern now fits inside the type system. So type safety is the axis of this comparison: each row in the table below measures how much of your tooling survives the indirection.
+
 ## Where the data comes from
 
 In July 2026, we read the source of the six most popular mediator libraries in the Python ecosystem, ranked by GitHub stars and PyPI downloads — their dispatch code, their registries, and their type signatures. The findings are summarized in aggregate rather than by name — the goal is to describe common approaches, not to grade individual projects — but every row below comes from that survey.
