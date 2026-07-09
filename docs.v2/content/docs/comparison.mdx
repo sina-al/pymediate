@@ -28,17 +28,17 @@ Two of those rows favor the alternatives. If you need event publishing or stream
 
 Indirection is never free — a direct call is always faster than a dispatched one. The honest questions are how much, and whether it matters. The benchmark measures PyMediate against the direct call it replaces, never against other libraries, because overhead numbers across different feature sets aren't comparable — the goal is a number you can reproduce on your own hardware.
 
-The following results come from a 2020 Intel MacBook Pro running Python 3.13.0 (CPython) on macOS 15.7. Each value is the median of five samples of 100,000 calls, with a trivial handler so dispatch dominates.
+The following results come from PyMediate 0.2.0 on a 2020 Intel MacBook Pro running Python 3.13.0 (CPython) on macOS 15.7. Each value is the median of five samples of 100,000 calls, with a trivial handler so dispatch dominates.
 
 | Scenario | Median per call | Relative to direct call |
 | --- | ---: | ---: |
-| Sync: `handler(request)` — direct call | 0.34 µs | Baseline |
-| Sync: `mediator.send(request)` | 1.8 µs | 5.5x |
-| Sync: `send()` plus one pipeline behavior | 8.3 µs | 24.8x |
-| Async: `await handler(request)` — direct call | 0.42 µs | Baseline |
-| Async: `await mediator.send(request)` | 2.1 µs | 5.0x |
+| Sync: `handler(request)` — direct call | 0.65 µs | Baseline |
+| Sync: `mediator.send(request)` | 1.6 µs | 2.4x |
+| Sync: `send()` plus one pipeline behavior | 3.7 µs | 5.7x |
+| Async: `await handler(request)` — direct call | 0.88 µs | Baseline |
+| Async: `await mediator.send(request)` | 2.6 µs | 2.9x |
 
-In practice, routing through the mediator costs about 1.5 microseconds over calling the handler yourself, and a pipeline behavior adds a few microseconds more. For scale, a single indexed database query costs hundreds of microseconds and a network round trip costs milliseconds — if your handler does any real work, dispatch overhead disappears into the noise. If you dispatch millions of trivial in-memory operations per second on a hot path, a mediator — any mediator — is the wrong tool, and you should skip this library too.
+In practice, routing through the mediator costs about a microsecond over calling the handler yourself, and a pipeline behavior adds a couple of microseconds more. Dispatch cost is also independent of application size — it doesn't grow as you register more handlers. For scale, a single indexed database query costs hundreds of microseconds and a network round trip costs milliseconds — if your handler does any real work, dispatch overhead disappears into the noise. If you dispatch millions of trivial in-memory operations per second on a hot path, a mediator — any mediator — is the wrong tool, and you should skip this library too.
 
 Absolute numbers vary by machine. Treat the table as orders of magnitude, and rerun it yourself. The benchmark is a self-contained [uv script](https://docs.astral.sh/uv/guides/scripts/) served by this site — it resolves the latest PyMediate release, shows live progress while it measures, and prints the exact version it measured. Pass `--help` for the knobs: calls per sample, sync-only or async-only runs, pipeline depth, and markdown or JSON output.
 

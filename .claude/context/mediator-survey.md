@@ -68,21 +68,20 @@ docs row and the matching aggregate finding above must be updated.
 Quoted on the comparison page; replace only with numbers from a fresh local run of
 `uv run poe benchmark` (full defaults), never by editing figures in place.
 
-- **Last run:** 2026-07-09, pymediate 0.1.5 (dev checkout), Python 3.13.0 (CPython),
-  2020 Intel MacBook Pro, macOS 15.7. Medians of five samples of 100,000 calls.
-- **Pending refresh:** the dispatch-path optimizations of 2026-07-09 (ADR 0003 stage 1)
-  cut plain `send()` to ~2.3x and one behavior to ~5.4x on the same machine, and made
-  overhead independent of registered-service count. The table below describes the
-  released 0.1.5 that the network script measures — re-run and update it (and the
-  comparison page) after the next release ships these changes.
+- **Last run:** 2026-07-09, pymediate 0.2.0 (resolved from PyPI via
+  `uv run --no-project scripts/benchmark.py -f markdown`, full defaults), Python 3.13.0
+  (CPython), 2020 Intel MacBook Pro, macOS 15.7. Medians of five samples of 100,000
+  calls. This run reflects the ADR 0003 dispatch optimizations (released in 0.2.0),
+  which also made overhead independent of registered-service count — the page states
+  that explicitly now.
 
 | Scenario | Median per call | Relative to direct call |
 | --- | ---: | ---: |
-| Sync: direct call | 0.34 µs | Baseline |
-| Sync: `mediator.send()` | 1.8 µs | 5.5x |
-| Sync: `send()` plus one pipeline behavior | 8.3 µs | 24.8x |
-| Async: direct call | 0.42 µs | Baseline |
-| Async: `await mediator.send()` | 2.1 µs | 5.0x |
+| Sync: direct call | 0.65 µs | Baseline |
+| Sync: `mediator.send()` | 1.6 µs | 2.4x |
+| Sync: `send()` plus one pipeline behavior | 3.7 µs | 5.7x |
+| Async: direct call | 0.88 µs | Baseline |
+| Async: `await mediator.send()` | 2.6 µs | 2.9x |
 
 Methodology and its rationale live in `scripts/benchmark.py`'s docstring. The script is
 PEP 723 (`uv run https://pymediate.sina-al.uk/benchmark.py`), copied to the site root by
