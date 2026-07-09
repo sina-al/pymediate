@@ -22,7 +22,7 @@ PyMediate exists because Python 3.12 made that trade unnecessary. The whole patt
 - **Sync code isn't a second-class citizen.** `pymediate.aio` mirrors the sync API class for class — switch the import, add `await`, done. And if your codebase is synchronous, you get a real API, not an event loop smuggled in through the back door.
 - **It travels light.** The core is pure Python 3.12+ built on [PEP 695](https://peps.python.org/pep-0695/) generics, ships `py.typed`, and is checked under `mypy --strict`. Zero runtime dependencies — no required serialization library, no mandatory DI container. `dependency-injector` support is an optional extra.
 
-None of this is hand-waving. Before writing this page, we read the source of the most popular mediator libraries in the Python ecosystem — every point above is a gap we found there.
+None of this is hand-waving. Before writing this page, we read the source of the most popular mediator libraries in the Python ecosystem — every point above is a gap we found there. [How it compares](/docs/comparison) has the feature-by-feature table and a reproducible benchmark of what `send()` costs.
 
 ## The moving parts
 
