@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.10.0",
   "scripts": {
-    "build": "next build",
+    "build": "mkdir -p public && cp ../scripts/benchmark.py public/benchmark.py && next build",
     "dev": "next dev",
     "start": "serve out",
     "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",

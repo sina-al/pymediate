@@ -60,7 +60,9 @@
 
 Wondering how this stacks up against other Python mediator libraries — and what `send()` costs
 over a direct call? See [How it compares](https://pymediate.sina-al.uk/docs/comparison), a
-source-level survey of the ecosystem plus a reproducible micro-benchmark (`uv run poe benchmark`).
+source-level survey of the ecosystem plus a reproducible micro-benchmark you can run against
+the latest release with `uv run https://pymediate.sina-al.uk/benchmark.py` (read it first, as
+with any script from the network).
 
 ## Quick example
 

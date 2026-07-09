@@ -3,6 +3,8 @@
 
 # generated content
 .source
+# copied from ../scripts/benchmark.py by the build script; scripts/ is the source of truth
+/public/benchmark.py
 
 # test & build
 /coverage

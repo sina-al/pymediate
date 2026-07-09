@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pymediate"]
+# ///
+# pymediate is deliberately unpinned: it has zero runtime dependencies, so the
+# resolution is a single wheel — always the latest release — and the run header
+# prints the exact version it resolved to, keeping results attributable without
+# a pin that would need bumping every release.
 """Micro-benchmark: what does mediator.send() cost over calling the handler directly?
 
 Deliberately measures one thing — PyMediate's dispatch overhead against the direct
 call it replaces — and nothing else. It does not benchmark other libraries; overhead
-numbers against a competitor's different feature set aren't comparable, and the docs
-quote this script precisely because it is reproducible on any machine.
+numbers against a different feature set aren't comparable, and the docs quote this
+script precisely because it is reproducible on any machine.
 
 Methodology:
 - ``time.perf_counter_ns`` around a tight loop of ``--number`` calls per sample
@@ -17,15 +25,22 @@ Methodology:
   startup is excluded.
 
 Absolute numbers vary by machine and Python build; treat published results as
-orders of magnitude and rerun locally:
+orders of magnitude and rerun on your own hardware. From a repo checkout (runs
+against the local source):
 
     uv run poe benchmark
+
+Standalone, against the latest PyPI release (the docs site serves this file;
+read any script before running it from the network):
+
+    uv run https://pymediate.sina-al.uk/benchmark.py
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.metadata
 import platform
 import statistics
 import sys
@@ -155,6 +170,7 @@ def main() -> int:
         "async": statistics.median(scenarios[3][1]),
     }
 
+    print(f"pymediate {importlib.metadata.version('pymediate')}")
     print(f"Python {platform.python_version()} ({platform.python_implementation()})")
     print(f"Platform: {platform.platform()}")
     print(f"Samples: {args.repeat} x {args.number} calls (after {args.warmup} warmup calls)")
