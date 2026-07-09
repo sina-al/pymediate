@@ -70,6 +70,11 @@ Quoted on the comparison page; replace only with numbers from a fresh local run 
 
 - **Last run:** 2026-07-09, pymediate 0.1.5 (dev checkout), Python 3.13.0 (CPython),
   2020 Intel MacBook Pro, macOS 15.7. Medians of five samples of 100,000 calls.
+- **Pending refresh:** the dispatch-path optimizations of 2026-07-09 (ADR 0003 stage 1)
+  cut plain `send()` to ~2.3x and one behavior to ~5.4x on the same machine, and made
+  overhead independent of registered-service count. The table below describes the
+  released 0.1.5 that the network script measures — re-run and update it (and the
+  comparison page) after the next release ships these changes.
 
 | Scenario | Median per call | Relative to direct call |
 | --- | ---: | ---: |

@@ -10,7 +10,7 @@ See Also:
 
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any, get_args, get_origin
+from typing import Any, ClassVar, cast, get_args, get_origin
 
 from ..request import Request
 from .handler import Handler
@@ -122,6 +122,26 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
 
     apply_to_subclasses: bool = True
 
+    # Resolved once per subclass in __init_subclass__; the base class is universal.
+    __request_type__: ClassVar[Any] = Request
+    __match_type__: ClassVar[Any] = Request
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Resolve and cache the behavior's request type when a subclass is defined."""
+        super().__init_subclass__(**kwargs)
+        request_type: Any = Request
+        for base in getattr(cls, "__orig_bases__", []):
+            if get_origin(base) is PipelineBehavior:
+                args = get_args(base)
+                if args:
+                    request_type = args[0]
+                    break
+        cls.__request_type__ = request_type
+        # A subscripted generic like Request[Any] has no isinstance()/type() meaning of
+        # its own - match against its origin (Request) instead.
+        origin = get_origin(request_type)
+        cls.__match_type__ = origin if origin is not None else request_type
+
     @classmethod
     def should_apply(cls, request: Request[Any]) -> bool:
         """Determine if this behavior should apply to the given request.
@@ -153,34 +173,25 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                         return isinstance(request, (CreateRequest, UpdateRequest))
                 ```
         """
-        request_type = cls.__get_request_type__()
-        if request_type is Request:
+        match_type = cls.__match_type__
+        if match_type is Request:
             return True  # Universal behavior
 
-        # A subscripted generic like Request[Any] has no isinstance()/type() meaning of
-        # its own - match against its origin (Request) instead.
-        origin = get_origin(request_type)
-        if origin is not None:
-            request_type = origin
-
         if cls.apply_to_subclasses:
-            return isinstance(request, request_type)
-        return type(request) is request_type
+            return isinstance(request, match_type)
+        return type(request) is match_type
 
     @classmethod
     def __get_request_type__(cls) -> type:
-        """Extract RequestT from PipelineBehavior[RequestT].
+        """Return RequestT from PipelineBehavior[RequestT].
+
+        The type parameter is resolved once, when the subclass is defined.
 
         Returns:
             The request type this behavior is parameterized with,
             or Request if no type parameter specified.
         """
-        for base in getattr(cls, "__orig_bases__", []):
-            if get_origin(base) is PipelineBehavior:
-                args = get_args(base)
-                if args:
-                    return args[0]  # type: ignore[no-any-return]
-        return Request  # Fallback to universal  # type: ignore[return-value]
+        return cls.__request_type__  # type: ignore[no-any-return]
 
     @abstractmethod
     async def __call__(
@@ -301,9 +312,18 @@ class Pipeline[RequestT, ResponseT]:
         Note:
             Behaviors are executed in the order provided in the sequence.
             The first behavior in the sequence is the outermost wrapper.
+            The chain is composed here, once - mutating the sequence after
+            constructing the pipeline has no effect on it.
         """
         self._behaviors = behaviors
         self._handler = handler
+
+        # Compose the chain inside out: the handler is the innermost step, and
+        # each behavior wraps the chain built so far.
+        chain: Callable[[RequestT], Awaitable[Any]] = handler
+        for behavior in reversed(behaviors):
+            chain = _wrap(behavior, chain)
+        self._chain: Callable[[RequestT], Awaitable[Any]] = chain
 
     async def __call__(self, request: RequestT) -> ResponseT:
         """Process a request asynchronously through the pipeline.
@@ -327,34 +347,16 @@ class Pipeline[RequestT, ResponseT]:
             If no behaviors are provided, this directly awaits the handler.
             Behaviors execute in the order they were provided to the constructor.
         """
-        from typing import cast
+        return cast(ResponseT, await self._chain(request))
 
-        # Build the chain from the inside out (handler first, then behaviors)
-        # Start with the handler as the innermost callable
-        async def handler_call() -> ResponseT:
-            result = await self._handler(request)
-            return cast(ResponseT, result)
 
-        # Wrap with behaviors in reverse order so they execute in the correct order
-        next_call: Callable[[], Awaitable[ResponseT]] = handler_call
+def _wrap[RequestT](
+    behavior: Any, next_step: Callable[[RequestT], Awaitable[Any]]
+) -> Callable[[RequestT], Awaitable[Any]]:
+    async def step(request: RequestT) -> Any:
+        return await behavior(request, lambda: next_step(request))
 
-        for behavior in reversed(self._behaviors):
-            # Capture the current next_call in the closure
-            current_next = next_call
-
-            def create_behavior_call(
-                b: Any,
-                n: Callable[[], Awaitable[ResponseT]],
-            ) -> Callable[[], Awaitable[ResponseT]]:
-                async def behavior_call() -> ResponseT:
-                    return await b(request, n)  # type: ignore[no-any-return]
-
-                return behavior_call
-
-            next_call = create_behavior_call(behavior, current_next)
-
-        # Execute the outermost behavior (or handler if no behaviors)
-        return await next_call()
+    return step
 
 
 __all__ = [

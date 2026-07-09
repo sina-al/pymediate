@@ -1,6 +1,6 @@
 """Base mixin for mediator implementations (sync and async)."""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from .. import errors
@@ -96,33 +96,3 @@ class MediatorMixin:
 
         # Filter behaviors to only those that apply to this request
         return [behavior for behavior in all_behaviors if type(behavior).should_apply(request)]
-
-    def _get_dispatch(
-        self,
-        request: "Request[Any]",
-        handler: Any,
-        behaviors: list[Any],
-        pipeline_class: type,
-    ) -> Callable[[], Any]:
-        """Get a dispatch callable for executing the request through behaviors and handler.
-
-        This method creates a callable that, when invoked, will execute the request
-        through the pipeline of behaviors and the handler. The callable can be called
-        synchronously or asynchronously depending on the pipeline class.
-
-        Args:
-            request: The request instance to process
-            handler: The handler instance
-            behaviors: List of applicable behaviors
-            pipeline_class: The Pipeline class (sync or async variant)
-
-        Returns:
-            Callable that executes the pipeline
-        """
-        # Fast path: if no behaviors, return handler directly
-        if not behaviors:
-            return lambda: handler(request)
-
-        # Construct and return pipeline callable
-        pipeline: Any = pipeline_class(behaviors, handler)
-        return lambda: pipeline(request)

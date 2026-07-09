@@ -116,5 +116,7 @@ class Mediator(MediatorMixin):
         handler = self._resolve_handler(request)
         behaviors = self._resolve_behaviors(request, PipelineBehavior)
 
-        dispatch = self._get_dispatch(request, handler, behaviors, Pipeline)
-        return dispatch()  # type: ignore[no-any-return]
+        # Fast path: no applicable behaviors means no pipeline construction at all.
+        if not behaviors:
+            return handler(request)  # type: ignore[no-any-return]
+        return Pipeline(behaviors, handler)(request)
