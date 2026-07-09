@@ -10,25 +10,17 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 # response is UserCreated — inferred from the request type, checked by mypy
 ```
 
-If you've never met the mediator pattern before, that line probably raises more questions than it answers. Start with the problem it solves.
+That one line is most of the library. The rest of this page is what it's for and how the pieces fit.
 
 ## The problem
 
-In every application there's code that *wants* something done and code that *knows how* to do it. The usual way to connect the two is a direct call:
+In every application there's code that *wants* something done and code that *knows how* to do it. Connecting the two with a direct call is the right way to start — and as an application grows, it's also how call sites quietly accumulate knowledge they never needed: the concrete class, its constructor, its dependencies, its framework context. Knowledge is coupling, and coupling compounds. One day a simple request — *run this operation in a background job, add a CLI for that feature* — turns out to require a cascade of other changes first, and the codebase has become the kind nobody wants to touch.
 
-```python
-from users.service import UserService
-
-def signup(form):
-    service = UserService(db, mailer)
-    return service.create_user(form.username, form.email)
-```
-
-This is fine at first, and for small codebases it stays fine. As an application grows, the direct call quietly accumulates costs:
-
-- **Every caller knows the implementation.** The concrete class, its constructor, its dependencies, its module path — change any of them and every call site changes too.
-- **Cross-cutting concerns have nowhere to live.** Logging, validation, and transactions get copy-pasted into each service method, or stack up as decorators that each caller has to remember.
-- **The same operation gets wired up many ways.** `create_user` ends up called from a web view, a CLI command, and a background job, each constructing the service slightly differently — and each needing its own mocks in tests.
+<Card
+  title="Nobody wants to touch that code"
+  description="The full story — how a codebase becomes untouchable one reasonable commit at a time, and what it takes to put a seam in. A 20-minute essay."
+  href="/articles/nobody-wants-to-touch-that-code"
+/>
 
 ## The mediator pattern
 
