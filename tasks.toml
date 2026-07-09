@@ -87,6 +87,15 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 """
 "api:check".cmd = "uvx --from griffe==2.1.0 griffe check pymediate -s src"
 
+# ========== Benchmarks ==========
+
+benchmark.help = """
+Micro-benchmark mediator.send() overhead vs calling the handler directly \
+(usage: poe benchmark --number 100000 --repeat 5). Quoted in docs.v2's \
+comparison page; results are machine-dependent.\
+"""
+benchmark.cmd = "python3 scripts/benchmark.py"
+
 # ========== Security ==========
 
 security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"

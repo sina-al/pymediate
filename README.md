@@ -58,6 +58,10 @@
 - **DI ready.** Built-in `dependency-injector` integration.
 - **Well tested.** Comprehensive test suite.
 
+Wondering how this stacks up against other Python mediator libraries — and what `send()` costs
+over a direct call? See [How it compares](https://pymediate.sina-al.uk/docs/comparison), a
+source-level survey of the ecosystem plus a reproducible micro-benchmark (`uv run poe benchmark`).
+
 ## Quick example
 
 ```python
