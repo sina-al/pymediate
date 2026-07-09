@@ -18,8 +18,8 @@ export function InstallCmd({ className }: { className?: string }) {
       onClick={copy}
       aria-label="Copy install command"
       className={cn(
-        'group inline-flex items-center gap-3 rounded-full border border-fd-border',
-        'bg-fd-card/70 px-5 py-2.5 font-mono text-sm text-fd-foreground/90',
+        'group inline-flex items-center gap-3 rounded-full border border-transparent',
+        'bg-fd-card/50 px-5 py-2.5 font-mono text-sm text-fd-foreground/90',
         'backdrop-blur transition-colors hover:border-fd-primary/40 hover:bg-fd-card',
         className,
       )}

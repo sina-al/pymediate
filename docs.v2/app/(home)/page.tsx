@@ -160,10 +160,9 @@ export default function HomePage() {
             mistakes surface at import, not in production.
           </p>
           <div
-            className="pm-fade-up mt-8 flex flex-col items-center gap-4 sm:flex-row"
+            className="pm-fade-up mt-8 flex flex-col items-center gap-5"
             style={{ animationDelay: '180ms' }}
           >
-            <InstallCmd />
             <div className="flex items-center gap-3">
               <Link
                 href="/docs/getting-started/quick-start"
@@ -179,6 +178,7 @@ export default function HomePage() {
                 Documentation
               </Link>
             </div>
+            <InstallCmd />
           </div>
 
           <div className="pm-fade-up mt-16 w-full" style={{ animationDelay: '260ms' }}>
