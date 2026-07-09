@@ -35,8 +35,11 @@ if you change one, check whether the other needs the equivalent change.
   `README.md`); not part of the package, not built or published.
 - `.github/workflows/` — CI pipelines; see "GitHub Actions workflows" below.
 - `.claude/` — Claude Code config for this repo: `settings.json`, project-specific skills
-  (`adr`, `release`, `update-uv`), and `.claude/context/*.md` — generated files imported into
-  this CLAUDE.md (see "API Signatures" and "ADRs" below); regenerate, don't hand-edit.
+  (`adr`, `release`, `update-uv`, `compare`), and `.claude/context/*.md`:
+  `api-signatures.md` is generated and imported into this CLAUDE.md (see "API Signatures"
+  below) — regenerate, don't hand-edit; `mediator-survey.md` is the `/compare` skill's
+  anonymized competitor knowledge base backing `docs.v2`'s comparison page — updated by
+  that skill, and it must never contain library names or other identifying details.
 
 ## Dev workflow — use `poe`, not raw tool invocations
 
@@ -124,6 +127,12 @@ never add them to `mypy.ini` exclusions, never "correct" the type error. Only to
 if you're intentionally adding/removing a type-safety test case, and if so, extend the
 corresponding assertion in `test_mypy.py`.
 
+The harness runs mypy with `--config-file tests/mypy/mypy_snippets.ini`, deliberately bypassing
+the repo-root `mypy.ini` — its `[mypy-tests.*]` suppressions (`call-arg`, `arg-type`, ...) would
+otherwise apply to the snippets and mask exactly the errors they exist to catch (this happened;
+see #39). Don't remove that flag or point the snippets back at the root config. Type-checker
+parity work (basedpyright coverage, `--verifytypes` gate) is tracked in issue #39.
+
 ## ADRs
 
 Nontrivial design/API changes get a numbered ADR in `docs/adr/`, following the existing
@@ -135,6 +144,30 @@ breaking changes. Use the `/adr` skill to scaffold a new one.
 ADR 0002 revisits and overturns part of ADR 0001's decision (0001 rejected a single type
 parameter for `PipelineBehavior`; 0002 later adopted one for the narrower case of selective
 behaviors) — read both before assuming either alone reflects the current design.
+
+## Issue tracking & the project board
+
+Planning lives in GitHub Issues on `sina-al/pymediate`, mirrored onto the user-level
+GitHub Project board **#2 "pymediate"** (<https://github.com/users/sina-al/projects/2>).
+Requests like "file an issue", "add this to the roadmap", "track this", or "put it on the
+board" all mean this flow, even when GitHub Projects isn't named explicitly:
+
+1. `gh issue create` on the repo. Label `roadmap` for feature/process work (`bug`,
+   `documentation`, etc. where they fit better). Issue titles are plain descriptive
+   sentences — Conventional Commits applies to PR titles, not issues. Match the existing
+   style: in-depth body, phased `- [ ]` checklists, explicit acceptance criteria.
+2. Add it to the board: `gh project item-add 2 --owner sina-al --url <issue-url>`.
+3. Set Status to `Todo` (options: Todo / In Progress / Done; `item-add` leaves it empty).
+   A Priority field exists (Now / Next / Later) — leave it unset unless told otherwise.
+   Board plumbing: project ID `PVT_kwHOAafBSs4Bc38l`; look up field/option/item IDs with
+   `gh project field-list 2 --owner sina-al --format json` and
+   `gh project item-list 2 --owner sina-al --format json`, then use
+   `gh project item-edit` with `--project-id`/`--id`/`--field-id`/`--single-select-option-id`.
+
+For substantial roadmap issues, pitch the approach first, then interview the maintainer
+(AskUserQuestion) to lock the key decisions, and record them in a "Decisions" table in the
+issue body so the issue is executable without re-litigating — see #39 for the pattern.
+Same author/reviewer split as ADRs.
 
 ## Versioning
 

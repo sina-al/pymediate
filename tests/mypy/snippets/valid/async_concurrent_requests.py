@@ -41,8 +41,8 @@ class Handler2(Handler[Request2]):
 
 async def main() -> None:
     services = Services()
-    services.add(Request1, Handler1())
-    services.add(Request2, Handler2())
+    services.add(Handler1())
+    services.add(Handler2())
     provider = services.provider()
     mediator = Mediator(provider)
 

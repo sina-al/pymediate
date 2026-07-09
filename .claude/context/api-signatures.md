@@ -54,15 +54,6 @@ class PipelineBehavior(ABC):
     def __call__(self, request: RequestT, next: Callable[[], Any]) -> Any:
         """Execute the behavior's logic and call next to continue the pipeline."""
         ...
-
-class Pipeline:
-    """Chains multiple pipeline behaviors together to form a request processing pipeline."""
-    def __init__(self, behaviors: Sequence[Any], handler: Handler[RequestT]) -> None:
-        """Initialize a pipeline with behaviors and a handler."""
-        ...
-    def __call__(self, request: RequestT) -> ResponseT:
-        """Process a request through the pipeline."""
-        ...
 ```
 
 ### `pymediate.service`
@@ -206,14 +197,5 @@ class PipelineBehavior(ABC):
     @abstractmethod
     async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
         """Execute the behavior's async logic and await next to continue the pipeline."""
-        ...
-
-class Pipeline:
-    """Chains multiple async pipeline behaviors together to form a request processing pipeline."""
-    def __init__(self, behaviors: Sequence[Any], handler: Handler[RequestT]) -> None:
-        """Initialize an async pipeline with behaviors and a handler."""
-        ...
-    async def __call__(self, request: RequestT) -> ResponseT:
-        """Process a request asynchronously through the pipeline."""
         ...
 ```

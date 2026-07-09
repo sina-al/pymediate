@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
-"""Run every example's tests against a specific pymediate release.
+"""Run every example's tests against a specific pymediate build.
 
-The release pipeline's examples stage (release.yml) calls this after publishing a release
-candidate to TestPyPI. For each examples/<name>/ project (see examples/README.md for the
-contract) it:
+Two modes, one per stage of the release flow (see OPERATIONS.md and examples/README.md):
 
-  1. copies the example to a temp directory (the checkout is never modified),
-  2. appends an explicit uv index for the staging registry and pins pymediate's source to
-     it — only pymediate resolves there; every other dependency still comes from real PyPI,
-  3. re-pins the dependency to the exact release version (`uv add pymediate==X.Y.Z`),
-  4. runs `uv run pytest`.
+  --wheel PATH      Test against a locally built wheel. Used by the release PR's required
+                    "Examples" check (release-pr-report.yml): breaking changes that stale
+                    examples can't absorb fail *before* merge — no tag, no burned version.
 
-Exits non-zero if any example fails. Also usable locally against real PyPI to verify the
-mechanism, e.g.:
+  --version X.Y.Z   Test against a published release on an index (default TestPyPI). Used
+    [--index URL]   by release.yml after the TestPyPI publish to validate the real
+                    publish-and-install path. Only pymediate resolves from the staging
+                    index; every other dependency still comes from real PyPI.
 
-    python3 scripts/run_examples.py --version 0.1.4 --index https://pypi.org/simple/
+Either way, each examples/<name>/ project is copied to a temp directory (the checkout is
+never modified), re-pinned to the build under test, and its tests run via `uv run pytest`.
+Exits non-zero if any example fails. Also usable locally, e.g.:
+
+    python3 scripts/run_examples.py --version 0.1.5 --index https://pypi.org/simple/
+    uv build && python3 scripts/run_examples.py --wheel dist/pymediate-*.whl
 """
 
 from __future__ import annotations
@@ -79,7 +82,13 @@ def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, env=env)
 
 
-def run_example(example: Path, version: str, index_url: str, workdir: Path) -> Result:
+def run_example(
+    example: Path,
+    workdir: Path,
+    version: str | None,
+    index_url: str,
+    wheel: Path | None,
+) -> Result:
     name = example.name
     print(f"\n=== {name} ===", flush=True)
 
@@ -95,11 +104,18 @@ def run_example(example: Path, version: str, index_url: str, workdir: Path) -> R
         workspace,
         ignore=shutil.ignore_patterns(".venv", "__pycache__", ".pytest_cache"),
     )
-    with (workspace / "pyproject.toml").open("a") as fp:
-        fp.write(INDEX_TEMPLATE.format(name=STAGING_INDEX_NAME, url=index_url))
+
+    if wheel is not None:
+        # Wheel mode: `uv add <path>` re-pins pymediate to the local wheel via a path
+        # source — no index involvement at all.
+        pin_cmd = ["uv", "add", str(wheel.resolve())]
+    else:
+        with (workspace / "pyproject.toml").open("a") as fp:
+            fp.write(INDEX_TEMPLATE.format(name=STAGING_INDEX_NAME, url=index_url))
+        pin_cmd = ["uv", "add", f"pymediate=={version}"]
 
     steps = [
-        ["uv", "add", f"pymediate=={version}"],
+        pin_cmd,
         ["uv", "sync"],
         ["uv", "run", "pytest"],
     ]
@@ -114,15 +130,23 @@ def run_example(example: Path, version: str, index_url: str, workdir: Path) -> R
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--version", required=True, help="Exact pymediate version to test, e.g. 0.2.0"
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--version", help="Exact published pymediate version to test, e.g. 0.2.0")
+    target.add_argument(
+        "--wheel",
+        type=Path,
+        help="Path to a locally built pymediate wheel to test instead of an index",
     )
     parser.add_argument(
         "--index",
         default="https://test.pypi.org/simple/",
-        help="Simple-API index URL that hosts that version (default: TestPyPI)",
+        help="Simple-API index URL hosting --version (default: TestPyPI); ignored with --wheel",
     )
     args = parser.parse_args()
+
+    if args.wheel is not None and not args.wheel.is_file():
+        print(f"Wheel not found: {args.wheel}", file=sys.stderr)
+        return 2
 
     examples = discover_examples()
     if not examples:
@@ -130,10 +154,15 @@ def main() -> int:
         return 0
 
     with tempfile.TemporaryDirectory(prefix="pymediate-examples-") as tmp:
-        results = [run_example(path, args.version, args.index, Path(tmp)) for path in examples]
+        results = [
+            run_example(path, Path(tmp), args.version, args.index, args.wheel) for path in examples
+        ]
 
+    target_desc = (
+        f"wheel {args.wheel.name}" if args.wheel else f"pymediate=={args.version} ({args.index})"
+    )
     width = max(len(result.example) for result in results)
-    print(f"\nExamples against pymediate=={args.version} ({args.index}):")
+    print(f"\nExamples against {target_desc}:")
     for result in results:
         status = "PASS" if result.ok else "FAIL"
         suffix = f"  ({result.detail})" if result.detail else ""

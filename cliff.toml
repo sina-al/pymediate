@@ -1,8 +1,23 @@
 # git-cliff configuration for pymediate.
+#
 # Renders changelogs from Conventional Commits (already enforced on PR titles by
-# .github/workflows/pr.yml). There is no committed CHANGELOG.md: the changelog is
-# generated on demand — into the release PR body by prepare-release.yml and into the
-# GitHub Release notes by the release:notes poe task.
+# .github/workflows/pr.yml). There is NO committed CHANGELOG.md and no docs-site changelog
+# page: the GitHub Release for each tag is the canonical, browsable changelog (see
+# OPERATIONS.md § "Release notes"). git-cliff is invoked in exactly two places, both on a
+# single release's commits:
+#
+#   1. prepare-release.yml — `--unreleased --tag vX.Y.Z --strip all` into the release PR body
+#      (the "## Changelog" section). `--strip all` drops the footer because the compare link
+#      would point at a tag that does not exist yet (the release isn't tagged until merge).
+#   2. release:notes poe task — `--current --strip header` into the GitHub Release body.
+#      Keeps the footer, whose compare link is valid because the tag now exists.
+#
+# Both invocations pass `--include-path 'src/pymediate/**'` (QUOTED — an unquoted glob is
+# expanded by the caller's shell / poethepoet into absolute paths that match no commit,
+# silently emptying the changelog; that shipped once as v0.1.5's empty "[Unreleased]" notes).
+# Path filtering keeps consumer-irrelevant commits (docs-site, workflows, scripts) out
+# regardless of their type.
+#
 # https://git-cliff.org/docs/configuration
 
 [changelog]
@@ -12,25 +27,41 @@ header = """
 All notable changes to this project are documented here. Generated from Conventional
 Commits with [git-cliff](https://git-cliff.org/) — do not hand-edit above the first entry.
 """
+# No per-version "## [x.y.z]" heading: each render is a single release, and its version is
+# already the GitHub Release title / the release PR title. Breaking changes are hoisted into
+# their own section (ZeroVer makes a breaking change the whole signal of a minor bump) and
+# excluded from their type group below so they aren't listed twice. `(#N)` PR/issue refs that
+# squash-merge subjects carry are linkified by the postprocessor.
 body = """
-{% if version %}\
-    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
-{% else %}\
-    ## [Unreleased]
-{% endif %}\
-{% for group, commits in commits | group_by(attribute="group") %}
-    ### {{ group | striptags | trim | upper_first }}
-    {% for commit in commits %}
-        - {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
-            {% if commit.breaking %}**breaking:** {% endif %}\
-            {{ commit.message | upper_first }} \
-            ([{{ commit.id | truncate(length=7, end="") }}](<REPO>/commit/{{ commit.id }}))
-    {% endfor %}
+{%- macro commit_line(commit) -%}
+- {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](<REPO>/commit/{{ commit.id }}))
+{%- endmacro -%}
+{% set breaking = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking | length > 0 %}
+### ⚠️ Breaking Changes
+{% for commit in breaking %}
+{{ self::commit_line(commit=commit) }}
+{%- endfor %}
+{% endif -%}
+{% for group, group_commits in commits | filter(attribute="breaking", value=false) | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in group_commits %}
+{{ self::commit_line(commit=commit) }}
+{%- endfor %}
 {% endfor %}
+"""
+# Footer context is the release list (not a single version): releases[0] is the release being
+# rendered. Guarded so the first-ever release (no previous) omits the link instead of emitting
+# a broken compare.
+footer = """
+{% if releases[0].version and releases[0].previous.version %}
+**Full Changelog**: <REPO>/compare/{{ releases[0].previous.version }}...{{ releases[0].version }}
+{% endif -%}
 """
 trim = true
 render_always = true
 postprocessors = [
+    { pattern = '\(#(\d+)\)', replace = "([#${1}](https://github.com/sina-al/pymediate/issues/${1}))" },
     { pattern = '<REPO>', replace = "https://github.com/sina-al/pymediate" },
 ]
 
@@ -42,10 +73,9 @@ split_commits = false
 protect_breaking_commits = false
 # Only user-facing types reach the changelog: a test/build/style/ci/chore commit (even one
 # touching the package) isn't something a `pip install pymediate` consumer needs to read
-# about, and neither is the release bump itself (chore(release)). Path filtering — only
-# commits touching src/pymediate/** — is applied at invocation time (see the
-# release:notes poe task and prepare-release.yml), so a docs/readme/workflow/
-# script-only change never produces an entry either, regardless of its type.
+# about, and neither is the release bump itself (chore(release)) or dependency bumps
+# (chore(deps)). Path filtering (src/pymediate/** only) is applied at invocation time, so a
+# docs-site/readme/workflow/script-only change never produces an entry either.
 commit_parsers = [
     { message = "^chore\\(release\\)", skip = true },
     { message = "^chore\\(deps.*\\)", skip = true },

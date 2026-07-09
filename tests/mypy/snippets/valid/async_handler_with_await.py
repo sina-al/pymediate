@@ -32,7 +32,7 @@ class ProcessHandler(Handler[ProcessRequest]):
 
 async def main() -> None:
     services = Services()
-    services.add(ProcessRequest, ProcessHandler())
+    services.add(ProcessHandler())
     provider = services.provider()
     mediator = Mediator(provider)
 

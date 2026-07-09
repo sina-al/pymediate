@@ -300,6 +300,9 @@ class _Provider:
         self._registration_order: tuple[tuple[type, Any], ...] = tuple(
             collection._registration_order
         )
+        # get_all() results per requested type. The provider is an immutable
+        # snapshot, so entries can never go stale.
+        self._get_all_cache: dict[type, tuple[Any, ...]] = {}
 
     def get(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
@@ -321,17 +324,24 @@ class _Provider:
     def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
         """Get all instances of the type, including subclasses, in registration order.
 
+        The result is computed once per requested type and cached - the provider
+        is an immutable snapshot, so repeated calls are a dict lookup.
+
         Args:
             service_type: The type (or base type) of services to resolve.
 
         Returns:
             All matching instances in registration order, or an empty tuple.
         """
-        return tuple(
-            instance
-            for _, instance in self._registration_order
-            if isinstance(instance, service_type)
-        )
+        cached = self._get_all_cache.get(service_type)
+        if cached is None:
+            cached = tuple(
+                instance
+                for _, instance in self._registration_order
+                if isinstance(instance, service_type)
+            )
+            self._get_all_cache[service_type] = cached
+        return cached
 
     def has(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered.

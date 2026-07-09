@@ -27,7 +27,7 @@ class GetUserProfileHandler(Handler[GetUserProfileRequest]):
 
 # Usage
 services = Services()
-services.add(GetUserProfileRequest, GetUserProfileHandler())
+services.add(GetUserProfileHandler())
 provider = services.provider()
 mediator = Mediator(provider)
 

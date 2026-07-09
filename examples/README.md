@@ -31,8 +31,15 @@ run all of them with no per-example wiring (`release.yml`'s examples stage, via
 
 ## How releases use these
 
-During a release (see `OPERATIONS.md`), after the candidate is published to TestPyPI,
-`scripts/run_examples.py --version X.Y.Z` copies each example to a temp directory, re-pins
-`pymediate==X.Y.Z` to the TestPyPI index (only pymediate resolves there — its dependencies
-still come from real PyPI), and runs its tests. All examples must pass before the release
-can proceed to the PyPI gate. Your checkout is never modified.
+Releases run every example twice via `scripts/run_examples.py` (see `OPERATIONS.md`):
+
+1. **On the release PR** — `--wheel` mode: the required "Examples" check builds a wheel
+   from the cut and runs each example against it, so API breakage surfaces before the
+   merge (no tag, no burned version). Reproduce locally with
+   `uv build && python3 scripts/run_examples.py --wheel dist/pymediate-*.whl`.
+2. **After the TestPyPI publish** — `--version X.Y.Z` mode: each example is re-pinned to
+   the candidate on the TestPyPI index (only pymediate resolves there — its dependencies
+   still come from real PyPI) and must pass before the PyPI gate is offered.
+
+Either way each example is copied to a temp directory first — your checkout is never
+modified.

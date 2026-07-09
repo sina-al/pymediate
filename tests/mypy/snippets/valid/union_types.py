@@ -34,7 +34,7 @@ class CalculateHandler(Handler[CalculateRequest]):
 
 # Usage
 services = Services()
-services.add(CalculateRequest, CalculateHandler())
+services.add(CalculateHandler())
 provider = services.provider()
 mediator = Mediator(provider)
 

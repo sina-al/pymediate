@@ -10,9 +10,10 @@ Warning:
     functions for type-safe, thread-safe registry operations.
 
 Thread Safety:
-    All registry operations are protected by locks to ensure thread safety in
-    multi-threaded environments. This prevents race conditions when multiple
-    threads are registering or looking up types concurrently.
+    Writes and multi-key reads (snapshots, clears) are protected by locks.
+    Single-key lookups read the dicts directly - a one-key dict read is atomic
+    in CPython, and these sit on the per-send hot path where a lock acquisition
+    per dispatch is measurable overhead.
 """
 
 import inspect
@@ -86,7 +87,8 @@ def register_request_response_type(request_type: type, response_type: type) -> N
 def get_response_type(request_type: type) -> type | None:
     """Get the response type for a given request type.
 
-    Thread-safe: Uses a lock to ensure consistent reads.
+    Thread-safe without a lock: a single-key dict read is atomic in CPython,
+    and this sits on the per-send hot path.
 
     Args:
         request_type: The request class to look up.
@@ -104,14 +106,13 @@ def get_response_type(request_type: type) -> type | None:
         This is an internal API for PyMediate developers. Package consumers
         should rely on type inference rather than calling this directly.
     """
-    with _request_lock:
-        return _REQUEST_REGISTRY.get(request_type)
+    return _REQUEST_REGISTRY.get(request_type)
 
 
 def has_response_type(request_type: type) -> bool:
     """Check if a request type has a registered response type.
 
-    Thread-safe: Uses a lock to ensure consistent reads.
+    Thread-safe without a lock: a single-key dict read is atomic in CPython.
 
     Args:
         request_type: The request class to check.
@@ -128,8 +129,7 @@ def has_response_type(request_type: type) -> bool:
     Note:
         This is an internal API for PyMediate developers.
     """
-    with _request_lock:
-        return request_type in _REQUEST_REGISTRY
+    return request_type in _REQUEST_REGISTRY
 
 
 def get_all_request_types() -> list[type]:
@@ -261,7 +261,8 @@ def register_handler(request_type: type, handler_class: type) -> None:
 def get_handler_class(request_type: type) -> type | None:
     """Get the handler class for a given request type.
 
-    Thread-safe: Uses a lock to ensure consistent reads.
+    Thread-safe without a lock: a single-key dict read is atomic in CPython,
+    and this sits on the per-send hot path.
 
     Args:
         request_type: The request class to look up.
@@ -279,15 +280,14 @@ def get_handler_class(request_type: type) -> type | None:
         This is an internal API for PyMediate developers. For resolving
         handler instances, use a ServiceProvider instead of calling this directly.
     """
-    with _handler_lock:
-        registration = _HANDLER_REGISTRY.get(request_type)
-        return registration.handler_class if registration else None
+    registration = _HANDLER_REGISTRY.get(request_type)
+    return registration.handler_class if registration else None
 
 
 def has_handler(request_type: type) -> bool:
     """Check if a handler is registered for a request type.
 
-    Thread-safe: Uses a lock to ensure consistent reads.
+    Thread-safe without a lock: a single-key dict read is atomic in CPython.
 
     Args:
         request_type: The request class to check.
@@ -304,8 +304,7 @@ def has_handler(request_type: type) -> bool:
     Note:
         This is an internal API for PyMediate developers.
     """
-    with _handler_lock:
-        return request_type in _HANDLER_REGISTRY
+    return request_type in _HANDLER_REGISTRY
 
 
 def get_all_handler_request_types() -> list[type]:

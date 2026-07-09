@@ -7,8 +7,9 @@ from typing import Any
 import pytest
 
 from pymediate import Request
+from pymediate._internal.pipeline import compose_async
 from pymediate.aio import Handler
-from pymediate.aio.pipeline import Pipeline, PipelineBehavior
+from pymediate.aio.pipeline import PipelineBehavior
 
 
 # Test fixtures: Request and Response types
@@ -159,7 +160,7 @@ class AsyncCachingBehavior(PipelineBehavior[SampleRequest]):
 async def test_async_pipeline_with_no_behaviors() -> None:
     """Test that async pipeline with no behaviors just calls the handler."""
     handler = SampleHandler()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([], handler)
+    pipeline = compose_async([], handler)
 
     request = SampleRequest(value=5)
     response = await pipeline(request)
@@ -173,7 +174,7 @@ async def test_async_pipeline_with_single_behavior() -> None:
     log: list[str] = []
     handler = SampleHandler()
     behavior = AsyncLoggingBehavior(log)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([behavior], handler)
+    pipeline = compose_async([behavior], handler)
 
     request = SampleRequest(value=3)
     response = await pipeline(request)
@@ -191,7 +192,7 @@ async def test_async_pipeline_with_multiple_behaviors() -> None:
     timing = AsyncTimingBehavior(log)
 
     # Order: logging first, then timing
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([logging, timing], handler)
+    pipeline = compose_async([logging, timing], handler)
 
     request = SampleRequest(value=4)
     response = await pipeline(request)
@@ -241,7 +242,7 @@ async def test_async_pipeline_behavior_execution_order() -> None:
             log.append("third_after")
             return response
 
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
+    pipeline = compose_async(
         [FirstBehavior(), SecondBehavior(), ThirdBehavior()],
         handler,
     )
@@ -266,7 +267,7 @@ async def test_async_pipeline_behavior_can_modify_response() -> None:
     """Test that async behaviors can modify the response."""
     handler = SampleHandler()
     multiplier = AsyncModifyingBehavior(3)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([multiplier], handler)
+    pipeline = compose_async([multiplier], handler)
 
     request = SampleRequest(value=5)
     response = await pipeline(request)
@@ -283,9 +284,7 @@ async def test_async_pipeline_multiple_modifying_behaviors() -> None:
     multiply_by_3 = AsyncModifyingBehavior(3)
 
     # Order: multiply_by_2 first, then multiply_by_3
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
-        [multiply_by_2, multiply_by_3], handler
-    )
+    pipeline = compose_async([multiply_by_2, multiply_by_3], handler)
 
     request = SampleRequest(value=5)
     response = await pipeline(request)
@@ -301,7 +300,7 @@ async def test_async_pipeline_behavior_can_short_circuit() -> None:
     """Test that async behavior can short-circuit the pipeline by not calling next."""
     handler = SampleHandler()
     short_circuit = AsyncShortCircuitBehavior(should_short_circuit=True)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([short_circuit], handler)
+    pipeline = compose_async([short_circuit], handler)
 
     request = SampleRequest(value=5)
     response = await pipeline(request)
@@ -317,13 +316,13 @@ async def test_async_pipeline_short_circuit_only_when_needed() -> None:
 
     # First test: no short-circuit
     no_short_circuit = AsyncShortCircuitBehavior(should_short_circuit=False)
-    pipeline1: Pipeline[SampleRequest, SampleResponse] = Pipeline([no_short_circuit], handler)
+    pipeline1 = compose_async([no_short_circuit], handler)
     response1 = await pipeline1(SampleRequest(value=5))
     assert response1.value == 10  # Normal handler execution
 
     # Second test: with short-circuit
     with_short_circuit = AsyncShortCircuitBehavior(should_short_circuit=True)
-    pipeline2: Pipeline[SampleRequest, SampleResponse] = Pipeline([with_short_circuit], handler)
+    pipeline2 = compose_async([with_short_circuit], handler)
     response2 = await pipeline2(SampleRequest(value=5))
     assert response2.value == -1  # Short-circuited
 
@@ -333,7 +332,7 @@ async def test_async_pipeline_validation_behavior() -> None:
     """Test async validation behavior that checks request before processing."""
     handler = SampleHandler()
     validation = AsyncValidationBehavior()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([validation], handler)
+    pipeline = compose_async([validation], handler)
 
     # Valid request should work
     valid_request = SampleRequest(value=5)
@@ -355,9 +354,7 @@ async def test_async_pipeline_exception_handling_behavior() -> None:
     exception_handler = AsyncExceptionBehavior(log)
 
     # exception_handler wraps validation
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
-        [exception_handler, validation], handler
-    )
+    pipeline = compose_async([exception_handler, validation], handler)
 
     invalid_request = SampleRequest(value=-1)
     with pytest.raises(ValueError):
@@ -372,7 +369,7 @@ async def test_async_pipeline_caching_behavior() -> None:
     """Test async caching behavior."""
     handler = SampleHandler()
     cache = AsyncCachingBehavior()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([cache], handler)
+    pipeline = compose_async([cache], handler)
 
     # First call - should hit handler
     response1 = await pipeline(SampleRequest(value=5))
@@ -398,9 +395,7 @@ async def test_async_pipeline_complex_scenario() -> None:
     multiplier = AsyncModifyingBehavior(2)
 
     # Order: logging -> timing -> validation -> multiplier -> handler
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
-        [logging, timing, validation, multiplier], handler
-    )
+    pipeline = compose_async([logging, timing, validation, multiplier], handler)
 
     request = SampleRequest(value=3)
     response = await pipeline(request)
@@ -432,7 +427,7 @@ async def test_async_pipeline_with_stateful_behavior() -> None:
 
     handler = SampleHandler()
     counter = AsyncCountingBehavior()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([counter], handler)
+    pipeline = compose_async([counter], handler)
 
     # Call pipeline multiple times
     await pipeline(SampleRequest(value=1))
@@ -446,9 +441,7 @@ async def test_async_pipeline_with_stateful_behavior() -> None:
 async def test_async_pipeline_type_safety() -> None:
     """Test that async pipeline maintains type safety."""
     handler = SampleHandler()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline(
-        [AsyncLoggingBehavior([])], handler
-    )
+    pipeline = compose_async([AsyncLoggingBehavior([])], handler)
 
     request = SampleRequest(value=5)
     response = await pipeline(request)
@@ -477,7 +470,7 @@ async def test_async_pipeline_behavior_accessing_request() -> None:
     log: list[str] = []
     handler = SampleHandler()
     inspector = AsyncRequestInspectingBehavior(log)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([inspector], handler)
+    pipeline = compose_async([inspector], handler)
 
     await pipeline(SampleRequest(value=42))
 
@@ -489,7 +482,7 @@ async def test_async_pipeline_concurrent_requests() -> None:
     """Test that async pipeline can handle concurrent requests."""
     handler = SampleHandler()
     cache = AsyncCachingBehavior()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([cache], handler)
+    pipeline = compose_async([cache], handler)
 
     # Execute multiple requests concurrently
     results = await asyncio.gather(
@@ -512,7 +505,7 @@ async def test_async_pipeline_concurrent_requests() -> None:
 async def test_empty_behaviors_list_async() -> None:
     """Test that empty behaviors list works correctly with async."""
     handler = SampleHandler()
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([], handler)
+    pipeline = compose_async([], handler)
 
     response = await pipeline(SampleRequest(value=7))
     assert response.value == 14  # 7 * 2, just the handler
@@ -547,7 +540,7 @@ async def test_async_pipeline_with_different_request_response_types() -> None:
 
     handler = StringHandler()
     behavior = AsyncUppercaseBehavior()
-    pipeline: Pipeline[StringRequest, StringResponse] = Pipeline([behavior], handler)
+    pipeline = compose_async([behavior], handler)
 
     response = await pipeline(StringRequest(text="hello"))
     assert response.message == "HELLO!"
@@ -581,7 +574,7 @@ async def test_async_pipeline_behavior_with_async_io_operations() -> None:
     log: list[str] = []
     handler = SampleHandler()
     io_behavior = AsyncIOBehavior(log)
-    pipeline: Pipeline[SampleRequest, SampleResponse] = Pipeline([io_behavior], handler)
+    pipeline = compose_async([io_behavior], handler)
 
     response = await pipeline(SampleRequest(value=3))
 
@@ -596,7 +589,7 @@ def test_should_apply_universal_behavior_via_bare_request() -> None:
         async def __call__(self, request: Request[Any], next: Callable[[], Awaitable[Any]]) -> Any:
             return await next()
 
-    assert UniversalBehavior.__get_request_type__() is Request
+    assert UniversalBehavior.__request_type__ is Request
     assert UniversalBehavior.should_apply(SampleRequest(value=1)) is True
 
 
@@ -607,7 +600,7 @@ def test_should_apply_subscripted_generic_request_type() -> None:
         async def __call__(self, request: Request[Any], next: Callable[[], Awaitable[Any]]) -> Any:
             return await next()
 
-    assert SubscriptedBehavior.__get_request_type__() == Request[Any]
+    assert SubscriptedBehavior.__request_type__ == Request[Any]
     assert SubscriptedBehavior.should_apply(SampleRequest(value=1)) is True
 
 
@@ -623,7 +616,7 @@ def test_get_request_type_fallback_when_not_parameterized() -> None:
         async def __call__(self, request: Request[Any], next: Callable[[], Awaitable[Any]]) -> Any:
             return await next()
 
-    assert BareBehavior.__get_request_type__() is Request
+    assert BareBehavior.__request_type__ is Request
     assert BareBehavior.should_apply(SampleRequest(value=1)) is True
 
 

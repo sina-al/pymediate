@@ -1,7 +1,8 @@
 """Mediator implementation for routing requests to handlers."""
 
 from ._internal.mediator import MediatorMixin
-from .pipeline import Pipeline, PipelineBehavior
+from ._internal.pipeline import compose
+from .pipeline import PipelineBehavior
 from .request import Request
 
 
@@ -111,10 +112,13 @@ class Mediator(MediatorMixin):
 
         See Also:
             - PipelineBehavior: Base class for behaviors auto-discovered by send().
-            - Pipeline: Compose behaviors and a handler manually, without a mediator.
+              To run one without a mediator, call it directly:
+              `behavior(request, lambda: handler(request))`.
         """
         handler = self._resolve_handler(request)
         behaviors = self._resolve_behaviors(request, PipelineBehavior)
 
-        dispatch = self._get_dispatch(request, handler, behaviors, Pipeline)
-        return dispatch()  # type: ignore[no-any-return]
+        # Fast path: no applicable behaviors means no chain construction at all.
+        if not behaviors:
+            return handler(request)  # type: ignore[no-any-return]
+        return compose(behaviors, handler)(request)  # type: ignore[no-any-return]

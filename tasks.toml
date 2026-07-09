@@ -87,6 +87,15 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 """
 "api:check".cmd = "uvx --from griffe==2.1.0 griffe check pymediate -s src"
 
+# ========== Benchmarks ==========
+
+benchmark.help = """
+Micro-benchmark mediator.send() overhead vs calling the handler directly \
+(usage: poe benchmark --number 100000 --repeat 5). Quoted in docs.v2's \
+comparison page; results are machine-dependent.\
+"""
+benchmark.cmd = "python3 scripts/benchmark.py"
+
 # ========== Security ==========
 
 security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"
@@ -133,7 +142,9 @@ build.cmd = "uv build"
 "release:impact".cmd = "python3 scripts/release_impact.py"
 
 "release:notes".help = "Generate release notes for the current tag only, stripped of the header (used by release.yml to fill in the GitHub Release body)"
-"release:notes".cmd = "uvx git-cliff --current --include-path src/pymediate/** --strip header -o RELEASE_NOTES.md"
+# The glob MUST stay quoted: poe expands an unquoted cmd-glob into absolute paths that match
+# no commit, which silently empties the changelog (this shipped as v0.1.5's blank notes).
+"release:notes".cmd = "uvx git-cliff --current --include-path 'src/pymediate/**' --strip header -o RELEASE_NOTES.md"
 
 "examples:test".help = "Run every examples/ project's tests against a released pymediate version (usage: poe examples:test --version 0.1.4 --index https://pypi.org/simple/; release.yml runs this against TestPyPI)"
 "examples:test".cmd = "python3 scripts/run_examples.py"

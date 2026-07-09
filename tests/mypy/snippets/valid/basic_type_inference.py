@@ -23,7 +23,7 @@ class GetUserHandler(Handler[GetUserRequest]):
 
 # Setup
 services = Services()
-services.add(GetUserRequest, GetUserHandler())
+services.add(GetUserHandler())
 provider = services.provider()
 mediator = Mediator(provider)
 
