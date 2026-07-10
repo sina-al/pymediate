@@ -3,46 +3,23 @@
   <b>A type-safe request mediator for Python 3.12+</b><br><br>
 
   <!-- Badges -->
-  <a href="https://github.com/sina-al/pymediate/actions/workflows/test.yml">
-    <img src="https://github.com/sina-al/pymediate/actions/workflows/test.yml/badge.svg" alt="Tests">
-  </a>
-  <a href="https://github.com/sina-al/pymediate/actions/workflows/checks.yml">
-    <img src="https://github.com/sina-al/pymediate/actions/workflows/checks.yml/badge.svg" alt="Checks">
-  </a>
-  <a href="https://github.com/sina-al/pymediate/tree/python-coverage-comment-action-data">
-    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/sina-al/pymediate/python-coverage-comment-action-data/endpoint.json" alt="Coverage">
-  </a>
   <a href="https://pypi.org/project/pymediate/">
     <img src="https://img.shields.io/pypi/v/pymediate" alt="PyPI version">
   </a>
   <a href="https://pypi.org/project/pymediate/">
     <img src="https://img.shields.io/pypi/pyversions/pymediate" alt="Python versions">
   </a>
-  <a href="https://pepy.tech/projects/pymediate">
-    <img src="https://img.shields.io/pypi/dm/pymediate" alt="Downloads">
+  <a href="https://github.com/sina-al/pymediate/actions/workflows/test.yml">
+    <img src="https://github.com/sina-al/pymediate/actions/workflows/test.yml/badge.svg" alt="Tests">
   </a>
-  <br>
-  <a href="https://pymediate.sina-al.uk">
-    <img src="https://img.shields.io/badge/docs-pymediate.sina--al.uk-blue" alt="Documentation">
-  </a>
-  <a href="https://github.com/astral-sh/ruff">
-    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff">
-  </a>
-  <a href="https://github.com/astral-sh/uv">
-    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json" alt="uv">
+  <a href="https://github.com/sina-al/pymediate/tree/python-coverage-comment-action-data">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/sina-al/pymediate/python-coverage-comment-action-data/endpoint.json" alt="Coverage">
   </a>
   <a href="https://mypy-lang.org/">
     <img src="https://img.shields.io/badge/mypy-strict-blue" alt="Checked with mypy (strict)">
   </a>
-  <br>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/sina-al/pymediate">
-    <img src="https://api.scorecard.dev/projects/github.com/sina-al/pymediate/badge" alt="OpenSSF Scorecard">
-  </a>
-  <a href="https://www.conventionalcommits.org/">
-    <img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196?logo=conventionalcommits&logoColor=white" alt="Conventional Commits">
-  </a>
-  <a href="https://0ver.org/">
-    <img src="https://img.shields.io/badge/versioning-0ver-orange" alt="ZeroVer">
+  <a href="https://pymediate.sina-al.uk">
+    <img src="https://img.shields.io/badge/docs-pymediate.sina--al.uk-blue" alt="Documentation">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
