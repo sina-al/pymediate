@@ -1,0 +1,29 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Avatar for the pymediate-releaser GitHub App. Midnight-signal brand: the docs
+       icon's shard mark, with the centre diamond swapped for an upward delta (ship). -->
+  <defs>
+    <linearGradient id="g" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.46" r="0.55">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.28"/>
+      <stop offset="0.6" stop-color="#22d3ee" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#08080f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#08080f"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+
+  <g transform="translate(212,212) scale(18.75)">
+    <path d="M2.6 5.8 L5.8 2.6 L12.4 11.4 Z" fill="url(#g)" opacity="0.85"/>
+    <path d="M26.2 2.6 L29.4 5.8 L19.6 11.4 Z" fill="url(#g)" opacity="0.6"/>
+    <path d="M2.6 26.2 L5.8 29.4 L12.4 19.6 Z" fill="url(#g)" opacity="0.6"/>
+    <path d="M29.4 26.2 L26.2 29.4 L19.6 19.6 Z" fill="url(#g)" opacity="0.85"/>
+    <path d="M16 8.6 L23.4 16 L16 23.4 L8.6 16 Z" fill="url(#g)"/>
+    <!-- upward chevron cut into the diamond: the release -->
+    <path d="M12.9 17.6 L16 13.9 L19.1 17.6" stroke="#08080f" stroke-width="1.7"
+          fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

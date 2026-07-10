@@ -144,13 +144,17 @@ twice, via the two modes of `scripts/run_examples.py`:
 
 | Ruleset | Target | Rules | Bypass |
 |---|---|---|---|
-| `main-guard` | `main` | PR required (1 approval, squash only), required checks (strict), CodeQL, no deletion/force-push | maintainer (lane 1) |
-| `stable-guard` | `stable` | PR required (merge commit only), required checks incl. Release Test Results + Examples, CodeQL, no deletion/force-push | **none** |
+| `main-guard` | `main` | PR required (1 approval incl. of the last push, squash only), required checks (strict), CodeQL, no deletion/force-push | maintainer (lane 1) |
+| `stable-guard` | `stable` | PR required (1 approval incl. code owner + last push, stale reviews dismissed, threads resolved, merge commit only), required checks incl. Release Test Results + Examples, CodeQL, no deletion/force-push | **none** |
 | `branch-guard` | all other branches | no create/update/delete | maintainer, Dependabot, releaser App |
 | `tag-guard` | all tags | no create/update/delete | maintainer, releaser App |
 
 Notes: stable-guard deliberately has **no bypass actors** — merging a red release PR
-requires editing the ruleset itself, which is the break-glass. Its up-to-date-with-base
+requires editing the ruleset itself, which is the break-glass. Its review requirements
+(code owner + last-push approval) work because release PRs are authored and pushed by the
+releaser App, so the maintainer's approval satisfies both; the flip side is that a cut
+branch the maintainer pushes to by hand can no longer be self-approved — the remedy stays
+the same as ever: close the PR, fix on main, re-cut. Its up-to-date-with-base
 requirement is off by design: a cut branch never contains stable's previous merge commit,
 and the merge result tree always equals the cut tree, so "stale" is impossible in any way
 that matters. Merge commits (not squash) are required on stable because a squash would

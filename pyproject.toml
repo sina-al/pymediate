@@ -53,6 +53,7 @@ test = [
     "pytest-asyncio>=1.2.0",
     "pytest-xdist>=3.8.0",
     "basedpyright>=1.39.9",
+    "hypothesis>=6.100",
 ]
 [build-system]
 requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
@@ -78,8 +79,9 @@ packages = ["src/pymediate"]
 # input is given). Bump with `uv run poe update-uv` — don't hand-edit.
 required-version = "==0.11.26"
 
-# TestPyPI staging index — release.yml publishes here (`uv publish --index testpypi`) before
-# the real PyPI publish, as a dry run against the exact same Trusted Publishing mechanism.
+# TestPyPI staging index — release.yml publishes here (via pypa/gh-action-pypi-publish)
+# before the real PyPI publish, as a dry run against the same Trusted Publishing mechanism.
+# Kept for manual staging checks (`uv publish --index testpypi`).
 [[tool.uv.index]]
 name = "testpypi"
 url = "https://test.pypi.org/simple/"
