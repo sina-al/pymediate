@@ -16,8 +16,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
-    # fastapi.testclient.TestClient is httpx-based; httpx is only needed by the tests.
-    "httpx>=0.28",
+    # fastapi.testclient.TestClient needs an HTTP client; starlette deprecated classic
+    # httpx there in favor of its successor package, httpx2.
+    "httpx2>=2.0",
 ]
 
 [tool.uv]

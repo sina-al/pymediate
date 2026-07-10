@@ -17,7 +17,7 @@ different delivery mechanisms. The sync mirror is [adapters-sync](../adapters-sy
 Each adapter is a thin translation layer: framework input → request object →
 `await mediator.send()` → framework output. That's why the tests only exercise the
 adapters (`test_fastapi_app.py`, `test_aiohttp_app.py`, `test_cli.py`) — each suite
-drives the full core through its framework's own async test tooling (httpx over ASGI,
+drives the full core through its framework's own async test tooling (httpx2 over ASGI,
 pytest-aiohttp's `aiohttp_client`, asyncclick's `CliRunner`), so the core is covered
 three times over without a single direct core test.
 

@@ -19,8 +19,9 @@ dev = [
     "pytest-asyncio>=1.0.0",
     # Provides the aiohttp_client fixture used by test_aiohttp_app.py.
     "pytest-aiohttp>=1.1",
-    # Drives the FastAPI app over ASGI in test_fastapi_app.py.
-    "httpx>=0.28",
+    # Drives the FastAPI app over ASGI in test_fastapi_app.py (httpx2 is the successor
+    # to classic httpx, which starlette has deprecated for its test client).
+    "httpx2>=2.0",
 ]
 
 [tool.pytest.ini_options]
