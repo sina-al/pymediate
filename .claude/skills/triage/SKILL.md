@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Turn a raw maintainer request into an implementation-ready GitHub issue via a structured interview — research the repo, ask decision-shaped questions, draft a requirements-first spec, preview, then file and board it. Use whenever the maintainer says "file an issue", "put this on my list", "track this", "add to the roadmap", or states a request/idea they want captured for later implementation — even a one-liner.
+description: Turn a raw maintainer request into an implementation-ready GitHub issue via a structured interview — research the repo, ask decision-shaped questions, draft a requirements-first spec, render it as a branded EDICT artifact for review, then file and board it (the EDICT is archived uncommitted in the Claude project folder). Use whenever the maintainer says "file an issue", "put this on my list", "track this", "add to the roadmap", or states a request/idea they want captured for later implementation — even a one-liner.
 ---
 
 # /triage — request → implementation-ready issue
@@ -98,21 +98,46 @@ Writing rules:
 - Note versioning/process implications the repo defines (see plumbing) — e.g. whether the
   change needs an ADR or lands as minor vs patch.
 
-## Step 5 — Preview gate
+## Step 5 — Render the EDICT, then gate
 
-Show the complete drafted body in chat, then one `AskUserQuestion`:
-**File it (Recommended)** / **Revise** (say what) / **Park it** (save the draft to the
-scratchpad, file nothing). Never file without this gate.
+Every draft becomes an **EDICT** (Executive Decision, Interviewed & Captured for Triage) —
+a numbered, permanent record of what was decided, archived in the Claude project folder,
+**never committed to the repo** (see plumbing for the path). The maintainer reviews the
+rendered EDICT, not chat text: the `AskUserQuestion` modal can hide everything printed
+before it, so a draft that exists only in chat is a draft the maintainer never saw.
+
+1. **Number it**: next `NNNN` after the highest existing `EDICT-NNNN-*` in the edicts folder
+   (zero-padded 4; the series is independent of issue numbers, like ADRs).
+2. **Write `EDICT-NNNN-<slug>.md`** in the edicts folder: a status header (Status: Draft,
+   Date, Labels, Artifact: pending) followed by the full issue body.
+3. **Build `EDICT-NNNN-<slug>.html`** beside it and publish with the Artifact tool —
+   favicon `📜` (stable for the whole EDICT series), title `EDICT-NNNN — <short title>`.
+   Load the `artifact-design` skill before writing the page. Branding is pymediate's
+   midnight-signal system — copy the token set and header structure from the newest existing
+   EDICT html in the folder rather than reinventing it (light: violet primary on
+   near-white; dark: cyan primary on near-black indigo; cyan→violet gradient used sparingly;
+   both themes via tokens + `data-theme` overrides).
+4. **Post the artifact link in chat**, then gate with one `AskUserQuestion`:
+   **File it (Recommended)** / **Revise** (say what; edit md + html, republish the same file
+   path so the URL is stable, gate again) / **Park it** (set the md Status to Parked; keep
+   the EDICT and artifact). Never file without this gate.
 
 ## Step 6 — File and board
 
-Create the issue, apply labels, add to the board, set status (see plumbing). Reply with the
-issue URL and a one-line restatement of what was captured.
+Create the issue, apply labels, add to the board, set status (see plumbing). Then close out
+the EDICT: set its md Status to `Filed as <owner/repo>#NN` with the issue URL, record the
+artifact URL, and republish the html with the filed status so the archived document and the
+issue of record point at each other. Reply with the issue URL, the artifact URL, and a
+one-line restatement of what was captured.
 
 ---
 
 ## Repo plumbing — pymediate (swap this section when porting the skill to another repo)
 
+- **EDICT archive:**
+  `/Users/saleyaasin/.claude/projects/-Users-saleyaasin-Development-pymediate/edicts/` —
+  outside the repo on purpose; never commit EDICTs. EDICT-0001–0003 (2026-07-10) are the
+  founding examples; EDICT-0003's html is the branding reference.
 - **Titles are plain descriptive sentences** — Conventional Commits applies to PR titles,
   not issues.
 - **Labels:** `roadmap` for feature/process work; `bug`, `documentation`, `process` where
