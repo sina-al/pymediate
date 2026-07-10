@@ -1,0 +1,17 @@
+{
+    "name": "pymediate example: hexagonal-architecture",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {},
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "postCreateCommand": "cd examples/hexagonal-architecture && uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": ["ms-python.python", "charliermarsh.ruff"],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/hexagonal-architecture/.venv/bin/python"
+            }
+        }
+    }
+}

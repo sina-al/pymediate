@@ -53,6 +53,18 @@ classic `httpx`, for HTTP test clients (starlette deprecated httpx there).
   `uv run python src/….py` paths in a README. uv installs the project editable on sync,
   which also makes IDE imports resolve.
 
+- **Multiple packages** (a core that must not depend on its adapters, per-variant
+  composition roots, …) → a **uv workspace**: root `pyproject.toml` with
+  `[tool.uv.workspace]` members and a `package = false` root project depending on the
+  leaf packages so `uv sync && uv run pytest` still covers everything from the root
+  (the contract's entrypoint). Member-to-member deps use `{ workspace = true }` sources
+  — the only sources the contract allows an example to define; the runner merges its
+  pymediate pin into that table (see `pin_to_index` in `scripts/run_examples.py`).
+  Template: `examples/hexagonal-architecture/`. Docker per-variant: one Dockerfile,
+  `ARG APP` + `uv sync --frozen --no-editable --package <app>` (build the venv at the
+  same absolute path it ships at, or the entry-point shebangs break), compose profiles
+  per variant.
+
 Directory names are kebab-case and content-descriptive; sync/async twins are suffixed
 `-sync` / `-aio` and must mirror each other structurally (same rule as the library).
 

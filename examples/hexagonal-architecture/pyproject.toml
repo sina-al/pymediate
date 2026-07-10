@@ -1,0 +1,55 @@
+[project]
+name = "pymediate-example-hexagonal-architecture"
+version = "0.1.0"
+description = "One application core, three interchangeable persistence adapters, three deployable variants"
+requires-python = ">=3.12"
+dependencies = [
+    # The root project exists so `uv sync && uv run pytest` (the examples contract) sees
+    # the whole workspace: every composition root, and transitively every package.
+    "shop-memory",
+    "shop-postgres",
+    "shop-neo4j",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.uv]
+# The root is a test harness, not a distributable package.
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/*"]
+
+[tool.uv.sources]
+shop-memory = { workspace = true }
+shop-postgres = { workspace = true }
+shop-neo4j = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "shop_domain",
+    "shop_ports",
+    "shop_core",
+    "shop_adapter_memory",
+    "shop_adapter_postgres",
+    "shop_adapter_neo4j",
+    "shop_delivery",
+    "shop_app_memory",
+    "shop_app_postgres",
+    "shop_app_neo4j",
+]
+
+[tool.ruff.format]
+quote-style = "double"

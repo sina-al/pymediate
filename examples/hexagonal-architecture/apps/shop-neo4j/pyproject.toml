@@ -1,0 +1,31 @@
+[project]
+name = "shop-neo4j"
+version = "0.1.0"
+description = "The shop composed on Neo4j persistence, with a Redis-fed export worker"
+requires-python = ">=3.12"
+dependencies = [
+    "shop-core",
+    "shop-delivery",
+    "shop-adapter-neo4j",
+    # The stub services (gateway, mailer, storage, audit) live with the memory adapter;
+    # only persistence changes between variants.
+    "shop-adapter-memory",
+]
+
+[project.scripts]
+shop-web = "shop_app_neo4j.web:main"
+shop-worker = "shop_app_neo4j.worker:main"
+shop = "shop_app_neo4j.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shop_app_neo4j"]
+
+[tool.uv.sources]
+shop-core = { workspace = true }
+shop-delivery = { workspace = true }
+shop-adapter-neo4j = { workspace = true }
+shop-adapter-memory = { workspace = true }

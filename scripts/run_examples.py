@@ -28,6 +28,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -42,10 +43,27 @@ INDEX_TEMPLATE = """
 name = "{name}"
 url = "{url}"
 explicit = true
-
-[tool.uv.sources]
-pymediate = {{ index = "{name}" }}
 """
+
+SOURCE_LINE = 'pymediate = {{ index = "{name}" }}\n'
+
+
+def pin_to_index(pyproject: Path, name: str, url: str) -> None:
+    """Point pymediate — and only pymediate — at a staging index.
+
+    Appends an ``explicit = true`` index and a ``[tool.uv.sources]`` entry for pymediate.
+    Workspace examples already have a ``[tool.uv.sources]`` table (their member-to-member
+    dependencies live there), so the entry is merged into it rather than appended as a
+    duplicate table, which TOML forbids.
+    """
+    text = pyproject.read_text()
+    source_line = SOURCE_LINE.format(name=name)
+    if "[tool.uv.sources]" in text:
+        text = text.replace("[tool.uv.sources]\n", "[tool.uv.sources]\n" + source_line, 1)
+        text += INDEX_TEMPLATE.format(name=name, url=url)
+    else:
+        text += INDEX_TEMPLATE.format(name=name, url=url) + "\n[tool.uv.sources]\n" + source_line
+    pyproject.write_text(text)
 
 
 @dataclass
@@ -61,15 +79,38 @@ def discover_examples() -> list[Path]:
     return sorted(path.parent for path in EXAMPLES_DIR.glob("*/pyproject.toml") if path.is_file())
 
 
-def check_contract(pyproject: Path) -> str | None:
-    """Return a contract-violation message, or None if the example is runnable."""
-    text = pyproject.read_text()
-    if "[tool.uv.sources]" in text or "[[tool.uv.index]]" in text:
-        return (
-            "defines [tool.uv.sources] or [[tool.uv.index]]; the examples contract "
-            "reserves those for this runner (see examples/README.md)"
-        )
-    if "pymediate" not in text:
+def check_contract(example: Path) -> str | None:
+    """Return a contract-violation message, or None if the example is runnable.
+
+    Every pyproject.toml in the example (the root and, for uv-workspace examples, each
+    member) is checked: indexes are always reserved for this runner, and the only
+    ``[tool.uv.sources]`` entries an example may define itself are workspace members —
+    anything else (a path, a git URL, an index) would fight the release re-pin.
+    """
+    for pyproject in sorted(example.rglob("pyproject.toml")):
+        if ".venv" in pyproject.parts:
+            continue
+        data = tomllib.loads(pyproject.read_text())
+        uv_table = data.get("tool", {}).get("uv", {})
+        relative = pyproject.relative_to(example)
+        if uv_table.get("index"):
+            return (
+                f"{relative} defines [[tool.uv.index]]; the examples contract reserves "
+                "indexes for this runner (see examples/README.md)"
+            )
+        for source_name, source in uv_table.get("sources", {}).items():
+            if source != {"workspace": True}:
+                return (
+                    f"{relative} defines a non-workspace [tool.uv.sources] entry for "
+                    f"{source_name!r}; the examples contract only allows "
+                    "`{ workspace = true }` sources (see examples/README.md)"
+                )
+    root_text = (example / "pyproject.toml").read_text()
+    if "pymediate" not in root_text and not any(
+        "pymediate" in path.read_text()
+        for path in example.rglob("pyproject.toml")
+        if ".venv" not in path.parts
+    ):
         return "does not depend on pymediate"
     return None
 
@@ -92,7 +133,7 @@ def run_example(
     name = example.name
     print(f"\n=== {name} ===", flush=True)
 
-    violation = check_contract(example / "pyproject.toml")
+    violation = check_contract(example)
     if violation:
         return Result(name, ok=False, detail=f"contract violation: {violation}")
 
@@ -107,11 +148,10 @@ def run_example(
 
     if wheel is not None:
         # Wheel mode: `uv add <path>` re-pins pymediate to the local wheel via a path
-        # source — no index involvement at all.
+        # source — no index involvement at all (uv merges the source entry itself).
         pin_cmd = ["uv", "add", str(wheel.resolve())]
     else:
-        with (workspace / "pyproject.toml").open("a") as fp:
-            fp.write(INDEX_TEMPLATE.format(name=STAGING_INDEX_NAME, url=index_url))
+        pin_to_index(workspace / "pyproject.toml", STAGING_INDEX_NAME, index_url)
         pin_cmd = ["uv", "add", f"pymediate=={version}"]
 
     steps = [
