@@ -140,12 +140,23 @@ jobs:
           enable-cache: false
 
       - name: Sync dependencies
-        run: uv sync --all-extras --group test
+        run: uv sync
 
       - name: Run pip-audit
+        # Audits only the shipped dependency tree (pymediate[di] resolved from uv.lock) -
+        # dev/test tooling never reaches users and Dependabot already watches the lockfile.
         # Informational, not a merge gate (matches pr.yml's existing security-scan job) - the
         # comment posts regardless of whether vulnerabilities were found.
-        run: uv run poe security:pip-audit > pip-audit.md || true
+        run: |
+          status=0
+          uv run poe security:pip-audit > pip-audit.md || status=$?
+          if [ ! -s pip-audit.md ]; then
+            if [ "$status" -eq 0 ]; then
+              echo "✅ No known vulnerabilities in the shipped dependency tree (\`pymediate[di]\` resolved from \`uv.lock\`)." > pip-audit.md
+            else
+              echo "⚠️ pip-audit exited with status $status without producing a report — see the job log." > pip-audit.md
+            fi
+          fi
 
       - name: Comment results
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0

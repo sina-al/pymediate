@@ -102,12 +102,17 @@ security.help = "Scan installed dependencies for known vulnerabilities with safe
 security.cmd = "uv run --with safety safety check"
 
 "security:pip-audit".help = """
-Scan dependencies for known vulnerabilities with pip-audit, formatted as markdown \
-(used by release-pr-report.yml's vulnerability PR comment). pip-audit is the official PyPA \
-tool and stays fully open against the OSV/PyPA advisory databases, unlike safety's \
-increasingly gated free tier.\
+Scan the shipped dependency tree (pymediate[di] resolved from uv.lock, no dev/test tooling) \
+for known vulnerabilities with pip-audit, formatted as markdown (used by \
+release-pr-report.yml's vulnerability PR comment). Empty output means no findings. pip-audit \
+is the official PyPA tool and stays fully open against the OSV/PyPA advisory databases, \
+unlike safety's increasingly gated free tier.\
 """
-"security:pip-audit".cmd = "uv run --with pip-audit pip-audit --format markdown --skip-editable"
+"security:pip-audit".shell = """
+reqs="$(mktemp)" && \
+uv export --extra di --no-dev --no-emit-project --quiet --output-file "$reqs" && \
+uv run --with pip-audit pip-audit --requirement "$reqs" --require-hashes --disable-pip --format markdown
+"""
 
 "actions:lint".help = "Lint .github/workflows/ for security issues with zizmor (pass --format github in CI for inline PR annotations)"
 "actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"
