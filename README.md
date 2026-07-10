@@ -1,0 +1,59 @@
+# Repository Coverage
+
+[Full report](https://htmlpreview.github.io/?https://github.com/sina-al/pymediate/blob/python-coverage-comment-action-data/htmlcov/index.html)
+
+| Name                                            |    Stmts |     Miss |      Cover |   Missing |
+|------------------------------------------------ | -------: | -------: | ---------: | --------: |
+| src/pymediate/\_\_init\_\_.py                   |       11 |        0 |    100.00% |           |
+| src/pymediate/\_internal/\_\_init\_\_.py        |        0 |        0 |    100.00% |           |
+| src/pymediate/\_internal/event.py               |       33 |        1 |     96.97% |        65 |
+| src/pymediate/\_internal/handler.py             |       78 |        2 |     97.44% |     92-93 |
+| src/pymediate/\_internal/mediator.py            |       19 |        0 |    100.00% |           |
+| src/pymediate/\_internal/pipeline.py            |       20 |        0 |    100.00% |           |
+| src/pymediate/\_internal/registry.py            |       84 |        4 |     95.24% |184, 190, 197, 206 |
+| src/pymediate/aio/\_\_init\_\_.py               |        5 |        0 |    100.00% |           |
+| src/pymediate/aio/event.py                      |        5 |        0 |    100.00% |           |
+| src/pymediate/aio/handler.py                    |        5 |        0 |    100.00% |           |
+| src/pymediate/aio/mediator.py                   |       21 |        0 |    100.00% |           |
+| src/pymediate/aio/pipeline.py                   |       29 |        0 |    100.00% |           |
+| src/pymediate/errors.py                         |       54 |        0 |    100.00% |           |
+| src/pymediate/event.py                          |        5 |        0 |    100.00% |           |
+| src/pymediate/handler.py                        |        5 |        0 |    100.00% |           |
+| src/pymediate/mediator.py                       |       24 |        0 |    100.00% |           |
+| src/pymediate/pipeline.py                       |       29 |        0 |    100.00% |           |
+| src/pymediate/providers/\_\_init\_\_.py         |        2 |        0 |    100.00% |           |
+| src/pymediate/providers/dependency\_injector.py |       38 |        0 |    100.00% |           |
+| src/pymediate/request.py                        |       12 |        0 |    100.00% |           |
+| src/pymediate/service.py                        |       51 |        0 |    100.00% |           |
+| **TOTAL**                                       |  **530** |    **7** | **98.68%** |           |
+
+
+## Setup coverage badge
+
+Below are examples of the badges you can use in your main branch `README` file.
+
+### Direct image
+
+[![Coverage badge](https://raw.githubusercontent.com/sina-al/pymediate/python-coverage-comment-action-data/badge.svg)](https://htmlpreview.github.io/?https://github.com/sina-al/pymediate/blob/python-coverage-comment-action-data/htmlcov/index.html)
+
+This is the one to use if your repository is private or if you don't want to customize anything.
+
+### [Shields.io](https://shields.io) Json Endpoint
+
+[![Coverage badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/sina-al/pymediate/python-coverage-comment-action-data/endpoint.json)](https://htmlpreview.github.io/?https://github.com/sina-al/pymediate/blob/python-coverage-comment-action-data/htmlcov/index.html)
+
+Using this one will allow you to [customize](https://shields.io/endpoint) the look of your badge.
+It won't work with private repositories. It won't be refreshed more than once per five minutes.
+
+### [Shields.io](https://shields.io) Dynamic Badge
+
+[![Coverage badge](https://img.shields.io/badge/dynamic/json?color=brightgreen&label=coverage&query=%24.message&url=https%3A%2F%2Fraw.githubusercontent.com%2Fsina-al%2Fpymediate%2Fpython-coverage-comment-action-data%2Fendpoint.json)](https://htmlpreview.github.io/?https://github.com/sina-al/pymediate/blob/python-coverage-comment-action-data/htmlcov/index.html)
+
+This one will always be the same color. It won't work for private repos. I'm not even sure why we included it.
+
+## What is that?
+
+This branch is part of the
+[python-coverage-comment-action](https://github.com/marketplace/actions/python-coverage-comment)
+GitHub Action. All the files in this branch are automatically generated and may be
+overwritten at any moment.
