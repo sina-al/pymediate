@@ -110,7 +110,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          persist-credentials: false
+          # py-cov-action pushes the badge data branch via the checkout's stored
+          # credentials, so this job (alone) must persist them.
+          persist-credentials: true # zizmor: ignore[artipacked]
 
       - name: Setup Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
