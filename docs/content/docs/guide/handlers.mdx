@@ -39,6 +39,38 @@ Four properties fall out of this shape:
 3. **Framework independence** — nothing here knows about HTTP, CLIs, or queues.
 4. **Testability** — it's a plain callable; construct it and call it.
 
+## The exact-annotation contract
+
+`__call__`'s request parameter must annotate the **exact** request class declared in
+`Handler[...]` — not a base class, not a union. This is validated at class-definition time
+(import time), and a violation raises `InvalidHandlerSignatureError`:
+
+```python
+@dataclass
+class CreateAdminRequest(CreateUserRequest):
+    admin_level: int = 1
+
+class CreateAdminHandler(Handler[CreateAdminRequest]):
+    # Rejected at import: annotates the base class, not CreateAdminRequest
+    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
+        ...
+```
+
+Static type checkers *accept* that annotation — widening a parameter in an override is
+ordinary contravariance — so PyMediate enforces the rule itself, and the runtime error is
+the first signal you get.
+
+The strictness is what keeps dispatch sound. The mediator routes on the exact class of the
+request instance (`type(request)`), each concrete request class maps to exactly one handler,
+and `Request[ResponseT]` maps it to exactly one response type — that mapping is what makes
+`mediator.send()`'s return properly typed. The annotation check is a drift detector between
+the `Handler[X]` declaration and the implementation, and a drift detector only works if it's
+exact. A handler annotated with a base class would *look* like it handles a whole request
+hierarchy, but it would never receive anything except its declared request type.
+
+If several request types share logic, give each its own handler and factor the shared part
+into ordinary code they both call — or [compose through the mediator](#composing-operations).
+
 ## Handler independence
 
 Handlers never know about each other. They know their request, their response, and their own dependencies — nothing else. When one operation needs another, go through the mediator rather than holding a reference to the other handler:

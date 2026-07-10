@@ -106,6 +106,48 @@ def test_handler_rejects_wrong_parameter_type() -> None:
                 return Resp()
 
 
+def test_handler_rejects_base_class_parameter_annotation() -> None:
+    """Test that annotating a base class of the declared request type is rejected.
+
+    Static checkers allow the broader annotation (contravariance), so the runtime
+    error must teach the exact-annotation rule explicitly (ADR 0004).
+    """
+
+    class Resp:
+        pass
+
+    class BaseReq(Request[Resp]):
+        pass
+
+    class DerivedReq(BaseReq):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="a base class of DerivedReq"):
+
+        class BadHandler(Handler[DerivedReq]):
+            def __call__(self, request: BaseReq) -> Resp:
+                return Resp()
+
+
+def test_handler_rejects_union_parameter_annotation() -> None:
+    """Test that a union annotation is rejected even when it includes the request type."""
+
+    class Resp:
+        pass
+
+    class ReqA(Request[Resp]):
+        pass
+
+    class ReqB(Request[Resp]):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="exact request class"):
+
+        class BadHandler(Handler[ReqA]):
+            def __call__(self, request: ReqA | ReqB) -> Resp:
+                return Resp()
+
+
 def test_handler_requires_exactly_one_parameter() -> None:
     """Test that Handler __call__ must have exactly one parameter besides self."""
 

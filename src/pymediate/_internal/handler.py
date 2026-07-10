@@ -90,11 +90,20 @@ def _validate_call_signature(
     return_annotation = hints.get("return", sig.return_annotation)
 
     if request_annotation != expected_request_type:
-        raise errors.InvalidHandlerSignatureError(
-            cls,
-            f"__call__ parameter must be of type {_qualified_name(expected_request_type)}, "
-            f"got {_qualified_name(request_annotation)}",
+        issue = (
+            "__call__ parameter must annotate the exact request class declared in "
+            f"Handler[...]: expected {_qualified_name(expected_request_type)}, "
+            f"got {_qualified_name(request_annotation)}"
         )
+        if isinstance(request_annotation, type) and issubclass(
+            expected_request_type, request_annotation
+        ):
+            issue += (
+                f" (a base class of {expected_request_type.__name__}). PyMediate dispatches "
+                "on the exact request class, so a broader annotation is not accepted even "
+                "though static type checkers allow it"
+            )
+        raise errors.InvalidHandlerSignatureError(cls, issue)
 
     if return_annotation != expected_response_type:
         raise errors.ResponseTypeMismatchError(cls, expected_response_type, return_annotation)

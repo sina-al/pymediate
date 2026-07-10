@@ -16,7 +16,8 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
     The handler performs class-definition-time validation via __init_subclass__ to ensure:
     - The __call__ method exists and is properly implemented
     - The __call__ method is synchronous (not async)
-    - The __call__ parameter matches the declared request type
+    - The __call__ parameter annotates the exact declared request type
+      (not a base class or union)
     - The __call__ return type matches the request's response type
 
     This validation happens at class definition time (import time), catching
@@ -101,7 +102,10 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
             mypy checks that `request`'s type matches `Handler[RequestT]`'s type
             argument, but not that the return type matches the request's declared
             response type - that mismatch is caught at runtime instead, when the
-            class is defined (see `ResponseTypeMismatchError`). This method must
-            also be synchronous; for async handlers, use `pymediate.aio.Handler`.
+            class is defined (see `ResponseTypeMismatchError`). The annotation must
+            be the exact request class - a base class or union passes static
+            checking (contravariance) but raises `InvalidHandlerSignatureError` at
+            class definition. This method must also be synchronous; for async
+            handlers, use `pymediate.aio.Handler`.
         """
         ...

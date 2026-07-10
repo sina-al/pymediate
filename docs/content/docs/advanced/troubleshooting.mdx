@@ -96,7 +96,26 @@ class MyHandler(Handler[MyRequest]):
         return MyResponse()
 ```
 
-The same applies to a parameter type that doesn't match `Handler[MyRequest]`, and (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the async API, `__call__` must also be `async def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
+The parameter annotation must be the **exact** request class declared in `Handler[...]` — a base class or union is rejected, even though static type checkers accept the broader annotation (widening a parameter in an override is legal contravariance, so this is the one signature mistake mypy will *not* flag for you):
+
+```python
+class CreateAdminRequest(CreateUserRequest):
+    ...
+
+# Wrong: annotates a base class of the declared request type
+class CreateAdminHandler(Handler[CreateAdminRequest]):
+    def __call__(self, request: CreateUserRequest) -> UserResponse:
+        ...
+
+# Correct: the exact class from Handler[...]
+class CreateAdminHandler(Handler[CreateAdminRequest]):
+    def __call__(self, request: CreateAdminRequest) -> UserResponse:
+        ...
+```
+
+PyMediate dispatches on the exact class of the request instance, so a broader annotation could never actually receive other request types — the check catches drift between the `Handler[...]` declaration and the implementation. The rationale is covered in [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract).
+
+The same exactness applies (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the async API, `__call__` must also be `async def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
 
 ### `HandlerAlreadyRegisteredError`
 

@@ -68,7 +68,7 @@ def test_async_handler_defines_and_dispatches_under_future_annotations() -> None
 
 
 def test_wrong_parameter_type_still_rejected_under_future_annotations() -> None:
-    with pytest.raises(InvalidHandlerSignatureError, match="must be of type"):
+    with pytest.raises(InvalidHandlerSignatureError, match="exact request class"):
 
         class BadHandler(Handler[CreateUser]):
             def __call__(self, request: OtherRequest) -> UserCreated:

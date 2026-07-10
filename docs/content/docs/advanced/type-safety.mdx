@@ -59,7 +59,9 @@ class BadHandler(Handler[CreateUserRequest]):
 
 This still catches the mistake early — the error fires as soon as the module is imported, before any request is ever sent — just not during a `mypy` run. The same hook also validates that `__call__` exists, takes exactly one parameter besides `self`, and is sync or async as expected (`InvalidHandlerSignatureError`), and that a request actually inherits from `Request[ResponseType]` (`InvalidRequestTypeError`). See [error handling](/docs/guide/error-handling#pymediates-own-errors) for the full hierarchy.
 
-In short: **wrong parameter type → mypy catches it. Wrong return type or malformed signature → PyMediate catches it at import time.** Both happen before a request is ever processed; neither requires a test run to surface.
+One parameter mistake also slips past mypy: annotating a **base class** of the declared request type. Widening a parameter in an override is legal contravariance, so mypy accepts it — but PyMediate requires [the exact request class](/docs/guide/handlers#the-exact-annotation-contract) and rejects the broader annotation at import time with `InvalidHandlerSignatureError`.
+
+In short: **wrong parameter type → mypy catches it (unless it's a base class of the request type — PyMediate catches that one). Wrong return type or malformed signature → PyMediate catches it at import time.** Both happen before a request is ever processed; neither requires a test run to surface.
 
 ## Running mypy on your own code
 

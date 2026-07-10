@@ -106,6 +106,25 @@ def test_async_handler_rejects_sync_call() -> None:
                 return Resp()
 
 
+def test_async_handler_rejects_base_class_parameter_annotation() -> None:
+    """Test that the async mirror also rejects a base-class parameter annotation."""
+
+    class Resp:
+        pass
+
+    class BaseReq(Request[Resp]):
+        pass
+
+    class DerivedReq(BaseReq):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="a base class of DerivedReq"):
+
+        class BadHandler(Handler[DerivedReq]):
+            async def __call__(self, request: BaseReq) -> Resp:
+                return Resp()
+
+
 def test_sync_handler_rejects_async_call() -> None:
     """Test that sync Handler rejects async __call__ method."""
     from pymediate import Handler as SyncHandler

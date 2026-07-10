@@ -73,7 +73,10 @@ class InvalidHandlerSignatureError(PyMediateError):
     """Raised when a handler has an invalid __call__ signature.
 
     Handlers must have a __call__ method with exactly one parameter (the request)
-    and a return type annotation matching the expected response type.
+    and a return type annotation matching the expected response type. The request
+    parameter must annotate the exact request class declared in Handler[...] —
+    a base class or union is rejected, because dispatch is keyed by the exact
+    request type.
 
     Example:
         ```python
@@ -102,7 +105,8 @@ class InvalidHandlerSignatureError(PyMediateError):
             "          return MyResponse(...)\n\n"
             "Common mistakes:\n"
             "  ❌ Missing request parameter\n"
-            "  ❌ Wrong parameter type annotation\n"
+            "  ❌ Parameter not annotated with the exact request class\n"
+            "     (a base class or union is rejected)\n"
             "  ❌ Missing or wrong return type annotation\n"
             "  ❌ Extra parameters (only 'self' and 'request' allowed)"
         )

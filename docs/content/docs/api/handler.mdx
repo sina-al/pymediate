@@ -44,7 +44,9 @@ Handlers contain the business logic for processing requests. They declare only t
 
 - `__call__` exists and is implemented
 - `__call__` is sync (or async, for `pymediate.aio.Handler`)
-- the `__call__` parameter annotation matches the declared request type
+- the `__call__` parameter annotation is *exactly* the declared request type — a base class or
+  union is rejected, because dispatch is keyed by the exact request class (see
+  [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract))
 - the `__call__` return annotation matches the request's declared response type
 
 | Raises | When |
