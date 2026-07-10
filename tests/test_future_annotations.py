@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import pytest
 
 from pymediate import (
+    Event,
     Handler,
     InvalidHandlerSignatureError,
     Mediator,
@@ -80,4 +81,36 @@ def test_wrong_return_type_still_rejected_under_future_annotations() -> None:
 
         class BadHandler(Handler[OtherRequest]):
             def __call__(self, request: OtherRequest) -> int:
+                return 1
+
+
+@dataclass
+class UserRegistered(Event):
+    user_id: int
+
+
+def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
+    from pymediate import EventHandler, Mediator
+
+    calls: list[int] = []
+
+    class WelcomeSubscriber(EventHandler[UserRegistered]):
+        def __call__(self, event: UserRegistered) -> None:
+            calls.append(event.user_id)
+
+    services = Services()
+    services.add(WelcomeSubscriber())
+    mediator = Mediator(services.provider())
+
+    mediator.publish(UserRegistered(user_id=7))
+    assert calls == [7]
+
+
+def test_event_handler_wrong_return_still_rejected_under_future_annotations() -> None:
+    from pymediate import EventHandler
+
+    with pytest.raises(InvalidHandlerSignatureError, match="must be annotated to return None"):
+
+        class BadSubscriber(EventHandler[UserRegistered]):
+            def __call__(self, event: UserRegistered) -> int:
                 return 1

@@ -1,7 +1,10 @@
 """Asynchronous mediator implementation for routing requests to handlers."""
 
+import asyncio
+
 from .._internal.mediator import MediatorMixin
 from .._internal.pipeline import compose_async
+from ..event import Event
 from ..request import Request
 from .pipeline import PipelineBehavior
 
@@ -144,3 +147,86 @@ class Mediator(MediatorMixin):
         if not behaviors:
             return await handler(request)  # type: ignore[no-any-return]
         return await compose_async(behaviors, handler)(request)  # type: ignore[no-any-return]
+
+    async def publish(self, event: Event) -> None:
+        """Publish an event to every async handler subscribed to its type.
+
+        The async mirror of `pymediate.Mediator.publish()`: resolves every
+        `pymediate.aio.EventHandler` registered for the event's exact class and
+        runs all of them **concurrently** via `asyncio.gather` (tasks are
+        created in registration order, then awaited together). Publishing with
+        zero subscribers is a no-op, not an error.
+
+        All handler instances are resolved before any handler runs, so a
+        missing registration fails immediately and never causes partial
+        delivery. If handlers raise during execution, the remaining handlers
+        still run to completion, and the failures are re-raised together as an
+        `ExceptionGroup` once all handlers have finished.
+
+        Args:
+            event: The event instance to publish.
+
+        Raises:
+            ServiceNotFoundError: If a subscribed handler class has no
+                registered instance in the service provider.
+            ExceptionGroup: If one or more handlers raised; contains every
+                exception. Handle selectively with `except*`.
+
+        Examples:
+            Publishing to multiple async subscribers:
+                ```python
+                import asyncio
+                from dataclasses import dataclass
+                from pymediate import Event, Services
+                from pymediate.aio import EventHandler, Mediator
+
+                @dataclass
+                class OrderPlaced(Event):
+                    order_id: int
+
+                class SendConfirmation(EventHandler[OrderPlaced]):
+                    async def __call__(self, event: OrderPlaced) -> None:
+                        print(f"confirming order {event.order_id}")
+
+                class UpdateAnalytics(EventHandler[OrderPlaced]):
+                    async def __call__(self, event: OrderPlaced) -> None:
+                        print(f"recording order {event.order_id}")
+
+                async def main():
+                    services = Services()
+                    services.add(SendConfirmation()).add(UpdateAnalytics())
+                    mediator = Mediator(services.provider())
+
+                    await mediator.publish(OrderPlaced(order_id=42))
+
+                asyncio.run(main())
+                ```
+
+        Note:
+            Handlers for one publish run concurrently - they must not rely on
+            each other's effects or mutate shared state without
+            synchronization. Publishing dispatches on the exact class of the
+            event instance, and pipeline behaviors wrap `send()` only; they do
+            not run on publishes.
+
+        See Also:
+            - Event: Base class for publishable events.
+            - pymediate.aio.EventHandler: Base class for async subscribers.
+            - pymediate.Mediator.publish: Sync variant; runs handlers
+              sequentially in registration order.
+        """
+        handlers = self._resolve_event_handlers(event)
+        if not handlers:
+            return
+
+        results = await asyncio.gather(
+            *(handler(event) for handler in handlers), return_exceptions=True
+        )
+        exceptions = [result for result in results if isinstance(result, BaseException)]
+
+        if exceptions:
+            raise BaseExceptionGroup(
+                f"{len(exceptions)} of {len(handlers)} event handlers raised while "
+                f"publishing {type(event).__name__}",
+                exceptions,
+            )

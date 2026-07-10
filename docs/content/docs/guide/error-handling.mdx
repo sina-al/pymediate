@@ -161,12 +161,13 @@ PyMediate raises its own exceptions, all subclasses of `PyMediateError` (which c
 
 ### Definition-time errors — fatal, not meant to be caught
 
-PyMediate validates a `Handler` or `Request` subclass at the point it is *defined*, so these are raised while your modules are being imported — before the app is even running:
+PyMediate validates a `Handler`, `EventHandler`, or `Request` subclass at the point it is *defined*, so these are raised while your modules are being imported — before the app is even running:
 
-- `InvalidHandlerSignatureError` — a `Handler.__call__` with the wrong shape.
+- `InvalidHandlerSignatureError` — a `Handler.__call__` or `EventHandler.__call__` with the wrong shape.
 - `InvalidRequestTypeError` — a handler parameterized on something that isn't a `Request`.
+- `InvalidEventTypeError` — an event handler parameterized on something that isn't an `Event`.
 - `ResponseTypeMismatchError` — a handler's return annotation disagrees with its request's response type.
-- `HandlerAlreadyRegisteredError` — two handlers registered for the same request type.
+- `HandlerAlreadyRegisteredError` — two handlers registered for the same request type (event handlers are exempt — any number may subscribe to one event).
 
 There is nothing to catch, because the `import` that defines the offending class is what raises. A program with one of these can't start — it's a programming mistake, like a `SyntaxError`. Read the message, fix the code; don't wrap class definitions in `try`.
 
@@ -176,6 +177,8 @@ These fire while a request is being routed, and you can handle them like any run
 
 - `HandlerNotFoundError` — `mediator.send()` received a request with no registered handler.
 - `ServiceNotFoundError` — a `ServiceProvider.get()` couldn't resolve a requested type.
+
+`mediator.publish()` adds one more shape: handler exceptions during a publish are collected and re-raised together as a builtin `ExceptionGroup` after every subscriber has run — handle selectively with `except*`. See the [events guide](/docs/guide/events#error-handling-every-handler-runs).
 
 Both usually signal a *misconfigured deployment* (a handler or service was never registered) rather than bad client input, so at a web edge they map to a 500, not a 4xx:
 

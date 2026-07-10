@@ -3,7 +3,7 @@ title: Mediator
 description: API reference for the sync and async Mediator classes.
 ---
 
-The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `Handler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors.
+The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `Handler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors. It also publishes events to every subscribed `EventHandler`.
 
 <Tabs items={['Sync', 'Async']}>
   <Tab value="Sync">
@@ -15,6 +15,9 @@ The mediator routes requests to their handlers through a `ServiceProvider`. It l
 
         def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
             """Send a request and get the typed response from its handler."""
+
+        def publish(self, event: Event) -> None:
+            """Publish an event to every handler subscribed to its type."""
     ```
   </Tab>
   <Tab value="Async">
@@ -26,6 +29,9 @@ The mediator routes requests to their handlers through a `ServiceProvider`. It l
 
         async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
             """Send a request and await the typed response from its handler."""
+
+        async def publish(self, event: Event) -> None:
+            """Publish an event to every async handler subscribed to its type."""
     ```
   </Tab>
 </Tabs>
@@ -46,6 +52,34 @@ Exceptions raised inside handlers propagate unchanged — `send()` never catches
   If no behaviors apply to a request, the handler is called directly with no
   pipeline-construction overhead. Otherwise a pipeline is built per request from every applicable
   behavior in registration order (first registered is outermost), then the handler.
+</Callout>
+
+## `publish()`
+
+Resolves every `EventHandler` registered for the event's **exact** class and invokes each one with the event. Zero subscribers is a silent no-op. The sync mediator runs handlers sequentially in registration order; the async mediator runs them **concurrently** via `asyncio.gather` (tasks created in registration order).
+
+| | |
+| --- | --- |
+| **Args** | `event` — the event instance to publish |
+| **Returns** | `None` — events have no response |
+| **Raises** | `ServiceNotFoundError` — a subscribed handler class has no registered instance (raised before any handler runs); `ExceptionGroup` — one or more handlers raised during execution |
+
+Error semantics, in order:
+
+1. **Resolution fails fast.** All handler instances are resolved from the provider before any handler runs, so a missing registration never causes partial delivery.
+2. **Execution failures aggregate.** A raising handler doesn't stop the others — every handler runs, then the failures are re-raised together as an `ExceptionGroup`, which you can handle selectively with `except*`.
+
+```python
+try:
+    mediator.publish(OrderPlaced(order_id=42))
+except* ConnectionError as group:
+    for exc in group.exceptions:
+        log.warning("subscriber unavailable: %s", exc)
+```
+
+<Callout type="info" title="Pipeline behaviors wrap send() only">
+  Behaviors do not run on publishes. Cross-cutting concerns for events live in the handlers
+  themselves.
 </Callout>
 
 ## Usage
@@ -92,5 +126,7 @@ mediator = Mediator(services.provider())
 ## See also
 
 - [Services / ServiceProvider](/docs/api/service-provider) — building the provider
+- [Event / EventHandler](/docs/api/event) — the publish-side classes
 - [Pipeline](/docs/api/pipeline) — the behavior API
 - [The mediator guide](/docs/guide/mediator) — lifecycle and best practices
+- [The events guide](/docs/guide/events) — publishing patterns
