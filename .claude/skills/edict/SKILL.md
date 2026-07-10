@@ -1,9 +1,9 @@
 ---
-name: triage
+name: edict
 description: Turn a raw maintainer request into an implementation-ready GitHub issue via a structured interview — research the repo, ask decision-shaped questions, draft a requirements-first spec, render it as a branded EDICT artifact for review, then file and board it (the EDICT is archived uncommitted in the Claude project folder). Use whenever the maintainer says "file an issue", "put this on my list", "track this", "add to the roadmap", or states a request/idea they want captured for later implementation — even a one-liner.
 ---
 
-# /triage — request → implementation-ready issue
+# /edict — request → implementation-ready issue
 
 The maintainer sends a request (often terse, possibly from a phone). Your job is to refine it
 into a GitHub issue that a **different agent, with no access to this conversation**, can
