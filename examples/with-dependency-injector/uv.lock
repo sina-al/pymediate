@@ -93,7 +93,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pymediate", extras = ["di"], specifier = ">=0.1" }]
+requires-dist = [{ name = "pymediate", extras = ["di"], specifier = ">=0.2.0" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.0.0" }]
