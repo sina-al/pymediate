@@ -20,6 +20,23 @@ updates:
       - "dependencies"
       - "python"
 
+  - package-ecosystem: "npm"
+    # The docs site's pnpm lockfile. Without this, a vulnerable transitive dep here
+    # surfaces for the first time at the release gate (dependency-review on the
+    # release PR) — the most expensive moment to learn about it.
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+    groups:
+      docs-dependencies:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore"
+    labels:
+      - "dependencies"
+      - "javascript"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

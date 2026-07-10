@@ -1,3 +1,8 @@
 allowBuilds:
   esbuild: false
   sharp: false
+
+# next pins an exact postcss inside GHSA-qx2v-qp2m-jg93's vulnerable range (< 8.5.10);
+# drop this once next's own pin moves past it.
+overrides:
+  "postcss@<8.5.10": ">=8.5.10"
