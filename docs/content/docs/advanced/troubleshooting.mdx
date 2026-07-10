@@ -117,6 +117,29 @@ PyMediate dispatches on the exact class of the request instance, so a broader an
 
 The same exactness applies (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the async API, `__call__` must also be `async def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
 
+### `InvalidEventTypeError`
+
+```python
+class OrderPlaced:  # missing Event inheritance
+    ...
+
+class SendConfirmation(EventHandler[OrderPlaced]):
+    def __call__(self, event: OrderPlaced) -> None: ...
+# InvalidEventTypeError: Event type 'OrderPlaced' must inherit from Event
+```
+
+**Cause:** `EventHandler`'s type parameter must be an `Event` subclass — inheriting from `Event` is what makes a class publishable via `mediator.publish()`.
+
+**Solution:** Add the inheritance:
+
+```python
+@dataclass
+class OrderPlaced(Event):
+    order_id: int
+```
+
+Since `EventHandler[EventT: Event]` is bound, mypy and basedpyright flag this mistake statically as well — if you're running a type checker, you'll see it before the import fails. Also note that event handlers must annotate their return as `None`; a non-`None` return annotation raises `InvalidHandlerSignatureError` at class definition, because publishing has no response. See the [events guide](/docs/guide/events).
+
 ### `HandlerAlreadyRegisteredError`
 
 ```python

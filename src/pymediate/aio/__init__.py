@@ -1,7 +1,7 @@
 """Async support for PyMediate.
 
-This package provides asynchronous variants of Handler and Mediator for
-use with async/await syntax.
+This package provides asynchronous variants of Handler, EventHandler, and
+Mediator for use with async/await syntax.
 
 Example:
     ```python
@@ -33,8 +33,9 @@ Note:
     operations, use `from pymediate import Handler, Mediator` instead.
 """
 
+from .event import EventHandler
 from .handler import Handler
 from .mediator import Mediator
 from .pipeline import PipelineBehavior
 
-__all__ = ["Handler", "Mediator", "PipelineBehavior"]
+__all__ = ["EventHandler", "Handler", "Mediator", "PipelineBehavior"]

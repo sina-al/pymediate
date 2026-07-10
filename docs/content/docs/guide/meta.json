@@ -4,6 +4,7 @@
     "requests-responses",
     "handlers",
     "mediator",
+    "events",
     "pipeline-behaviors",
     "dependency-injection",
     "dataclasses",

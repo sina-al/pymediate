@@ -38,6 +38,15 @@ class InvalidRequestTypeError(PyMediateError):
 
 A handler was parameterized on a type that doesn't inherit from `Request[ResponseType]`.
 
+### InvalidEventTypeError
+
+```python
+class InvalidEventTypeError(PyMediateError):
+    def __init__(self, event_type: type): ...
+```
+
+An event handler was parameterized on a type that doesn't inherit from `Event`. Because `EventHandler`'s type parameter is bound to `Event`, mypy and basedpyright flag this statically too — the runtime error is the backstop for unchecked code.
+
 ### ResponseTypeMismatchError
 
 ```python

@@ -2,6 +2,7 @@
 
 from ._internal.mediator import MediatorMixin
 from ._internal.pipeline import compose
+from .event import Event
 from .pipeline import PipelineBehavior
 from .request import Request
 
@@ -122,3 +123,92 @@ class Mediator(MediatorMixin):
         if not behaviors:
             return handler(request)  # type: ignore[no-any-return]
         return compose(behaviors, handler)(request)  # type: ignore[no-any-return]
+
+    def publish(self, event: Event) -> None:
+        """Publish an event to every handler subscribed to its type.
+
+        Resolves every `EventHandler` registered for the event's exact class
+        (populated automatically when `EventHandler[EventT]` subclasses are
+        defined) and invokes each one with the event, in registration order.
+        Publishing with zero subscribers is a no-op, not an error.
+
+        All handler instances are resolved before any handler runs, so a
+        missing registration fails immediately and never causes partial
+        delivery. If handlers raise during execution, the remaining handlers
+        still run, and the failures are re-raised together as an
+        `ExceptionGroup` once all handlers have finished.
+
+        Args:
+            event: The event instance to publish.
+
+        Raises:
+            ServiceNotFoundError: If a subscribed handler class has no
+                registered instance in the service provider.
+            ExceptionGroup: If one or more handlers raised; contains every
+                exception. Handle selectively with `except*`.
+
+        Examples:
+            Publishing to multiple subscribers:
+                ```python
+                from dataclasses import dataclass
+                from pymediate import Event, EventHandler, Mediator, Services
+
+                @dataclass
+                class OrderPlaced(Event):
+                    order_id: int
+
+                class SendConfirmation(EventHandler[OrderPlaced]):
+                    def __call__(self, event: OrderPlaced) -> None:
+                        print(f"confirming order {event.order_id}")
+
+                class UpdateAnalytics(EventHandler[OrderPlaced]):
+                    def __call__(self, event: OrderPlaced) -> None:
+                        print(f"recording order {event.order_id}")
+
+                services = Services()
+                services.add(SendConfirmation()).add(UpdateAnalytics())
+                mediator = Mediator(services.provider())
+
+                mediator.publish(OrderPlaced(order_id=42))
+                # confirming order 42
+                # recording order 42
+                ```
+
+            Handling subscriber failures selectively:
+                ```python
+                try:
+                    mediator.publish(OrderPlaced(order_id=42))
+                except* ConnectionError as group:
+                    for exc in group.exceptions:
+                        print(f"subscriber unavailable: {exc}")
+                ```
+
+        Note:
+            Publishing dispatches on the exact class of the event instance -
+            handlers subscribed to a base event class do not receive derived
+            events. Pipeline behaviors wrap `send()` only; they do not run on
+            publishes.
+
+        See Also:
+            - Event: Base class for publishable events.
+            - EventHandler: Base class for subscribers (sync version).
+            - pymediate.aio.Mediator.publish: Async variant; runs handlers
+              concurrently.
+        """
+        handlers = self._resolve_event_handlers(event)
+        if not handlers:
+            return
+
+        exceptions: list[Exception] = []
+        for handler in handlers:
+            try:
+                handler(event)
+            except Exception as exc:
+                exceptions.append(exc)
+
+        if exceptions:
+            raise ExceptionGroup(
+                f"{len(exceptions)} of {len(handlers)} event handlers raised while "
+                f"publishing {type(event).__name__}",
+                exceptions,
+            )

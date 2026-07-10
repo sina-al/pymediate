@@ -9,7 +9,7 @@ Signatures-only blueprint of pymediate's public API. Full docstrings, guides, an
 ### `pymediate`
 
 ```python
-# Re-exports: Request, Handler, Mediator, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, ResponseTypeMismatchError
+# Re-exports: Request, Handler, Mediator, Event, EventHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.request`
@@ -38,6 +38,9 @@ class Mediator(MediatorMixin):
     """Routes requests to their handlers using a service provider."""
     def send(self, request: Request[ResponseT]) -> ResponseT:
         """Send a request and get the typed response from its handler."""
+        ...
+    def publish(self, event: Event) -> None:
+        """Publish an event to every handler subscribed to its type."""
         ...
 ```
 
@@ -123,6 +126,12 @@ class InvalidRequestTypeError(PyMediateError):
         """Initialize invalid request type error."""
         ...
 
+class InvalidEventTypeError(PyMediateError):
+    """Raised when an event handler's type parameter doesn't inherit from Event."""
+    def __init__(self, event_type: type):
+        """Initialize the error for a type parameter that isn't an Event subclass."""
+        ...
+
 class ResponseTypeMismatchError(PyMediateError):
     """Raised when a handler returns the wrong response type."""
     def __init__(self, handler_type: type, expected_type: type, actual_type: type):
@@ -165,7 +174,7 @@ class DependencyInjectorServiceProvider:
 ### `pymediate.aio`
 
 ```python
-# Re-exports: Handler, Mediator, PipelineBehavior
+# Re-exports: EventHandler, Handler, Mediator, PipelineBehavior
 ```
 
 ### `pymediate.aio.handler`
@@ -186,6 +195,9 @@ class Mediator(MediatorMixin):
     """Routes requests to their async handlers using a service provider."""
     async def send(self, request: Request[ResponseT]) -> ResponseT:
         """Send a request and await the typed response from its handler."""
+        ...
+    async def publish(self, event: Event) -> None:
+        """Publish an event to every async handler subscribed to its type."""
         ...
 ```
 
