@@ -20,7 +20,9 @@ run all of them with no per-example wiring (`release.yml`'s examples stage, via
 1. **Standalone uv project**: a `pyproject.toml` at the example's root, with a committed
    `uv.lock`. Not a member of any workspace.
 2. **Depends on pymediate with a loose lower bound** (e.g. `pymediate>=0.1`) so the release
-   runner can re-pin it to the release candidate without a conflict.
+   runner can re-pin it to the release candidate without a conflict. Extras are fine
+   (e.g. `pymediate[di]>=0.1`): `uv add` preserves them when re-pinning, in both wheel
+   and version mode — verified when `with-dependency-injector` was added.
 3. **Tests included, `uv run pytest` exits 0**: pytest lives in the default (`dev`)
    dependency group, so `uv sync && uv run pytest` is the whole contract. Every example is
    also a test of the library.
