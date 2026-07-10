@@ -1,6 +1,6 @@
 ---
 title: Type safety
-description: How static checking (mypy) and runtime class-definition validation work together in PyMediate.
+description: How static checking (mypy, pyright) and runtime class-definition validation work together in PyMediate.
 ---
 
 PyMediate's type safety comes from two different mechanisms working together, and they don't catch the same mistakes. Knowing which is which tells you what mypy will and won't surface before you run your code.
@@ -81,7 +81,7 @@ A few things that keep mypy effective on PyMediate-based code:
 
 ## How PyMediate tests its own type safety
 
-If you're contributing to PyMediate itself, `tests/mypy/snippets/` holds small standalone scripts pinning down the library's type-checking contract: everything under `valid/` must pass `mypy --strict`, everything under `errors/` must fail it. The files in `errors/` are deliberately broken — a type error there is the test working, not a bug to fix.
+If you're contributing to PyMediate itself, `tests/typing/snippets/` holds small standalone scripts pinning down the library's type-checking contract across checkers: everything under `valid/` must pass `mypy --strict`, be completely clean — zero errors, zero warnings — under [basedpyright](https://docs.basedpyright.com/)'s strictest mode (which also covers vanilla pyright), and execute successfully at runtime; everything under `errors/` must be flagged by every checker, with the expected diagnostic pinned per checker. The suite also gates the public API at 100% type completeness (`basedpyright --verifytypes`), so no `pymediate` symbol resolves as `Unknown` in your editor. The files in `errors/` are deliberately broken — a type error there is the test working, not a bug to fix.
 
 ## Next steps
 

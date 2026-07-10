@@ -75,11 +75,13 @@ Removes all registered services. Existing providers are unaffected — they're i
 from pymediate.providers import DependencyInjectorServiceProvider
 
 class DependencyInjectorServiceProvider:
-    def __init__(self, container: containers.Container) -> None:
+    def __init__(self, container: ContainerLike) -> None:
         """Scan a dependency-injector container and cache its providers by type."""
 ```
 
 A `ServiceProvider` backed by a [`dependency-injector`](https://python-dependency-injector.ets-labs.org/) container — requires the `di` extra (`pip install 'pymediate[di]'`). It scans the container and matches providers **by the type they produce**, not by their attribute name, then implements the same four protocol methods.
+
+`ContainerLike` is a structural protocol matching any object that exposes a `providers` mapping of provider callables. Every dependency-injector container (`DeclarativeContainer`, `DynamicContainer`) satisfies it, so you never implement it yourself — pass your container instance where a `ContainerLike` is expected.
 
 ```python
 from dependency_injector import containers, providers
