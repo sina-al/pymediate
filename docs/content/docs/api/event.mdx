@@ -1,0 +1,99 @@
+---
+title: Event / EventHandler
+description: API reference for the Event base class and the sync and async EventHandler classes.
+---
+
+Events are `send()`'s fan-out counterpart: an `Event` is published to every handler subscribed to its exact type — zero, one, or many — and returns nothing. See the [events guide](/docs/guide/events) for semantics and patterns; this page is the API contract.
+
+## `Event`
+
+```python
+from pymediate import Event
+
+class Event:
+    """Base class for events published to zero or more handlers."""
+```
+
+A plain marker base class. Unlike `Request[ResponseT]` it takes **no type parameter** — publishing has no response, so there is nothing to infer. Inheriting from `Event` is what makes a class accepted by `Mediator.publish()` and usable as an `EventHandler` type parameter. Works with dataclasses, regular classes, and any class structure.
+
+## `EventHandler`
+
+<Tabs items={['Sync', 'Async']}>
+  <Tab value="Sync">
+    ```python
+    from pymediate import EventHandler
+
+    class EventHandler[EventT: Event](ABC):
+        @abstractmethod
+        def __call__(self, event: EventT) -> None:
+            """Handle the published event."""
+    ```
+  </Tab>
+  <Tab value="Async">
+    ```python
+    from pymediate.aio import EventHandler
+
+    class EventHandler[EventT: Event](ABC):
+        @abstractmethod
+        async def __call__(self, event: EventT) -> None:
+            """Handle the published event asynchronously."""
+    ```
+  </Tab>
+</Tabs>
+
+## Type parameters
+
+| Parameter | Description |
+| --- | --- |
+| `EventT` | The event type this handler subscribes to. **Bound to `Event`** — parameterizing with a non-`Event` type is a static error in mypy/basedpyright as well as a runtime `InvalidEventTypeError` |
+
+## Definition-time validation
+
+Like `Handler`, every subclass is validated via `__init_subclass__` the moment the class is defined. It checks that:
+
+- `__call__` exists and is implemented
+- `__call__` is sync (or async, for `pymediate.aio.EventHandler`)
+- the `__call__` parameter annotation is *exactly* the declared event type — a base class or
+  union is rejected, because dispatch is keyed by the exact event class (see
+  [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract))
+- the `__call__` return annotation is `None` — event handlers produce no response
+
+| Raises | When |
+| --- | --- |
+| `InvalidHandlerSignatureError` | `__call__` signature is malformed, including a return annotation other than `None` |
+| `InvalidEventTypeError` | The type parameter isn't an `Event` subclass |
+
+Unlike request handlers, **any number of handlers may register for the same event type** — there is no `HandlerAlreadyRegisteredError` on the event path. Handlers are recorded in registration (definition) order, which is the order `publish()` uses.
+
+## Usage
+
+```python
+from dataclasses import dataclass
+from pymediate import Event, EventHandler, Mediator, Services
+
+@dataclass
+class OrderPlaced(Event):
+    order_id: int
+
+class SendConfirmation(EventHandler[OrderPlaced]):
+    def __call__(self, event: OrderPlaced) -> None:
+        print(f"confirming order {event.order_id}")
+
+class UpdateAnalytics(EventHandler[OrderPlaced]):
+    def __call__(self, event: OrderPlaced) -> None:
+        print(f"recording order {event.order_id}")
+
+services = Services()
+services.add(SendConfirmation()).add(UpdateAnalytics())
+mediator = Mediator(services.provider())
+
+mediator.publish(OrderPlaced(order_id=42))
+# confirming order 42
+# recording order 42
+```
+
+## See also
+
+- [Mediator](/docs/api/mediator) — `publish()` semantics (ordering, `ExceptionGroup`, async concurrency)
+- [Errors](/docs/api/errors) — the exception hierarchy
+- [The events guide](/docs/guide/events) — patterns and best practices

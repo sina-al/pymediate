@@ -43,8 +43,8 @@ test.cmd = "pytest tests/"
 type.help = "Run mypy type checking on source code"
 type.cmd = "mypy src/pymediate/ --strict"
 
-"type:all".help = "Run mypy on source and tests (excludes the deliberately type-invalid tests/mypy/snippets/errors/)"
-"type:all".cmd = "mypy src/pymediate/ tests/ --strict --exclude 'tests/mypy/snippets/errors/'"
+"type:all".help = "Run mypy on source and tests (excludes the deliberately type-invalid tests/typing/snippets/errors/)"
+"type:all".cmd = "mypy src/pymediate/ tests/ --strict --exclude 'tests/typing/snippets/errors/'"
 
 "type:report".help = "Generate an HTML mypy coverage report into mypy-report/"
 "type:report".cmd = "mypy src/pymediate/ --strict --html-report mypy-report"
@@ -91,7 +91,7 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 
 benchmark.help = """
 Micro-benchmark mediator.send() overhead vs calling the handler directly \
-(usage: poe benchmark --number 100000 --repeat 5). Quoted in docs.v2's \
+(usage: poe benchmark --number 100000 --repeat 5). Quoted in the docs site's \
 comparison page; results are machine-dependent.\
 """
 benchmark.cmd = "python3 scripts/benchmark.py"
@@ -102,29 +102,41 @@ security.help = "Scan installed dependencies for known vulnerabilities with safe
 security.cmd = "uv run --with safety safety check"
 
 "security:pip-audit".help = """
-Scan dependencies for known vulnerabilities with pip-audit, formatted as markdown \
-(used by release-pr-report.yml's vulnerability PR comment). pip-audit is the official PyPA \
-tool and stays fully open against the OSV/PyPA advisory databases, unlike safety's \
-increasingly gated free tier.\
+Scan the shipped dependency tree (pymediate[di] resolved from uv.lock, no dev/test tooling) \
+for known vulnerabilities with pip-audit, formatted as markdown (used by \
+release-pr-report.yml's vulnerability PR comment). Empty output means no findings. pip-audit \
+is the official PyPA tool and stays fully open against the OSV/PyPA advisory databases, \
+unlike safety's increasingly gated free tier.\
 """
-"security:pip-audit".cmd = "uv run --with pip-audit pip-audit --format markdown --skip-editable"
+"security:pip-audit".shell = """
+reqs="$(mktemp)" && \
+uv export --extra di --no-dev --no-emit-project --quiet --output-file "$reqs" && \
+uv run --with pip-audit pip-audit --requirement "$reqs" --require-hashes --disable-pip --format markdown
+"""
 
 "actions:lint".help = "Lint .github/workflows/ for security issues with zizmor (pass --format github in CI for inline PR annotations)"
 "actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"
 
 # ========== Documentation ==========
 
-"docs:serve".help = "Start the MkDocs dev server with live reload"
-"docs:serve".cmd = "mkdocs serve"
+"docs:install".help = "Install the docs site's Node dependencies (run once before other docs tasks)"
+"docs:install".cmd = "pnpm install --frozen-lockfile"
+"docs:install".cwd = "docs"
 
-"docs:build".help = "Build the documentation site in strict mode (warnings fail the build)"
-"docs:build".cmd = "mkdocs build --strict"
+"docs:serve".help = "Start the docs (Next.js + Fumadocs) dev server with live reload"
+"docs:serve".cmd = "pnpm dev"
+"docs:serve".cwd = "docs"
 
-"docs:deploy".help = "Deploy documentation to GitHub Pages"
-"docs:deploy".cmd = "mkdocs gh-deploy --force"
+"docs:check".help = "Lint and type-check the docs site (matches docs.yml's CI checks)"
+"docs:check".shell = "pnpm lint && pnpm types:check"
+"docs:check".cwd = "docs"
 
-"docs:clean".help = "Remove the built documentation site/ directory"
-"docs:clean".cmd = "rm -rf site/"
+"docs:build".help = "Build the static documentation site into docs/out/ (deploys via docs.yml on main)"
+"docs:build".cmd = "pnpm build"
+"docs:build".cwd = "docs"
+
+"docs:clean".help = "Remove the docs build output (docs/out/ and docs/.next/)"
+"docs:clean".cmd = "rm -rf docs/out docs/.next"
 
 # ========== Build & Publish ==========
 

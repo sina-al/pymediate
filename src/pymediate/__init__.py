@@ -42,7 +42,9 @@ Quick Example:
 Main Components:
     - Request: Base class for all requests
     - Handler: Base class for synchronous handlers
-    - Mediator: Routes requests to handlers (sync version)
+    - Mediator: Routes requests to handlers and publishes events (sync version)
+    - Event: Base class for events published to zero or more handlers
+    - EventHandler: Base class for synchronous event handlers
     - ServiceProvider: Protocol for resolving service instances
     - Services: Builder for registering services
 
@@ -65,7 +67,7 @@ Async Support:
     response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
     ```
 
-For more information, see the documentation at https://sina-al.github.io/pymediate/
+For more information, see the documentation at https://pymediate.sina-al.uk
 """
 
 from importlib.metadata import PackageNotFoundError, version
@@ -73,11 +75,13 @@ from importlib.metadata import PackageNotFoundError, version
 from .errors import (
     HandlerAlreadyRegisteredError,
     HandlerNotFoundError,
+    InvalidEventTypeError,
     InvalidHandlerSignatureError,
     InvalidRequestTypeError,
     PyMediateError,
     ResponseTypeMismatchError,
 )
+from .event import Event, EventHandler
 from .handler import Handler
 from .mediator import Mediator
 from .pipeline import PipelineBehavior
@@ -88,6 +92,9 @@ __all__ = [
     "Request",
     "Handler",
     "Mediator",
+    # Events
+    "Event",
+    "EventHandler",
     # Service Provider
     "ServiceProvider",
     "Services",
@@ -100,6 +107,7 @@ __all__ = [
     "HandlerAlreadyRegisteredError",
     "InvalidHandlerSignatureError",
     "InvalidRequestTypeError",
+    "InvalidEventTypeError",
     "ResponseTypeMismatchError",
 ]
 

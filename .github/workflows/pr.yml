@@ -190,8 +190,8 @@ jobs:
 
       - name: Check public API for breaking changes
         # Signature-level diff of the public API against the PR's base ref, via griffe
-        # (already a transitive dep here through mkdocstrings). Informational only, same
-        # as before: ZeroVer allows breaking changes with a minor bump, so this warns
+        # (griffelib, a direct dev-group dependency). Informational only, same as
+        # before: ZeroVer allows breaking changes with a minor bump, so this warns
         # rather than fails the build.
         env:
           BASE_REF: origin/${{ github.base_ref }}

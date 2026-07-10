@@ -4,12 +4,25 @@ This module provides a ServiceProvider that integrates with the dependency-injec
 library, allowing services (including handlers) to be resolved from a DI container.
 """
 
-from collections.abc import Sequence
-from typing import Any
-
-from dependency_injector import containers
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Protocol
 
 from ..service import ServiceNotFoundError
+
+
+class ContainerLike(Protocol):
+    """Structural type for dependency-injector containers.
+
+    Matches any object that exposes a ``providers`` mapping of provider
+    callables. Every dependency-injector container (`DeclarativeContainer`,
+    `DynamicContainer`) satisfies it, so you never implement this protocol
+    yourself - pass your container instance where a `ContainerLike` is expected.
+    """
+
+    @property
+    def providers(self) -> Mapping[str, Callable[[], Any]]:
+        """Mapping of provider name to provider callable."""
+        ...
 
 
 class DependencyInjectorServiceProvider:
@@ -51,7 +64,7 @@ class DependencyInjectorServiceProvider:
         - Services: A DI-container-free alternative for manual service registration.
     """
 
-    def __init__(self, container: containers.Container) -> None:
+    def __init__(self, container: ContainerLike) -> None:
         """Scan a dependency-injector container and cache its providers by type.
 
         Args:

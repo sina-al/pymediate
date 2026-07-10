@@ -106,6 +106,96 @@ def test_async_handler_rejects_sync_call() -> None:
                 return Resp()
 
 
+def test_async_event_handler_rejects_sync_call() -> None:
+    """Test that the async EventHandler rejects a sync __call__."""
+    from pymediate import Event
+    from pymediate.aio import EventHandler
+
+    class Ping(Event):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="__call__ must be async"):
+
+        class Bad(EventHandler[Ping]):
+            def __call__(self, event: Ping) -> None:
+                pass
+
+
+@pytest.mark.asyncio
+async def test_async_publish_runs_handlers_concurrently_and_aggregates() -> None:
+    """Test concurrent fan-out: all handlers run, failures aggregate, order via gather."""
+    import asyncio
+    from dataclasses import dataclass
+
+    from pymediate import Event
+    from pymediate.aio import EventHandler
+    from pymediate.aio import Mediator as AioMediator
+
+    @dataclass
+    class Ping(Event):
+        pass
+
+    completed: list[str] = []
+
+    class SlowSubscriber(EventHandler[Ping]):
+        async def __call__(self, event: Ping) -> None:
+            await asyncio.sleep(0.05)
+            completed.append("slow")
+
+    class FastSubscriber(EventHandler[Ping]):
+        async def __call__(self, event: Ping) -> None:
+            completed.append("fast")
+
+    class FailingSubscriber(EventHandler[Ping]):
+        async def __call__(self, event: Ping) -> None:
+            raise ValueError("async boom")
+
+    services = Services()
+    services.add(SlowSubscriber()).add(FastSubscriber()).add(FailingSubscriber())
+    mediator = AioMediator(services.provider())
+
+    with pytest.raises(ExceptionGroup) as excinfo:
+        await mediator.publish(Ping())
+
+    # Every handler ran; the fast one finished before the slow one despite
+    # registering after it - proof the fan-out is concurrent, not sequential.
+    assert completed == ["fast", "slow"]
+    assert "1 of 3 event handlers raised while publishing Ping" in str(excinfo.value)
+    assert {type(exc) for exc in excinfo.value.exceptions} == {ValueError}
+
+
+@pytest.mark.asyncio
+async def test_async_publish_with_zero_handlers_is_a_no_op() -> None:
+    """Test that async publish with no subscribers succeeds silently."""
+    from pymediate import Event
+    from pymediate.aio import Mediator as AioMediator
+
+    class NobodyListens(Event):
+        pass
+
+    mediator = AioMediator(Services().provider())
+    await mediator.publish(NobodyListens())  # Must not raise.
+
+
+def test_async_handler_rejects_base_class_parameter_annotation() -> None:
+    """Test that the async mirror also rejects a base-class parameter annotation."""
+
+    class Resp:
+        pass
+
+    class BaseReq(Request[Resp]):
+        pass
+
+    class DerivedReq(BaseReq):
+        pass
+
+    with pytest.raises(InvalidHandlerSignatureError, match="a base class of DerivedReq"):
+
+        class BadHandler(Handler[DerivedReq]):
+            async def __call__(self, request: BaseReq) -> Resp:
+                return Resp()
+
+
 def test_sync_handler_rejects_async_call() -> None:
     """Test that sync Handler rejects async __call__ method."""
     from pymediate import Handler as SyncHandler

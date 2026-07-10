@@ -1,0 +1,154 @@
+---
+title: Events
+description: Publishing events to many handlers — fan-out, ExceptionGroup error handling, async concurrency, and how events differ from requests.
+---
+
+`send()` is a conversation: one request, one handler, one typed response. `publish()` is an announcement: one event, any number of handlers, no response. Use events when something *happened* and multiple parts of the application care — an order was placed, a user registered — and the publisher shouldn't know or care who reacts.
+
+## Requests vs. events
+
+| | `send(request)` | `publish(event)` |
+| --- | --- | --- |
+| Handlers | Exactly one (`HandlerNotFoundError` if missing) | Zero or more (zero is a no-op) |
+| Response | Typed, inferred from `Request[ResponseT]` | None — handlers return `None` |
+| Second handler registers | `HandlerAlreadyRegisteredError` | Fine — that's the point |
+| Handler raises | Propagates unchanged | All handlers still run; failures aggregate into an `ExceptionGroup` |
+| Pipeline behaviors | Wrap the dispatch | Not applied |
+
+## Defining and publishing an event
+
+An event inherits from `Event` — no type parameter, because there's no response to infer. Handlers subclass `EventHandler[EventType]` and are validated at class-definition time, exactly like request handlers (exact-class annotation, sync/async correctness) plus one event-specific rule: the return annotation must be `None`.
+
+```python
+from dataclasses import dataclass
+from pymediate import Event, EventHandler, Mediator, Services
+
+@dataclass
+class OrderPlaced(Event):
+    order_id: int
+    customer_email: str
+
+class SendConfirmation(EventHandler[OrderPlaced]):
+    def __init__(self, mailer):
+        self.mailer = mailer
+
+    def __call__(self, event: OrderPlaced) -> None:
+        self.mailer.send(event.customer_email, f"Order {event.order_id} confirmed")
+
+class UpdateAnalytics(EventHandler[OrderPlaced]):
+    def __init__(self, analytics):
+        self.analytics = analytics
+
+    def __call__(self, event: OrderPlaced) -> None:
+        self.analytics.record("order_placed", order_id=event.order_id)
+
+services = Services()
+services.add(SendConfirmation(mailer)).add(UpdateAnalytics(analytics))
+mediator = Mediator(services.provider())
+
+mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
+```
+
+Handlers run in **registration order**. Publishing an event nobody subscribed to succeeds silently — zero subscribers is a legitimate state, and erroring would couple publishers to subscriber existence, which is the coupling `publish` exists to remove.
+
+Like requests, events dispatch on the **exact class** of the published instance: a handler subscribed to a base event class does not receive derived events, and `EventHandler.__call__` must annotate the exact event class declared in `EventHandler[...]` — see [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract).
+
+## Error handling: every handler runs
+
+If a handler raises, the remaining handlers still run — delivery never depends on registration order. Once all handlers have finished, `publish()` raises an [`ExceptionGroup`](https://docs.python.org/3/library/exceptions.html#ExceptionGroup) carrying every failure, which you can handle selectively with `except*`:
+
+```python
+try:
+    mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
+except* ConnectionError as group:
+    for exc in group.exceptions:
+        log.warning("subscriber unavailable: %s", exc)
+except* ValidationError as group:
+    raise  # a bug, not an outage - let it surface
+```
+
+One exception to run-everything: **resolution failures fail fast**. `publish()` resolves every handler instance from the `ServiceProvider` *before* invoking any of them, so a subscriber class whose instance was never registered raises `ServiceNotFoundError` immediately — a configuration bug never causes partial delivery.
+
+## Async events
+
+The async mirror works the same way, with one deliberate difference: `pymediate.aio.Mediator.publish()` runs all handlers **concurrently** via `asyncio.gather` (tasks are created in registration order, then awaited together). Failures still aggregate into an `ExceptionGroup` after every handler finishes.
+
+```python
+import asyncio
+from dataclasses import dataclass
+from pymediate import Event, Services
+from pymediate.aio import EventHandler, Mediator
+
+@dataclass
+class OrderPlaced(Event):
+    order_id: int
+
+class SendConfirmation(EventHandler[OrderPlaced]):
+    async def __call__(self, event: OrderPlaced) -> None:
+        await mail_service.send_confirmation(event.order_id)
+
+class UpdateAnalytics(EventHandler[OrderPlaced]):
+    async def __call__(self, event: OrderPlaced) -> None:
+        await analytics.record("order_placed", order_id=event.order_id)
+
+async def main():
+    services = Services()
+    services.add(SendConfirmation()).add(UpdateAnalytics())
+    mediator = Mediator(services.provider())
+
+    await mediator.publish(OrderPlaced(order_id=42))
+```
+
+<Callout type="warn" title="Concurrent handlers must be independent">
+  Async handlers for one event run at the same time. They must not rely on each other's effects
+  or mutate shared state without synchronization — if two reactions must happen in order, that's
+  one handler (or a handler that sends a request), not two.
+</Callout>
+
+## Events and requests together
+
+A common shape: a request handler does the work, then publishes an event announcing it. The command has one owner; the side effects have many:
+
+```python
+class PlaceOrderHandler(Handler[PlaceOrderRequest]):
+    def __init__(self, mediator, database):
+        self.mediator = mediator
+        self.database = database
+
+    def __call__(self, request: PlaceOrderRequest) -> PlaceOrderResponse:
+        order_id = self.database.create_order(items=request.items)
+        self.mediator.publish(OrderPlaced(order_id=order_id, customer_email=request.email))
+        return PlaceOrderResponse(order_id=order_id)
+```
+
+This keeps `PlaceOrderHandler` ignorant of confirmation emails, analytics, loyalty points, and whatever subscribes next month.
+
+## Testing event handlers
+
+Like request handlers, event handlers are plain callables — construct and call:
+
+```python
+def test_send_confirmation():
+    mailer = MockMailer()
+    handler = SendConfirmation(mailer)
+
+    handler(OrderPlaced(order_id=42, customer_email="a@example.com"))
+
+    assert mailer.sent == ["a@example.com"]
+```
+
+To assert fan-out through the mediator, register the handlers you care about and publish. The handler registry is process-global — the same [test-isolation gotcha](/docs/advanced/testing#a-test-isolation-gotcha-the-handler-registry-is-global) as request handlers applies.
+
+## Best practices
+
+- **Name events in the past tense.** `OrderPlaced`, not `PlaceOrder` — an event states a fact; a request asks for work.
+- **Events carry facts, not instructions.** Put what happened in the event; let each subscriber decide what to do about it.
+- **Keep handlers independent.** If one reaction depends on another's result, that's a request chain, not two event subscribers.
+- **Return `None` and mean it.** A subscriber that computes something the publisher needs is a request handler in disguise.
+- **Pipeline behaviors don't run on publishes.** Cross-cutting concerns for events live in the handlers themselves (or a shared helper) for now.
+
+## Next steps
+
+- [The mediator](/docs/guide/mediator) — how `send()` routes requests
+- [Handlers](/docs/guide/handlers) — the request-side counterpart
+- [Error handling](/docs/guide/error-handling) — the exception hierarchy

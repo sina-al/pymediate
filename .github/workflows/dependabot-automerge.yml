@@ -38,6 +38,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          NEW_VERSION: ${{ steps.metadata.outputs.new-version }}
         run: |
+          # Guard against stale Dependabot metadata. The machine-readable trailer that
+          # fetch-metadata parses can lag the actual diff when a PR is recreated: on #36 it
+          # reported patch/0.1.5 while the PR really bumped pymediate to 0.2.0 (a minor), and
+          # only the disabled "Actions may approve PRs" setting stopped this job auto-merging
+          # it. The PR title is regenerated from the real change, so cross-check that the
+          # reported new version actually appears in it before trusting the "patch" verdict.
+          # A mismatch (or a grouped multi-update title with no single version) falls through
+          # to manual review, which is the safe direction.
+          nv_esc=$(printf '%s' "$NEW_VERSION" | sed 's/[.]/\\./g')
+          if ! printf '%s' "$PR_TITLE" | grep -qE " to ${nv_esc}( |\$)"; then
+            echo "::notice::PR title does not confirm new version ${NEW_VERSION}; leaving for manual review."
+            exit 0
+          fi
           gh pr review --approve "$PR_URL"
           gh pr merge --auto --squash "$PR_URL"

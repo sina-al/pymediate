@@ -163,7 +163,7 @@ Type checking is provided by the `ms-python.mypy-type-checker` extension, which 
 (`python.analysis.typeCheckingMode`). The mypy configuration lives in `mypy.ini` at the repo
 root, not `pyproject.toml`.
 
-`mypy-type-checker.ignorePatterns` excludes `tests/mypy/snippets/errors/**` from the extension's
+`mypy-type-checker.ignorePatterns` excludes `tests/typing/snippets/errors/**` from the extension's
 diagnostics — those files are deliberately type-invalid (see `CLAUDE.md`). Pylance may still
 flag them under its own basic analysis; that's a separate setting (`python.analysis.exclude`)
 if you want to suppress those too.

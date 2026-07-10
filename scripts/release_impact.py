@@ -98,7 +98,16 @@ def run_git(*args: str) -> str:
 
 
 def last_tag() -> str:
-    return run_git("describe", "--tags", "--abbrev=0").strip()
+    # Not `git describe`: release tags land on stable's merge commits, which are never
+    # ancestors of main, so describe from a main checkout would be stuck at the last
+    # pre-two-branch tag forever (v0.2.0's changelog over-reported because of this).
+    # The highest version tag repo-wide is the real last release, and `<tag>..HEAD`
+    # still ranges correctly because the tagged merge commit contains main's history
+    # up to the cut.
+    tags = run_git("tag", "--list", "v[0-9]*", "--sort=-v:refname").split()
+    if not tags:
+        raise SystemExit("no release tags found (fetch tags first: git fetch --tags)")
+    return tags[0]
 
 
 def commit_touches_package(sha: str) -> bool:

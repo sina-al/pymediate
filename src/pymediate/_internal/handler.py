@@ -31,6 +31,9 @@ def _validate_call_signature(
     expected_request_type: type,
     expected_response_type: type,
     is_async: bool = False,
+    *,
+    kind: str = "request",
+    declaration_name: str = "Handler",
 ) -> None:
     """Validate that the handler's __call__ method has the correct signature.
 
@@ -39,6 +42,8 @@ def _validate_call_signature(
         expected_request_type: The expected request parameter type
         expected_response_type: The expected return type
         is_async: Whether to expect async def __call__ or sync def __call__
+        kind: What the parameter is called in error messages ("request" or "event")
+        declaration_name: The generic base class named in error messages
 
     Raises:
         TypeError: If the signature doesn't match expectations
@@ -90,11 +95,20 @@ def _validate_call_signature(
     return_annotation = hints.get("return", sig.return_annotation)
 
     if request_annotation != expected_request_type:
-        raise errors.InvalidHandlerSignatureError(
-            cls,
-            f"__call__ parameter must be of type {_qualified_name(expected_request_type)}, "
-            f"got {_qualified_name(request_annotation)}",
+        issue = (
+            f"__call__ parameter must annotate the exact {kind} class declared in "
+            f"{declaration_name}[...]: expected {_qualified_name(expected_request_type)}, "
+            f"got {_qualified_name(request_annotation)}"
         )
+        if isinstance(request_annotation, type) and issubclass(
+            expected_request_type, request_annotation
+        ):
+            issue += (
+                f" (a base class of {expected_request_type.__name__}). PyMediate dispatches "
+                f"on the exact {kind} class, so a broader annotation is not accepted even "
+                "though static type checkers allow it"
+            )
+        raise errors.InvalidHandlerSignatureError(cls, issue)
 
     if return_annotation != expected_response_type:
         raise errors.ResponseTypeMismatchError(cls, expected_response_type, return_annotation)

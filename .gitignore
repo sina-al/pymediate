@@ -21,9 +21,6 @@ htmlcov/
 dmypy.json
 .ruff_cache/
 
-# mkdocs build output
-/site
-
 # Environments
 .env
 .venv/

@@ -1,6 +1,8 @@
 """Tests for the basic-sync example — the examples contract's `uv run pytest` entrypoint."""
 
 import pytest
+from pymediate import Mediator
+
 from app import (
     AddTask,
     CompleteTask,
@@ -10,8 +12,6 @@ from app import (
     TaskStore,
     build_mediator,
 )
-
-from pymediate import Mediator
 
 
 @pytest.fixture

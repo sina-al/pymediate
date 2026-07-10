@@ -56,16 +56,20 @@ Run `uv run poe` with no arguments to see every available task.
   class, or the `ServiceProvider` protocol are treated as potential breaking changes.
   Nontrivial design or API changes should include an ADR in `docs/adr/` (see existing
   ones for the template).
-- **Docstrings**: `src/pymediate/` docstrings (outside `_internal/`) are rendered into the
-  public API docs — see [`CLAUDE.md`](CLAUDE.md#docstrings) for what belongs in them (and
-  what doesn't), which sections actually render, and why every example needs to be verified
-  to run, not just look plausible.
+- **Docstrings**: `src/pymediate/` docstrings (outside `_internal/`) are public-facing and
+  mirrored by the API reference pages (`docs/content/docs/api/`) — see
+  [`CLAUDE.md`](CLAUDE.md#docstrings) for what belongs in them (and what doesn't), which
+  sections to use, and why every example needs to be verified to run, not just look
+  plausible.
 
-## The mypy-snippet tests
+## The typing-snippet tests
 
-`tests/mypy/snippets/errors/*.py` are **deliberately type-invalid** — `tests/mypy/test_mypy.py`
-asserts mypy fails on every file there. If you see a mypy error under `errors/`, that's the
-test working correctly. Never add `# type: ignore` or an exclusion for those files.
+`tests/typing/snippets/errors/*.py` are **deliberately type-invalid** — the harness in
+`tests/typing/` asserts that mypy *and* basedpyright each fail on every file there, with the
+expected diagnostics pinned in `tests/typing/expectations.py`. If you see a type error under
+`errors/`, that's the test working correctly. Never add `# type: ignore` or an exclusion for
+those files. Snippets under `valid/` must be clean under mypy `--strict` and basedpyright's
+strictest mode, and must also execute at runtime — see `tests/typing/README.md`.
 
 ## Questions
 

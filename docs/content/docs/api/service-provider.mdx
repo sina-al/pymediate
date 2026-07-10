@@ -1,0 +1,116 @@
+---
+title: Service provider
+description: API reference for the ServiceProvider protocol, the Services collection, and the dependency-injector integration.
+---
+
+Service resolution in PyMediate has two halves: `Services`, a mutable collection for registering instances, and `ServiceProvider`, the read-only protocol the mediator resolves from. Because `ServiceProvider` is a [protocol](https://docs.python.org/3/library/typing.html#typing.Protocol), any conforming implementation works — including the optional `dependency-injector` integration.
+
+## ServiceProvider (protocol)
+
+```python
+from pymediate import ServiceProvider
+
+class ServiceProvider(Protocol):
+    def get(self, service_type: type[ServiceT]) -> ServiceT:
+        """Get the first registered instance of the exact type."""
+
+    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
+        """Get all instances of the type, including subclasses."""
+
+    def has(self, service_type: type) -> bool:
+        """Check whether any instance of the exact type is registered."""
+
+    def get_all_types(self) -> tuple[type, ...]:
+        """Get every exact type that has at least one registered instance."""
+```
+
+| Method | Returns | Raises |
+| --- | --- | --- |
+| `get(service_type)` | First registered instance of the exact type | `ServiceNotFoundError` if none registered |
+| `get_all(service_type)` | All instances of the type **including subclasses**, in registration order | — |
+| `has(service_type)` | `True` if any instance of the exact type is registered | — |
+| `get_all_types()` | Every exact type with at least one registered instance | — |
+
+## Services
+
+```python
+from pymediate import Services
+
+class Services:
+    def add(self, instance: object) -> Services: ...
+    def provider(self) -> ServiceProvider: ...
+    def clear(self) -> None: ...
+```
+
+### `add(instance)`
+
+Registers a service instance by its concrete type (`type(instance)`). Multiple instances of the same type — including the same instance twice — are all kept and returned in registration order by `get_all()`.
+
+| | |
+| --- | --- |
+| **Args** | `instance` — the service instance to register; cannot be `None` |
+| **Returns** | `self`, so calls chain: `services.add(a).add(b)` |
+| **Raises** | `ValueError` if `instance` is `None` |
+
+### `provider()`
+
+Builds an immutable `ServiceProvider` **snapshot** of the currently registered services. Later `add()`/`clear()` calls don't affect providers already created:
+
+```python
+services = Services()
+services.add(MyService())
+provider = services.provider()
+
+services.add(AnotherService())
+provider.has(AnotherService)  # False — registered after the snapshot
+```
+
+### `clear()`
+
+Removes all registered services. Existing providers are unaffected — they're immutable snapshots.
+
+## DependencyInjectorServiceProvider
+
+```python
+from pymediate.providers import DependencyInjectorServiceProvider
+
+class DependencyInjectorServiceProvider:
+    def __init__(self, container: ContainerLike) -> None:
+        """Scan a dependency-injector container and cache its providers by type."""
+```
+
+A `ServiceProvider` backed by a [`dependency-injector`](https://python-dependency-injector.ets-labs.org/) container — requires the `di` extra (`pip install 'pymediate[di]'`). It scans the container and matches providers **by the type they produce**, not by their attribute name, then implements the same four protocol methods.
+
+`ContainerLike` is a structural protocol matching any object that exposes a `providers` mapping of provider callables. Every dependency-injector container (`DeclarativeContainer`, `DynamicContainer`) satisfies it, so you never implement it yourself — pass your container instance where a `ContainerLike` is expected.
+
+```python
+from dependency_injector import containers, providers
+from pymediate import Mediator
+from pymediate.providers import DependencyInjectorServiceProvider
+
+class AppContainer(containers.DeclarativeContainer):
+    database = providers.Singleton(Database)
+    create_user = providers.Factory(CreateUserHandler, database=database)
+
+mediator = Mediator(DependencyInjectorServiceProvider(AppContainer()))
+```
+
+<Callout type="warning">
+  Construct it from an already-built container — never register it as one of that container's own
+  providers (e.g. via `providers.Self()`), which recurses infinitely. See the
+  [dependency injection guide](/docs/guide/dependency-injection).
+</Callout>
+
+## ServiceNotFoundError
+
+```python
+class ServiceNotFoundError(Exception):
+    def __init__(self, service_type: type, available_types: list[type]) -> None: ...
+```
+
+Raised by `get()` when no instance of the requested exact type is registered. The message lists the types that *are* available. Note this is a plain `Exception`, not a `PyMediateError` — see [errors](/docs/api/errors).
+
+## See also
+
+- [Dependency injection guide](/docs/guide/dependency-injection) — container patterns and lifetimes
+- [Mediator](/docs/api/mediator) — the consumer of the provider

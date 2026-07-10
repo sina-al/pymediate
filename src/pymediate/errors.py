@@ -73,7 +73,10 @@ class InvalidHandlerSignatureError(PyMediateError):
     """Raised when a handler has an invalid __call__ signature.
 
     Handlers must have a __call__ method with exactly one parameter (the request)
-    and a return type annotation matching the expected response type.
+    and a return type annotation matching the expected response type. The request
+    parameter must annotate the exact request class declared in Handler[...] —
+    a base class or union is rejected, because dispatch is keyed by the exact
+    request type.
 
     Example:
         ```python
@@ -102,7 +105,8 @@ class InvalidHandlerSignatureError(PyMediateError):
             "          return MyResponse(...)\n\n"
             "Common mistakes:\n"
             "  ❌ Missing request parameter\n"
-            "  ❌ Wrong parameter type annotation\n"
+            "  ❌ Parameter not annotated with the exact request class\n"
+            "     (a base class or union is rejected)\n"
             "  ❌ Missing or wrong return type annotation\n"
             "  ❌ Extra parameters (only 'self' and 'request' allowed)"
         )
@@ -152,6 +156,49 @@ class InvalidRequestTypeError(PyMediateError):
         super().__init__(
             message,
             docs_path="docs/advanced/troubleshooting#invalidrequesttypeerror",
+        )
+
+
+class InvalidEventTypeError(PyMediateError):
+    """Raised when an event handler's type parameter doesn't inherit from Event.
+
+    All event classes must inherit from Event so they can be published via
+    Mediator.publish().
+
+    Example:
+        ```python
+        class OrderPlaced:  # Missing Event inheritance!
+            pass
+
+        class SendConfirmation(EventHandler[OrderPlaced]):
+            pass
+        # InvalidEventTypeError: Invalid event type
+        ```
+    """
+
+    def __init__(self, event_type: type):
+        """Initialize the error for a type parameter that isn't an Event subclass.
+
+        Args:
+            event_type: The type that doesn't inherit from Event
+        """
+        self.event_type = event_type
+
+        name = getattr(event_type, "__name__", str(event_type))
+        message = (
+            f"Event type '{name}' must inherit from Event\n\n"
+            "✅ Correct event definition:\n"
+            "  @dataclass\n"
+            f"  class {name}(Event):\n"
+            "      field1: str\n"
+            "      field2: int\n\n"
+            "💡 Inheriting from Event is what makes a class publishable via\n"
+            "   mediator.publish() and lets handlers subscribe with EventHandler[...]"
+        )
+
+        super().__init__(
+            message,
+            docs_path="docs/advanced/troubleshooting#invalideventtypeerror",
         )
 
 

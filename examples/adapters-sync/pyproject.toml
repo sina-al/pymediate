@@ -1,0 +1,42 @@
+[project]
+name = "pymediate-example-adapters-sync"
+version = "0.1.0"
+description = "Framework independence: one synchronous PyMediate core behind Flask, FastAPI, and click adapters"
+requires-python = ">=3.12"
+dependencies = [
+    # Loose lower bound per the examples contract: the release pipeline re-pins this to the
+    # exact release candidate on TestPyPI (scripts/run_examples.py).
+    "pymediate>=0.1",
+    "click>=8.2",
+    "fastapi>=0.115",
+    "flask>=3.0",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+taskboard = "taskboard.adapters.cli:cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    # fastapi.testclient.TestClient needs an HTTP client; starlette deprecated classic
+    # httpx there in favor of its successor package, httpx2.
+    "httpx2>=2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskboard"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

@@ -1,0 +1,247 @@
+---
+title: Nobody wants to touch that code
+description: A story about how a codebase becomes untouchable — one reasonable commit at a time — and what it takes to put a seam in.
+date: 2026-07-09
+author: sina-al
+---
+
+I've watched the same scene play out on more than one team.
+
+Someone decides to finally make the improvement everyone agrees is needed. Morale is high. They've read the code, they've scoped the work, it looks like two days. They start, and things go well — until the change they're making turns out to need another change first. Fine; that one's small too. But *that* change needs a third, and the third needs a fourth, and somewhere around the fifth the diff has spread across half the codebase and touched things they don't understand and can't safely test. The original goal is still visible, but it's at the bottom of a staircase that keeps growing new steps.
+
+And then the quiet thing happens: they stop. Not because they were wrong about the improvement — everyone still agrees it's the right thing — but because the cost has become unknowable. The branch goes stale. The ticket drifts to the bottom of the backlog with a comment like *"bigger than expected, needs a design discussion."* Six months later somebody new proposes the same improvement, and someone who remembers says: careful, we tried that.
+
+That's the moment a codebase becomes untouchable. Nothing dramatic marks it. No single commit caused it. But from then on, velocity only goes down, initiative only gets rarer, and the best engineers start finding reasons to work on something greener.
+
+I used to think this was just what happens to software — entropy, as inevitable as rust. I don't think that anymore. This essay is the story of how a codebase gets there, told through an application that could be any of ours, and the small, old idea that gives it a way out.
+
+## Where it starts
+
+Nobody sets out to build the codebase nobody wants to touch. It starts like this:
+
+```python title="app.py"
+from flask import Flask, jsonify, request
+
+from .db import session
+from .models import Order
+
+app = Flask(__name__)
+
+@app.post("/orders")
+def place_order():
+    order = Order(items=request.json["items"])
+    session.add(order)
+    session.commit()
+    return jsonify(id=order.id), 201
+```
+
+I want to be clear about something before we go any further: **this code is right.** It's direct, it's readable, a new hire understands it in one sitting, and it will serve a small application faithfully for years. If your whole codebase looks like this and is going to stay this size, you don't need this essay, and you certainly don't need another dependency. The function call is the correct tool.
+
+The story isn't about a mistake in this file. That's what makes the story worth telling — nothing that follows is a mistake either, exactly. Watch what happens.
+
+## One reasonable commit at a time
+
+The shop grows. Refunds arrive as a requirement, and refunds need the payment provider and a confirmation email, so the logic moves out of the route into a class — textbook cleanup:
+
+```python title="orders/service.py"
+class OrderService:
+    def __init__(self, session, payments, mailer):
+        ...
+
+    def place_order(self, items, customer_id): ...
+    def refund(self, order_id, amount): ...
+```
+
+A wholesale customer asks for invoices, so a PDF renderer joins the constructor. Finance wants monthly statements — that's `invoice_pdf` plus the mailer, so `monthly_statement` calls both. The biggest customer asks for a CSV export of their order history. Inventory checks arrive, then currency conversion, then an audit trail. Two years of diffs later:
+
+```python title="orders/service.py"
+class OrderService:
+    def __init__(self, session, payments, mailer, pdf_renderer,
+                 inventory, exchange_rates, audit_log):
+        ...
+
+    def place_order(self, items, customer_id): ...
+    def cancel_order(self, order_id): ...
+    def refund(self, order_id, amount): ...
+    def invoice_pdf(self, order_id): ...
+    def monthly_statement(self, customer_id): ...
+    def export_orders(self, customer_id, fmt="csv"): ...
+    # ...nine more
+```
+
+Somewhere in year two, the first circular import shows up. Refunds need to adjust store credit, which lives in `customers`; customer deletion needs to check open orders, which lives in `orders`. Python won't allow the cycle at module level, so the import moves inside the function, wearing the comment every growing codebase eventually writes:
+
+```python title="orders/service.py"
+def refund(self, order_id, amount):
+    # imported here to avoid a circular import
+    from customers.service import adjust_store_credit
+    ...
+```
+
+The test file tells the same story from the other side, a little earlier and a little more honestly. Testing `refund` now means constructing an `OrderService`, which means standing up — or mocking — seven collaborators to exercise one method that uses two of them. So the file grows a tower of `@patch` decorators, and a `conftest.py` that builds "the world," and slowly the assertions shift from *what the code did* to *which mocks got called*. The suite still passes; it just verifies less every month. Nobody decides this either. But if you want a single early-warning instrument for everything in this essay, it's the moment setting up a test starts taking longer than writing the code it tests.
+
+I want you to notice what *didn't* happen in this section. Nobody made a bad decision. Every one of those diffs was the smallest change that could possibly satisfy its requirement — the kind of diff a good reviewer approves in five minutes, because in isolation, each one is reasonable. Extracting a service *was* the right call. Adding `invoice_pdf` where invoicing knowledge already lived *was* the obvious home for it. The deferred import *did* fix the build, and shipping mattered that day.
+
+Nobody designed this system. It *emerged*, from two years of individually sensible choices:
+
+<TangleDiagram />
+
+The modules are the same handful you'd have drawn on a whiteboard on day one. What grew is the knowledge between them — which class needs which, whose constructor wants what, who imports whom, and — by year three — in which order, because some of that knowledge now points both ways.
+
+## The day the bill arrives
+
+Here's the ticket that starts our opening scene: *"Order export times out for our largest customer."* Of course it does — the export walks every order, and the largest customer now has four years of them. The fix is obvious and everyone agrees on it: move the export out of the request cycle into a background worker, email a download link when it's done. A day of work, maybe two.
+
+The engineer starts. The worker needs to run the export, so it needs `OrderService`. `OrderService`'s constructor needs seven things, so the worker needs to construct all seven — including the mailer, the payment client, and the PDF renderer, which the export will never use. Two of the seven read their settings from `current_app.config`, which only exists inside a Flask application context. The export itself reaches for `g.current_user` to check permissions — the *request* is who knows the user, and there is no request in a worker. And the session in the constructor is request-scoped, created and torn down by the framework; the worker will need its own lifecycle for it, which means touching the code that every *other* method of `OrderService` relies on.
+
+<CascadeDiagram />
+
+Count the steps. The task was "run this one operation somewhere else." The staircase is: extract the operation from the service, or construct the whole service; untangle the config access; replace the ambient user with a parameter — which changes the method signature, which changes every caller; rework the session lifecycle, carefully, under everything. Each step was invisible from the top of the stairs. Each was discovered only after committing to the previous one. That's the shape that breaks people — not the total cost, but the way it *compounds while you're already inside it*.
+
+There's a version of this moment that happens in a meeting, and it costs more than the code does. The engineer comes back with the news: the two-day estimate is now "maybe three weeks, and I'm not confident." To a product manager, that sentence is incomprehensible — the feature already *exists*; the ask was to run the thing we already have, somewhere else. Nobody in the room has language for "the export is load-bearing for reasons that have nothing to do with exporting," so the revised estimate just sounds like sandbagging. Some trust quietly leaves the room. Do this a few times and estimates stop being believed in general — and that's when the folklore starts: *careful, that area is cursed, we tried that once.* The staircase doesn't just eat the change. It eats the team's ability to talk about changes.
+
+This pattern has formal names. Martin Fowler's refactoring catalog calls the symptom *shotgun surgery* — one conceptual change, edits scattered everywhere. John Ousterhout, in *A Philosophy of Software Design*, calls it *change amplification*: the gap between the size of a change's intent and the size of its implementation. The names matter for one reason: if it has a name in the literature, it isn't a defect of your team.
+
+I'll tell you how a version of this ended on a project I worked on, because the ending is the honest part. Faced with exactly this staircase — an endpoint whose logic needed to become asynchronous, welded to its framework — we judged the extraction too risky. So we didn't extract it. We configured the message queue to deliver its messages *by HTTP push, back to the public endpoint*. The internal background work would enter through the front door like any other user. It shipped, and it worked — until the queue retried a burst of messages and the rate limiter, sitting in front of the public ingress and doing exactly its job, started throttling our own plumbing. Our infrastructure was DDoS-ing itself, politely, through the WAF. I've made peace with my share of hacks, but that one taught me something: **the coupling didn't just make the right change expensive — it made the wrong change cheap.**
+
+Multiply this by an industry. Stripe once surveyed over a thousand developers and put the number at roughly [42% of engineering time](https://stripe.com/files/reports/the-developer-coefficient.pdf) spent on maintenance, technical debt, and bad code — about seventeen hours of every week, not building anything. I don't lean on that figure for precision. I lean on it because seventeen hours a week is what the staircase looks like when it stops being an anecdote and becomes a line item.
+
+## Easy is not simple
+
+There's a talk I keep coming back to when I think about how that codebase got there: Rich Hickey's [*Simple Made Easy*](https://www.infoq.com/presentations/Simple-Made-Easy/). Its central move is to pull apart two words we use interchangeably.
+
+*Simple*, he points out, comes from *simplex* — one fold, one braid. Simplicity is about structure: one thing, unentangled from other things. Which makes it objective — you can look at a system and see what's braided together. *Easy* comes from a root meaning *adjacent*, to lie near. Ease is about distance: near at hand, near our habits, near what we already know. Which makes it relative — easy *for whom?* And for what programmers do to systems, he found the perfect word in an old corner of the dictionary: **complect** — to interleave, entwine, braid together.
+
+Now rewind the story with those definitions in hand. Every choice was the *easy* one — genuinely, defensibly easy: the nearest diff, the familiar tool, the change that shipped that day. And almost every one of them *complected* something: the export logic with the service, the service with the framework, the config with the request, orders with customers, both ways. Nothing about the result is simple. The result is a braid.
+
+That's also the truest reading of my message-queue story. Pointing the queue at the public endpoint felt like the simple option — no refactoring, no new infrastructure, one config change. It wasn't simple. It braided internal message delivery into the public ingress path, the WAF, and the rate limiter — three things that now had to be reasoned about *together*, as the retry storm demonstrated. It was only easy: near at hand, familiar, shippable by Friday. **We reached for the near thing and called it the simple thing, and the two words let us believe they were the same.**
+
+Hickey's warning about where that leads is blunt: "if you ignore complexity, you will slow down. You will invariably slow down over the long haul." The ease is real, but it's borrowed — the early speed of the entangled codebase is an advance on velocity that gets repaid, with interest, by whoever climbs the staircase later. Usually it's us.
+
+None of this is an accusation. Choosing the near thing every time is what reasonable people do under deadline; I did it in every story above. The point of the vocabulary isn't blame — it's that you can't *choose* simplicity until you can see it as a separate axis from ease. Once you can, the question changes from "what's the fastest diff?" to "what does this diff braid together?"
+
+## What does the call site know?
+
+So let's ask that question about the innocent line at the heart of all of this. Because I know what a reasonable reader has been thinking since the top of this essay: *all of this hand-wringing, and the alternative to a function call is — what? I can just call the function.*
+
+You can, and you should — the call was never the problem. Look at the edges instead. To execute "export this customer's orders," the calling code has to know: the concrete class that does exports, the module path it lives at, its constructor, the seven dependencies that constructor demands, which of those need framework context, and that the current user arrives ambiently through `g`. None of that knowledge is *about exporting orders*. All of it is about *machinery*, and every piece of it is one more strand braided between the caller and the rest of the system — one more line in the year-three diagram.
+
+There's a second braid here, quieter than the first. A function is a general-purpose tool: anything may call it, from anywhere, for any reason — that's what functions are *for*. But "export a customer's orders" isn't a general-purpose anything. It's a **unit of your application** — a use case, one of the finite, nameable things your system does for the people who use it. When a use case is encoded as an ordinary method on a shared service, nothing in the language distinguishes it from a utility function, so nothing stops it being *treated* as one: called from three other services, composed into loops, reached for wherever it's importable. The use case and the utility are complected — and the tangle in the diagram is largely *that* confusion, drawn as edges.
+
+The fix, then, has a precise shape. Not "don't call functions" — rather: **let the call site know *what* it wants, and exactly one place know *how* it's done.** Between them, put a seam. The caller sends a small, dumb description of intent. On the far side of the seam, one dedicated piece of code — with its dependencies handed to it, not reached for — carries it out:
+
+<SeamDiagram />
+
+Every strand the caller used to hold moves to the far side of the seam, into the one place that actually needs it. The caller's knowledge shrinks to a single message. That's not indirection for its own sake — it's the *un-braiding*, drawn as a picture.
+
+## This is old wisdom
+
+I want to be honest about the intellectual provenance here: none of this is new, and none of it is mine. The industry has circled this exact idea for decades under different names. *Inversion of control*: don't reach out for your dependencies; have them handed to you. *Ports and adapters* — hexagonal architecture: the application core defines what it needs; frameworks and databases plug in from outside. *Clean architecture*: dependencies point inward, toward the use cases, never outward from them. Different diagrams, one conviction — **the code that decides what your application does should not know about the machinery that carries it out.**
+
+If the idea is fifty years old and battle-tested, why does the average Python codebase look like our year-three diagram instead? I don't think Python developers are less capable. I think the honest answer is that in Python, the seam has historically been *expensive*. Building one meant ceremony: registries and factories and indirection that felt deeply unidiomatic in a language whose superpower is that `import` and `def` just work. And the versions of it that did get built usually cost you your tooling — once dispatch went through some registry keyed by strings, your editor no longer knew what anything returned, and the type checker went quiet at the exact boundary you cared most about. Faced with that trade, taking the direct call every time isn't ignorance. It's a defensible judgment that the cure cost more than the disease.
+
+Which means the missing piece was never the idea. It was a seam cheap enough — in ceremony *and* in tooling — to justify itself before year three.
+
+## The seam
+
+This is where I should say plainly: I maintain a library because of everything above. It's called [PyMediate](/docs), it implements the seam — the *mediator pattern* — for Python 3.12+, and the code below uses it. The pattern matters more than the package; if you take the shape and build it yourself, this essay has done its job.
+
+The caller's side of the seam is the message. It's a dataclass: dumb, importable from anywhere, owning nothing but the intent — and it declares what it expects back:
+
+```python
+from dataclasses import dataclass
+from pymediate import Request
+
+@dataclass
+class ExportResult:
+    url: str
+    rows: int
+
+@dataclass
+class ExportOrders(Request[ExportResult]):
+    customer_id: int
+    fmt: str = "csv"
+```
+
+The far side is the handler — the *dedicated home* for this one unit of the application. Not a method on a shared anything: a class whose entire identity is "how exports happen," with its real dependencies arriving through the constructor instead of being reached for:
+
+```python
+from pymediate import Handler
+
+class ExportOrdersHandler(Handler[ExportOrders]):
+    def __init__(self, session: Session, storage: Storage) -> None:
+        self._session = session
+        self._storage = storage
+
+    def __call__(self, request: ExportOrders) -> ExportResult:
+        rows = self._session.execute(orders_query(request.customer_id)).all()
+        url = self._storage.write(render(rows, request.fmt))
+        return ExportResult(url=url, rows=len(rows))
+```
+
+Notice what's *absent*. No `current_app`, no `g`, no mailer or payment client it never needed — and no imports of other features' internals, because everything it uses is handed in at construction time, in one place, at startup. That's the circular-import knot from year two, untied as a side effect: modules stop importing each other's machinery because nobody constructs their own collaborators anymore.
+
+Now the payoff — the ticket that broke our engineer. The route stops knowing *how* and shrinks to intent:
+
+```python title="app.py — the web is now one adapter among several"
+@app.post("/orders/export")
+def export_orders():
+    result = mediator.send(ExportOrders(customer_id=g.current_user.id))
+    return jsonify(url=result.url), 202
+```
+
+And the worker — the change that was two days of estimated work and a staircase of actual work — is no longer a port of `OrderService` out of Flask. It's the same one line, sent from a different doorway. So is the CLI that support asks for next quarter:
+
+```python title="worker.py / cli.py — same request, different doorways"
+def handle_message(message):          # the worker: no Flask anywhere
+    mediator.send(ExportOrders(**message.body))
+
+@cli.command()
+def export(customer_id: int):         # the CLI: ten minutes, not ten days
+    print(mediator.send(ExportOrders(customer_id=customer_id)).url)
+```
+
+Ambient context is gone from the core — who's asking travels *in the message*, so the question "but where does `g.current_user` come from in a worker?" stops existing. The framework still appears, but look at where: three lines at each doorway. This is what "thin controllers" was always supposed to mean, and it's also the quiet answer to the migration that felt like starting from scratch — when the logic lives behind the seam, moving to the newer framework you're excited about is rewriting the doorways, not the building. On the project where our logic was truly welded in, *that* was the difference between a migration we discussed for two years and one we could have done in a sprint.
+
+Two more strands, briefly. The cross-cutting code that was copy-pasted through the service — auditing, timing, logging — gets one home that wraps every request instead of an appearance in every method:
+
+```python
+from pymediate import PipelineBehavior, Request
+
+class AuditBehavior(PipelineBehavior[Request]):
+    def __call__(self, request: Request, next):
+        audit_log.record(type(request).__name__)
+        return next()
+```
+
+Remember the test file with the tower of `@patch` decorators? A handler is a plain callable holding exactly its own dependencies, so its test is the kind you wrote in the first month of the project:
+
+```python
+def test_export_counts_rows():
+    handler = ExportOrdersHandler(fake_session, fake_storage)
+    assert handler(ExportOrders(customer_id=7)).rows == 3
+```
+
+No patching, no app-context fixture, no world-building `conftest.py` — construct it with fakes and call it. The assertions go back to being about what the code did. Of everything the seam buys, this is the piece teams feel first, because they feel it every day.
+
+And the tooling tax that made Python abandon this seam for twenty years — it's gone. `ExportOrders` inherits `Request[ExportResult]`, so `mediator.send(...)` *returns* `ExportResult`, inferred by mypy, autocompleted by your editor; wire a handler wrong and it raises at import, not at 2 a.m. in the worker. I'll spare you the feature tour — [the docs](/docs) exist — but this is the part that had to become true before the old wisdom could feel idiomatic in Python: the seam now costs a dataclass, and it pays you back in types. Every snippet above runs as-is against the released package.
+
+## What this costs
+
+If I only told you what it buys, this would be marketing, so: the costs, plainly.
+
+Dispatch isn't free — routing through the seam costs on the order of **a microsecond** over the bare call, and a pipeline behavior adds a couple more. [The benchmark](/docs/comparison#what-does-send-cost) is public and reproducible on your own hardware; for code that touches a database or a network it vanishes into the noise, but if you're dispatching millions of trivial in-memory calls on a hot path, no mediator belongs there. There's a vocabulary cost: your team gains three concepts — request, handler, behavior — and your reviewers need to learn where things live now. And there's an aesthetic toll that I won't pretend away: a dataclass now stands where a function call used to be, and for the first week that will feel like ceremony. The un-braiding is real, but it's invisible on day one; the extra file is visible immediately.
+
+Which is why the honest advice is the same as in the second section: **if your application fits in your head today and will still fit next year, keep the function call.** It's simple *and* easy at that size, and that's the correct combination. The seam is for the codebase on the other trajectory — the one accumulating strands — and its moment is earlier than you think but later than "always": roughly, the day a use case gets its second doorway, or a service constructor collects its fifth dependency.
+
+## One seam at a time
+
+Here's what I'd actually do differently on those projects, and it's deliberately small. Not a rewrite — rewrites are how staircases reproduce. Pick the one operation your team is most afraid of — everyone knows which one it is — and put a message in front of it. One dataclass, one handler, one route that shrinks to three lines. Nothing else changes; the rest of the codebase never finds out. Then do it again when the next scary change comes, and let the seam spread at exactly the rate it proves itself, one un-braided strand at a time.
+
+There's a second half to this story — how handlers get their dependencies *given* to them at scale, how the application core ends up depending on protocols it owns while Postgres, the message queue, and the web framework become plug-in details you can swap without the domain noticing. That's ports and adapters made cheap by the same seam, it deserves its own essay, and it's the next one I'm writing.
+
+But the first half stands on its own, so I'll end where we started — with the engineer at the bottom of the staircase, deciding whether to give up. What I'd want them to know is the thing that took me too long to learn: **the staircase is a property of the code, not of you.** It was built out of easy steps, by good engineers, and it comes apart the same way it went up — one strand, one seam, one reasonable commit at a time.
+
+---
+
+*If the pattern is new to you, the [introduction](/docs) is the gentle way in and the [quick start](/docs/getting-started/quick-start) has a working feature in five minutes. If you're wondering what routing a request actually costs, [the numbers are here](/docs/comparison). And if you've lived a version of this story, I'd genuinely like to hear it — the [discussions board](https://github.com/sina-al/pymediate/discussions) is open.*

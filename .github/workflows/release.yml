@@ -211,6 +211,25 @@ jobs:
         with:
           enable-cache: false
 
+      - name: Wait for TestPyPI to serve the release
+        # The simple index is CDN-cached and can lag the upload by minutes; resolving
+        # before it propagates fails the whole job (v0.2.0 needed two reruns for this).
+        # Poll the same URL uv resolves against until the version's files appear.
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
+        run: |
+          version="${VERSION_TAG#v}"
+          for attempt in $(seq 1 40); do
+            if curl -fsS "https://test.pypi.org/simple/pymediate/" | grep -qF "pymediate-${version}.tar.gz"; then
+              echo "TestPyPI serves pymediate ${version} (attempt ${attempt})."
+              exit 0
+            fi
+            echo "TestPyPI does not serve ${version} yet (attempt ${attempt}/40); retrying in 15s."
+            sleep 15
+          done
+          echo "::error::TestPyPI never served pymediate ${version} after 10 minutes."
+          exit 1
+
       - name: Run examples suite against the TestPyPI release
         # Each examples/<name>/ is a standalone uv project pinned to the version just
         # published on TestPyPI (only pymediate resolves there; its dependencies come from
