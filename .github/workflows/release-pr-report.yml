@@ -2,9 +2,11 @@ name: Release PR Report
 
 # Extra reporting and gating scoped only to release PRs (opened by prepare-release.yml on a
 # release/vX.Y.Z branch): a per-Python-version test results comment, a dependency vulnerability
-# comment, and the required "Examples" check (every examples/ project against a wheel built
+# comment, and two required checks — "Examples" (every examples/ project against a wheel built
 # from the cut — so a breaking change with stale examples fails BEFORE merge, with no tag
-# created and no version burned). Regular PRs don't get these - they already get a leaner
+# created and no version burned) and "Release Test Results" (the release test matrix, gated by
+# a native job so the check reliably registers against the PR). Regular PRs don't get these -
+# they already get a leaner
 # check-run-only signal from pr.yml/test.yml, and coverage + the API breaking-change report
 # are already covered for every PR (pr.yml's test-coverage-diff job; the release impact report
 # embedded in the PR body by prepare-release.yml). Every job here is gated on the head ref so
@@ -94,6 +96,29 @@ jobs:
           name: junit-${{ matrix.python-version }}
           path: junit.xml
 
+  release-test-results:
+    # The required "Release Test Results" check on stable-guard. Deliberately a real job whose
+    # own check-run carries that name — NOT the publish-unit-test-result-action's synthesized
+    # check-run below. That synthesized check lands on the commit but does not reliably register
+    # against a PR's required-check evaluation, which left release PR #51 permanently BLOCKED on
+    # an orphaned "Release Test Results" context (all other required checks green, no bypass
+    # actor to override). A native job's check-run associates with the PR the same way the
+    # "Examples" job above does. Keep this job's name in sync with the required context string.
+    name: Release Test Results
+    runs-on: ubuntu-latest
+    needs: test-results
+    if: "!cancelled() && startsWith(github.head_ref, 'release/v')"
+    env:
+      TEST_RESULT: ${{ needs.test-results.result }}
+    steps:
+      - name: Require the test matrix to have passed
+        run: |
+          if [ "$TEST_RESULT" != "success" ]; then
+            echo "::error::Release test matrix did not pass (aggregate result: $TEST_RESULT)."
+            exit 1
+          fi
+          echo "All release test matrix jobs passed."
+
   publish-test-results:
     name: Publish Test Results
     runs-on: ubuntu-latest
@@ -113,7 +138,9 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2.24.0
         with:
           files: "junit-results/**/junit.xml"
-          check_name: "Release Test Results"
+          # Detail/annotations only — NOT the required gate (that's the release-test-results
+          # job above). Named distinctly so it can't collide with the required context.
+          check_name: "Release Test Results (report)"
           comment_title: "Test Results"
 
   vulnerability-audit:
