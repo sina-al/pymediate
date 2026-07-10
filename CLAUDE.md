@@ -17,7 +17,7 @@ if you change one, check whether the other needs the equivalent change.
   - `providers/dependency_injector.py` — optional DI integration (`di` extra).
 - `tests/` — pytest suite, roughly one `test_*.py` per `src/pymediate/` module (e.g.
   `test_handler.py`, `test_mediator.py`); `conftest.py` holds shared fixtures.
-  - `tests/mypy/snippets/{valid,errors}/` — type-level tests, see "The mypy-snippet test
+  - `tests/typing/snippets/{valid,errors}/` — type-level tests, see "The typing-snippet test
     system" below. Not ordinary code.
 - `docs/` — the documentation site, a Next.js + Fumadocs app (pnpm, static export); see
   "Docs" below. Site content lives in `docs/content/`; the rest is app code.
@@ -53,7 +53,7 @@ committed to the repo, so `uv sync` resolves against pinned versions, not the lo
 in `pyproject.toml` — run `uv lock --upgrade` (or `--upgrade-package <name>`) deliberately when you
 want to bump a dependency, and commit the updated lockfile. See `mypy.ini` history for a concrete
 case, before the lockfile was committed, where an unpinned mypy upgrade changed diagnostic output
-and broke `tests/mypy/test_mypy.py` assertions.
+and broke `tests/typing/test_mypy.py` assertions.
 
 All dev commands go through `poethepoet` (`tasks.toml`) so behavior matches CI exactly:
 
@@ -121,20 +121,32 @@ someone calling the API, not for someone reading the source.
   `src/pymediate/` excluding `_internal/`; it won't catch stale content or broken examples, so
   don't rely on it as the only check.
 
-## The mypy-snippet test system — do not "fix" these
+## The typing-snippet test system — do not "fix" these
 
-`tests/mypy/snippets/errors/*.py` are **deliberately type-invalid**. `tests/mypy/test_mypy.py`
-asserts mypy fails on every file in `errors/` and passes on every file in `valid/`. If you see
-a mypy error in `errors/`, that's the test working correctly — never add `# type: ignore`,
-never add them to `mypy.ini` exclusions, never "correct" the type error. Only touch these files
-if you're intentionally adding/removing a type-safety test case, and if so, extend the
-corresponding assertion in `test_mypy.py`.
+`tests/typing/snippets/errors/*.py` are **deliberately type-invalid**. The cross-checker
+harness (`test_mypy.py` + `test_basedpyright.py`, per issue #39) asserts every file in
+`errors/` fails **both** mypy `--strict` and basedpyright (standard *and* recommended modes),
+with the exact diagnostic per checker pinned in `tests/typing/expectations.py`. If you see a
+type error in `errors/`, that's the test working correctly — never add `# type: ignore`,
+never add them to `mypy.ini` or basedpyright-config exclusions, never "correct" the type
+error. Adding/removing an errors case means updating both tables in `expectations.py`
+(a sync test fails otherwise).
 
-The harness runs mypy with `--config-file tests/mypy/mypy_snippets.ini`, deliberately bypassing
-the repo-root `mypy.ini` — its `[mypy-tests.*]` suppressions (`call-arg`, `arg-type`, ...) would
-otherwise apply to the snippets and mask exactly the errors they exist to catch (this happened;
-see #39). Don't remove that flag or point the snippets back at the root config. Type-checker
-parity work (basedpyright coverage, `--verifytypes` gate) is tracked in issue #39.
+`valid/` snippets are held to the opposite bar: they must pass mypy `--strict`, produce
+**zero errors and zero warnings** under basedpyright's recommended mode (use `@override` on
+handler/behavior `__call__` overrides; consume `Services.add(...)` results by chaining into
+`.provider()`), and **execute at runtime** (`test_snippets_runtime.py` — sync snippets run at
+module level, async ones define `async def main()` and the harness runs it).
+
+Config isolation: the mypy half runs with `--config-file tests/typing/mypy_snippets.ini`,
+deliberately bypassing the repo-root `mypy.ini` — its `[mypy-tests.*]` suppressions
+(`call-arg`, `arg-type`, ...) would otherwise apply to the snippets and mask exactly the
+errors they exist to catch (this happened; see #39). Don't remove that flag or point the
+snippets back at the root config. The basedpyright half uses the checked-in
+`tests/typing/basedpyright_{standard,recommended}.json` configs, asserts an exact pinned
+basedpyright version (`PINNED_BASEDPYRIGHT_VERSION` in `test_basedpyright.py` — bump it
+together with `uv lock --upgrade-package basedpyright` and re-review the corpus), and gates
+`basedpyright --verifytypes pymediate` at 100% public-API type completeness.
 
 ## ADRs
 
