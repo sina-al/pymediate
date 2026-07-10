@@ -18,6 +18,9 @@
   <a href="https://mypy-lang.org/">
     <img src="https://img.shields.io/badge/mypy-strict-blue" alt="Checked with mypy (strict)">
   </a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/sina-al/pymediate">
+    <img src="https://api.scorecard.dev/projects/github.com/sina-al/pymediate/badge" alt="OpenSSF Scorecard">
+  </a>
   <a href="https://pymediate.sina-al.uk">
     <img src="https://img.shields.io/badge/docs-pymediate.sina--al.uk-blue" alt="Documentation">
   </a>

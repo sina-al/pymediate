@@ -99,7 +99,11 @@ jobs:
     name: Update Coverage Badge
     runs-on: ubuntu-latest
     needs: [test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # !cancelled() is required: on push events the transitive `changes` dependency is
+    # skipped, which makes the implicit success() false and would skip this job too.
+    if: |
+      !cancelled() && needs.test.result == 'success' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
     steps:
