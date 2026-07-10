@@ -1,6 +1,6 @@
 ---
 name: compare
-description: Refresh PyMediate's library-comparison page (docs.v2/content/docs/comparison.mdx) and its anonymized knowledge base (.claude/context/mediator-survey.md) — re-check roadmap issues, optionally re-survey competitor source and re-run the benchmark. Use when asked to update the comparison, after a release, or when a roadmap item (event publishing, streaming, ...) ships.
+description: Refresh PyMediate's library-comparison page (docs/content/docs/comparison.mdx) and its anonymized knowledge base (.claude/context/mediator-survey.md) — re-check roadmap issues, optionally re-survey competitor source and re-run the benchmark. Use when asked to update the comparison, after a release, or when a roadmap item (event publishing, streaming, ...) ships.
 ---
 
 # /compare — refresh the library comparison
@@ -17,14 +17,14 @@ the knowledge base **together, in the same commit** — they must never disagree
   single source of truth for every claim on the page. Obey its anonymity warning: no
   library names, URLs, star/download counts, or identifying hints ever get written to
   it, the docs page, commit messages, or any other repo file.
-- `docs.v2/content/docs/comparison.mdx` — the page. Stays **last** in the sidebar
-  (`docs.v2/content/docs/meta.json`) — it serves evaluators arriving from the README or
+- `docs/content/docs/comparison.mdx` — the page. Stays **last** in the sidebar
+  (`docs/content/docs/meta.json`) — it serves evaluators arriving from the README or
   home page, not the learning path.
 - `scripts/benchmark.py` — the benchmark (PEP 723; also served at the site root as
-  `/benchmark.py` by `docs.v2`'s build script). `pymediate` stays unpinned there by
+  `/benchmark.py` by the docs site's build script). `pymediate` stays unpinned there by
   design — don't "fix" that.
 - Secondary surfaces that repeat comparison claims and must not go stale:
-  `docs.v2/content/docs/index.mdx` ("Why PyMediate?"), `docs.v2/app/(home)/page.tsx`
+  `docs/content/docs/index.mdx` ("Why PyMediate?"), `docs/app/(home)/page.tsx`
   (hero + feature grid), `README.md` (Features section link).
 
 ## Steps
@@ -74,7 +74,7 @@ the knowledge base **together, in the same commit** — they must never disagree
    roadmap table, benchmark results — then sweep the secondary surfaces (index.mdx,
    home page, README) for claims the changes invalidated.
 
-7. **Verify and ship**: `cd docs.v2 && pnpm types:check && pnpm build` (plus
+7. **Verify and ship**: `cd docs && pnpm types:check && pnpm build` (plus
    `uv run poe lint` if the script changed). Commit page + knowledge base together
    (`docs: ...`); push per the repo's lane-1 default. Confirm the Documentation
    workflow's **Deploy documentation** job ran (not skipped) and spot-check the live

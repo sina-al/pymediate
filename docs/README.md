@@ -1,21 +1,27 @@
-# docs.v2
+# docs
 
-This is a Next.js application generated with
-[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
+PyMediate's documentation site — a Next.js application generated with
+[Create Fumadocs](https://github.com/fuma-nama/fumadocs), with
+[Static Export](https://nextjs.org/docs/app/guides/static-exports) configured. It is
+built and deployed to GitHub Pages (<https://pymediate.sina-al.uk>) by
+`.github/workflows/docs.yml` on pushes to `main`.
 
-It is a Next.js app with [Static Export](https://nextjs.org/docs/app/guides/static-exports) configured.
+Site content is MDX under `content/` (`content/docs/` for the Docs section,
+`content/articles/` for long-form essays). The `adr/` directory is *not* part of the
+site — it holds the repo's architecture decision records, versioned here but deliberately
+unpublished.
 
-Run development server:
+Run the development server (from the repo root, via [poe](../tasks.toml)):
 
 ```bash
-npm run dev
-# or
-pnpm dev
-# or
-yarn dev
+uv run poe docs:install   # once
+uv run poe docs:serve     # pnpm dev
+uv run poe docs:check     # lint + type-check, same as CI
+uv run poe docs:build     # static build into out/
 ```
 
-Open http://localhost:3000 with your browser to see the result.
+or directly with `pnpm` from this directory. Open http://localhost:3000 with your
+browser to see the result.
 
 ## Explore
 

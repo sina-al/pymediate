@@ -1,5 +1,5 @@
 {
-  "name": "docs.v2",
+  "name": "pymediate-docs",
   "version": "0.0.0",
   "private": true,
   "packageManager": "pnpm@11.10.0",

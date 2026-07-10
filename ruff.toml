@@ -38,7 +38,7 @@ convention = "google"
 
 [lint.per-file-ignores]
 # _internal/ has no public API contract (see CLAUDE.md) and its docstrings are never
-# rendered by mkdocstrings, so D isn't worth enforcing there.
+# surfaced in the public API docs, so D isn't worth enforcing there.
 "src/pymediate/_internal/**/*.py" = ["D"]
 "tests/**/*.py" = ["D"]
 "scripts/**/*.py" = ["D"]

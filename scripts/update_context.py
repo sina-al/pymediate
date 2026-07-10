@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Regenerate .claude/context/api-signatures.md from src/pymediate/.
 
-Walks the public modules of src/pymediate/ with griffe (already a project dependency
-via mkdocstrings, and the same library docs/api/*.md's ``:::`` directives rely on) and
-renders a signatures-only, docstring-summary blueprint: class/function signatures with
+Walks the public modules of src/pymediate/ with griffe (a direct dev-group dependency)
+and renders a signatures-only, docstring-summary blueprint: class/function signatures with
 no implementation bodies, one-line docstring summaries, no private (``_``-prefixed)
 members, and nothing from pymediate._internal (no public API guarantees, per CLAUDE.md).
 
@@ -155,7 +154,7 @@ def build_signatures_file() -> str:
         "# API Signatures (generated)",
         "",
         "Signatures-only blueprint of pymediate's public API. Full docstrings, guides, and"
-        " examples live in `docs/api/` and https://sina-al.github.io/pymediate/.",
+        " examples live in `docs/content/docs/` and https://pymediate.sina-al.uk/.",
         "",
     ]
     for dotted in MODULES:

@@ -65,7 +65,7 @@ Async Support:
     response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
     ```
 
-For more information, see the documentation at https://sina-al.github.io/pymediate/
+For more information, see the documentation at https://pymediate.sina-al.uk
 """
 
 from importlib.metadata import PackageNotFoundError, version

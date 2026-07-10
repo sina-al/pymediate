@@ -91,7 +91,7 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 
 benchmark.help = """
 Micro-benchmark mediator.send() overhead vs calling the handler directly \
-(usage: poe benchmark --number 100000 --repeat 5). Quoted in docs.v2's \
+(usage: poe benchmark --number 100000 --repeat 5). Quoted in the docs site's \
 comparison page; results are machine-dependent.\
 """
 benchmark.cmd = "python3 scripts/benchmark.py"
@@ -114,17 +114,24 @@ increasingly gated free tier.\
 
 # ========== Documentation ==========
 
-"docs:serve".help = "Start the MkDocs dev server with live reload"
-"docs:serve".cmd = "mkdocs serve"
+"docs:install".help = "Install the docs site's Node dependencies (run once before other docs tasks)"
+"docs:install".cmd = "pnpm install --frozen-lockfile"
+"docs:install".cwd = "docs"
 
-"docs:build".help = "Build the documentation site in strict mode (warnings fail the build)"
-"docs:build".cmd = "mkdocs build --strict"
+"docs:serve".help = "Start the docs (Next.js + Fumadocs) dev server with live reload"
+"docs:serve".cmd = "pnpm dev"
+"docs:serve".cwd = "docs"
 
-"docs:deploy".help = "Deploy documentation to GitHub Pages"
-"docs:deploy".cmd = "mkdocs gh-deploy --force"
+"docs:check".help = "Lint and type-check the docs site (matches docs.yml's CI checks)"
+"docs:check".shell = "pnpm lint && pnpm types:check"
+"docs:check".cwd = "docs"
 
-"docs:clean".help = "Remove the built documentation site/ directory"
-"docs:clean".cmd = "rm -rf site/"
+"docs:build".help = "Build the static documentation site into docs/out/ (deploys via docs.yml on main)"
+"docs:build".cmd = "pnpm build"
+"docs:build".cwd = "docs"
+
+"docs:clean".help = "Remove the docs build output (docs/out/ and docs/.next/)"
+"docs:clean".cmd = "rm -rf docs/out docs/.next"
 
 # ========== Build & Publish ==========
 

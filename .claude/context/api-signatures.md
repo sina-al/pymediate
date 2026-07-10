@@ -4,7 +4,7 @@
 
 # API Signatures (generated)
 
-Signatures-only blueprint of pymediate's public API. Full docstrings, guides, and examples live in `docs/api/` and https://sina-al.github.io/pymediate/.
+Signatures-only blueprint of pymediate's public API. Full docstrings, guides, and examples live in `docs/content/docs/` and https://pymediate.sina-al.uk/.
 
 ### `pymediate`
 

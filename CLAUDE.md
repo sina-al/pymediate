@@ -19,8 +19,10 @@ if you change one, check whether the other needs the equivalent change.
   `test_handler.py`, `test_mediator.py`); `conftest.py` holds shared fixtures.
   - `tests/mypy/snippets/{valid,errors}/` — type-level tests, see "The mypy-snippet test
     system" below. Not ordinary code.
-- `docs/` — MkDocs source; see "Docs" below.
-  - `docs/adr/` — architecture decision records for nontrivial design changes; see "ADRs" below.
+- `docs/` — the documentation site, a Next.js + Fumadocs app (pnpm, static export); see
+  "Docs" below. Site content lives in `docs/content/`; the rest is app code.
+  - `docs/adr/` — architecture decision records for nontrivial design changes; see "ADRs"
+    below. Deliberately outside `docs/content/`, so they are never published on the site.
 - `examples/` — standalone uv projects demonstrating the package against its *released*
   PyPI distribution (not the source tree); each satisfies the contract in
   `examples/README.md`, and the release pipeline runs them all against the TestPyPI
@@ -38,7 +40,7 @@ if you change one, check whether the other needs the equivalent change.
   (`adr`, `release`, `update-uv`, `compare`), and `.claude/context/*.md`:
   `api-signatures.md` is generated and imported into this CLAUDE.md (see "API Signatures"
   below) — regenerate, don't hand-edit; `mediator-survey.md` is the `/compare` skill's
-  anonymized competitor knowledge base backing `docs.v2`'s comparison page — updated by
+  anonymized competitor knowledge base backing the docs site's comparison page — updated by
   that skill, and it must never contain library names or other identifying details.
 
 ## Dev workflow — use `poe`, not raw tool invocations
@@ -89,9 +91,11 @@ or explicitly ignore (with a justification comment) will fail the PR.
 
 ## Docstrings
 
-Docstrings in `src/pymediate/` (except `_internal/`) are rendered into the public API docs via
-mkdocstrings (`docs/api/*.md`, `docstring_style: google` in `mkdocs.yml`) — write them for that
-reader, not for someone reading the source in an editor.
+Docstrings in `src/pymediate/` (except `_internal/`) are public-facing: they reach users
+through IDE hover/`help()`, and the hand-written API reference pages
+(`docs/content/docs/api/*.mdx`) mirror them — when you change a public docstring or
+signature, check whether the matching API page needs the same change. Write docstrings for
+someone calling the API, not for someone reading the source.
 
 - **No internal implementation rationale.** Design tradeoffs ("why a dict and a list," "why not
   weak references," historical two-parameter designs) belong in an ADR or a commit message, not
@@ -99,14 +103,13 @@ reader, not for someone reading the source in an editor.
   implementation moves on. This bit us once: `service.py`'s module docstring carried a 40-line
   "Architecture Notes" section that a docs audit had to strip out.
 - **No private attributes.** Don't document `_leading_underscore` attributes in a class
-  docstring's `Attributes:` section — they're not part of the contract, and mkdocstrings'
-  `filters: ["!^_"]` won't render them anyway.
-- **Stick to sections griffe's Google parser actually recognizes**: `Args`, `Returns`, `Raises`,
-  `Yields`, `Attributes`, `Examples` (plural), `Note`, `Warning`, `Type Parameters`. Anything
-  else (`Thread Safety:`, `Performance:`, `See Also:`, `Use Cases:`, ...) still renders — griffe
-  falls back to a generic admonition box for unrecognized headers — but repeating one on every
-  method produces a wall of low-value callout boxes rather than useful docs. Prefer folding a
-  real constraint into prose or a single `Note:`, and use `See Also:` sparingly.
+  docstring's `Attributes:` section — they're not part of the contract.
+- **Stick to standard Google-convention sections**: `Args`, `Returns`, `Raises`, `Yields`,
+  `Attributes`, `Examples` (plural), `Note`, `Warning`, `Type Parameters`. Ruff's `D` rules
+  and the griffe-based tooling (`poe api:check`, `scripts/update_context.py`) assume them,
+  and invented headers (`Thread Safety:`, `Performance:`, `Use Cases:`, ...) repeated on
+  every method are noise, not docs. Prefer folding a real constraint into prose or a single
+  `Note:`.
 - **Every code example must actually run.** Verify it in a scratch shell before committing it,
   the same way you'd verify one in `docs/`. This project has shipped broken examples before -
   missing `@dataclass` decorators, an undefined `resolver` variable, a `providers.Self()`
@@ -236,9 +239,15 @@ hatch-vcs derives from the tagged checkout.
 
 ## Docs
 
-MkDocs + Material, deployed to GitHub Pages from `main` via `docs.yml`. Structure under `docs/`
-mirrors `getting-started/ → guide/ → advanced/ → api/ → examples/ → adr/`. Built with `--strict`
-(warnings fail the build), so keep internal links and mkdocstrings refs valid when moving code.
+`docs/` is a Next.js + Fumadocs app (pnpm, Node 22, static export) deployed to GitHub Pages
+at <https://pymediate.sina-al.uk> from `main` via `docs.yml`. Content is MDX under
+`docs/content/`: `docs/` (the site's Docs section — getting-started → guide → advanced →
+api → examples → comparison, sidebar order in `meta.json`) and `articles/` (long-form
+essays with byline frontmatter). The API reference pages are hand-written MDX that mirror
+the source docstrings — keep them in sync when the public API or its docstrings change.
+Use the `poe` tasks: `docs:install` once, then `docs:serve` / `docs:check` (lint +
+type-check, what CI runs) / `docs:build`. `docs/adr/` sits outside `content/` on purpose —
+ADRs are versioned with the repo but not published on the site.
 
 ## API Signatures
 

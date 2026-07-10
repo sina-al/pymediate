@@ -1,7 +1,7 @@
 # Mediator ecosystem survey — anonymized knowledge base
 
 Maintained by the `/compare` skill; humans review, the skill writes. This file backs
-`docs.v2/content/docs/comparison.mdx` — every claim on that page must trace to a fact here.
+`docs/content/docs/comparison.mdx` — every claim on that page must trace to a fact here.
 
 **NEVER put library names, URLs, star counts, download counts, or any other identifying
 detail in this file.** This repo is public and the comparison page is deliberately
@@ -85,7 +85,7 @@ Quoted on the comparison page; replace only with numbers from a fresh local run 
 
 Methodology and its rationale live in `scripts/benchmark.py`'s docstring. The script is
 PEP 723 (`uv run https://pymediate.sina-al.uk/benchmark.py`), copied to the site root by
-`docs.v2`'s build script; `pymediate` stays deliberately unpinned there (each run measures
+the docs site's build script; `pymediate` stays deliberately unpinned there (each run measures
 the latest release, and the run header prints the exact version). Its other deps (rich,
 typer) are output/CLI-only and never touch the timed loops. Quotable runs use the full
 defaults with `--format markdown`; `--only`, `--behaviors`, and `--format json` exist for
