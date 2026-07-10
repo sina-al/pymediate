@@ -2,13 +2,20 @@
   <img src="https://github.com/sina-al/pymediate/blob/main/assets/logo.svg?raw=true" alt="PyMediate logo" width="400"><br><br>
   <b>A type-safe request mediator for Python 3.12+</b><br><br>
 
-  <!-- Badges -->
+  <!-- Badges — row 1: the package (what/where), row 2: the guarantees (quality/security) -->
   <a href="https://pypi.org/project/pymediate/">
     <img src="https://img.shields.io/pypi/v/pymediate" alt="PyPI version">
   </a>
   <a href="https://pypi.org/project/pymediate/">
     <img src="https://img.shields.io/pypi/pyversions/pymediate" alt="Python versions">
   </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
+  </a>
+  <a href="https://pymediate.sina-al.uk">
+    <img src="https://img.shields.io/badge/docs-pymediate.sina--al.uk-blue" alt="Documentation">
+  </a>
+  <br>
   <a href="https://github.com/sina-al/pymediate/actions/workflows/test.yml">
     <img src="https://github.com/sina-al/pymediate/actions/workflows/test.yml/badge.svg" alt="Tests">
   </a>
@@ -20,12 +27,6 @@
   </a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/sina-al/pymediate">
     <img src="https://api.scorecard.dev/projects/github.com/sina-al/pymediate/badge" alt="OpenSSF Scorecard">
-  </a>
-  <a href="https://pymediate.sina-al.uk">
-    <img src="https://img.shields.io/badge/docs-pymediate.sina--al.uk-blue" alt="Documentation">
-  </a>
-  <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
   </a>
 </p>
 
