@@ -1,0 +1,25 @@
+[project]
+name = "pymediate-example-adapters-sync"
+version = "0.1.0"
+description = "Framework independence: one synchronous PyMediate core behind Flask, FastAPI, and click adapters"
+requires-python = ">=3.12"
+dependencies = [
+    # Loose lower bound per the examples contract: the release pipeline re-pins this to the
+    # exact release candidate on TestPyPI (scripts/run_examples.py).
+    "pymediate>=0.1",
+    "click>=8.2",
+    "fastapi>=0.115",
+    "flask>=3.0",
+    "uvicorn>=0.30",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    # fastapi.testclient.TestClient is httpx-based; httpx is only needed by the tests.
+    "httpx>=0.28",
+]
+
+[tool.uv]
+# An example is an application, not a distributable package: nothing to build or install.
+package = false

@@ -1,0 +1,32 @@
+[project]
+name = "pymediate-example-adapters-aio"
+version = "0.1.0"
+description = "Framework independence: one asynchronous PyMediate core behind FastAPI, aiohttp, and asyncclick adapters"
+requires-python = ">=3.12"
+dependencies = [
+    # Loose lower bound per the examples contract: the release pipeline re-pins this to the
+    # exact release candidate on TestPyPI (scripts/run_examples.py).
+    "pymediate>=0.1",
+    "aiohttp>=3.11",
+    "asyncclick>=8.2",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.0.0",
+    # Provides the aiohttp_client fixture used by test_aiohttp_app.py.
+    "pytest-aiohttp>=1.1",
+    # Drives the FastAPI app over ASGI in test_fastapi_app.py.
+    "httpx>=0.28",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.uv]
+# An example is an application, not a distributable package: nothing to build or install.
+package = false
