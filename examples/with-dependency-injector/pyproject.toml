@@ -18,3 +18,12 @@ dev = [
 [tool.uv]
 # An example is an application, not a distributable package: nothing to build or install.
 package = false
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

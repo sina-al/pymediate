@@ -9,9 +9,9 @@ code 1) via ClickException.
 """
 
 import asyncclick as click
-from core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
-
 from pymediate.aio import Mediator
+
+from taskboard.core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
 
 
 @click.group(chain=True)

@@ -1,8 +1,9 @@
 """Tests for the click adapter — exercises the whole core through click's CliRunner."""
 
 import pytest
-from cli import cli
 from click.testing import CliRunner
+
+from taskboard.adapters.cli import cli
 
 
 @pytest.fixture

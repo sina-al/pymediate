@@ -6,11 +6,19 @@ the ``async def`` version. The core's Task dataclass doubles as the response mod
 and TaskNotFoundError maps to HTTP 404 via FastAPI's exception_handler hook.
 """
 
-from core import AddTask, CompleteTask, ListOpenTasks, Task, TaskNotFoundError, build_mediator
 from fastapi import FastAPI
 from fastapi import Request as HTTPRequest
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+from taskboard.core import (
+    AddTask,
+    CompleteTask,
+    ListOpenTasks,
+    Task,
+    TaskNotFoundError,
+    build_mediator,
+)
 
 
 class NewTask(BaseModel):

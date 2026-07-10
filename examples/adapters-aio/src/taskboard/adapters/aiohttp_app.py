@@ -10,9 +10,9 @@ from dataclasses import asdict
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
-from core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
-
 from pymediate.aio import Mediator
+
+from taskboard.core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
 
 MEDIATOR = web.AppKey("mediator", Mediator)
 

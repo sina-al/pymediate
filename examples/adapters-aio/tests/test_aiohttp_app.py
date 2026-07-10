@@ -1,7 +1,8 @@
 """Tests for the aiohttp adapter — exercises the whole core through aiohttp's test client."""
 
 from aiohttp.test_utils import TestClient
-from aiohttp_app import create_app
+
+from taskboard.adapters.aiohttp_app import create_app
 
 # pytest-aiohttp's aiohttp_client fixture starts a real aiohttp test server per test.
 

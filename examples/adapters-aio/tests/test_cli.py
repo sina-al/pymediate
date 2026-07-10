@@ -2,7 +2,8 @@
 
 import pytest
 from asyncclick.testing import CliRunner
-from cli import cli
+
+from taskboard.adapters.cli import cli
 
 
 @pytest.fixture

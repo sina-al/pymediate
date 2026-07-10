@@ -4,7 +4,8 @@ from collections.abc import AsyncIterator
 
 import httpx2
 import pytest
-from fastapi_app import create_app
+
+from taskboard.adapters.fastapi_app import create_app
 
 
 @pytest.fixture

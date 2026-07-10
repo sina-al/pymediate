@@ -13,6 +13,9 @@ dependencies = [
     "uvicorn>=0.30",
 ]
 
+[project.scripts]
+taskboard = "taskboard.adapters.cli:cli"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
@@ -21,6 +24,19 @@ dev = [
     "httpx2>=2.0",
 ]
 
-[tool.uv]
-# An example is an application, not a distributable package: nothing to build or install.
-package = false
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taskboard"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

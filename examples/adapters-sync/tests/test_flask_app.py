@@ -2,7 +2,8 @@
 
 import pytest
 from flask.testing import FlaskClient
-from flask_app import create_app
+
+from taskboard.adapters.flask_app import create_app
 
 
 @pytest.fixture

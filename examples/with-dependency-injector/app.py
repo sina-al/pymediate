@@ -10,7 +10,6 @@ takes over the wiring that ``Services`` does by hand in the basic examples. Requ
 from dataclasses import dataclass, field
 
 from dependency_injector import containers, providers
-
 from pymediate import Handler, Mediator, Request
 from pymediate.providers import DependencyInjectorServiceProvider
 

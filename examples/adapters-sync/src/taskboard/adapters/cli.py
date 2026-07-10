@@ -7,9 +7,9 @@ via ClickException.
 """
 
 import click
-from core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
-
 from pymediate import Mediator
+
+from taskboard.core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
 
 
 @click.group(chain=True)

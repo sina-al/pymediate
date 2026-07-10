@@ -680,7 +680,7 @@ wheels = [
 [[package]]
 name = "pymediate-example-adapters-aio"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "asyncclick" },

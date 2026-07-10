@@ -27,7 +27,11 @@ if you change one, check whether the other needs the equivalent change.
   PyPI distribution (not the source tree); each satisfies the contract in
   `examples/README.md`, and the release pipeline runs them all against the TestPyPI
   candidate via `scripts/run_examples.py`. Not covered by the library's lint/type/coverage
-  scopes.
+  scopes — each example carries its own `[tool.ruff]`, `pyrightconfig.json`, and
+  `.vscode/settings.json` so it's pleasant opened standalone. **Any work on an example
+  (new, restructure, or README edit) goes through the `example` skill** — it owns the
+  structure rules, README template, IDE-polish checklist, per-example devcontainers
+  (`.devcontainer/<example>/`, Codespaces badges), and the verification bar.
 - `scripts/` — standalone maintenance scripts (e.g. `update_uv.py`), invoked via `poe` tasks,
   not part of the package. Still linted/formatted (`poe lint`/`format`/`format:check` cover it).
 - `OPERATIONS.md` — the reference for how code gets in (contribution lanes) and releases
@@ -37,7 +41,7 @@ if you change one, check whether the other needs the equivalent change.
   `README.md`); not part of the package, not built or published.
 - `.github/workflows/` — CI pipelines; see "GitHub Actions workflows" below.
 - `.claude/` — Claude Code config for this repo: `settings.json`, project-specific skills
-  (`adr`, `release`, `update-uv`, `compare`), and `.claude/context/*.md`:
+  (`adr`, `release`, `update-uv`, `compare`, `example`), and `.claude/context/*.md`:
   `api-signatures.md` is generated and imported into this CLAUDE.md (see "API Signatures"
   below) — regenerate, don't hand-edit; `mediator-survey.md` is the `/compare` skill's
   anonymized competitor knowledge base backing the docs site's comparison page — updated by

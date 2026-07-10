@@ -1,0 +1,19 @@
+{
+    "name": "pymediate example: with-dependency-injector",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    },
+    "postCreateCommand": "cd examples/with-dependency-injector && uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/with-dependency-injector/.venv/bin/python"
+            }
+        }
+    }
+}

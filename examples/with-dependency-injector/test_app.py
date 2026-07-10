@@ -1,6 +1,9 @@
 """Tests for the with-dependency-injector example — the `uv run pytest` entrypoint."""
 
 import pytest
+from pymediate import Mediator
+from pymediate.providers import DependencyInjectorServiceProvider
+
 from app import (
     AppContainer,
     GetUser,
@@ -11,9 +14,6 @@ from app import (
     UserRepository,
     build_mediator,
 )
-
-from pymediate import Mediator
-from pymediate.providers import DependencyInjectorServiceProvider
 
 
 @pytest.fixture

@@ -7,8 +7,9 @@ Flask's errorhandler hook.
 
 from dataclasses import asdict
 
-from core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
 from flask import Flask, Response, jsonify, request
+
+from taskboard.core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
 
 
 def create_app() -> Flask:
