@@ -1,0 +1,31 @@
+# Commit-time quality gate. Deterministic — no LLM, no editor, no CI round-trip needed.
+#
+# One-time setup per clone:  uvx pre-commit install
+#
+# Local hooks only, on purpose: each entry runs the same poe task CI runs, so the tool
+# versions come from uv.lock — no second pinning to drift (the standard pre-commit ruff
+# mirror would pin its own ruff rev alongside the lockfile's). See CLAUDE.md,
+# "poe tasks vs. inline workflow steps".
+repos:
+  - repo: local
+    hooks:
+      - id: format-check
+        name: ruff format --check (poe format:check)
+        entry: uv run poe format:check
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: lint
+        name: ruff check (poe lint)
+        entry: uv run poe lint
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: context-check
+        name: api-signatures freshness (poe context:check)
+        entry: uv run poe context:check
+        language: system
+        files: ^(src/pymediate/|scripts/update_context\.py|\.claude/context/)
+        pass_filenames: false

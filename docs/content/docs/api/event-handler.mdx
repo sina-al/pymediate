@@ -1,29 +1,29 @@
 ---
 title: EventHandler
-description: API reference for the sync and async EventHandler base classes.
+description: API reference for the async and sync EventHandler base classes.
 ---
 
 Event handlers hold one subscriber's reaction to an [`Event`](/docs/api/event) type. Any number of handlers may subscribe to the same event; `Mediator.publish()` invokes every one of them.
 
-<Tabs items={['Sync', 'Async']}>
-  <Tab value="Sync">
+<Tabs items={['Async', 'Sync']}>
+  <Tab value="Async">
     ```python
     from pymediate import EventHandler
 
     class EventHandler[EventT: Event](ABC):
         @abstractmethod
-        def __call__(self, event: EventT) -> None:
-            """Handle the published event."""
+        async def __call__(self, event: EventT) -> None:
+            """Handle the published event asynchronously."""
     ```
   </Tab>
-  <Tab value="Async">
+  <Tab value="Sync">
     ```python
-    from pymediate.aio import EventHandler
+    from pymediate.sync import EventHandler
 
     class EventHandler[EventT: Event](ABC):
         @abstractmethod
-        async def __call__(self, event: EventT) -> None:
-            """Handle the published event asynchronously."""
+        def __call__(self, event: EventT) -> None:
+            """Handle the published event."""
     ```
   </Tab>
 </Tabs>
@@ -39,7 +39,7 @@ Event handlers hold one subscriber's reaction to an [`Event`](/docs/api/event) t
 Like `RequestHandler`, every subclass is validated via `__init_subclass__` the moment the class is defined. It checks that:
 
 - `__call__` exists and is implemented
-- `__call__` is sync (or async, for `pymediate.aio.EventHandler`)
+- `__call__` is async (or sync, for `pymediate.sync.EventHandler`)
 - the `__call__` parameter annotation is *exactly* the declared event type — a base class or
   union is rejected, because dispatch is keyed by the exact event class (see
   [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract))
@@ -63,18 +63,18 @@ class OrderPlaced(Event):
     order_id: int
 
 class SendConfirmation(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None:
+    async def __call__(self, event: OrderPlaced) -> None:
         print(f"confirming order {event.order_id}")
 
 class UpdateAnalytics(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None:
+    async def __call__(self, event: OrderPlaced) -> None:
         print(f"recording order {event.order_id}")
 
 services = Services()
 services.add(SendConfirmation()).add(UpdateAnalytics())
 mediator = Mediator(services.provider())
 
-mediator.publish(OrderPlaced(order_id=42))
+await mediator.publish(OrderPlaced(order_id=42))
 # confirming order 42
 # recording order 42
 ```

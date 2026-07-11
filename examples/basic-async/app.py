@@ -1,18 +1,17 @@
-"""The async mirror of basic-sync: the same task board on PyMediate's asynchronous API.
+"""A tiny task board built on PyMediate's async (top-level) API.
 
-Demonstrates ``pymediate.aio``: handlers declare ``async def __call__``, dispatch is
-awaited (``await mediator.send(...)``) and returns the typed response, and an async
-``PipelineBehavior`` wraps dispatch selectively — its type parameter decides which
-requests it applies to. ``Request`` and ``Services`` come from the sync package: only
-``RequestHandler``, ``Mediator``, and ``PipelineBehavior`` have aio variants.
+Demonstrates the core loop, async-first: handlers declare ``async def __call__``,
+dispatch is awaited (``await mediator.send(...)``) and returns the typed response, and
+an async ``PipelineBehavior`` wraps dispatch selectively — its type parameter decides
+which requests it applies to. Everything imports from ``pymediate`` directly; the sync
+mirror of this example is basic-sync, built on ``pymediate.sync``.
 """
 
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from pymediate import Request, Services
-from pymediate.aio import RequestHandler, Mediator, PipelineBehavior
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass

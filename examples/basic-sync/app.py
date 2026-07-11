@@ -1,14 +1,15 @@
-"""A tiny task board built on PyMediate's synchronous API.
+"""A tiny task board built on PyMediate's synchronous API (``pymediate.sync``).
 
-Demonstrates the core loop: define requests typed by their response
-(``Request[Response]``), write one handler per request, register the handlers in
-``Services``, and send requests through a ``Mediator`` — which infers the response type
-from the request, end to end.
+Demonstrates the core loop without an event loop: define requests typed by their
+response (``Request[Response]``), write one handler per request, register the handlers
+in ``Services``, and send requests through a ``Mediator`` — which infers the response
+type from the request, end to end. The async mirror of this example is basic-async,
+built on the top-level ``pymediate`` API.
 """
 
 from dataclasses import dataclass, field
 
-from pymediate import RequestHandler, Mediator, Request, Services
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
 
 @dataclass

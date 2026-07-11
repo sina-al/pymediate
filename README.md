@@ -39,7 +39,7 @@
 
 - **Type safe.** Full runtime validation with mypy support.
 - **Events.** One-to-many `publish()` alongside one-to-one `send()` — same type-safe, validated-at-import design.
-- **Async/await support.** First-class async handlers and mediators via `pymediate.aio`.
+- **Async-first.** The top-level API is async; the full sync mirror lives in `pymediate.sync`.
 - **DI ready.** Built-in `dependency-injector` integration.
 - **Well tested.** Comprehensive test suite.
 
@@ -52,6 +52,7 @@ with any script from the network).
 ## Quick example
 
 ```python
+import asyncio
 from dataclasses import dataclass
 from pymediate import Request, RequestHandler, Mediator, Services
 
@@ -68,45 +69,10 @@ class CreateUser(Request[UserCreated]):
 
 # RequestHandler automatically linked by type
 class CreateUserHandler(RequestHandler[CreateUser]):
-    def __call__(self, req: CreateUser) -> UserCreated:
+    async def __call__(self, req: CreateUser) -> UserCreated:
         return UserCreated(user_id=1, username=req.username)
 
 # Set up and use
-services = Services()
-services.add(CreateUserHandler())
-provider = services.provider()
-mediator = Mediator(provider)
-
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-print(f"User {response.username} created with ID {response.user_id}")
-```
-
-### Async support
-
-PyMediate provides first-class async/await support through the `pymediate.aio` package:
-
-```python
-import asyncio
-from dataclasses import dataclass
-from pymediate import Request, Services
-from pymediate.aio import RequestHandler, Mediator
-
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
-
-class CreateUserHandler(RequestHandler[CreateUser]):
-    async def __call__(self, req: CreateUser) -> UserCreated:
-        # Perform async operations
-        await asyncio.sleep(0.1)  # Simulate async database call
-        return UserCreated(user_id=1, username=req.username)
-
 async def main():
     services = Services()
     services.add(CreateUserHandler())
@@ -119,12 +85,46 @@ async def main():
 asyncio.run(main())
 ```
 
-**Key differences for async:**
+### Sync support
 
-- Import from `pymediate.aio` instead of `pymediate`.
-- The handler's `__call__` method must be `async def`.
-- Use `await mediator.send(...)` instead of `mediator.send(...)`.
-- Supports concurrent request handling with `asyncio.gather()`.
+Not every application runs an event loop. The `pymediate.sync` package is the
+full sync mirror of the top-level API — the same names, with plain `def`
+handlers and a blocking `send()`:
+
+```python
+from dataclasses import dataclass
+from pymediate.sync import Request, RequestHandler, Mediator, Services
+
+@dataclass
+class UserCreated:
+    user_id: int
+    username: str
+
+@dataclass
+class CreateUser(Request[UserCreated]):
+    username: str
+    email: str
+
+class CreateUserHandler(RequestHandler[CreateUser]):
+    def __call__(self, req: CreateUser) -> UserCreated:
+        return UserCreated(user_id=1, username=req.username)
+
+services = Services()
+services.add(CreateUserHandler())
+provider = services.provider()
+mediator = Mediator(provider)
+
+response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
+print(f"User {response.username} created with ID {response.user_id}")
+```
+
+**Key differences for sync:**
+
+- Import from `pymediate.sync` instead of `pymediate`.
+- The handler's `__call__` method is a plain `def`.
+- `mediator.send(...)` blocks and returns the response directly — no `await`.
+- Shared names (`Request`, `Event`, `Services`, errors) are the same objects
+  on both sides, so the two APIs mix freely in one codebase.
 
 ### Pipeline behaviors
 
@@ -135,19 +135,19 @@ from pymediate import Request, PipelineBehavior
 
 # Universal behavior - applies to all requests
 class LoggingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         print(f"Handling: {type(request).__name__}")
-        response = next()
+        response = await next()
         print(f"Completed: {type(request).__name__}")
         return response
 
 # Selective behavior - only applies to CreateUser requests
 class ValidationBehavior(PipelineBehavior[CreateUser]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         # Validate before processing
         if not request.username:
             raise ValueError("Username is required")
-        return next()
+        return await next()
 
 # Register behaviors and handlers
 services = Services()
@@ -157,8 +157,8 @@ services.add(CreateUserHandler())
 
 mediator = Mediator(services.provider())
 
-# Behaviors automatically wrap matching requests
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
+# Behaviors automatically wrap matching requests (inside an async context)
+response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
 # Output:
 # Handling: CreateUser
 # Completed: CreateUser
@@ -179,24 +179,24 @@ class OrderPlaced(Event):
     order_id: int
 
 class SendConfirmation(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None:
+    async def __call__(self, event: OrderPlaced) -> None:
         print(f"Confirming order {event.order_id}")
 
 class UpdateAnalytics(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None:
+    async def __call__(self, event: OrderPlaced) -> None:
         print(f"Recording order {event.order_id}")
 
 services = Services()
 services.add(SendConfirmation()).add(UpdateAnalytics())
 mediator = Mediator(services.provider())
 
-mediator.publish(OrderPlaced(order_id=42))
+await mediator.publish(OrderPlaced(order_id=42))  # inside an async context
 # Output:
 # Confirming order 42
 # Recording order 42
 ```
 
-Handlers run in registration order (concurrently via `asyncio.gather` in the async API), zero subscribers is a no-op, and a raising handler never stops the others — failures aggregate into an `ExceptionGroup`. See the [Events guide](https://pymediate.sina-al.uk/docs/guide/events).
+Handlers run concurrently via `asyncio.gather` (sequentially, in registration order, in the sync API), zero subscribers is a no-op, and a raising handler never stops the others — failures aggregate into an `ExceptionGroup`. See the [Events guide](https://pymediate.sina-al.uk/docs/guide/events).
 
 ## Installation
 
@@ -226,6 +226,9 @@ pip install pymediate[di]
 git clone https://github.com/sina-al/pymediate.git
 cd pymediate
 uv sync --all-extras --group test
+
+# Optional: commit-time format/lint gate (same checks CI runs)
+uvx pre-commit install
 
 # Run tests
 poe test

@@ -1,7 +1,7 @@
-"""Tests for the basic-aio example — the examples contract's `uv run pytest` entrypoint."""
+"""Tests for the basic-async example — the examples contract's `uv run pytest` entrypoint."""
 
 import pytest
-from pymediate.aio import Mediator
+from pymediate import Mediator
 
 from app import (
     AddTask,

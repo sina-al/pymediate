@@ -6,14 +6,17 @@ Context for agentic work in this repo. Read this before making changes.
 
 PyMediate: a type-safe mediator/CQRS-style request-dispatch library for Python 3.12+.
 Zero runtime dependencies in core; `dependency-injector` is an optional extra (`di`).
-Sync (`pymediate`) and async (`pymediate.aio`) APIs are structural mirrors of each other —
-if you change one, check whether the other needs the equivalent change.
+Async (the top-level `pymediate`) and sync (`pymediate.sync`) APIs are structural mirrors of
+each other — if you change one, check whether the other needs the equivalent change. A parity
+test (`tests/test_parity.py`) enforces that every shared name is the identical object in both
+namespaces, with `RequestHandler`/`EventHandler`/`Mediator`/`PipelineBehavior` as the only
+intentional variants (ADR 0008).
 
 ## Layout
 
 - `src/pymediate/` — public package. `__init__.py`'s `__all__` is the public API contract.
   - `_internal/` — implementation details, not public API, no back-compat guarantees.
-  - `aio/` — async mirror of the sync API.
+  - `sync/` — sync mirror of the async top-level API.
   - `providers/dependency_injector.py` — optional DI integration (`di` extra).
 - `tests/` — pytest suite, roughly one `test_*.py` per `src/pymediate/` module (e.g.
   `test_handler.py`, `test_mediator.py`); `conftest.py` holds shared fixtures.
@@ -25,8 +28,9 @@ if you change one, check whether the other needs the equivalent change.
     below. Deliberately outside `docs/content/`, so they are never published on the site.
 - `examples/` — standalone uv projects demonstrating the package against its *released*
   PyPI distribution (not the source tree); each satisfies the contract in
-  `examples/README.md`, and the release pipeline runs them all against the TestPyPI
-  candidate via `scripts/run_examples.py`. Not covered by the library's lint/type/coverage
+  `examples/README.md`, and the release pipeline runs them all four times via
+  `scripts/run_examples.py` (release-PR wheel, release wheel, TestPyPI, PyPI smoke —
+  see OPERATIONS.md and ADR 0007). Not covered by the library's lint/type/coverage
   scopes — each example carries its own `[tool.ruff]`, `pyrightconfig.json`, and
   `.vscode/settings.json` so it's pleasant opened standalone. **Any work on an example
   (new, restructure, or README edit) goes through the `example` skill** — it owns the
@@ -71,14 +75,56 @@ All dev commands go through `poethepoet` (`tasks.toml`) so behavior matches CI e
 Don't invent bespoke `pytest`/`ruff`/`mypy` invocations — use the `poe` task so local results
 match `.github/workflows/*.yml`.
 
+Optional commit-time gate: `uvx pre-commit install` (once per clone) wires
+`.pre-commit-config.yaml` — format check, lint, and api-signatures freshness at every
+commit, running the same poe tasks as CI. Local hooks only, so tool versions come from
+`uv.lock` rather than a second pin.
+
 ## GitHub Actions workflows
 
-Before adding a new file under `.github/workflows/**` or editing an existing one, apply the
-`github-actions-security` skill (action pinning, least-privilege `permissions:`, script-injection
-prevention, OIDC over long-lived secrets, safe trigger scoping). This applies any time the task
-touches a workflow file, not only when security is mentioned explicitly. After editing, run
-`uv run poe actions:lint` (zizmor) — `checks.yml` enforces it in CI, so a finding you don't fix
-or explicitly ignore (with a justification comment) will fail the PR.
+zizmor owns the security bar for `.github/workflows/**` — run `uv run poe actions:lint`
+after any edit; `checks.yml` enforces it in CI, so a finding you don't fix or explicitly
+ignore (with a justification comment) will fail the PR. Its audits mechanically cover
+action pinning, template injection, permissions, dangerous triggers, and trusted
+publishing. The judgment calls it can't lint — trigger scoping (`paths:`/`branches:` +
+concurrency), `workflow_run` privilege separation over `pull_request_target`, whether a
+new third-party action is warranted at all — are injected at edit time by
+`.claude/hooks/pre_edit_reminders.py`.
+
+### poe tasks vs. inline workflow steps
+
+`tasks.toml` is the single source of truth for any command a human or agent might also run
+locally — that's what keeps local results matching CI. When writing a workflow `run:` step,
+decide where the command lives:
+
+**Poe task, when all of these hold:**
+
+- it runs the project toolchain (pytest, ruff, mypy, uv build, twine, `scripts/*.py`, ...)
+  needing nothing beyond `uv sync` and the repo;
+- it's meaningful to run locally, and running the *identical* invocation there matters;
+- the invocation is stable across call sites — passing runtime values (a version, an index
+  URL, a git ref) as task arguments is fine, but the flag *shape* shouldn't depend on CI
+  event context.
+
+**Inline in the workflow, when any of these hold:**
+
+- it needs CI context: `github.*` values, `GITHUB_OUTPUT`/`GITHUB_ENV`, `needs.*.result`,
+  tokens, OIDC;
+- it needs tools outside the uv-managed environment: `gh`, `git push`, pnpm/Node, or
+  pip-as-an-end-user (release.yml's install matrix deliberately avoids uv);
+- it *is* the bootstrap (`uv sync` — poe isn't installed yet);
+- it's single-call-site CI glue: summary gates over job results, path filters, ref guards.
+
+Carve-out: jobs whose toolchain isn't Python (docs.yml's Node-only build) don't bootstrap
+uv/poe just for parity — they run their tools directly, and the workflow steps and the
+mirroring poe tasks must cross-reference each other in comments so drift is caught in review.
+
+A raw invocation in a workflow that an existing poe task already wraps is a bug — route it
+through the task. This regressed once and propagated: release.yml's `run_examples.py` call
+predated both the runner and the `examples:test` task (it was a placeholder for issue #24),
+the task landed later without retrofitting the workflow, and three subsequent examples jobs
+copied the workflow's raw pattern instead of the task. Copying an adjacent step is how
+conventions erode — check `tasks.toml` first, not the neighboring job.
 
 ## Quality bar (all enforced in CI, not optional)
 
@@ -119,8 +165,8 @@ someone calling the API, not for someone reading the source.
   missing `@dataclass` decorators, an undefined `resolver` variable, a `providers.Self()`
   self-registration pattern that recurses infinitely - all inside docstrings, none caught until
   someone ran them.
-- Sync (`pymediate`) and async (`pymediate.aio`) docstrings are structural mirrors, same as the
-  code — if you fix or reword one, check the other side for the identical issue.
+- Async (top-level `pymediate`) and sync (`pymediate.sync`) docstrings are structural mirrors,
+  same as the code — if you fix or reword one, check the other side for the identical issue.
 - `poe lint` enforces docstring presence/formatting (ruff's `D` rules, Google convention) on
   `src/pymediate/` excluding `_internal/`; it won't catch stale content or broken examples, so
   don't rely on it as the only check.
@@ -168,25 +214,10 @@ behaviors) — read both before assuming either alone reflects the current desig
 
 Planning lives in GitHub Issues on `sina-al/pymediate`, mirrored onto the user-level
 GitHub Project board **#2 "pymediate"** (<https://github.com/users/sina-al/projects/2>).
-Requests like "file an issue", "add this to the roadmap", "track this", or "put it on the
-board" all mean this flow, even when GitHub Projects isn't named explicitly:
-
-1. `gh issue create` on the repo. Label `roadmap` for feature/process work (`bug`,
-   `documentation`, etc. where they fit better). Issue titles are plain descriptive
-   sentences — Conventional Commits applies to PR titles, not issues. Match the existing
-   style: in-depth body, phased `- [ ]` checklists, explicit acceptance criteria.
-2. Add it to the board: `gh project item-add 2 --owner sina-al --url <issue-url>`.
-3. Set Status to `Todo` (options: Todo / In Progress / Done; `item-add` leaves it empty).
-   A Priority field exists (Now / Next / Later) — leave it unset unless told otherwise.
-   Board plumbing: project ID `PVT_kwHOAafBSs4Bc38l`; look up field/option/item IDs with
-   `gh project field-list 2 --owner sina-al --format json` and
-   `gh project item-list 2 --owner sina-al --format json`, then use
-   `gh project item-edit` with `--project-id`/`--id`/`--field-id`/`--single-select-option-id`.
-
-For substantial roadmap issues, pitch the approach first, then interview the maintainer
-(AskUserQuestion) to lock the key decisions, and record them in a "Decisions" table in the
-issue body so the issue is executable without re-litigating — see #39 for the pattern.
-Same author/reviewer split as ADRs.
+**All issue filing goes through the `edict` skill** — it owns the interview flow, the
+issue template, labels, titles, and the board plumbing (project/field/option IDs).
+Requests like "file an issue", "add this to the roadmap", "track this", or "put it on
+the board" all mean invoking that skill, even for one-liners.
 
 ## Versioning
 
@@ -240,9 +271,9 @@ zero-commit release PR (`release/vX.Y.Z` cut of main → `stable`) whose **diff 
 since the last release** — reviewing it is the release review. Closing it is a
 consequence-free rejection (the cut branch auto-deletes); merging it makes `tag-release.yml`
 tag the merge commit, which runs `release.yml`: validate → build (+ provenance attestation)
-→ install matrix → TestPyPI → examples suite against the TestPyPI artifact
-(`scripts/run_examples.py`) → the `pypi` environment's required-reviewer gate → PyPI →
-GitHub Release last.
+→ install matrix + examples against the built wheel → TestPyPI → examples against the
+TestPyPI artifact (`scripts/run_examples.py`) → the `pypi` environment's required-reviewer
+gate → PyPI → examples smoke test against PyPI → GitHub Release last.
 
 Release workflows authenticate as the `pymediate-releaser` GitHub App — short-lived
 installation tokens minted per job via `actions/create-github-app-token` from the
@@ -256,18 +287,16 @@ hatch-vcs derives from the tagged checkout.
 ## Docs
 
 `docs/` is a Next.js + Fumadocs app (pnpm, Node 22, static export) deployed to GitHub Pages
-at <https://pymediate.sina-al.uk> from `main` via `docs.yml`. Content is MDX under
-`docs/content/`: `docs/` (the site's Docs section — getting-started → guide → advanced →
-api → examples → comparison, sidebar order in `meta.json`) and `articles/` (long-form
-essays with byline frontmatter). The API reference pages are hand-written MDX that mirror
-the source docstrings — keep them in sync when the public API or its docstrings change.
-Use the `poe` tasks: `docs:install` once, then `docs:serve` / `docs:check` (lint +
-type-check, what CI runs) / `docs:build`. `docs/adr/` sits outside `content/` on purpose —
-ADRs are versioned with the repo but not published on the site.
+at <https://pymediate.sina-al.uk> from `main` via `docs.yml`. The API reference pages are
+hand-written MDX that mirror the source docstrings — keep them in sync when the public API
+or its docstrings change. App conventions, content layout, and the docs `poe` tasks live in
+`docs/CLAUDE.md` (loaded automatically when working under `docs/`). `docs/adr/` sits
+outside `content/` on purpose — ADRs are versioned with the repo but not published on
+the site.
 
 ## API Signatures
 
-@.claude/context/api-signatures.md
+@context/api-signatures.md
 
 Generated from source by `uv run poe context:update` (`scripts/update_context.py`); run
 `uv run poe context:check` to confirm it isn't stale. Don't hand-edit that file.

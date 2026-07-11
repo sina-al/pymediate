@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """Run every example's tests against a specific pymediate build.
 
-Two modes, one per stage of the release flow (see OPERATIONS.md and examples/README.md):
+Two modes, covering the four examples stages of the release flow (see OPERATIONS.md and
+examples/README.md):
 
   --wheel PATH      Test against a locally built wheel. Used by the release PR's required
-                    "Examples" check (release-pr-report.yml): breaking changes that stale
-                    examples can't absorb fail *before* merge — no tag, no burned version.
+                    "Examples" check (release-pr-report.yml), where breaking changes that
+                    stale examples can't absorb fail *before* merge — no tag, no burned
+                    version — and again by release.yml against the freshly built release
+                    artifact, before anything is published.
 
   --version X.Y.Z   Test against a published release on an index (default TestPyPI). Used
     [--index URL]   by release.yml after the TestPyPI publish to validate the real
-                    publish-and-install path. Only pymediate resolves from the staging
+                    publish-and-install path, and after the PyPI publish to smoke-test the
+                    exact artifact users install. Only pymediate resolves from the given
                     index; every other dependency still comes from real PyPI.
 
 Either way, each examples/<name>/ project is copied to a temp directory (the checkout is

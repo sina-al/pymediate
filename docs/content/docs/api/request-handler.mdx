@@ -1,19 +1,19 @@
 ---
 title: RequestHandler
-description: API reference for the sync and async RequestHandler base classes.
+description: API reference for the async and sync RequestHandler base classes.
 ---
 
 Handlers contain the business logic for processing requests. They declare only the request type — the response type is inferred from that request's `Request[ResponseT]` definition.
 
 <Callout type="warn" title="Renamed from Handler in 0.4.0">
-  `RequestHandler` was named `Handler` before 0.4.0. The old name still imports through 0.4.x
-  with a `DeprecationWarning` and will be removed in the next minor release — update
+  `RequestHandler` was named `Handler` before 0.4.0. The 0.4.x releases still accept the old
+  name with a `DeprecationWarning`; from 0.5.0 it is gone — update
   `from pymediate import Handler` to `from pymediate import RequestHandler` (same for
-  `pymediate.aio`). The rationale is recorded in ADR 0006.
+  `pymediate.sync`). The rationale is recorded in ADR 0006.
 </Callout>
 
-<Tabs items={['Sync', 'Async']}>
-  <Tab value="Sync">
+<Tabs items={['Async', 'Sync']}>
+  <Tab value="Async">
     ```python
     from abc import abstractmethod
     from typing import Any
@@ -21,20 +21,20 @@ Handlers contain the business logic for processing requests. They declare only t
 
     class RequestHandler[RequestT](ABC):
         @abstractmethod
-        def __call__(self, request: RequestT) -> Any:
-            """Handle the request and return a response."""
+        async def __call__(self, request: RequestT) -> Any:
+            """Handle the request asynchronously and return a response."""
     ```
   </Tab>
-  <Tab value="Async">
+  <Tab value="Sync">
     ```python
     from abc import abstractmethod
     from typing import Any
-    from pymediate.aio import RequestHandler
+    from pymediate.sync import RequestHandler
 
     class RequestHandler[RequestT](ABC):
         @abstractmethod
-        async def __call__(self, request: RequestT) -> Any:
-            """Handle the request asynchronously and return a response."""
+        def __call__(self, request: RequestT) -> Any:
+            """Handle the request and return a response."""
     ```
   </Tab>
 </Tabs>
@@ -50,7 +50,7 @@ Handlers contain the business logic for processing requests. They declare only t
 `RequestHandler` validates every subclass via `__init_subclass__` the moment the class is defined — at import time, not dispatch time. It checks that:
 
 - `__call__` exists and is implemented
-- `__call__` is sync (or async, for `pymediate.aio.RequestHandler`)
+- `__call__` is async (or sync, for `pymediate.sync.RequestHandler`)
 - the `__call__` parameter annotation is *exactly* the declared request type — a base class or
   union is rejected, because dispatch is keyed by the exact request class (see
   [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract))
@@ -85,8 +85,8 @@ class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, database: Database):
         self.database = database
 
-    def __call__(self, request: CreateUserRequest) -> UserResponse:
-        user_id = self.database.insert_user(username=request.username, email=request.email)
+    async def __call__(self, request: CreateUserRequest) -> UserResponse:
+        user_id = await self.database.insert_user(username=request.username, email=request.email)
         return UserResponse(user_id=user_id, username=request.username)
 ```
 

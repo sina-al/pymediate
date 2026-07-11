@@ -12,8 +12,8 @@ from typing import Any
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, ServiceNotFoundError
 from pymediate.providers import DependencyInjectorServiceProvider
+from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, ServiceNotFoundError
 
 # ============================================================================
 # Test Fixtures - Requests and Responses

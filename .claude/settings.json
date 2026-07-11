@@ -8,7 +8,10 @@
       "Bash(git show*)",
       "Bash(gh pr view*)",
       "Bash(gh pr checks*)",
-      "Bash(gh pr diff*)"
+      "Bash(gh pr diff*)",
+      "Bash(gh run watch *)",
+      "Bash(gh project item-list *)",
+      "Bash(gh project field-list *)"
     ]
   },
   "hooks": {
@@ -18,18 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys\nd=json.load(sys.stdin)\nf=d.get('tool_input',{}).get('file_path','')\nif '.github/workflows/' in f:\n    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'allow', 'additionalContext': 'This touches a GitHub Actions workflow. Apply the github-actions-security skill (.claude/skills/github-actions-security/SKILL.md): pin third-party actions to a commit SHA, set least-privilege permissions:, never splice github.event.* into run: (use env: instead), prefer OIDC over long-lived secrets, and scope triggers with paths/branches/concurrency.'}}))\" 2>/dev/null || true"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -c \"import json,sys,subprocess\nd=json.load(sys.stdin)\nf=d.get('tool_input',{}).get('file_path','')\nif f.endswith('.py'):\n    subprocess.run(['uv','run','ruff','format',f])\n    subprocess.run(['uv','run','ruff','check','--fix',f])\" 2>/dev/null || true"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre_edit_reminders.py\" 2>/dev/null || true"
           }
         ]
       }

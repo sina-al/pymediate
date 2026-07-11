@@ -26,11 +26,18 @@ bug fix.
 git clone https://github.com/<your-username>/pymediate.git
 cd pymediate
 uv sync --all-extras --group test
+uvx pre-commit install   # recommended: commit-time format/lint gate
 ```
 
 `uv sync` alone only installs the default `dev` group (ruff, mypy, poethepoet) — the
 `--group test` above is required to get pytest and friends. See [`README.md`](README.md)
 for the full command list.
+
+`pre-commit install` wires the checks in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)
+to run at every commit: format check, lint, and generated-context freshness. They invoke the
+same `poe` tasks CI runs (tool versions come from `uv.lock`), so a commit that passes locally
+won't bounce off CI for formatting. Optional but recommended — CI enforces the same checks
+either way.
 
 ## Workflow
 

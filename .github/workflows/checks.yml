@@ -13,6 +13,8 @@ on:
       - "ruff.toml"
       - "mypy.ini"
       - ".github/workflows/**"
+      - ".claude/context/**"
+      - ".claude/CLAUDE.md"
   pull_request:
     branches: [main, stable]
   workflow_dispatch:
@@ -53,6 +55,8 @@ jobs:
               - "ruff.toml"
               - "mypy.ini"
               - ".github/workflows/**"
+              - ".claude/context/**"
+              - ".claude/CLAUDE.md"
 
   check:
     name: Run Checks
@@ -91,6 +95,13 @@ jobs:
       - name: Type check
         run: |
           uv run poe type
+
+      - name: Context freshness
+        # .claude/context/api-signatures.md is generated from src/pymediate/ and imported
+        # into CLAUDE.md (loaded into every agent session) — stale signatures silently
+        # mislead every future session, so staleness fails CI. Fix: uv run poe context:update.
+        run: |
+          uv run poe context:check
 
       - name: Lint workflows (zizmor)
         # GH_TOKEN enables zizmor's online audits (e.g. checking action pins against

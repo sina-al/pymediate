@@ -44,11 +44,11 @@ class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, user_repository: UserRepository):
         self.user_repository = user_repository
 
-    def __call__(self, request: CreateUserRequest) -> UserCreated:
+    async def __call__(self, request: CreateUserRequest) -> UserCreated:
         if not request.username:
             raise ValidationError("Username required")
 
-        user = self.user_repository.create(
+        user = await self.user_repository.create(
             username=request.username,
             email=request.email,
             password=hash_password(request.password),
@@ -77,7 +77,7 @@ Every delivery mechanism becomes a thin adapter that translates its input into a
             username=dto.username, email=dto.email, password=dto.password
         )
         try:
-            result = mediator.send(domain_request)
+            result = await mediator.send(domain_request)
             return {"user_id": result.user_id, "username": result.username}
         except ValidationError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -85,6 +85,7 @@ Every delivery mechanism becomes a thin adapter that translates its input into a
   </Tab>
   <Tab value="Flask">
     ```python
+    import asyncio
     from flask import Flask, request, jsonify
 
     app = Flask(__name__)
@@ -96,7 +97,7 @@ Every delivery mechanism becomes a thin adapter that translates its input into a
             username=data['username'], email=data['email'], password=data['password']
         )
         try:
-            result = mediator.send(domain_request)
+            result = asyncio.run(mediator.send(domain_request))
             return jsonify({'user_id': result.user_id, 'username': result.username}), 201
         except ValidationError as e:
             return jsonify({'error': str(e)}), 400
@@ -104,6 +105,7 @@ Every delivery mechanism becomes a thin adapter that translates its input into a
   </Tab>
   <Tab value="CLI">
     ```python
+    import asyncio
     import click
 
     @click.command()
@@ -113,7 +115,7 @@ Every delivery mechanism becomes a thin adapter that translates its input into a
     def create_user(username: str, email: str, password: str):
         domain_request = CreateUserRequest(username=username, email=email, password=password)
         try:
-            result = mediator.send(domain_request)
+            result = asyncio.run(mediator.send(domain_request))
             click.echo(f"User created: {result.username} (ID: {result.user_id})")
         except ValidationError as e:
             click.echo(f"Error: {e}", err=True)
@@ -121,6 +123,7 @@ Every delivery mechanism becomes a thin adapter that translates its input into a
   </Tab>
   <Tab value="AWS Lambda">
     ```python
+    import asyncio
     import json
 
     def lambda_handler(event, context):
@@ -129,7 +132,7 @@ Every delivery mechanism becomes a thin adapter that translates its input into a
             username=body['username'], email=body['email'], password=body['password']
         )
         try:
-            result = mediator.send(domain_request)
+            result = asyncio.run(mediator.send(domain_request))
             return {'statusCode': 201, 'body': json.dumps({'user_id': result.user_id})}
         except ValidationError as e:
             return {'statusCode': 400, 'body': json.dumps({'error': str(e)})}

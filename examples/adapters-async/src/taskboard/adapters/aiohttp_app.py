@@ -10,7 +10,7 @@ from dataclasses import asdict
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
-from pymediate.aio import Mediator
+from pymediate import Mediator
 
 from taskboard.core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
 

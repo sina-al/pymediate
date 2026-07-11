@@ -5,8 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Request, Services
-from pymediate.aio import Mediator, PipelineBehavior, RequestHandler
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass

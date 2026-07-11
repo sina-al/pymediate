@@ -6,7 +6,7 @@ description: The problem PyMediate solves, how the mediator pattern works, and w
 PyMediate is a small library for Python 3.12+ that gives your application one type-safe way to ask for things. You describe what you want as a plain object, hand it to a single dispatcher, and get back a fully typed response:
 
 ```python
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
+response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
 # response is UserCreated — inferred from the request type, checked by mypy
 ```
 
@@ -36,10 +36,10 @@ class CreateUser(Request[UserCreated]):   # the message, declaring its response 
     email: str
 
 class CreateUserHandler(RequestHandler[CreateUser]):   # the one place it's handled
-    def __call__(self, request: CreateUser) -> UserCreated:
+    async def __call__(self, request: CreateUser) -> UserCreated:
         ...
 
-user = mediator.send(CreateUser(username="alice", email="alice@example.com"))
+user = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
 ```
 
 Now the caller knows only the message it sends and the mediator it sends it to. The handler knows only the request it receives. The web view, the CLI command, and the background job all send the same `CreateUser` and none of them can tell — or need to know — how it's fulfilled. And cross-cutting concerns get a real home: a **pipeline behavior** wraps every dispatch, so logging or validation is written once instead of scattered across handlers.
@@ -47,7 +47,7 @@ Now the caller knows only the message it sends and the mediator it sends it to. 
 Requests are one-to-one: something is *wanted*, and exactly one handler does it. The same mediator also covers the one-to-many case — something *happened*, and any number of places care. `mediator.publish()` delivers an **event** to every subscribed **event handler**, with no response and no knowledge of who's listening:
 
 ```python
-mediator.publish(UserRegistered(user_id=user.user_id))
+await mediator.publish(UserRegistered(user_id=user.user_id))
 # the welcome email, the analytics record, the audit log — each a separate EventHandler
 ```
 
@@ -58,7 +58,7 @@ PyMediate implements the pattern entirely inside Python's type system — built 
 - **The link is a type.** `RequestHandler[CreateUser]` declares what a handler handles, and dispatch is keyed on the class itself. Rename the request and every handler follows in the refactor.
 - **You always know what comes back.** A request inherits `Request[UserCreated]`, and from then on `mediator.send()` returns `UserCreated` everywhere — inferred by mypy, autocompleted by your editor, no casts. The response can be any type at all: no framework base class, no serialization methods.
 - **Wiring mistakes surface before requests flow.** RequestHandler signatures are validated the moment the class is defined — a wrong parameter type, a missing return type, a sync/async mixup all raise at import. A second handler for the same request raises immediately, pointing at the file and line of the first.
-- **Sync and async are equals.** `pymediate.aio` mirrors the sync API class for class — switch the import, add `await`, done.
+- **Sync and async are equals.** The top-level API is async; `pymediate.sync` mirrors it class for class — switch the import, drop the `await`, done.
 - **It travels light.** Zero runtime dependencies, ships `py.typed`, and is checked under `mypy --strict`. `dependency-injector` support is an optional extra.
 
 Evaluating it against other libraries? [How it compares](/docs/comparison) has a feature-by-feature look at the Python mediator ecosystem and a reproducible benchmark of what `send()` and `publish()` cost over direct calls.

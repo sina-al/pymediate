@@ -74,9 +74,6 @@ check.sequence = ["type", "lint", "format:check"]
 "check:all".help = "Run all quality checks plus tests with coverage"
 "check:all".sequence = ["type:all", "lint", "format:check", "test:cov"]
 
-ci.help = "Run the full local CI suite (mirrors what checks.yml/test.yml enforce)"
-ci.sequence = ["check:all"]
-
 # ========== API Compatibility ==========
 
 "api:check".help = """
@@ -98,9 +95,6 @@ benchmark.cmd = "python3 scripts/benchmark.py"
 
 # ========== Security ==========
 
-security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"
-security.cmd = "uv run --with safety safety check"
-
 "security:pip-audit".help = """
 Scan the shipped dependency tree (pymediate[di] resolved from uv.lock, no dev/test tooling) \
 for known vulnerabilities with pip-audit, formatted as markdown (used by \
@@ -119,7 +113,11 @@ uv run --with pip-audit pip-audit --requirement "$reqs" --require-hashes --disab
 
 # ========== Documentation ==========
 
-"docs:install".help = "Install the docs site's Node dependencies (run once before other docs tasks)"
+# docs.yml runs pnpm directly rather than through these tasks (its job is Node-only; see
+# CLAUDE.md's "poe tasks vs. inline workflow steps") — a change here likely needs the same
+# change there, and vice versa.
+
+"docs:install".help = "Install the docs site's Node dependencies (run once before other docs tasks; mirrored by docs.yml)"
 "docs:install".cmd = "pnpm install --frozen-lockfile"
 "docs:install".cwd = "docs"
 
@@ -158,7 +156,10 @@ build.cmd = "uv build"
 # no commit, which silently empties the changelog (this shipped as v0.1.5's blank notes).
 "release:notes".cmd = "uvx git-cliff --current --include-path 'src/pymediate/**' --strip header -o RELEASE_NOTES.md"
 
-"examples:test".help = "Run every examples/ project's tests against a released pymediate version (usage: poe examples:test --version 0.1.4 --index https://pypi.org/simple/; release.yml runs this against TestPyPI)"
+"release:wait-index".help = "Wait until an index's simple API serves a pymediate version, probing with uv itself (usage: poe release:wait-index --version 0.5.0 --index https://pypi.org/simple/; release.yml runs this before each index-mode examples stage)"
+"release:wait-index".cmd = "python3 scripts/wait_for_index.py"
+
+"examples:test".help = "Run every examples/ project's tests against a pymediate build (usage: poe examples:test --wheel dist/pymediate-*.whl, or --version 0.1.4 --index https://pypi.org/simple/; every examples stage in the release pipeline runs this)"
 "examples:test".cmd = "python3 scripts/run_examples.py"
 
 # ========== PR Helpers ==========
@@ -205,9 +206,6 @@ clean.cmd = """
     htmlcov/ .coverage coverage.xml mypy-report/ site/
 """
 
-"clean:all".help = "Clean everything, including build artifacts (alias for clean; kept for discoverability)"
-"clean:all".sequence = ["clean"]
-
 # ========== Quick Commands ==========
 
 dev.help = "Quick dev loop: fix code, then run fast tests"
@@ -215,6 +213,3 @@ dev.sequence = ["fix", "test:fast"]
 
 pr.help = "Prepare for a PR: fix code, then run all quality checks and tests with coverage"
 pr.sequence = ["fix", "check:all"]
-
-all.help = "Run everything: fix, check, and test with coverage (alias for pr; kept for discoverability)"
-all.sequence = ["fix", "check:all"]

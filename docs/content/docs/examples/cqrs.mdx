@@ -8,6 +8,7 @@ CQRS (Command Query Responsibility Segregation) separates operations that change
 This example separates a product catalog into a write side (commands, backed by a primary store) and a read side (queries, backed by a read-optimized store) — the main reason teams reach for CQRS in the first place.
 
 ```python
+import asyncio
 from dataclasses import dataclass, field
 from pymediate import Request, RequestHandler, Mediator, Services
 
@@ -66,7 +67,7 @@ class CreateProductHandler(RequestHandler[CreateProductCommand]):
     def __init__(self, store: ProductWriteStore):
         self.store = store
 
-    def __call__(self, request: CreateProductCommand) -> CreateProductResponse:
+    async def __call__(self, request: CreateProductCommand) -> CreateProductResponse:
         product = self.store.create(request.name, request.price, request.stock)
         return CreateProductResponse(product_id=product.product_id)
 
@@ -84,7 +85,7 @@ class AdjustStockHandler(RequestHandler[AdjustStockCommand]):
     def __init__(self, store: ProductWriteStore):
         self.store = store
 
-    def __call__(self, request: AdjustStockCommand) -> AdjustStockResponse:
+    async def __call__(self, request: AdjustStockCommand) -> AdjustStockResponse:
         product = self.store.adjust_stock(request.product_id, request.delta)
         return AdjustStockResponse(product_id=product.product_id, new_stock=product.stock)
 ```
@@ -109,7 +110,7 @@ class GetProductHandler(RequestHandler[GetProductQuery]):
     def __init__(self, store: ProductReadStore):
         self.store = store
 
-    def __call__(self, request: GetProductQuery) -> GetProductResponse:
+    async def __call__(self, request: GetProductQuery) -> GetProductResponse:
         product = self.store.find(request.product_id)
         if product is None:
             raise ValueError(f"Product {request.product_id} not found")
@@ -127,7 +128,7 @@ class SearchProductsHandler(RequestHandler[SearchProductsQuery]):
     def __init__(self, store: ProductReadStore):
         self.store = store
 
-    def __call__(self, request: SearchProductsQuery) -> SearchProductsResponse:
+    async def __call__(self, request: SearchProductsQuery) -> SearchProductsResponse:
         return SearchProductsResponse(products=self.store.search(request.min_price))
 ```
 
@@ -146,21 +147,24 @@ services.add(GetProductHandler(read_store))
 services.add(SearchProductsHandler(read_store))
 mediator = Mediator(services.provider())
 
-created = mediator.send(CreateProductCommand(name="Keyboard", price=49.99, stock=10))
-print(created)
-# Output: CreateProductResponse(product_id=1)
+async def main():
+    created = await mediator.send(CreateProductCommand(name="Keyboard", price=49.99, stock=10))
+    print(created)
+    # Output: CreateProductResponse(product_id=1)
 
-adjusted = mediator.send(AdjustStockCommand(product_id=created.product_id, delta=-1))
-print(adjusted)
-# Output: AdjustStockResponse(product_id=1, new_stock=9)
+    adjusted = await mediator.send(AdjustStockCommand(product_id=created.product_id, delta=-1))
+    print(adjusted)
+    # Output: AdjustStockResponse(product_id=1, new_stock=9)
 
-fetched = mediator.send(GetProductQuery(product_id=created.product_id))
-print(fetched)
-# Output: GetProductResponse(product_id=1, name='Keyboard', price=49.99, stock=9)
+    fetched = await mediator.send(GetProductQuery(product_id=created.product_id))
+    print(fetched)
+    # Output: GetProductResponse(product_id=1, name='Keyboard', price=49.99, stock=9)
 
-results = mediator.send(SearchProductsQuery(min_price=10))
-print(results)
-# Output: SearchProductsResponse(products=[Product(product_id=1, name='Keyboard', price=49.99, stock=9)])
+    results = await mediator.send(SearchProductsQuery(min_price=10))
+    print(results)
+    # Output: SearchProductsResponse(products=[Product(product_id=1, name='Keyboard', price=49.99, stock=9)])
+
+asyncio.run(main())
 ```
 
 <Callout type="info">

@@ -6,10 +6,8 @@ from typing import Any
 
 import pytest
 
-from pymediate import Request
+from pymediate import PipelineBehavior, Request, RequestHandler
 from pymediate._internal.pipeline import compose_async
-from pymediate.aio import RequestHandler
-from pymediate.aio.pipeline import PipelineBehavior
 
 
 # Test fixtures: Request and Response types

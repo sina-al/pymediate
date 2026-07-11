@@ -18,14 +18,14 @@ Response ← Behavior 1 ← Behavior 2 ← Behavior 3 ← RequestHandler
 A behavior inherits from `PipelineBehavior` and implements `__call__` with two parameters — the request, and `next`, a callable that continues the pipeline:
 
 ```python
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 from pymediate import Request, PipelineBehavior
 
 class MyBehavior(PipelineBehavior[Request]):
-    def __call__(self, request: Request, next: Callable[[], Any]) -> Any:
+    async def __call__(self, request: Request, next: Callable[[], Awaitable[Any]]) -> Any:
         print(f"Before: {type(request).__name__}")   # pre-processing
-        response = next()                             # continue the chain
+        response = await next()                       # continue the chain
         print(f"After: {type(response).__name__}")   # post-processing
         return response
 ```
@@ -53,26 +53,26 @@ from pymediate import Request, PipelineBehavior
 
 # Universal — applies to every request
 class LoggingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         print(f"Processing: {type(request).__name__}")
-        return next()
+        return await next()
 
 # Selective — only wraps CreateUserRequest
 class CreateUserValidation(PipelineBehavior[CreateUserRequest]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         if not request.username:
             raise ValueError("Username required")
-        return next()
+        return await next()
 
 # Mixin-based — wraps any request that includes AuthMixin
 class AuthMixin:
     principal: Principal
 
 class AuthenticationBehavior(PipelineBehavior[AuthMixin]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         if not request.principal.is_authenticated:
             raise Unauthorized()
-        return next()
+        return await next()
 
 class CreateUserRequest(Request[UserResponse], AuthMixin):
     username: str
@@ -102,7 +102,7 @@ services.add(CreateUserHandler())
 
 mediator = Mediator(services.provider())
 
-response = mediator.send(GetUserRequest(user_id=123))
+response = await mediator.send(GetUserRequest(user_id=123))
 # Output: Processing: GetUserRequest
 ```
 
@@ -128,12 +128,12 @@ class LoggingBehavior(PipelineBehavior[Request]):
     def __init__(self, logger):
         self.logger = logger
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         name = type(request).__name__
         start = datetime.now()
         self.logger.info(f"Processing: {name}")
         try:
-            response = next()
+            response = await next()
             duration = (datetime.now() - start).total_seconds()
             self.logger.info(f"Completed: {name} in {duration:.3f}s")
             return response
@@ -152,14 +152,14 @@ class CachingBehavior(PipelineBehavior[Request]):
         self.cache = cache_store
         self.ttl = ttl
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         key = self._generate_key(request)
-        cached = self.cache.get(key)
+        cached = await self.cache.get(key)
         if cached is not None:
             return cached          # short-circuit: handler never runs
 
-        response = next()
-        self.cache.set(key, response, ttl=self.ttl)
+        response = await next()
+        await self.cache.set(key, response, ttl=self.ttl)
         return response
 
     def _generate_key(self, request):
@@ -171,6 +171,66 @@ class CachingBehavior(PipelineBehavior[Request]):
 
 ```python
 class TransactionBehavior(PipelineBehavior[Request]):
+    def __init__(self, async_session):
+        self.session = async_session
+
+    async def __call__(self, request, next):
+        async with self.session.begin():
+            return await next()
+        # commits on success, rolls back on exception
+```
+
+### Retry with backoff
+
+```python
+import asyncio
+
+class RetryBehavior(PipelineBehavior[Request]):
+    def __init__(self, max_attempts=3, base_delay=0.1):
+        self.max_attempts = max_attempts
+        self.base_delay = base_delay
+
+    async def __call__(self, request, next):
+        for attempt in range(self.max_attempts):
+            try:
+                return await next()
+            except Exception:
+                if attempt == self.max_attempts - 1:
+                    raise
+                await asyncio.sleep(self.base_delay * (2 ** attempt))
+```
+
+### Per-request context
+
+Attach metadata (request ID, timestamp) that handlers can read via a `contextvars.ContextVar`, without threading it through parameters:
+
+```python
+from contextvars import ContextVar
+
+request_context: ContextVar[dict] = ContextVar("request_context")
+
+class RequestContextBehavior(PipelineBehavior[Request]):
+    async def __call__(self, request, next):
+        token = request_context.set({
+            "request_id": generate_id(),
+            "request_type": type(request).__name__,
+        })
+        try:
+            return await next()
+        finally:
+            request_context.reset(token)
+```
+
+More complete, runnable recipes live in the [pipeline behavior examples](/docs/examples/pipeline-behaviors).
+
+## Sync behaviors
+
+Sync pipelines use `pymediate.sync` — same structure, plain `next()` instead of `await next()`:
+
+```python
+from pymediate.sync import Request, PipelineBehavior
+
+class SyncTransactionBehavior(PipelineBehavior[Request]):
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
@@ -186,67 +246,6 @@ class TransactionBehavior(PipelineBehavior[Request]):
             raise
         finally:
             session.close()
-```
-
-### Retry with backoff
-
-```python
-import time
-
-class RetryBehavior(PipelineBehavior[Request]):
-    def __init__(self, max_attempts=3, base_delay=0.1):
-        self.max_attempts = max_attempts
-        self.base_delay = base_delay
-
-    def __call__(self, request, next):
-        for attempt in range(self.max_attempts):
-            try:
-                return next()
-            except Exception:
-                if attempt == self.max_attempts - 1:
-                    raise
-                time.sleep(self.base_delay * (2 ** attempt))
-```
-
-### Per-request context
-
-Attach metadata (request ID, timestamp) that handlers can read via a `contextvars.ContextVar`, without threading it through parameters:
-
-```python
-from contextvars import ContextVar
-
-request_context: ContextVar[dict] = ContextVar("request_context")
-
-class RequestContextBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
-        token = request_context.set({
-            "request_id": generate_id(),
-            "request_type": type(request).__name__,
-        })
-        try:
-            return next()
-        finally:
-            request_context.reset(token)
-```
-
-More complete, runnable recipes live in the [pipeline behavior examples](/docs/examples/pipeline-behaviors).
-
-## Async behaviors
-
-Async pipelines use `pymediate.aio` — same structure, `await next()` instead of `next()`:
-
-```python
-from pymediate import Request
-from pymediate.aio import PipelineBehavior
-
-class AsyncTransactionBehavior(PipelineBehavior[Request]):
-    def __init__(self, async_session):
-        self.session = async_session
-
-    async def __call__(self, request, next):
-        async with self.session.begin():
-            return await next()
-        # commits on success, rolls back on exception
 ```
 
 ## DI container integration
@@ -279,7 +278,7 @@ behavior = LoggingBehavior(logger)
 handler = GetUserHandler(database)
 request = GetUserRequest(user_id=123)
 
-response = behavior(request, lambda: handler(request))
+response = await behavior(request, lambda: handler(request))
 ```
 
 For anything beyond a one-off, register the behaviors and let the mediator chain them — ordering, selection via `should_apply`, and provider lifetimes all come from registration.

@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Mediator, Request, RequestHandler, ResponseTypeMismatchError, Services
+from pymediate.sync import Mediator, Request, RequestHandler, ResponseTypeMismatchError, Services
 
 
 def test_complete_workflow() -> None:

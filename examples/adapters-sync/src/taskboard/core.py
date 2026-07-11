@@ -1,15 +1,17 @@
 """The application core: a task board that knows nothing about its adapters.
 
-Everything the three adapters in this example deliver — Flask routes, FastAPI
-endpoints, a click CLI — is implemented here against pymediate and the standard
-library alone. The adapters (``flask_app.py``, ``fastapi_app.py``, ``cli.py``) only
-translate their framework's input into these request objects and ``mediator.send()``
-calls; swapping or adding a framework never touches this file.
+Built on ``pymediate.sync``, the sync mirror of the async API (the async twin of
+this example is `examples/adapters-async/`). Everything the three adapters in this
+example deliver — Flask routes, FastAPI endpoints, a click CLI — is implemented here
+against pymediate and the standard library alone. The adapters (``flask_app.py``,
+``fastapi_app.py``, ``cli.py``) only translate their framework's input into these
+request objects and ``mediator.send()`` calls; swapping or adding a framework never
+touches this file.
 """
 
 from dataclasses import dataclass, field
 
-from pymediate import RequestHandler, Mediator, Request, Services
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
 
 @dataclass

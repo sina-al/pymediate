@@ -13,7 +13,7 @@ services.add(CreateUserHandler(database))
 
 mediator = Mediator(services.provider())
 
-response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 ```
 
 ## What `send()` actually does
@@ -35,9 +35,9 @@ services.add(DeleteUserHandler(database))
 
 mediator = Mediator(services.provider())
 
-create_response = mediator.send(CreateUserRequest(...))  # → CreateUserHandler
-get_response = mediator.send(GetUserRequest(...))        # → GetUserHandler
-delete_response = mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
+create_response = await mediator.send(CreateUserRequest(...))  # → CreateUserHandler
+get_response = await mediator.send(GetUserRequest(...))        # → GetUserHandler
+delete_response = await mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
 ```
 
 ## Type safety
@@ -45,7 +45,7 @@ delete_response = mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
 `send()` infers its return type from the request's `Request[ResponseT]` parameter:
 
 ```python
-response = mediator.send(CreateUserRequest(...))
+response = await mediator.send(CreateUserRequest(...))
 # response: CreateUserResponse — inferred, no annotation needed
 
 print(response.user_id)   # autocompletes
@@ -57,34 +57,33 @@ print(response.invalid)   # mypy error
 The mediator's second verb is `publish()`. Where `send()` routes a request to its one handler and returns the response, `publish()` delivers an event to *every* `EventHandler` subscribed to its type — zero, one, or many — and returns nothing:
 
 ```python
-mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
+await mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
 ```
 
-Sync handlers run sequentially in registration order; a raising handler doesn't stop the others, and failures aggregate into an `ExceptionGroup` once every handler has run. Pipeline behaviors wrap `send()` only — publishes go straight to the subscribers. The full semantics, patterns, and error handling are in the [events guide](/docs/guide/events).
+Handlers run concurrently via `asyncio.gather`; a raising handler doesn't stop the others, and failures aggregate into an `ExceptionGroup` once every handler has run. Pipeline behaviors wrap `send()` only — publishes go straight to the subscribers. The full semantics, patterns, and error handling are in the [events guide](/docs/guide/events).
 
-## The async mediator
+## The sync mediator
 
-Async handlers use a separate mediator: `pymediate.aio.Mediator`, paired with `pymediate.aio.RequestHandler`. The async API mirrors the sync one structurally, but the two don't mix at runtime — a sync `Mediator` never awaits anything, so it can't dispatch an `async def __call__`.
+Sync handlers use a separate mediator: `pymediate.sync.Mediator`, paired with `pymediate.sync.RequestHandler`. The sync API mirrors the async one structurally, but the two don't mix at runtime — a sync `Mediator` never awaits anything, so it can't dispatch an `async def __call__`.
 
 ```python
-from pymediate import Request, Services
-from pymediate.aio import RequestHandler, Mediator
+from pymediate.sync import Request, RequestHandler, Mediator, Services
 
 class FetchDataHandler(RequestHandler[FetchDataRequest]):
-    async def __call__(self, request: FetchDataRequest) -> FetchDataResponse:
-        data = await self.http_client.get(request.url)
+    def __call__(self, request: FetchDataRequest) -> FetchDataResponse:
+        data = self.http_client.get(request.url)
         return FetchDataResponse(data=data)
 
 services = Services()
 services.add(FetchDataHandler(http_client))
 mediator = Mediator(services.provider())
 
-response = await mediator.send(FetchDataRequest(url="https://api.example.com/data"))
+response = mediator.send(FetchDataRequest(url="https://api.example.com/data"))
 ```
 
-An application can run both variants side by side — a sync `Mediator` for sync handlers and an async one for async handlers — but each request goes through the mediator that matches its handler. There is no single mediator that routes to either kind.
+An application can run both variants side by side — an async `Mediator` for async handlers and a sync one for sync handlers — but each request goes through the mediator that matches its handler. There is no single mediator that routes to either kind.
 
-The same split applies to events: `pymediate.aio.Mediator.publish()` dispatches to `pymediate.aio.EventHandler` subscribers — and runs them [concurrently](/docs/guide/events#async-events), unlike the sync mediator's sequential delivery.
+The same split applies to events: `pymediate.sync.Mediator.publish()` dispatches to `pymediate.sync.EventHandler` subscribers — sequentially in registration order, unlike the async mediator's [concurrent delivery](/docs/guide/events#sync-events).
 
 ## Error behavior
 
@@ -94,7 +93,7 @@ If no handler is registered for a request type, `send()` raises `HandlerNotFound
 from pymediate import HandlerNotFoundError
 
 try:
-    response = mediator.send(UnregisteredRequest())
+    response = await mediator.send(UnregisteredRequest())
 except HandlerNotFoundError as e:
     print(f"No handler for request: {e}")
 ```
@@ -103,13 +102,13 @@ Exceptions raised *inside* handlers propagate unchanged — the mediator never c
 
 ```python
 class CreateUserHandler(RequestHandler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
+    async def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         if not request.email:
             raise ValueError("Email is required")
         ...
 
 try:
-    mediator.send(CreateUserRequest(username="test", email=""))
+    await mediator.send(CreateUserRequest(username="test", email=""))
 except ValueError as e:
     print(f"Validation error: {e}")
 ```
@@ -124,16 +123,16 @@ See [error handling](/docs/guide/error-handling) for keeping domain errors indep
 from pymediate import Request, PipelineBehavior, Services, Mediator
 
 class LoggingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         print(f"Before: {type(request).__name__}")
-        response = next()
+        response = await next()
         print(f"After: {type(request).__name__}")
         return response
 
 class TimingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         start = time.time()
-        response = next()
+        response = await next()
         print(f"Took {time.time() - start:.3f}s")
         return response
 
@@ -165,12 +164,13 @@ This gets you everything a subclass would — shared setup, teardown, error hand
 Unit-test handlers directly, without a mediator at all. Use a real mediator for integration tests of the full flow:
 
 ```python
-def test_with_mediator():
+@pytest.mark.asyncio
+async def test_with_mediator():
     services = Services()
     services.add(CreateUserHandler(mock_db))
     mediator = Mediator(services.provider())
 
-    response = mediator.send(CreateUserRequest(username="test", email="test@example.com"))
+    response = await mediator.send(CreateUserRequest(username="test", email="test@example.com"))
 
     assert response.user_id > 0
 ```
@@ -183,19 +183,20 @@ class MockMediator:
         self.sent_requests = []
         self.published_events = []
 
-    def send(self, request):
+    async def send(self, request):
         self.sent_requests.append(request)
         if isinstance(request, CreateUserRequest):
             return CreateUserResponse(user_id=999, username=request.username)
 
-    def publish(self, event):
+    async def publish(self, event):
         self.published_events.append(event)
 
-def test_place_order_sends_expected_requests():
+@pytest.mark.asyncio
+async def test_place_order_sends_expected_requests():
     mock_mediator = MockMediator()
     handler = PlaceOrderHandler(mediator=mock_mediator, database=mock_db)
 
-    handler(PlaceOrderRequest(...))
+    await handler(PlaceOrderRequest(...))
 
     assert isinstance(mock_mediator.sent_requests[0], ChargePaymentRequest)
 ```
@@ -212,4 +213,4 @@ def test_place_order_sends_expected_requests():
 - [Events](/docs/guide/events) — the `publish()` side in full
 - [Pipeline behaviors](/docs/guide/pipeline-behaviors) — the full middleware guide
 - [Dependency injection](/docs/guide/dependency-injection) — wiring handlers through a container
-- [Mediator API reference](/docs/api/mediator) — signatures for both sync and async mediators
+- [Mediator API reference](/docs/api/mediator) — signatures for both async and sync mediators

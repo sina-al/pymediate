@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass

@@ -4,7 +4,7 @@ name: Coverage Comment
 # fork-PR pattern: on fork PRs the pull_request-triggered run has a read-only token and
 # can't post the coverage comment, so it uploads the rendered comment as an artifact
 # instead. This workflow_run workflow runs in the base repo's context (write token, no
-# checkout of fork code — privilege separation per github-actions-security), downloads
+# checkout of fork code — workflow_run privilege separation), downloads
 # that artifact by run id, and posts it.
 # zizmor's dangerous-triggers audit flags workflow_run generically; this workflow uses it
 # safely: it never checks out or executes PR code — it only downloads the pre-rendered

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Event, EventHandler, Mediator, Services
+from pymediate.sync import Event, EventHandler, Mediator, Services
 
 
 @dataclass
