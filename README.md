@@ -28,6 +28,9 @@
   <a href="https://scorecard.dev/viewer/?uri=github.com/sina-al/pymediate">
     <img src="https://api.scorecard.dev/projects/github.com/sina-al/pymediate/badge" alt="OpenSSF Scorecard">
   </a>
+  <a href="https://github.com/sina-al/pymediate/attestations">
+    <img src="https://slsa.dev/images/gh-badge-level2.svg" alt="SLSA Build Level 2">
+  </a>
 </p>
 
 ---
@@ -35,13 +38,14 @@
 ## Features
 
 - **Type safe.** Full runtime validation with mypy support.
+- **Events.** One-to-many `publish()` alongside one-to-one `send()` — same type-safe, validated-at-import design.
 - **Async/await support.** First-class async handlers and mediators via `pymediate.aio`.
 - **DI ready.** Built-in `dependency-injector` integration.
 - **Well tested.** Comprehensive test suite.
 
-Wondering how this stacks up against other Python mediator libraries — and what `send()` costs
-over a direct call? See [How it compares](https://pymediate.sina-al.uk/docs/comparison), a
-source-level survey of the ecosystem plus a reproducible micro-benchmark you can run against
+Wondering how this stacks up against other Python mediator libraries — and what `send()` and
+`publish()` cost over direct calls? See [How it compares](https://pymediate.sina-al.uk/docs/comparison),
+a source-level survey of the ecosystem plus a reproducible micro-benchmark you can run against
 the latest release with `uv run https://pymediate.sina-al.uk/benchmark.py` (read it first, as
 with any script from the network).
 
@@ -160,7 +164,39 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 # Completed: CreateUser
 ```
 
-Behaviors can be **universal** (`PipelineBehavior[Request]`) or **selective** (`PipelineBehavior[SpecificRequest]`), applying only to matching request types or mixins. They're resolved per request and work with any `dependency-injector` provider lifetime — `Factory`, `Singleton`, or a scoped variant like `ContextLocalSingleton`. See the [Pipeline behaviors guide](https://sina-al.github.io/pymediate/guide/pipeline-behaviors/) for more examples.
+Behaviors can be **universal** (`PipelineBehavior[Request]`) or **selective** (`PipelineBehavior[SpecificRequest]`), applying only to matching request types or mixins. They're resolved per request and work with any `dependency-injector` provider lifetime — `Factory`, `Singleton`, or a scoped variant like `ContextLocalSingleton`. See the [Pipeline behaviors guide](https://pymediate.sina-al.uk/docs/guide/pipeline-behaviors) for more examples.
+
+### Events
+
+`send()` routes one request to its one handler. `publish()` is the one-to-many counterpart: announce a fact once, and every subscribed `EventHandler` reacts — the publisher never knows who's listening:
+
+```python
+from dataclasses import dataclass
+from pymediate import Event, EventHandler, Mediator, Services
+
+@dataclass
+class OrderPlaced(Event):
+    order_id: int
+
+class SendConfirmation(EventHandler[OrderPlaced]):
+    def __call__(self, event: OrderPlaced) -> None:
+        print(f"Confirming order {event.order_id}")
+
+class UpdateAnalytics(EventHandler[OrderPlaced]):
+    def __call__(self, event: OrderPlaced) -> None:
+        print(f"Recording order {event.order_id}")
+
+services = Services()
+services.add(SendConfirmation()).add(UpdateAnalytics())
+mediator = Mediator(services.provider())
+
+mediator.publish(OrderPlaced(order_id=42))
+# Output:
+# Confirming order 42
+# Recording order 42
+```
+
+Handlers run in registration order (concurrently via `asyncio.gather` in the async API), zero subscribers is a no-op, and a raising handler never stops the others — failures aggregate into an `ExceptionGroup`. See the [Events guide](https://pymediate.sina-al.uk/docs/guide/events).
 
 ## Installation
 
@@ -174,12 +210,12 @@ pip install pymediate[di]
 
 ## Documentation
 
-**[📚 Full documentation](https://sina-al.github.io/pymediate/)**
+**[📚 Full documentation](https://pymediate.sina-al.uk)**
 
-- [Quick start](https://sina-al.github.io/pymediate/getting-started/quick-start/)
-- [User guide](https://sina-al.github.io/pymediate/guide/requests-responses/)
-- [Examples](https://sina-al.github.io/pymediate/examples/basic/)
-- [API reference](https://sina-al.github.io/pymediate/api/request/)
+- [Quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start)
+- [User guide](https://pymediate.sina-al.uk/docs/guide/requests-responses)
+- [Examples](https://pymediate.sina-al.uk/docs/examples/basic)
+- [API reference](https://pymediate.sina-al.uk/docs/api/request)
 
 ## Development
 

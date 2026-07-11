@@ -1,9 +1,9 @@
 ---
 title: The mediator
-description: How the mediator routes requests to handlers, its lifecycle, error propagation, and composing behaviors instead of subclassing.
+description: How the mediator routes requests to handlers and publishes events, its lifecycle, error propagation, and composing behaviors instead of subclassing.
 ---
 
-The mediator is PyMediate's central dispatch point. It receives a request, resolves the right handler through a service provider, executes it (wrapped in any applicable pipeline behaviors), and returns the typed response.
+The mediator is PyMediate's central dispatch point, with two verbs. `send()` receives a request, resolves the right handler through a service provider, executes it (wrapped in any applicable pipeline behaviors), and returns the typed response. `publish()` delivers an event to every subscribed handler and returns nothing.
 
 ```python
 from pymediate import Mediator, Services
@@ -52,6 +52,16 @@ print(response.user_id)   # autocompletes
 print(response.invalid)   # mypy error
 ```
 
+## Publishing events
+
+The mediator's second verb is `publish()`. Where `send()` routes a request to its one handler and returns the response, `publish()` delivers an event to *every* `EventHandler` subscribed to its type — zero, one, or many — and returns nothing:
+
+```python
+mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
+```
+
+Sync handlers run sequentially in registration order; a raising handler doesn't stop the others, and failures aggregate into an `ExceptionGroup` once every handler has run. Pipeline behaviors wrap `send()` only — publishes go straight to the subscribers. The full semantics, patterns, and error handling are in the [events guide](/docs/guide/events).
+
 ## The async mediator
 
 Async handlers use a separate mediator: `pymediate.aio.Mediator`, paired with `pymediate.aio.Handler`. The async API mirrors the sync one structurally, but the two don't mix at runtime — a sync `Mediator` never awaits anything, so it can't dispatch an `async def __call__`.
@@ -73,6 +83,8 @@ response = await mediator.send(FetchDataRequest(url="https://api.example.com/dat
 ```
 
 An application can run both variants side by side — a sync `Mediator` for sync handlers and an async one for async handlers — but each request goes through the mediator that matches its handler. There is no single mediator that routes to either kind.
+
+The same split applies to events: `pymediate.aio.Mediator.publish()` dispatches to `pymediate.aio.EventHandler` subscribers — and runs them [concurrently](/docs/guide/events#async-events), unlike the sync mediator's sequential delivery.
 
 ## Error behavior
 
@@ -163,17 +175,21 @@ def test_with_mediator():
     assert response.user_id > 0
 ```
 
-For consumers that *send* requests, fake the mediator — it's one method:
+For consumers that *send* requests or *publish* events, fake the mediator — it's two methods:
 
 ```python
 class MockMediator:
     def __init__(self):
         self.sent_requests = []
+        self.published_events = []
 
     def send(self, request):
         self.sent_requests.append(request)
         if isinstance(request, CreateUserRequest):
             return CreateUserResponse(user_id=999, username=request.username)
+
+    def publish(self, event):
+        self.published_events.append(event)
 
 def test_place_order_sends_expected_requests():
     mock_mediator = MockMediator()
@@ -193,6 +209,7 @@ def test_place_order_sends_expected_requests():
 
 ## Next steps
 
+- [Events](/docs/guide/events) — the `publish()` side in full
 - [Pipeline behaviors](/docs/guide/pipeline-behaviors) — the full middleware guide
 - [Dependency injection](/docs/guide/dependency-injection) — wiring handlers through a container
 - [Mediator API reference](/docs/api/mediator) — signatures for both sync and async mediators

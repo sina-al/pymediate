@@ -42,6 +42,8 @@ Behaviors are for concerns that apply *across* handlers: logging and auditing, p
 
 They are **not** for handler-specific logic, business rules, or request transformation — that all belongs in handlers and request types. If a behavior needs complex conditionals to decide what to do, it probably shouldn't be a behavior.
 
+Behaviors wrap `send()` only. `mediator.publish()` delivers [events](/docs/guide/events) straight to their subscribers — cross-cutting concerns for events live in the event handlers themselves.
+
 ## Universal, selective, and mixin-based behaviors
 
 The type parameter decides which requests a behavior wraps:
