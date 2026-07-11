@@ -8,6 +8,8 @@
     "dev": "next dev",
     "start": "serve out",
     "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "check": "pnpm run lint && pnpm run types:check",
+    "clean": "rm -rf out .next",
     "postinstall": "fumadocs-mdx",
     "lint": "oxlint"
   },

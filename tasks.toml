@@ -1,11 +1,18 @@
 [tool.poe.tasks]
 
+# `help` strings are what `poe --help` prints next to each task, so they stay to a single
+# short line — the rationale, CI call sites, and usage examples that used to live in them
+# now sit in these maintainer comments (invisible to the CLI) instead. Tasks that wrap a
+# self-documenting script (benchmark, api:check, release:*, examples:test) are thin
+# passthroughs: extra flags, and `--help`, forward straight to that script's own CLI, which
+# is where their arguments are documented.
+
 # ========== Testing ==========
 
-test.help = "Run all tests"
+test.help = "Run the full test suite"
 test.cmd = "pytest tests/"
 
-"test:cov".help = "Run tests with a human-readable coverage report (terminal + HTML)"
+"test:cov".help = "Run tests with a coverage report (terminal + HTML)"
 "test:cov".cmd = "pytest --cov=pymediate --cov-report=term-missing --cov-report=html"
 
 "test:watch".help = "Run tests in watch mode, re-running on file changes"
@@ -14,36 +21,40 @@ test.cmd = "pytest tests/"
 "test:verbose".help = "Run tests with verbose (-v) output"
 "test:verbose".cmd = "pytest tests/ -v"
 
-"test:fast".help = "Run tests without coverage instrumentation, stopping at the first failure (-x)"
+"test:fast".help = "Run tests, stopping at the first failure, no coverage"
 "test:fast".cmd = "pytest tests/ -x"
 
-"test:failed".help = "Re-run only the tests that failed last time (--lf)"
+"test:failed".help = "Re-run only the tests that failed last time"
 "test:failed".cmd = "pytest --lf tests/"
 
-"test:one".help = "Run one test file by short name (usage: poe test:one registry -> pytest tests/test_registry.py)"
+"test:one".help = "Run a single test file by short name"
 "test:one".cmd = "pytest tests/test_${name}.py -v"
 "test:one".args = [
-    { name = "name", positional = true, required = true, help = "Short name, e.g. 'registry' for tests/test_registry.py" },
+    { name = "name", positional = true, required = true, help = "Short name, e.g. 'registry' -> tests/test_registry.py" },
 ]
 
-"test:release".help = "Run tests with coverage gated at the release floor of 95% (poe fails below it)"
+"test:release".help = "Run tests, gated at the 95% release coverage floor"
 "test:release".cmd = "pytest --cov=pymediate --cov-report=term-missing --cov-fail-under=95"
 
-"test:cov-xml".help = "Run tests with an XML coverage report (used by test.yml; orgoro/coverage reads coverage.xml to comment on PRs)"
+# Used by test.yml; orgoro/coverage reads coverage.xml to comment on PRs.
+"test:cov-xml".help = "Run tests with an XML coverage report"
 "test:cov-xml".cmd = "pytest tests/ --tb=short --cov=pymediate --cov-report=xml --cov-report=term-missing"
 
-"test:cov-json".help = "Run tests with a JSON coverage report (used by pr.yml's diff-coverage PR comment, which reads coverage.json)"
+# Used by pr.yml's diff-coverage PR comment, which reads coverage.json.
+"test:cov-json".help = "Run tests with a JSON coverage report"
 "test:cov-json".cmd = "pytest tests/ --cov=pymediate --cov-report=json --cov-report=term-missing"
 
-"test:junit".help = "Run tests with a JUnit XML report (used by release-pr-report.yml's test-results PR comment)"
+# Used by release-pr-report.yml's test-results PR comment.
+"test:junit".help = "Run tests with a JUnit XML report"
 "test:junit".cmd = "pytest tests/ --tb=short --junit-xml=junit.xml"
 
 # ========== Type Checking ==========
 
-type.help = "Run mypy type checking on source code"
+type.help = "Type-check the source with mypy --strict"
 type.cmd = "mypy src/pymediate/ --strict"
 
-"type:all".help = "Run mypy on source and tests (excludes the deliberately type-invalid tests/typing/snippets/errors/)"
+# Excludes tests/typing/snippets/errors/, which are deliberately type-invalid.
+"type:all".help = "Type-check source and tests with mypy --strict"
 "type:all".cmd = "mypy src/pymediate/ tests/ --strict --exclude 'tests/typing/snippets/errors/'"
 
 "type:report".help = "Generate an HTML mypy coverage report into mypy-report/"
@@ -51,24 +62,25 @@ type.cmd = "mypy src/pymediate/ --strict"
 
 # ========== Linting & Formatting ==========
 
-lint.help = "Run the ruff linter (check only, no changes made)"
+lint.help = "Lint with ruff (check only, no changes)"
 lint.cmd = "ruff check src/ tests/ scripts/"
 
-"lint:fix".help = "Run the ruff linter and auto-fix what it safely can"
+"lint:fix".help = "Lint with ruff and auto-fix what's safe"
 "lint:fix".cmd = "ruff check --fix src/ tests/ scripts/"
 
-format.help = "Run the ruff formatter, rewriting files in place"
+format.help = "Format with ruff, rewriting files in place"
 format.cmd = "ruff format src/ tests/ scripts/"
 
-"format:check".help = "Check formatting without changing any files (used by CI)"
+# Used by CI.
+"format:check".help = "Check formatting with ruff without changing files"
 "format:check".cmd = "ruff format --check src/ tests/ scripts/"
 
-fix.help = "Full local cleanup: ruff lint --fix, then ruff format"
+fix.help = "Auto-fix lint, then format (ruff)"
 fix.sequence = ["lint:fix", "format"]
 
 # ========== Quality Checks ==========
 
-check.help = "Run all quality checks: type, lint, format check (no tests)"
+check.help = "Type-check, lint, and check formatting (no tests)"
 check.sequence = ["type", "lint", "format:check"]
 
 "check:all".help = "Run all quality checks plus tests with coverage"
@@ -76,95 +88,101 @@ check.sequence = ["type", "lint", "format:check"]
 
 # ========== API Compatibility ==========
 
-"api:check".help = """
-Check the public API for breaking changes against a git ref, via griffe \
-(default: latest tag; usage: poe api:check -a origin/main -f oneline). \
-Informational only — PyMediate follows ZeroVer, so a breaking change \
-is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section).\
-"""
+# Passthrough to griffe check — `poe api:check --help` lists its flags; CI calls it as
+# `poe api:check -a origin/main -f github`. Informational only: PyMediate follows ZeroVer,
+# so a breaking change is fine as long as it lands as a minor bump (see CLAUDE.md's
+# Versioning section). Defaults to comparing against the latest tag.
+"api:check".help = "Check the public API for breaking changes vs a git ref (griffe)"
 "api:check".cmd = "uvx --from griffe==2.1.0 griffe check pymediate -s src"
 
 # ========== Benchmarks ==========
 
-benchmark.help = """
-Micro-benchmark mediator.send() and mediator.publish() overhead vs direct calls \
-(usage: poe benchmark --number 100000 --repeat 5). Quoted in the docs site's \
-comparison page; results are machine-dependent.\
-"""
+# Passthrough to a Typer CLI — `poe benchmark --help` lists its options (--number, --repeat,
+# --format, ...). Quoted on the docs site's comparison page; results are machine-dependent.
+benchmark.help = "Micro-benchmark send()/publish() overhead vs direct calls"
 benchmark.cmd = "python3 scripts/benchmark.py"
 
 # ========== Security ==========
 
-"security:pip-audit".help = """
-Scan the shipped dependency tree (pymediate[di] resolved from uv.lock, no dev/test tooling) \
-for known vulnerabilities with pip-audit, formatted as markdown (used by \
-release-pr-report.yml's vulnerability PR comment). Empty output means no findings. pip-audit \
-is the official PyPA tool and stays fully open against the OSV/PyPA advisory databases, \
-unlike safety's increasingly gated free tier.\
-"""
+# Scans the shipped dependency tree only (pymediate[di] resolved from uv.lock, no dev/test
+# tooling); empty output means no findings. Used by release-pr-report.yml's vulnerability PR
+# comment. pip-audit is the official PyPA tool and stays fully open against the OSV/PyPA
+# advisory databases, unlike safety's increasingly gated free tier.
+"security:pip-audit".help = "Audit shipped dependencies for known vulnerabilities (pip-audit)"
 "security:pip-audit".shell = """
 reqs="$(mktemp)" && \
 uv export --extra di --no-dev --no-emit-project --quiet --output-file "$reqs" && \
 uv run --with pip-audit pip-audit --requirement "$reqs" --require-hashes --disable-pip --format markdown
 """
 
-"actions:lint".help = "Lint .github/workflows/ for security issues with zizmor (pass --format github in CI for inline PR annotations)"
+# CI passes --format github for inline PR annotations.
+"actions:lint".help = "Lint GitHub workflows for security issues (zizmor)"
 "actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"
 
 # ========== Documentation ==========
 
-# docs.yml runs pnpm directly rather than through these tasks (its job is Node-only; see
-# CLAUDE.md's "poe tasks vs. inline workflow steps") — a change here likely needs the same
-# change there, and vice versa.
+# These are thin proxies to the pnpm scripts in docs/package.json (the docs site is a
+# Node/pnpm project). docs.yml runs the same pnpm scripts directly rather than through poe
+# (its job is Node-only; see CLAUDE.md's "poe tasks vs. inline workflow steps") — keep the
+# scripts, these tasks, and docs.yml in sync.
 
-"docs:install".help = "Install the docs site's Node dependencies (run once before other docs tasks; mirrored by docs.yml)"
+"docs:install".help = "Install the docs site's Node dependencies"
 "docs:install".cmd = "pnpm install --frozen-lockfile"
 "docs:install".cwd = "docs"
 
-"docs:serve".help = "Start the docs (Next.js + Fumadocs) dev server with live reload"
+"docs:serve".help = "Run the docs dev server with live reload"
 "docs:serve".cmd = "pnpm dev"
 "docs:serve".cwd = "docs"
 
-"docs:check".help = "Lint and type-check the docs site (matches docs.yml's CI checks)"
-"docs:check".shell = "pnpm lint && pnpm types:check"
+"docs:check".help = "Lint and type-check the docs site"
+"docs:check".cmd = "pnpm check"
 "docs:check".cwd = "docs"
 
-"docs:build".help = "Build the static documentation site into docs/out/ (deploys via docs.yml on main)"
+"docs:build".help = "Build the static docs site into docs/out/"
 "docs:build".cmd = "pnpm build"
 "docs:build".cwd = "docs"
 
-"docs:clean".help = "Remove the docs build output (docs/out/ and docs/.next/)"
-"docs:clean".cmd = "rm -rf docs/out docs/.next"
+"docs:clean".help = "Remove the docs build output"
+"docs:clean".cmd = "pnpm clean"
+"docs:clean".cwd = "docs"
 
 # ========== Build & Publish ==========
 
 build.help = "Build the sdist and wheel into dist/"
 build.cmd = "uv build"
 
-"build:check".help = "Validate the built distributions in dist/ with twine (run poe build first)"
 # Explicit extensions, not "dist/*": poe's cmd-type globbing (unlike a real shell) matches
 # dotfiles too, and `uv build` writes a `dist/.gitignore` that twine can't parse as a package.
+"build:check".help = "Validate the built distributions with twine (run build first)"
 "build:check".cmd = "uvx twine check dist/*.tar.gz dist/*.whl"
 
 # ========== Release ==========
 
-"release:impact".help = "Recommend minor vs. patch by diffing commits/API surface since the last tag (usage: poe release:impact --from vX.Y.Z --to REV)"
+# Passthrough to scripts/release_impact.py — `poe release:impact --help` lists its flags
+# (--from, --to). Recommends minor vs. patch by diffing commits/API surface since the last tag.
+"release:impact".help = "Recommend minor vs. patch since the last tag"
 "release:impact".cmd = "python3 scripts/release_impact.py"
 
-"release:notes".help = "Generate release notes for the current tag only, stripped of the header (used by release.yml to fill in the GitHub Release body)"
-# The glob MUST stay quoted: poe expands an unquoted cmd-glob into absolute paths that match
-# no commit, which silently empties the changelog (this shipped as v0.1.5's blank notes).
+# Used by release.yml to fill in the GitHub Release body. The glob MUST stay quoted: poe
+# expands an unquoted cmd-glob into absolute paths that match no commit, which silently
+# empties the changelog (this shipped as v0.1.5's blank notes).
+"release:notes".help = "Generate release notes for the current tag"
 "release:notes".cmd = "uvx git-cliff --current --include-path 'src/pymediate/**' --strip header -o RELEASE_NOTES.md"
 
-"release:wait-index".help = "Wait until an index's simple API serves a pymediate version, probing with uv itself (usage: poe release:wait-index --version 0.5.0 --index https://pypi.org/simple/; release.yml runs this before each index-mode examples stage)"
+# Passthrough to scripts/wait_for_index.py — `poe release:wait-index --help` lists its flags
+# (--version, --index, --attempts, --interval). release.yml runs it before each index-mode
+# examples stage.
+"release:wait-index".help = "Wait until an index serves a pymediate version"
 "release:wait-index".cmd = "python3 scripts/wait_for_index.py"
 
-"examples:test".help = "Run every examples/ project's tests against a pymediate build (usage: poe examples:test --wheel dist/pymediate-*.whl, or --version 0.1.4 --index https://pypi.org/simple/; every examples stage in the release pipeline runs this)"
+# Passthrough to scripts/run_examples.py — `poe examples:test --help` lists its flags
+# (--wheel, or --version + --index). Every examples stage in the release pipeline runs it.
+"examples:test".help = "Run every example project's tests against a build"
 "examples:test".cmd = "python3 scripts/run_examples.py"
 
 # ========== PR Helpers ==========
 
-"pr:size".help = "Show files/lines changed vs a base ref and warn if the diff looks large (usage: poe pr:size --base origin/main)"
+"pr:size".help = "Report files/lines changed vs a base ref"
 "pr:size".args = [
     { name = "base", options = ["--base"], default = "origin/main", help = "Git ref to diff against" },
 ]
@@ -185,22 +203,22 @@ build.cmd = "uv build"
 
 # ========== Development ==========
 
-install.help = "Install the package in editable mode with dev + test dependencies"
+install.help = "Install the package with dev + test dependencies"
 install.cmd = "uv sync --all-extras --group test"
 
-"update-uv".help = "Bump the pinned uv version (pyproject.toml + local install) to the latest release"
+"update-uv".help = "Bump the pinned uv version to the latest release"
 "update-uv".cmd = "python3 scripts/update_uv.py"
 
-"update-uv:check".help = "Check whether the pinned uv version is behind the latest release"
+"update-uv:check".help = "Check whether the pinned uv version is behind latest"
 "update-uv:check".cmd = "python3 scripts/update_uv.py --check"
 
-"context:update".help = "Regenerate CLAUDE.md's API signatures block from src/pymediate/"
+"context:update".help = "Regenerate CLAUDE.md's API signatures block"
 "context:update".cmd = "python3 scripts/update_context.py"
 
 "context:check".help = "Fail if CLAUDE.md's API signatures block is stale"
 "context:check".cmd = "python3 scripts/update_context.py --check"
 
-clean.help = "Clean build artifacts, cache files, and coverage reports"
+clean.help = "Remove build artifacts, caches, and coverage reports"
 clean.cmd = """
     rm -rf build/ dist/ *.egg-info .pytest_cache .mypy_cache .ruff_cache \
     htmlcov/ .coverage coverage.xml mypy-report/ site/
@@ -208,8 +226,8 @@ clean.cmd = """
 
 # ========== Quick Commands ==========
 
-dev.help = "Quick dev loop: fix code, then run fast tests"
+dev.help = "Fix code, then run fast tests"
 dev.sequence = ["fix", "test:fast"]
 
-pr.help = "Prepare for a PR: fix code, then run all quality checks and tests with coverage"
+pr.help = "Fix code, then run all checks and tests (pre-PR)"
 pr.sequence = ["fix", "check:all"]

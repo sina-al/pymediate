@@ -2,6 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(uv run poe *)",
+      "Bash(pnpm install*)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm build)",
+      "Bash(pnpm start)",
+      "Bash(pnpm lint)",
+      "Bash(pnpm types:check)",
+      "Bash(pnpm check)",
+      "Bash(pnpm clean)",
+      "Bash(pnpm run *)",
       "Bash(git status)",
       "Bash(git diff*)",
       "Bash(git log*)",
