@@ -72,6 +72,11 @@ All dev commands go through `poethepoet` (`tasks.toml`) so behavior matches CI e
 Don't invent bespoke `pytest`/`ruff`/`mypy` invocations — use the `poe` task so local results
 match `.github/workflows/*.yml`.
 
+Optional commit-time gate: `uvx pre-commit install` (once per clone) wires
+`.pre-commit-config.yaml` — format check, lint, and api-signatures freshness at every
+commit, running the same poe tasks as CI. Local hooks only, so tool versions come from
+`uv.lock` rather than a second pin.
+
 ## GitHub Actions workflows
 
 Before adding a new file under `.github/workflows/**` or editing an existing one, apply the
