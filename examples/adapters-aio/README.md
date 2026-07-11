@@ -31,7 +31,7 @@ request:
 class AddTask(Request[Task]):        # "sending AddTask gives back a Task"
     title: str
 
-class AddTaskHandler(Handler[AddTask]):          # from pymediate.aio
+class AddTaskHandler(RequestHandler[AddTask]):          # from pymediate.aio
     async def __call__(self, request: AddTask) -> Task:
         ...  # await your datastore, return the task
 ```
@@ -101,7 +101,7 @@ curl -X POST localhost:8080/tasks -H 'content-type: application/json' -d '{"titl
   `TaskNotFoundError` becomes HTTP **404** in FastAPI (`@app.exception_handler`) and
   aiohttp (a middleware), and **exit code 1** with a message on stderr in the CLI
   (`ClickException`). Try it: `uv run taskboard complete 999`.
-- Only `Handler`, `Mediator`, and `PipelineBehavior` have async variants
+- Only `RequestHandler`, `Mediator`, and `PipelineBehavior` have async variants
   (`pymediate.aio`); `Request` and `Services` are shared with the sync package.
 - The tests use each framework's own async tooling: httpx2 over ASGI for FastAPI,
   pytest-aiohttp's `aiohttp_client` for aiohttp, and asyncclick's `CliRunner` — all under

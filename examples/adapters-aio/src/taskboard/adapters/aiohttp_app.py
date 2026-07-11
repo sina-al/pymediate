@@ -9,7 +9,7 @@ core's TaskNotFoundError to HTTP 404.
 from dataclasses import asdict
 
 from aiohttp import web
-from aiohttp.typedefs import Handler
+from aiohttp.typedefs import RequestHandler
 from pymediate.aio import Mediator
 
 from taskboard.core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
@@ -18,7 +18,7 @@ MEDIATOR = web.AppKey("mediator", Mediator)
 
 
 @web.middleware
-async def task_not_found_middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
+async def task_not_found_middleware(request: web.Request, handler: RequestHandler) -> web.StreamResponse:
     """Translate the core's TaskNotFoundError into a 404 for every route."""
     try:
         return await handler(request)

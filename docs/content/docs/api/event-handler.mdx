@@ -36,7 +36,7 @@ Event handlers hold one subscriber's reaction to an [`Event`](/docs/api/event) t
 
 ## Definition-time validation
 
-Like `Handler`, every subclass is validated via `__init_subclass__` the moment the class is defined. It checks that:
+Like `RequestHandler`, every subclass is validated via `__init_subclass__` the moment the class is defined. It checks that:
 
 - `__call__` exists and is implemented
 - `__call__` is sync (or async, for `pymediate.aio.EventHandler`)

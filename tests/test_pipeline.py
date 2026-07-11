@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Handler, Request
+from pymediate import Request, RequestHandler
 from pymediate._internal.pipeline import compose
 from pymediate.pipeline import PipelineBehavior
 
@@ -22,7 +22,7 @@ class SampleRequest(Request[SampleResponse]):
         self.value = value
 
 
-class SampleHandler(Handler[SampleRequest]):
+class SampleHandler(RequestHandler[SampleRequest]):
     def __call__(self, request: SampleRequest) -> SampleResponse:
         return SampleResponse(value=request.value * 2)
 
@@ -238,7 +238,7 @@ def test_pipeline_behavior_can_modify_response() -> None:
     request = SampleRequest(value=5)
     response = pipeline(request)
 
-    # Handler returns 5 * 2 = 10, behavior multiplies by 3
+    # RequestHandler returns 5 * 2 = 10, behavior multiplies by 3
     assert response.value == 30
 
 
@@ -254,7 +254,7 @@ def test_pipeline_multiple_modifying_behaviors() -> None:
     request = SampleRequest(value=5)
     response = pipeline(request)
 
-    # Handler: 5 * 2 = 10
+    # RequestHandler: 5 * 2 = 10
     # multiply_by_3 (inner): 10 * 3 = 30
     # multiply_by_2 (outer): 30 * 2 = 60
     assert response.value == 60
@@ -269,7 +269,7 @@ def test_pipeline_behavior_can_short_circuit() -> None:
     request = SampleRequest(value=5)
     response = pipeline(request)
 
-    # Handler should not be called, response is from behavior
+    # RequestHandler should not be called, response is from behavior
     assert response.value == -1
 
 
@@ -341,7 +341,7 @@ def test_pipeline_complex_scenario() -> None:
     request = SampleRequest(value=3)
     response = pipeline(request)
 
-    # Handler: 3 * 2 = 6
+    # RequestHandler: 3 * 2 = 6
     # Multiplier: 6 * 2 = 12
     assert response.value == 12
 
@@ -456,7 +456,7 @@ def test_pipeline_with_different_request_response_types() -> None:
         def __init__(self, text: str) -> None:
             self.text = text
 
-    class StringHandler(Handler[StringRequest]):
+    class StringHandler(RequestHandler[StringRequest]):
         def __call__(self, request: StringRequest) -> StringResponse:
             return StringResponse(message=request.text.upper())
 

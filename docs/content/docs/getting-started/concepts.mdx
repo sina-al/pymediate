@@ -35,12 +35,12 @@ class UserCreated:
 
 ## Handlers
 
-A handler holds the business logic for exactly one request type. Subclassing `Handler[CreateUser]` is what links it to its request — PyMediate discovers the relationship through type inspection, not naming conventions:
+A handler holds the business logic for exactly one request type. Subclassing `RequestHandler[CreateUser]` is what links it to its request — PyMediate discovers the relationship through type inspection, not naming conventions:
 
 ```python
-from pymediate import Handler
+from pymediate import RequestHandler
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __call__(self, request: CreateUser) -> UserCreated:
         # business logic here
         return UserCreated(...)
@@ -113,9 +113,9 @@ Behaviors can be **universal** (`PipelineBehavior[Request]`, applying to everyth
 Behaviors nest around the handler, each calling `next()` to continue:
 
 ```
-Request → Logging → Validation → Timing → Handler
+Request → Logging → Validation → Timing → RequestHandler
                                              ↓
-Response ← Logging ← Validation ← Timing ← Handler
+Response ← Logging ← Validation ← Timing ← RequestHandler
 ```
 
 1. The request enters the outermost behavior.
@@ -143,7 +143,7 @@ mediator = Mediator(services.provider())
 
 ```python
 from dataclasses import dataclass
-from pymediate import Event, EventHandler, Request, Handler, PipelineBehavior, Services, Mediator
+from pymediate import Event, EventHandler, Request, RequestHandler, PipelineBehavior, Services, Mediator
 
 # 1. Request and response
 @dataclass
@@ -154,8 +154,8 @@ class UserCreated:
 class CreateUser(Request[UserCreated]):
     username: str
 
-# 2. Handler
-class CreateUserHandler(Handler[CreateUser]):
+# 2. RequestHandler
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __call__(self, request: CreateUser) -> UserCreated:
         return UserCreated(user_id=1)
 

@@ -12,7 +12,7 @@ description: Publishing events to many handlers — fan-out, ExceptionGroup erro
 | Handlers | Exactly one (`HandlerNotFoundError` if missing) | Zero or more (zero is a no-op) |
 | Response | Typed, inferred from `Request[ResponseT]` | None — handlers return `None` |
 | Second handler registers | `HandlerAlreadyRegisteredError` | Fine — that's the point |
-| Handler raises | Propagates unchanged | All handlers still run; failures aggregate into an `ExceptionGroup` |
+| RequestHandler raises | Propagates unchanged | All handlers still run; failures aggregate into an `ExceptionGroup` |
 | Pipeline behaviors | Wrap the dispatch | Not applied |
 
 ## Defining and publishing an event
@@ -110,7 +110,7 @@ async def main():
 A common shape: a request handler does the work, then publishes an event announcing it. The command has one owner; the side effects have many:
 
 ```python
-class PlaceOrderHandler(Handler[PlaceOrderRequest]):
+class PlaceOrderHandler(RequestHandler[PlaceOrderRequest]):
     def __init__(self, mediator, database):
         self.mediator = mediator
         self.database = database

@@ -9,7 +9,7 @@ This example separates a product catalog into a write side (commands, backed by 
 
 ```python
 from dataclasses import dataclass, field
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class Product:
@@ -62,7 +62,7 @@ class CreateProductCommand(Request[CreateProductResponse]):
     price: float
     stock: int = 0
 
-class CreateProductHandler(Handler[CreateProductCommand]):
+class CreateProductHandler(RequestHandler[CreateProductCommand]):
     def __init__(self, store: ProductWriteStore):
         self.store = store
 
@@ -80,7 +80,7 @@ class AdjustStockCommand(Request[AdjustStockResponse]):
     product_id: int
     delta: int
 
-class AdjustStockHandler(Handler[AdjustStockCommand]):
+class AdjustStockHandler(RequestHandler[AdjustStockCommand]):
     def __init__(self, store: ProductWriteStore):
         self.store = store
 
@@ -105,7 +105,7 @@ class GetProductResponse:
 class GetProductQuery(Request[GetProductResponse]):
     product_id: int
 
-class GetProductHandler(Handler[GetProductQuery]):
+class GetProductHandler(RequestHandler[GetProductQuery]):
     def __init__(self, store: ProductReadStore):
         self.store = store
 
@@ -123,7 +123,7 @@ class SearchProductsResponse:
 class SearchProductsQuery(Request[SearchProductsResponse]):
     min_price: float = 0
 
-class SearchProductsHandler(Handler[SearchProductsQuery]):
+class SearchProductsHandler(RequestHandler[SearchProductsQuery]):
     def __init__(self, store: ProductReadStore):
         self.store = store
 

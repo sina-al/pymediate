@@ -156,7 +156,7 @@ one-line restatement of what was captured.
     never suggest "fixing" `errors/` snippets.
   - Docstring policy: public docstrings mirror `docs/content/docs/api/*.mdx`; examples must run.
   - Versioning (ZeroVer): minor = public-API break or new feature; patch = everything else.
-    Flag when the change touches `__all__`, `Handler`, or `ServiceProvider` (ADR likely).
+    Flag when the change touches `__all__`, `RequestHandler`, or `ServiceProvider` (ADR likely).
   - `examples/` run against the *released* package — example updates are post-release
     follow-ups via the `example` skill.
   - All verification via `poe` tasks, never bespoke tool invocations.

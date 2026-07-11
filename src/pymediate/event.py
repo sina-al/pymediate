@@ -103,7 +103,7 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
             # recording order 42
             ```
 
-        Handler with dependencies:
+        RequestHandler with dependencies:
             ```python
             class SendConfirmation(EventHandler[OrderPlaced]):
                 def __init__(self, mailer: Mailer):

@@ -10,9 +10,9 @@ Pipeline behaviors are middleware that wrap request processing. They implement c
 Behaviors nest around the handler. Each one runs code before and after everything inside it:
 
 ```
-Request → Behavior 1 → Behavior 2 → Behavior 3 → Handler
+Request → Behavior 1 → Behavior 2 → Behavior 3 → RequestHandler
                                                     ↓
-Response ← Behavior 1 ← Behavior 2 ← Behavior 3 ← Handler
+Response ← Behavior 1 ← Behavior 2 ← Behavior 3 ← RequestHandler
 ```
 
 A behavior inherits from `PipelineBehavior` and implements `__call__` with two parameters — the request, and `next`, a callable that continues the pipeline:

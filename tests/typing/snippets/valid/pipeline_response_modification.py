@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -18,7 +18,7 @@ class ProcessRequest(Request[ProcessedResponse]):
     data: str
 
 
-class ProcessHandler(Handler[ProcessRequest]):
+class ProcessHandler(RequestHandler[ProcessRequest]):
     @override
     def __call__(self, request: ProcessRequest) -> ProcessedResponse:
         return ProcessedResponse(value=42, processed=False)

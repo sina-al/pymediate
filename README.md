@@ -53,7 +53,7 @@ with any script from the network).
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 # Define response and request as pure dataclasses
 @dataclass
@@ -66,8 +66,8 @@ class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
-# Handler automatically linked by type
-class CreateUserHandler(Handler[CreateUser]):
+# RequestHandler automatically linked by type
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __call__(self, req: CreateUser) -> UserCreated:
         return UserCreated(user_id=1, username=req.username)
 
@@ -89,7 +89,7 @@ PyMediate provides first-class async/await support through the `pymediate.aio` p
 import asyncio
 from dataclasses import dataclass
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import RequestHandler, Mediator
 
 @dataclass
 class UserCreated:
@@ -101,7 +101,7 @@ class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     async def __call__(self, req: CreateUser) -> UserCreated:
         # Perform async operations
         await asyncio.sleep(0.1)  # Simulate async database call

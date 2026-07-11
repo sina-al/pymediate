@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -18,7 +18,7 @@ class CreateOrderRequest(Request[OrderResponse]):
     items: list[str]
 
 
-class CreateOrderHandler(Handler[CreateOrderRequest]):
+class CreateOrderHandler(RequestHandler[CreateOrderRequest]):
     @override
     def __call__(self, request: CreateOrderRequest) -> OrderResponse:
         return OrderResponse(order_id=100, total=50.0)

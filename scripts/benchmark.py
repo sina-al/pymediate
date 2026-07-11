@@ -63,10 +63,25 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from pymediate import Event, EventHandler, Handler, Mediator, PipelineBehavior, Request, Services
+from pymediate import (
+    Event,
+    EventHandler,
+    Mediator,
+    PipelineBehavior,
+    Request,
+    Services,
+)
 from pymediate.aio import EventHandler as AsyncEventHandler
-from pymediate.aio import Handler as AsyncHandler
 from pymediate.aio import Mediator as AsyncMediator
+
+# This script is unpinned and must run against any released pymediate; releases
+# before 0.4.0 predate the ADR 0006 rename of Handler to RequestHandler.
+try:
+    from pymediate import RequestHandler
+    from pymediate.aio import RequestHandler as AsyncHandler
+except ImportError:  # pymediate < 0.4.0
+    from pymediate import Handler as RequestHandler  # type: ignore[attr-defined, no-redef]
+    from pymediate.aio import Handler as AsyncHandler  # type: ignore[attr-defined, no-redef]
 
 
 @dataclass(frozen=True)
@@ -79,7 +94,7 @@ class Ping(Request[Pong]):
     value: int
 
 
-class PingHandler(Handler[Ping]):
+class PingHandler(RequestHandler[Ping]):
     def __call__(self, request: Ping) -> Pong:
         return Pong(request.value)
 

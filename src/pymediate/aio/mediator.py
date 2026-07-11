@@ -14,7 +14,7 @@ class Mediator(MediatorMixin):
 
     The async mirror of `pymediate.Mediator`: it works the same way, but `send()`
     is a coroutine that awaits the resolved handler, so it's built to work with
-    `pymediate.aio.Handler` subclasses.
+    `pymediate.aio.RequestHandler` subclasses.
 
     `send()` infers its return type from the request's `Request[ResponseT]` type
     parameter, so the response is fully typed at the call site with no casts needed.
@@ -25,7 +25,7 @@ class Mediator(MediatorMixin):
             import asyncio
             from dataclasses import dataclass
             from pymediate import Request, Services
-            from pymediate.aio import Handler, Mediator
+            from pymediate.aio import RequestHandler, Mediator
 
             @dataclass
             class UserResponse:
@@ -36,7 +36,7 @@ class Mediator(MediatorMixin):
             class CreateUserRequest(Request[UserResponse]):
                 username: str
 
-            class CreateUserHandler(Handler[CreateUserRequest]):
+            class CreateUserHandler(RequestHandler[CreateUserRequest]):
                 async def __call__(self, request: CreateUserRequest) -> UserResponse:
                     await asyncio.sleep(0.1)  # Simulate an async database call
                     return UserResponse(user_id=1, username=request.username)
@@ -72,7 +72,7 @@ class Mediator(MediatorMixin):
         - Services: Build a ServiceProvider by hand.
         - DependencyInjectorServiceProvider: Build one from a DI container instead.
         - pymediate.Mediator: Sync mediator variant.
-        - pymediate.aio.Handler: Async handler base class.
+        - pymediate.aio.RequestHandler: Async handler base class.
     """
 
     async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:

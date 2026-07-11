@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Handler, HandlerNotFoundError, Mediator, Request, Services
+from pymediate import HandlerNotFoundError, Mediator, Request, RequestHandler, Services
 
 
 def test_mediator_creation() -> None:
@@ -26,7 +26,7 @@ def test_mediator_send_request() -> None:
         def __init__(self, name: str):
             self.name = name
 
-    class GreetingHandler(Handler[GreetingRequest]):
+    class GreetingHandler(RequestHandler[GreetingRequest]):
         def __call__(self, request: GreetingRequest) -> GreetingResponse:
             return GreetingResponse(f"Hello, {request.name}!")
 
@@ -81,11 +81,11 @@ def test_mediator_with_multiple_handlers() -> None:
             self.a = a
             self.b = b
 
-    class AddHandler(Handler[AddRequest]):
+    class AddHandler(RequestHandler[AddRequest]):
         def __call__(self, request: AddRequest) -> AddResponse:
             return AddResponse(request.a + request.b)
 
-    class MultiplyHandler(Handler[MultiplyRequest]):
+    class MultiplyHandler(RequestHandler[MultiplyRequest]):
         def __call__(self, request: MultiplyRequest) -> MultiplyResponse:
             return MultiplyResponse(request.a * request.b)
 
@@ -113,7 +113,7 @@ def test_mediator_preserves_request_data() -> None:
         def __init__(self, data: dict[str, Any]):
             self.data = data
 
-    class EchoHandler(Handler[EchoRequest]):
+    class EchoHandler(RequestHandler[EchoRequest]):
         def __call__(self, request: EchoRequest) -> EchoResponse:
             return EchoResponse(request.data.copy())
 
@@ -140,7 +140,7 @@ def test_mediator_with_stateful_handler() -> None:
     class CountRequest(Request[CountResponse]):
         pass
 
-    class CounterHandler(Handler[CountRequest]):
+    class CounterHandler(RequestHandler[CountRequest]):
         def __init__(self) -> None:
             self.count = 0
 
@@ -183,7 +183,7 @@ def test_mediator_with_complex_request_response() -> None:
             self.name = name
             self.email = email
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __init__(self) -> None:
             self.next_id = 1
 
@@ -218,16 +218,16 @@ def test_mediator_error_propagation() -> None:
     class ErrorRequest(Request[ErrorResponse]):
         pass
 
-    class ErrorHandler(Handler[ErrorRequest]):
+    class ErrorHandler(RequestHandler[ErrorRequest]):
         def __call__(self, request: ErrorRequest) -> ErrorResponse:
-            raise RuntimeError("Handler error")
+            raise RuntimeError("RequestHandler error")
 
     services = Services()
     services.add(ErrorHandler())
     provider = services.provider()
     mediator = Mediator(provider)
 
-    with pytest.raises(RuntimeError, match="Handler error"):
+    with pytest.raises(RuntimeError, match="RequestHandler error"):
         mediator.send(ErrorRequest())
 
 
@@ -241,7 +241,7 @@ def test_mediator_with_different_resolvers() -> None:
     class Req(Request[Resp]):
         pass
 
-    class ReqHandler(Handler[Req]):
+    class ReqHandler(RequestHandler[Req]):
         def __init__(self, value: int):
             self.value = value
 

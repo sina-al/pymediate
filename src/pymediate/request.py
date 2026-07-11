@@ -56,7 +56,7 @@ class Request[ResponseT]:
         there is no performance penalty for using this pattern.
 
     See Also:
-        - Handler: Base handler class that processes requests
+        - RequestHandler: Base handler class that processes requests
         - Mediator.send: Method that routes requests to handlers
     """
 

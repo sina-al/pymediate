@@ -19,7 +19,7 @@ In July 2026, we read the source of the six most popular mediator libraries in t
 
 | Capability | PyMediate | Typical alternatives |
 | --- | --- | --- |
-| Request-to-handler link | A type parameter: `Handler[CreateUser]`. Dispatch is keyed on the class itself. | Class-name strings, naming conventions, or a separate `bind(request, handler)` call that can pair the wrong two. |
+| Request-to-handler link | A type parameter: `RequestHandler[CreateUser]`. Dispatch is keyed on the class itself. | Class-name strings, naming conventions, or a separate `bind(request, handler)` call that can pair the wrong two. |
 | Response type at the call site | `send()` returns the `T` declared in `Request[T]` — inferred by mypy, autocompleted by your editor. | `object`, `Any`, or a generic that isn't bound to the request. |
 | Handler signature validation | At class-definition time. A wrong parameter type, a missing return annotation, or a sync/async mixup raises at import. | None of the six validate signatures — mistakes surface at runtime, when a request is dispatched. |
 | Duplicate handler registration | Raises immediately, pointing at the file and line of the first registration. | Silently overwrites the original handler, or silently ignores the new one. |

@@ -11,7 +11,7 @@ One request handler does the work; the reactions — confirmation, analytics —
 
 ```python
 from dataclasses import dataclass
-from pymediate import Event, EventHandler, Handler, Mediator, Request, Services
+from pymediate import Event, EventHandler, RequestHandler, Mediator, Request, Services
 
 @dataclass
 class OrderPlaced(Event):
@@ -34,7 +34,7 @@ class PlaceOrderResponse:
 class PlaceOrderCommand(Request[PlaceOrderResponse]):
     customer_email: str
 
-class PlaceOrderHandler(Handler[PlaceOrderCommand]):
+class PlaceOrderHandler(RequestHandler[PlaceOrderCommand]):
     def __init__(self, get_mediator):
         self._get_mediator = get_mediator  # late-bound: the mediator is built after this handler
 

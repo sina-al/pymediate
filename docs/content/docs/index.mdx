@@ -28,14 +28,14 @@ The [mediator pattern](https://en.wikipedia.org/wiki/Mediator_pattern) removes t
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler
+from pymediate import Request, RequestHandler
 
 @dataclass
 class CreateUser(Request[UserCreated]):   # the message, declaring its response type
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUser]):   # the one place it's handled
+class CreateUserHandler(RequestHandler[CreateUser]):   # the one place it's handled
     def __call__(self, request: CreateUser) -> UserCreated:
         ...
 
@@ -55,9 +55,9 @@ mediator.publish(UserRegistered(user_id=user.user_id))
 
 PyMediate implements the pattern entirely inside Python's type system — built on [PEP 695](https://peps.python.org/pep-0695/) generics, new in Python 3.12 — so the indirection costs you nothing you'd have with a direct call:
 
-- **The link is a type.** `Handler[CreateUser]` declares what a handler handles, and dispatch is keyed on the class itself. Rename the request and every handler follows in the refactor.
+- **The link is a type.** `RequestHandler[CreateUser]` declares what a handler handles, and dispatch is keyed on the class itself. Rename the request and every handler follows in the refactor.
 - **You always know what comes back.** A request inherits `Request[UserCreated]`, and from then on `mediator.send()` returns `UserCreated` everywhere — inferred by mypy, autocompleted by your editor, no casts. The response can be any type at all: no framework base class, no serialization methods.
-- **Wiring mistakes surface before requests flow.** Handler signatures are validated the moment the class is defined — a wrong parameter type, a missing return type, a sync/async mixup all raise at import. A second handler for the same request raises immediately, pointing at the file and line of the first.
+- **Wiring mistakes surface before requests flow.** RequestHandler signatures are validated the moment the class is defined — a wrong parameter type, a missing return type, a sync/async mixup all raise at import. A second handler for the same request raises immediately, pointing at the file and line of the first.
 - **Sync and async are equals.** `pymediate.aio` mirrors the sync API class for class — switch the import, add `await`, done.
 - **It travels light.** Zero runtime dependencies, ships `py.typed`, and is checked under `mypy --strict`. `dependency-injector` support is an optional extra.
 
@@ -68,7 +68,7 @@ Evaluating it against other libraries? [How it compares](/docs/comparison) has a
 | Concept | Role |
 | --- | --- |
 | `Request[T]` | A message declaring what it wants and the response type `T` it expects |
-| `Handler[R]` | The single place where a request type `R` gets handled |
+| `RequestHandler[R]` | The single place where a request type `R` gets handled |
 | `Event` | A fact that already happened, published to whoever subscribed — no response |
 | `EventHandler[E]` | One subscriber's reaction to an event type `E`; any number may subscribe |
 | `Mediator` | Routes each request to its handler and each event to its subscribers; the only thing callers depend on |

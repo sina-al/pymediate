@@ -13,7 +13,7 @@ Build the mediator once, at import time, and expose it through a dependency:
 from dataclasses import dataclass
 from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
-from pymediate import Request, Handler, Mediator, Services, HandlerNotFoundError
+from pymediate import Request, RequestHandler, Mediator, Services, HandlerNotFoundError
 
 @dataclass
 class CreateUserResponse:
@@ -29,7 +29,7 @@ class CreateUserRequest(Request[CreateUserResponse]):
         if "@" not in self.email:
             raise ValueError("Invalid email address")
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self):
         self._next_id = 1
 
@@ -90,7 +90,7 @@ class GetUserResponse:
 class GetUserRequest(Request[GetUserResponse]):
     user_id: int
 
-class GetUserHandler(Handler[GetUserRequest]):
+class GetUserHandler(RequestHandler[GetUserRequest]):
     def __call__(self, request: GetUserRequest) -> GetUserResponse:
         if request.user_id != 1:
             raise ValueError("User not found")
@@ -124,7 +124,7 @@ If your handlers do real I/O, use `pymediate.aio` and `async def` routes — Fas
 
 ```python
 from pymediate import Services
-from pymediate.aio import Handler as AsyncHandler, Mediator as AsyncMediator
+from pymediate.aio import RequestHandler as AsyncHandler, Mediator as AsyncMediator
 
 @dataclass
 class FetchProfileResponse:

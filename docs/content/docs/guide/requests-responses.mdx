@@ -40,7 +40,7 @@ That logic can't be reused from a CLI, can't be tested without HTTP mocking, and
 With PyMediate, the business logic lives in a handler that could run anywhere:
 
 ```python
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, user_repository: UserRepository):
         self.user_repository = user_repository
 
@@ -178,11 +178,11 @@ class SearchUsersQuery(Request[UserList]):
 Because each side has its own handlers, reads and writes can be optimized — or scaled — independently:
 
 ```python
-class CreateUserHandler(Handler[CreateUserCommand]):
+class CreateUserHandler(RequestHandler[CreateUserCommand]):
     def __init__(self, write_db: WriteDatabase):
         self.write_db = write_db
 
-class GetUserHandler(Handler[GetUserQuery]):
+class GetUserHandler(RequestHandler[GetUserQuery]):
     def __init__(self, read_db: ReadDatabase):
         self.read_db = read_db
 ```

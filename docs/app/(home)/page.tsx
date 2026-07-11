@@ -17,7 +17,7 @@ import { LogoMark } from '@/components/logo';
 import { gitConfig, pypiUrl } from '@/lib/shared';
 
 const syncExample = `from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class UserCreated:
@@ -29,7 +29,7 @@ class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __call__(self, request: CreateUser) -> UserCreated:
         return UserCreated(user_id=1, username=request.username)
 
@@ -42,7 +42,7 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 
 const asyncExample = `from dataclasses import dataclass
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import RequestHandler, Mediator
 
 @dataclass
 class UserCreated:
@@ -54,7 +54,7 @@ class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     async def __call__(self, request: CreateUser) -> UserCreated:
         user_id = await user_repository.save(request.username, request.email)
         return UserCreated(user_id=user_id, username=request.username)
@@ -129,7 +129,7 @@ const features = [
   {
     icon: Zap,
     title: 'Fails at definition time',
-    body: 'Handler signatures are validated when the class is defined, so wiring mistakes surface at import — not in production.',
+    body: 'Every handler signature — request or event — is validated when the class is defined, so wiring mistakes surface at import, not in production.',
   },
   {
     icon: Plug,

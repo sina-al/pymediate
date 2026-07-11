@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import override
 
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import Mediator, RequestHandler
 
 
 @dataclass
@@ -18,7 +18,7 @@ class MyRequest(Request[Response]):
     data: int
 
 
-class MyHandler(Handler[MyRequest]):
+class MyHandler(RequestHandler[MyRequest]):
     @override
     async def __call__(self, request: MyRequest) -> Response:
         await asyncio.sleep(0.01)

@@ -11,7 +11,7 @@ class Mediator(MediatorMixin):
     """Routes requests to their handlers using a service provider.
 
     The mediator receives a request, looks up its handler type from the registry
-    (populated automatically when `Handler[RequestT]` subclasses are defined),
+    (populated automatically when `RequestHandler[RequestT]` subclasses are defined),
     resolves a handler instance from the service provider, and invokes it.
 
     `send()` infers its return type from the request's `Request[ResponseT]` type

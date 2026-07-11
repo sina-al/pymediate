@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -23,7 +23,7 @@ class CreateUserRequest(Request[UserResponse]):
     username: str
 
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     @override
     def __call__(self, request: CreateUserRequest) -> UserResponse:
         return UserResponse(user_id=1, username=request.username)

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -24,7 +24,7 @@ class CalculateRequest(Request[ResultResponse]):
     x: int
 
 
-class CalculateHandler(Handler[CalculateRequest]):
+class CalculateHandler(RequestHandler[CalculateRequest]):
     @override
     def __call__(self, request: CalculateRequest) -> ResultResponse:
         return SuccessResult(value=request.x * 2)

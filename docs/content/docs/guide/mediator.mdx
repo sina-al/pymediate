@@ -19,7 +19,7 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 ## What `send()` actually does
 
 1. The application sends a request to the mediator.
-2. The mediator looks up the handler **class** registered for this request type — recorded automatically when the `Handler[RequestT]` subclass was defined.
+2. The mediator looks up the handler **class** registered for this request type — recorded automatically when the `RequestHandler[RequestT]` subclass was defined.
 3. It resolves a handler **instance** of that class from the `ServiceProvider`.
 4. It discovers every registered `PipelineBehavior` that applies to this request, and either calls the handler directly (no applicable behaviors) or wraps it in a `Pipeline` and calls that.
 
@@ -64,13 +64,13 @@ Sync handlers run sequentially in registration order; a raising handler doesn't 
 
 ## The async mediator
 
-Async handlers use a separate mediator: `pymediate.aio.Mediator`, paired with `pymediate.aio.Handler`. The async API mirrors the sync one structurally, but the two don't mix at runtime — a sync `Mediator` never awaits anything, so it can't dispatch an `async def __call__`.
+Async handlers use a separate mediator: `pymediate.aio.Mediator`, paired with `pymediate.aio.RequestHandler`. The async API mirrors the sync one structurally, but the two don't mix at runtime — a sync `Mediator` never awaits anything, so it can't dispatch an `async def __call__`.
 
 ```python
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import RequestHandler, Mediator
 
-class FetchDataHandler(Handler[FetchDataRequest]):
+class FetchDataHandler(RequestHandler[FetchDataRequest]):
     async def __call__(self, request: FetchDataRequest) -> FetchDataResponse:
         data = await self.http_client.get(request.url)
         return FetchDataResponse(data=data)
@@ -102,7 +102,7 @@ except HandlerNotFoundError as e:
 Exceptions raised *inside* handlers propagate unchanged — the mediator never catches or wraps them:
 
 ```python
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         if not request.email:
             raise ValueError("Email is required")
@@ -143,7 +143,7 @@ services.add(TimingBehavior())    # inner
 services.add(CreateUserHandler())
 
 mediator = Mediator(services.provider())
-# Every request runs: Logging → Timing → Handler
+# Every request runs: Logging → Timing → RequestHandler
 ```
 
 Registration order sets execution order, outermost first:
@@ -152,7 +152,7 @@ Registration order sets execution order, outermost first:
 Request
   → Logging (outermost)
     → Timing
-      → Handler
+      → RequestHandler
       ← response
     ← Timing
   ← Logging

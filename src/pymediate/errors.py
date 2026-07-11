@@ -74,13 +74,13 @@ class InvalidHandlerSignatureError(PyMediateError):
 
     Handlers must have a __call__ method with exactly one parameter (the request)
     and a return type annotation matching the expected response type. The request
-    parameter must annotate the exact request class declared in Handler[...] —
+    parameter must annotate the exact request class declared in RequestHandler[...] —
     a base class or union is rejected, because dispatch is keyed by the exact
     request type.
 
     Example:
         ```python
-        class BadHandler(Handler[MyRequest]):
+        class BadHandler(RequestHandler[MyRequest]):
             def __call__(self):  # Missing request parameter!
                 pass
         # InvalidHandlerSignatureError: Invalid handler signature
@@ -100,7 +100,7 @@ class InvalidHandlerSignatureError(PyMediateError):
         message = (
             f"Invalid handler signature in {handler_type.__name__}: {issue}\n\n"
             "✅ Correct handler signature:\n"
-            "  class MyHandler(Handler[MyRequest]):\n"
+            "  class MyHandler(RequestHandler[MyRequest]):\n"
             "      def __call__(self, request: MyRequest) -> MyResponse:\n"
             "          return MyResponse(...)\n\n"
             "Common mistakes:\n"
@@ -128,7 +128,7 @@ class InvalidRequestTypeError(PyMediateError):
         class MyRequest:  # Missing Request[ResponseType] inheritance!
             pass
 
-        class MyHandler(Handler[MyRequest]):
+        class MyHandler(RequestHandler[MyRequest]):
             pass
         # InvalidRequestTypeError: Invalid request type
         ```
@@ -210,7 +210,7 @@ class ResponseTypeMismatchError(PyMediateError):
 
     Example:
         ```python
-        class MyHandler(Handler[MyRequest]):
+        class MyHandler(RequestHandler[MyRequest]):
             def __call__(self, request: MyRequest) -> WrongResponse:  # Should be MyResponse
                 return WrongResponse()
         # ResponseTypeMismatchError: Response type mismatch
@@ -236,7 +236,7 @@ class ResponseTypeMismatchError(PyMediateError):
             "💡 The response type must match what's declared in Request[ResponseType]:\n"
             f"  class MyRequest(Request[{expected_type.__name__}]):\n"
             "      ...\n\n"
-            f"  class MyHandler(Handler[MyRequest]):\n"
+            f"  class MyHandler(RequestHandler[MyRequest]):\n"
             f"      def __call__(self, request: MyRequest) -> {expected_type.__name__}:\n"
             f"          return {expected_type.__name__}(...)"
         )
@@ -255,12 +255,12 @@ class HandlerAlreadyRegisteredError(PyMediateError):
 
     Example:
         ```python
-        class FirstHandler(Handler[MyRequest]):
+        class FirstHandler(RequestHandler[MyRequest]):
             pass
 
-        class SecondHandler(Handler[MyRequest]):  # Error!
+        class SecondHandler(RequestHandler[MyRequest]):  # Error!
             pass
-        # HandlerAlreadyRegisteredError: Handler already registered for 'MyRequest'
+        # HandlerAlreadyRegisteredError: RequestHandler already registered for 'MyRequest'
         ```
     """
 
@@ -285,7 +285,7 @@ class HandlerAlreadyRegisteredError(PyMediateError):
         self.existing_location = existing_location
 
         message = (
-            f"⚠️  Handler already registered for '{request_type.__name__}'\n\n"
+            f"⚠️  RequestHandler already registered for '{request_type.__name__}'\n\n"
             f"Existing handler: {existing_handler.__name__}\n"
             f"Attempting to register: {new_handler.__name__}\n"
         )
@@ -301,7 +301,7 @@ class HandlerAlreadyRegisteredError(PyMediateError):
             f"     class {request_type.__name__}V1(Request[Response]): ...\n"
             f"     class {request_type.__name__}V2(Request[Response]): ...\n\n"
             "  3. Compose handlers to combine behaviors:\n"
-            "     class ComposedHandler(Handler[MyRequest]):\n"
+            "     class ComposedHandler(RequestHandler[MyRequest]):\n"
             "         def __call__(self, request):\n"
             "             # Combine both behaviors here\n"
             "             ...\n"

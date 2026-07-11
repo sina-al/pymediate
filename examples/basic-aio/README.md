@@ -25,11 +25,11 @@ Audited: CompleteTask: task 1
 ## What changed from basic-sync
 
 Handlers come from `pymediate.aio` and declare `async def __call__`; sending is awaited.
-Requests and `Services` are the same classes as the sync package — only `Handler`,
+Requests and `Services` are the same classes as the sync package — only `RequestHandler`,
 `Mediator`, and `PipelineBehavior` have async variants.
 
 ```python
-class AddTaskHandler(Handler[AddTask]):              # from pymediate.aio
+class AddTaskHandler(RequestHandler[AddTask]):              # from pymediate.aio
     async def __call__(self, request: AddTask) -> Task:
         await asyncio.sleep(0)                       # a real app would await its datastore
         ...

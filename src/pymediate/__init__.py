@@ -14,7 +14,7 @@ Key Features:
 Quick Example:
     ```python
     from dataclasses import dataclass
-    from pymediate import Request, Handler, Mediator, Services
+    from pymediate import Request, RequestHandler, Mediator, Services
 
     @dataclass
     class UserCreated:
@@ -26,7 +26,7 @@ Quick Example:
         username: str
         email: str
 
-    class CreateUserHandler(Handler[CreateUser]):
+    class CreateUserHandler(RequestHandler[CreateUser]):
         def __call__(self, req: CreateUser) -> UserCreated:
             return UserCreated(user_id=1, username=req.username)
 
@@ -41,7 +41,7 @@ Quick Example:
 
 Main Components:
     - Request: Base class for all requests
-    - Handler: Base class for synchronous handlers
+    - RequestHandler: Base class for synchronous handlers
     - Mediator: Routes requests to handlers and publishes events (sync version)
     - Event: Base class for events published to zero or more handlers
     - EventHandler: Base class for synchronous event handlers
@@ -52,9 +52,9 @@ Async Support:
     For asynchronous operations, use the async variants from pymediate.aio:
     ```python
     from pymediate import Services
-    from pymediate.aio import Handler, Mediator
+    from pymediate.aio import RequestHandler, Mediator
 
-    class AsyncHandler(Handler[CreateUser]):
+    class AsyncHandler(RequestHandler[CreateUser]):
         async def __call__(self, req: CreateUser) -> UserCreated:
             # Can use await here
             result = await async_database_operation(req)
@@ -70,7 +70,9 @@ Async Support:
 For more information, see the documentation at https://pymediate.sina-al.uk
 """
 
+import warnings
 from importlib.metadata import PackageNotFoundError, version
+from typing import Any
 
 from .errors import (
     HandlerAlreadyRegisteredError,
@@ -82,7 +84,7 @@ from .errors import (
     ResponseTypeMismatchError,
 )
 from .event import Event, EventHandler
-from .handler import Handler
+from .handler import RequestHandler
 from .mediator import Mediator
 from .pipeline import PipelineBehavior
 from .request import Request
@@ -90,7 +92,7 @@ from .service import ServiceNotFoundError, ServiceProvider, Services
 
 __all__ = [
     "Request",
-    "Handler",
+    "RequestHandler",
     "Mediator",
     # Events
     "Event",
@@ -117,3 +119,16 @@ try:
     __version__ = version("pymediate")
 except PackageNotFoundError:  # pragma: no cover - source tree used without an install
     __version__ = "0.0.0+unknown"
+
+
+def __getattr__(name: str) -> Any:
+    """Serve the deprecated ``Handler`` alias with a warning (see ADR 0006)."""
+    if name == "Handler":
+        warnings.warn(
+            "pymediate.Handler was renamed to RequestHandler in 0.4.0; "
+            "the Handler alias will be removed in the next minor release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return RequestHandler
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

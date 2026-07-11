@@ -11,7 +11,7 @@ PyMediate's type safety comes from two different mechanisms working together, an
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class UserResponse:
@@ -23,7 +23,7 @@ class CreateUserRequest(Request[UserResponse]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> UserResponse:
         return UserResponse(user_id=1, username=request.username)
 
@@ -35,13 +35,13 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 reveal_type(response)  # note: Revealed type is "UserResponse"
 ```
 
-mypy also enforces that a handler's `__call__` accepts the request type declared in `Handler[RequestT]` — get this wrong and mypy reports a Liskov substitution violation, like any incompatible method override:
+mypy also enforces that a handler's `__call__` accepts the request type declared in `RequestHandler[RequestT]` — get this wrong and mypy reports a Liskov substitution violation, like any incompatible method override:
 
 ```python
-class BadHandler(Handler[CreateUserRequest]):
+class BadHandler(RequestHandler[CreateUserRequest]):
     def __call__(self, request: SomeOtherRequest) -> UserResponse:
         ...
-# error: Argument 1 of "__call__" is incompatible with supertype "Handler";
+# error: Argument 1 of "__call__" is incompatible with supertype "RequestHandler";
 # supertype defines the argument type as "CreateUserRequest"  [override]
 ```
 
@@ -50,7 +50,7 @@ class BadHandler(Handler[CreateUserRequest]):
 A handler's **return** type isn't checked by mypy the same way — a mismatched return type is a `ResponseTypeMismatchError`, raised by PyMediate's own `__init_subclass__` validation rather than caught statically:
 
 ```python
-class BadHandler(Handler[CreateUserRequest]):
+class BadHandler(RequestHandler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> WrongResponse:  # mypy: no error here
         return WrongResponse(...)
 # ResponseTypeMismatchError: Response type mismatch in BadHandler

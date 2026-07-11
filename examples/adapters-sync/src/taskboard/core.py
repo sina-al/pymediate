@@ -9,7 +9,7 @@ calls; swapping or adding a framework never touches this file.
 
 from dataclasses import dataclass, field
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate import RequestHandler, Mediator, Request, Services
 
 
 @dataclass
@@ -58,7 +58,7 @@ class ListOpenTasks(Request[list[Task]]):
 # ---- Handlers: exactly one per request type ----
 
 
-class AddTaskHandler(Handler[AddTask]):
+class AddTaskHandler(RequestHandler[AddTask]):
     """Creates tasks in the store."""
 
     def __init__(self, store: TaskStore) -> None:
@@ -71,7 +71,7 @@ class AddTaskHandler(Handler[AddTask]):
         return task
 
 
-class CompleteTaskHandler(Handler[CompleteTask]):
+class CompleteTaskHandler(RequestHandler[CompleteTask]):
     """Marks existing tasks as done."""
 
     def __init__(self, store: TaskStore) -> None:
@@ -85,7 +85,7 @@ class CompleteTaskHandler(Handler[CompleteTask]):
         return task
 
 
-class ListOpenTasksHandler(Handler[ListOpenTasks]):
+class ListOpenTasksHandler(RequestHandler[ListOpenTasks]):
     """Lists tasks that are still open."""
 
     def __init__(self, store: TaskStore) -> None:
