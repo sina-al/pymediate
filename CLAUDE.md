@@ -204,25 +204,10 @@ behaviors) — read both before assuming either alone reflects the current desig
 
 Planning lives in GitHub Issues on `sina-al/pymediate`, mirrored onto the user-level
 GitHub Project board **#2 "pymediate"** (<https://github.com/users/sina-al/projects/2>).
-Requests like "file an issue", "add this to the roadmap", "track this", or "put it on the
-board" all mean this flow, even when GitHub Projects isn't named explicitly:
-
-1. `gh issue create` on the repo. Label `roadmap` for feature/process work (`bug`,
-   `documentation`, etc. where they fit better). Issue titles are plain descriptive
-   sentences — Conventional Commits applies to PR titles, not issues. Match the existing
-   style: in-depth body, phased `- [ ]` checklists, explicit acceptance criteria.
-2. Add it to the board: `gh project item-add 2 --owner sina-al --url <issue-url>`.
-3. Set Status to `Todo` (options: Todo / In Progress / Done; `item-add` leaves it empty).
-   A Priority field exists (Now / Next / Later) — leave it unset unless told otherwise.
-   Board plumbing: project ID `PVT_kwHOAafBSs4Bc38l`; look up field/option/item IDs with
-   `gh project field-list 2 --owner sina-al --format json` and
-   `gh project item-list 2 --owner sina-al --format json`, then use
-   `gh project item-edit` with `--project-id`/`--id`/`--field-id`/`--single-select-option-id`.
-
-For substantial roadmap issues, pitch the approach first, then interview the maintainer
-(AskUserQuestion) to lock the key decisions, and record them in a "Decisions" table in the
-issue body so the issue is executable without re-litigating — see #39 for the pattern.
-Same author/reviewer split as ADRs.
+**All issue filing goes through the `edict` skill** — it owns the interview flow, the
+issue template, labels, titles, and the board plumbing (project/field/option IDs).
+Requests like "file an issue", "add this to the roadmap", "track this", or "put it on
+the board" all mean invoking that skill, even for one-liners.
 
 ## Versioning
 
@@ -292,14 +277,12 @@ hatch-vcs derives from the tagged checkout.
 ## Docs
 
 `docs/` is a Next.js + Fumadocs app (pnpm, Node 22, static export) deployed to GitHub Pages
-at <https://pymediate.sina-al.uk> from `main` via `docs.yml`. Content is MDX under
-`docs/content/`: `docs/` (the site's Docs section — getting-started → guide → advanced →
-api → examples → comparison, sidebar order in `meta.json`) and `articles/` (long-form
-essays with byline frontmatter). The API reference pages are hand-written MDX that mirror
-the source docstrings — keep them in sync when the public API or its docstrings change.
-Use the `poe` tasks: `docs:install` once, then `docs:serve` / `docs:check` (lint +
-type-check, what CI runs) / `docs:build`. `docs/adr/` sits outside `content/` on purpose —
-ADRs are versioned with the repo but not published on the site.
+at <https://pymediate.sina-al.uk> from `main` via `docs.yml`. The API reference pages are
+hand-written MDX that mirror the source docstrings — keep them in sync when the public API
+or its docstrings change. App conventions, content layout, and the docs `poe` tasks live in
+`docs/CLAUDE.md` (loaded automatically when working under `docs/`). `docs/adr/` sits
+outside `content/` on purpose — ADRs are versioned with the repo but not published on
+the site.
 
 ## API Signatures
 

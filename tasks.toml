@@ -74,9 +74,6 @@ check.sequence = ["type", "lint", "format:check"]
 "check:all".help = "Run all quality checks plus tests with coverage"
 "check:all".sequence = ["type:all", "lint", "format:check", "test:cov"]
 
-ci.help = "Run the full local CI suite (mirrors what checks.yml/test.yml enforce)"
-ci.sequence = ["check:all"]
-
 # ========== API Compatibility ==========
 
 "api:check".help = """
@@ -97,9 +94,6 @@ comparison page; results are machine-dependent.\
 benchmark.cmd = "python3 scripts/benchmark.py"
 
 # ========== Security ==========
-
-security.help = "Scan installed dependencies for known vulnerabilities with safety (usage: poe security --json)"
-security.cmd = "uv run --with safety safety check"
 
 "security:pip-audit".help = """
 Scan the shipped dependency tree (pymediate[di] resolved from uv.lock, no dev/test tooling) \
@@ -212,9 +206,6 @@ clean.cmd = """
     htmlcov/ .coverage coverage.xml mypy-report/ site/
 """
 
-"clean:all".help = "Clean everything, including build artifacts (alias for clean; kept for discoverability)"
-"clean:all".sequence = ["clean"]
-
 # ========== Quick Commands ==========
 
 dev.help = "Quick dev loop: fix code, then run fast tests"
@@ -222,6 +213,3 @@ dev.sequence = ["fix", "test:fast"]
 
 pr.help = "Prepare for a PR: fix code, then run all quality checks and tests with coverage"
 pr.sequence = ["fix", "check:all"]
-
-all.help = "Run everything: fix, check, and test with coverage (alias for pr; kept for discoverability)"
-all.sequence = ["fix", "check:all"]

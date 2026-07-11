@@ -243,12 +243,13 @@ jobs:
           enable-cache: false
 
       - name: Install dependencies
-        run: |
-          uv sync --all-extras --all-groups
+        run: uv sync
 
-      - name: Run safety check
+      - name: Run pip-audit
+        # Audits the shipped dependency tree (pymediate[di] resolved from uv.lock) with the
+        # official PyPA scanner — same task release-pr-report.yml uses for its PR comment.
         # Not blocking, matching prior behavior: this is a heads-up, not a merge gate.
-        run: uv run poe security --json || true
+        run: uv run poe security:pip-audit || true
 
   all-checks-passed:
     name: All Checks Passed
