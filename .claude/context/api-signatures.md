@@ -9,7 +9,7 @@ Signatures-only blueprint of pymediate's public API. Full docstrings, guides, an
 ### `pymediate`
 
 ```python
-# Re-exports: Request, Handler, Mediator, Event, EventHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.request`
@@ -23,7 +23,7 @@ class Request:
 ### `pymediate.handler`
 
 ```python
-class Handler(HandlerBaseMixin[RequestT], ABC):
+class RequestHandler(HandlerBaseMixin[RequestT], ABC):
     """Abstract base handler class for synchronous request processing."""
     @abstractmethod
     def __call__(self, request: RequestT) -> Any:
@@ -174,13 +174,13 @@ class DependencyInjectorServiceProvider:
 ### `pymediate.aio`
 
 ```python
-# Re-exports: EventHandler, Handler, Mediator, PipelineBehavior
+# Re-exports: EventHandler, Mediator, PipelineBehavior, RequestHandler
 ```
 
 ### `pymediate.aio.handler`
 
 ```python
-class Handler(HandlerBaseMixin[RequestT], ABC):
+class RequestHandler(HandlerBaseMixin[RequestT], ABC):
     """Abstract base handler class for asynchronous request processing."""
     @abstractmethod
     async def __call__(self, request: RequestT) -> Any:

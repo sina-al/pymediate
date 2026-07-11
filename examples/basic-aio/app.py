@@ -4,7 +4,7 @@ Demonstrates ``pymediate.aio``: handlers declare ``async def __call__``, dispatc
 awaited (``await mediator.send(...)``) and returns the typed response, and an async
 ``PipelineBehavior`` wraps dispatch selectively — its type parameter decides which
 requests it applies to. ``Request`` and ``Services`` come from the sync package: only
-``Handler``, ``Mediator``, and ``PipelineBehavior`` have aio variants.
+``RequestHandler``, ``Mediator``, and ``PipelineBehavior`` have aio variants.
 """
 
 import asyncio
@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator, PipelineBehavior
+from pymediate.aio import RequestHandler, Mediator, PipelineBehavior
 
 
 @dataclass
@@ -66,7 +66,7 @@ class ListOpenTasks(Request[list[Task]]):
 # ---- Handlers: exactly one per request type, all coroutines ----
 
 
-class AddTaskHandler(Handler[AddTask]):
+class AddTaskHandler(RequestHandler[AddTask]):
     """Creates tasks in the store."""
 
     def __init__(self, store: TaskStore) -> None:
@@ -80,7 +80,7 @@ class AddTaskHandler(Handler[AddTask]):
         return task
 
 
-class CompleteTaskHandler(Handler[CompleteTask]):
+class CompleteTaskHandler(RequestHandler[CompleteTask]):
     """Marks existing tasks as done."""
 
     def __init__(self, store: TaskStore) -> None:
@@ -95,7 +95,7 @@ class CompleteTaskHandler(Handler[CompleteTask]):
         return task
 
 
-class ListOpenTasksHandler(Handler[ListOpenTasks]):
+class ListOpenTasksHandler(RequestHandler[ListOpenTasks]):
     """Lists tasks that are still open."""
 
     def __init__(self, store: TaskStore) -> None:

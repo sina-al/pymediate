@@ -19,8 +19,8 @@ validation already catches an error, it doesn't need a snippet here.
 
 **What doesn't belong here:**
 
-- Handler signature validation (runtime validation catches this)
-- Request/Handler registration errors (runtime validation catches this)
+- RequestHandler signature validation (runtime validation catches this)
+- Request/RequestHandler registration errors (runtime validation catches this)
 - Anything testable with regular unit tests
 
 ## The contract

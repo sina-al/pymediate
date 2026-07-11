@@ -33,7 +33,7 @@ def _validate_call_signature(
     is_async: bool = False,
     *,
     kind: str = "request",
-    declaration_name: str = "Handler",
+    declaration_name: str = "RequestHandler",
 ) -> None:
     """Validate that the handler's __call__ method has the correct signature.
 
@@ -135,8 +135,8 @@ class HandlerBaseMixin[RequestT]:
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Extract request type and validate handler signature.
 
-        This hook is automatically called when a new Handler subclass is defined.
-        It extracts the request type from Handler[RequestType], looks up the
+        This hook is automatically called when a new RequestHandler subclass is defined.
+        It extracts the request type from RequestHandler[RequestType], looks up the
         corresponding response type, validates the __call__ signature, and
         registers the handler.
 
@@ -153,12 +153,12 @@ class HandlerBaseMixin[RequestT]:
         cls._request_type = None
         cls._response_type = None
 
-        # Extract request type from Handler[RequestType]
-        # We need to find the right base class (could be Handler or AsyncHandler)
+        # Extract request type from RequestHandler[RequestType]
+        # We need to find the right base class (sync or async RequestHandler)
         orig_bases = getattr(cls, "__orig_bases__", ())
         for base in orig_bases:
             origin = get_origin(base)
-            # Check if this is a Handler-like class (has HandlerBaseMixin in its mro)
+            # Check if this is a RequestHandler-like class (has HandlerBaseMixin in its mro)
             if origin and any(hasattr(b, "_is_async") for b in getattr(origin, "__mro__", [])):
                 args = get_args(base)
                 if args:
@@ -181,8 +181,8 @@ class HandlerBaseMixin[RequestT]:
                 # Register handler
                 registry.register_handler(cls._request_type, cls)
             else:
-                # Only raise if this isn't a base Handler class
-                if cls.__name__ not in ("Handler", "HandlerBaseMixin"):
+                # Only raise if this isn't a base RequestHandler class
+                if cls.__name__ not in ("RequestHandler", "HandlerBaseMixin"):
                     raise errors.InvalidRequestTypeError(cls._request_type)
 
     @classmethod

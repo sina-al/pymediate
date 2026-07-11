@@ -5,13 +5,15 @@ description: Writing handlers — single responsibility, dependency injection, a
 
 Handlers are PyMediate's execution units. Each one holds the business logic for exactly one request type, independent of every other handler and of the infrastructure that invokes it.
 
+This page covers *request* handlers — the one-handler-per-request side of the API. Their one-to-many counterpart, `EventHandler`, follows the same shape (subclass, implement `__call__`, register) and has [its own guide](/docs/guide/events).
+
 ## Anatomy of a handler
 
-A handler subclasses `Handler[RequestType]` and implements `__call__`:
+A handler subclasses `RequestHandler[RequestType]` and implements `__call__`:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Handler, Request
+from pymediate import RequestHandler, Request
 
 @dataclass
 class CreateUserResponse:
@@ -23,7 +25,7 @@ class CreateUserRequest(Request[CreateUserResponse]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, database):
         self.database = database
 
@@ -35,14 +37,14 @@ class CreateUserHandler(Handler[CreateUserRequest]):
 Four properties fall out of this shape:
 
 1. **Single responsibility** — one handler, one request type.
-2. **Type safety** — the `Handler[RequestType]` parameter links handler to request in the type system, and the return type must match the request's declared response.
+2. **Type safety** — the `RequestHandler[RequestType]` parameter links handler to request in the type system, and the return type must match the request's declared response.
 3. **Framework independence** — nothing here knows about HTTP, CLIs, or queues.
 4. **Testability** — it's a plain callable; construct it and call it.
 
 ## The exact-annotation contract
 
 `__call__`'s request parameter must annotate the **exact** request class declared in
-`Handler[...]` — not a base class, not a union. This is validated at class-definition time
+`RequestHandler[...]` — not a base class, not a union. This is validated at class-definition time
 (import time), and a violation raises `InvalidHandlerSignatureError`:
 
 ```python
@@ -50,7 +52,7 @@ Four properties fall out of this shape:
 class CreateAdminRequest(CreateUserRequest):
     admin_level: int = 1
 
-class CreateAdminHandler(Handler[CreateAdminRequest]):
+class CreateAdminHandler(RequestHandler[CreateAdminRequest]):
     # Rejected at import: annotates the base class, not CreateAdminRequest
     def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         ...
@@ -64,20 +66,20 @@ The strictness is what keeps dispatch sound. The mediator routes on the exact cl
 request instance (`type(request)`), each concrete request class maps to exactly one handler,
 and `Request[ResponseT]` maps it to exactly one response type — that mapping is what makes
 `mediator.send()`'s return properly typed. The annotation check is a drift detector between
-the `Handler[X]` declaration and the implementation, and a drift detector only works if it's
+the `RequestHandler[X]` declaration and the implementation, and a drift detector only works if it's
 exact. A handler annotated with a base class would *look* like it handles a whole request
 hierarchy, but it would never receive anything except its declared request type.
 
 If several request types share logic, give each its own handler and factor the shared part
 into ordinary code they both call — or [compose through the mediator](#composing-operations).
 
-## Handler independence
+## RequestHandler independence
 
 Handlers never know about each other. They know their request, their response, and their own dependencies — nothing else. When one operation needs another, go through the mediator rather than holding a reference to the other handler:
 
 ```python
 # Tight coupling — don't do this
-class CreateOrderHandler(Handler[CreateOrderRequest]):
+class CreateOrderHandler(RequestHandler[CreateOrderRequest]):
     def __init__(self, create_user_handler, send_email_handler):
         self.create_user_handler = create_user_handler
         self.send_email_handler = send_email_handler
@@ -85,7 +87,7 @@ class CreateOrderHandler(Handler[CreateOrderRequest]):
 
 ```python
 # Loose coupling through the mediator
-class CreateOrderHandler(Handler[CreateOrderRequest]):
+class CreateOrderHandler(RequestHandler[CreateOrderRequest]):
     def __init__(self, mediator, database):
         self.mediator = mediator
         self.database = database
@@ -104,7 +106,7 @@ Independence is what buys you deployment flexibility: the same handler can serve
 Inject dependencies through the constructor; never construct them inside the handler:
 
 ```python
-class UserServiceHandler(Handler[GetUserRequest]):
+class UserServiceHandler(RequestHandler[GetUserRequest]):
     def __init__(self, database, cache, logger):
         self.database = database
         self.cache = cache
@@ -129,7 +131,7 @@ For I/O-bound work, use the async mirror in `pymediate.aio`. The only changes: t
 ```python
 from dataclasses import dataclass
 from pymediate import Request
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import RequestHandler, Mediator
 
 @dataclass
 class FetchDataResponse:
@@ -139,7 +141,7 @@ class FetchDataResponse:
 class FetchDataRequest(Request[FetchDataResponse]):
     url: str
 
-class AsyncFetchHandler(Handler[FetchDataRequest]):
+class AsyncFetchHandler(RequestHandler[FetchDataRequest]):
     def __init__(self, http_client):
         self.http_client = http_client
 
@@ -149,7 +151,7 @@ class AsyncFetchHandler(Handler[FetchDataRequest]):
 ```
 
 <Callout type="info" title="Sync vs async imports">
-  Sync: `from pymediate import Handler, Mediator`. Async: `from pymediate.aio import Handler,
+  Sync: `from pymediate import RequestHandler, Mediator`. Async: `from pymediate.aio import RequestHandler,
   Mediator`. `Request` always comes from the main package — the same request types work with both.
 </Callout>
 
@@ -157,9 +159,9 @@ Async handlers can fan out concurrent I/O with `asyncio.gather`:
 
 ```python
 import asyncio
-from pymediate.aio import Handler
+from pymediate.aio import RequestHandler
 
-class ProcessOrderHandler(Handler[ProcessOrderRequest]):
+class ProcessOrderHandler(RequestHandler[ProcessOrderRequest]):
     def __init__(self, payment_service, inventory_service):
         self.payment_service = payment_service
         self.inventory_service = inventory_service
@@ -185,14 +187,14 @@ When you're tempted to keep state on the handler, put it in an external store in
 
 ```python
 # In-memory state: lost on restart, unsafe across threads/instances
-class RateLimitHandler(Handler[RateLimitRequest]):
+class RateLimitHandler(RequestHandler[RateLimitRequest]):
     def __init__(self, max_requests: int):
         self.request_counts: dict[str, int] = {}   # avoid
 ```
 
 ```python
 # External state: survives restarts, shared across instances
-class RateLimitHandler(Handler[RateLimitRequest]):
+class RateLimitHandler(RequestHandler[RateLimitRequest]):
     def __init__(self, redis_client, max_requests: int):
         self.redis = redis_client
         self.max_requests = max_requests
@@ -212,7 +214,7 @@ class RateLimitHandler(Handler[RateLimitRequest]):
 Handlers compose by sending further requests through the mediator:
 
 ```python
-class PlaceOrderHandler(Handler[PlaceOrderRequest]):
+class PlaceOrderHandler(RequestHandler[PlaceOrderRequest]):
     def __init__(self, mediator, database):
         self.mediator = mediator
         self.database = database
@@ -233,7 +235,7 @@ class PlaceOrderHandler(Handler[PlaceOrderRequest]):
 In async handlers, sub-requests can run in parallel:
 
 ```python
-class FetchDashboardHandler(Handler[FetchDashboardRequest]):
+class FetchDashboardHandler(RequestHandler[FetchDashboardRequest]):
     def __init__(self, mediator):
         self.mediator = mediator
 
@@ -275,7 +277,7 @@ More strategies — including faking the mediator for consumers — in the [test
 
 ## Best practices
 
-- **Keep handlers focused.** Sending a welcome email and updating analytics are their own handlers, dispatched via the mediator — not extra lines in `CreateUserHandler`.
+- **Keep handlers focused.** Sending a welcome email and updating analytics are not extra lines in `CreateUserHandler` — they're reactions to a fact, which is exactly what [events](/docs/guide/events) are for: publish `UserCreated` and let each subscriber react.
 - **Inject dependencies; never construct them inside.** `self.database = DatabaseConnection()` makes the handler untestable.
 - **Return rich response objects,** not bare primitives — callers shouldn't need a second query for data the handler already had.
 - **Validate early.** Check invariants at the top of `__call__` before doing work.
@@ -285,5 +287,6 @@ More strategies — including faking the mediator for consumers — in the [test
 ## Next steps
 
 - [The mediator](/docs/guide/mediator) — how requests find their handlers
+- [Events](/docs/guide/events) — `EventHandler`, the one-to-many counterpart
 - [Pipeline behaviors](/docs/guide/pipeline-behaviors) — cross-cutting concerns without touching handlers
 - [Error handling](/docs/guide/error-handling) — separating domain errors from framework errors

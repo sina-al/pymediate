@@ -151,7 +151,7 @@ jobs:
 
       - name: Test import
         run: |
-          python -c "from pymediate import Request, Handler, Mediator, Services; print('Core import successful')"
+          python -c "from pymediate import Request, RequestHandler, Mediator, Services; print('Core import successful')"
 
       - name: Install with DI extra
         shell: bash

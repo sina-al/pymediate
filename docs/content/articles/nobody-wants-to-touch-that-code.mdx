@@ -166,9 +166,9 @@ class ExportOrders(Request[ExportResult]):
 The far side is the handler — the *dedicated home* for this one unit of the application. Not a method on a shared anything: a class whose entire identity is "how exports happen," with its real dependencies arriving through the constructor instead of being reached for:
 
 ```python
-from pymediate import Handler
+from pymediate import RequestHandler
 
-class ExportOrdersHandler(Handler[ExportOrders]):
+class ExportOrdersHandler(RequestHandler[ExportOrders]):
     def __init__(self, session: Session, storage: Storage) -> None:
         self._session = session
         self._storage = storage

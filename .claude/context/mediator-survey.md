@@ -31,7 +31,7 @@ this repository.
 | Handler signature validation | None of the six validate at class-definition time; mistakes surface at dispatch (runtime). |
 | Duplicate registration | Silently overwrites the original handler, or silently ignores the new one; none raise. |
 | Sync API | Almost all async-only; synchronous codebases must adopt an event loop. |
-| Event publishing (one request, many handlers) | Five of six have it; every implementation is type-erased or async-only. PyMediate gap → issue #10. |
+| Event publishing (one event, many handlers) | Five of six have it; every implementation is type-erased or async-only. PyMediate gap closed in 0.3.0 (issue #10, typed `Event`/`EventHandler[E]`). |
 | Streaming responses | One of six offers it (the largest library), untyped. PyMediate gap → issue #12. |
 | Runtime dependencies | Varies; several require a serialization framework or a dependency-injection container to participate at all. |
 
@@ -57,7 +57,7 @@ docs row and the matching aggregate finding above must be updated.
 
 | Issue | Capability | Comparison row today |
 | --- | --- | --- |
-| #10 | Event publishing (`mediator.publish`) | "Not yet — planned in issue #10" |
+| #10 | Event publishing (`mediator.publish`) | Shipped in 0.3.0 (closed 2026-07-10); row describes typed `Event`/`EventHandler[E]`, sync sequential / async concurrent delivery, `ExceptionGroup` aggregation |
 | #12 | Streaming handlers (`mediator.stream`) | "Not yet — planned in issue #12" |
 | #11 | Scoped registries | No row yet; add one if it ships and alternatives were surveyed for it |
 | #13 | contrib module of zero-dependency behaviors | No row yet |
@@ -68,20 +68,34 @@ docs row and the matching aggregate finding above must be updated.
 Quoted on the comparison page; replace only with numbers from a fresh local run of
 `uv run poe benchmark` (full defaults), never by editing figures in place.
 
-- **Last run:** 2026-07-09, pymediate 0.2.0 (resolved from PyPI via
+- **Last run:** 2026-07-11, pymediate 0.3.0 (resolved from PyPI via
   `uv run --no-project scripts/benchmark.py -f markdown`, full defaults), Python 3.13.0
   (CPython), 2020 Intel MacBook Pro, macOS 15.7. Medians of five samples of 100,000
-  calls. This run reflects the ADR 0003 dispatch optimizations (released in 0.2.0),
-  which also made overhead independent of registered-service count — the page states
-  that explicitly now.
+  calls. First run to include the `publish()` scenarios (added to the script alongside
+  this refresh): each publish scenario uses one subscriber and its **own** direct-call
+  baseline — the event handler returns `None`, so comparing it against the request
+  handler's baseline (which constructs a dataclass) would be apples to oranges. The
+  async publish figure is dominated by `asyncio.gather` task scheduling (the price of
+  concurrent delivery), and the page says so explicitly. This machine's medians are
+  load-sensitive; a quotable run needs an otherwise-idle machine, and a run where
+  medians sit close to the mins is the sign it was clean.
 
 | Scenario | Median per call | Relative to direct call |
 | --- | ---: | ---: |
-| Sync: direct call | 0.65 µs | Baseline |
-| Sync: `mediator.send()` | 1.6 µs | 2.4x |
-| Sync: `send()` plus one pipeline behavior | 3.7 µs | 5.7x |
-| Async: direct call | 0.88 µs | Baseline |
-| Async: `await mediator.send()` | 2.6 µs | 2.9x |
+| Sync: `handler(request)` — direct call | 0.34 µs | Baseline |
+| Sync: `mediator.send(request)` | 0.87 µs | 2.6x |
+| Sync: `send()` plus one pipeline behavior | 1.8 µs | 5.4x |
+| Sync: `handler(event)` — direct call | 0.12 µs | Baseline |
+| Sync: `mediator.publish(event)` — one subscriber | 0.52 µs | 4.3x |
+| Async: `await handler(request)` — direct call | 0.45 µs | Baseline |
+| Async: `await mediator.send(request)` | 1.0 µs | 2.3x |
+| Async: `await handler(event)` — direct call | 0.22 µs | Baseline |
+| Async: `await mediator.publish(event)` — one subscriber | 91 µs | 415x |
+
+  (The 2026-07-09 run on 0.2.0 quoted: sync direct 0.65 µs, send 1.6 µs / 2.4x,
+  send+behavior 3.7 µs / 5.7x, async direct 0.88 µs, async send 2.6 µs / 2.9x —
+  superseded, kept for trend context. That run reflected the ADR 0003 dispatch
+  optimizations, which also made overhead independent of registered-service count.)
 
 Methodology and its rationale live in `scripts/benchmark.py`'s docstring. The script is
 PEP 723 (`uv run https://pymediate.sina-al.uk/benchmark.py`), copied to the site root by

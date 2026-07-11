@@ -11,7 +11,7 @@ PyMediate's type safety comes from two different mechanisms working together, an
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class UserResponse:
@@ -23,7 +23,7 @@ class CreateUserRequest(Request[UserResponse]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> UserResponse:
         return UserResponse(user_id=1, username=request.username)
 
@@ -35,13 +35,13 @@ response = mediator.send(CreateUserRequest(username="alice", email="alice@exampl
 reveal_type(response)  # note: Revealed type is "UserResponse"
 ```
 
-mypy also enforces that a handler's `__call__` accepts the request type declared in `Handler[RequestT]` — get this wrong and mypy reports a Liskov substitution violation, like any incompatible method override:
+mypy also enforces that a handler's `__call__` accepts the request type declared in `RequestHandler[RequestT]` — get this wrong and mypy reports a Liskov substitution violation, like any incompatible method override:
 
 ```python
-class BadHandler(Handler[CreateUserRequest]):
+class BadHandler(RequestHandler[CreateUserRequest]):
     def __call__(self, request: SomeOtherRequest) -> UserResponse:
         ...
-# error: Argument 1 of "__call__" is incompatible with supertype "Handler";
+# error: Argument 1 of "__call__" is incompatible with supertype "RequestHandler";
 # supertype defines the argument type as "CreateUserRequest"  [override]
 ```
 
@@ -50,7 +50,7 @@ class BadHandler(Handler[CreateUserRequest]):
 A handler's **return** type isn't checked by mypy the same way — a mismatched return type is a `ResponseTypeMismatchError`, raised by PyMediate's own `__init_subclass__` validation rather than caught statically:
 
 ```python
-class BadHandler(Handler[CreateUserRequest]):
+class BadHandler(RequestHandler[CreateUserRequest]):
     def __call__(self, request: CreateUserRequest) -> WrongResponse:  # mypy: no error here
         return WrongResponse(...)
 # ResponseTypeMismatchError: Response type mismatch in BadHandler
@@ -58,6 +58,8 @@ class BadHandler(Handler[CreateUserRequest]):
 ```
 
 This still catches the mistake early — the error fires as soon as the module is imported, before any request is ever sent — just not during a `mypy` run. The same hook also validates that `__call__` exists, takes exactly one parameter besides `self`, and is sync or async as expected (`InvalidHandlerSignatureError`), and that a request actually inherits from `Request[ResponseType]` (`InvalidRequestTypeError`). See [error handling](/docs/guide/error-handling#pymediates-own-errors) for the full hierarchy.
+
+`EventHandler` subclasses get the same treatment, with two event-specific twists: the return annotation must be `None` (publishing has no response), and the type parameter is *bound* to `Event` — so parameterizing an event handler with a non-`Event` type is one runtime check (`InvalidEventTypeError`) that mypy and pyright also catch statically.
 
 One parameter mistake also slips past mypy: annotating a **base class** of the declared request type. Widening a parameter in an override is legal contravariance, so mypy accepts it — but PyMediate requires [the exact request class](/docs/guide/handlers#the-exact-annotation-contract) and rejects the broader annotation at import time with `InvalidHandlerSignatureError`.
 

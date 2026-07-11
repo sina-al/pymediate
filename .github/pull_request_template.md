@@ -11,5 +11,5 @@
 
 ## Breaking Changes
 
-<!-- Only fill in if this changes `__all__`, `Handler`, or `ServiceProvider` in a way that
+<!-- Only fill in if this changes `__all__`, `RequestHandler`, or `ServiceProvider` in a way that
 isn't backward-compatible: what breaks, and how should users migrate? Leave blank otherwise. -->

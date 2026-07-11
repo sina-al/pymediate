@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -11,7 +11,7 @@ class DeleteUserRequest(Request[None]):
     user_id: int
 
 
-class DeleteUserHandler(Handler[DeleteUserRequest]):
+class DeleteUserHandler(RequestHandler[DeleteUserRequest]):
     @override
     def __call__(self, request: DeleteUserRequest) -> None:
         # Perform deletion

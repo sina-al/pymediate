@@ -7,7 +7,7 @@
 # the run header prints the exact version it resolved to, keeping results
 # attributable without a pin that would need bumping every release. rich and
 # typer are output/CLI-only — they never touch the timed loops.
-"""Micro-benchmark: what does mediator.send() cost over calling the handler directly?
+"""Micro-benchmark: what do mediator.send() and mediator.publish() cost over direct calls?
 
 Deliberately measures one thing — PyMediate's dispatch overhead against the direct
 call it replaces — and nothing else. It does not benchmark other libraries; overhead
@@ -63,9 +63,25 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
-from pymediate.aio import Handler as AsyncHandler
+from pymediate import (
+    Event,
+    EventHandler,
+    Mediator,
+    PipelineBehavior,
+    Request,
+    Services,
+)
+from pymediate.aio import EventHandler as AsyncEventHandler
 from pymediate.aio import Mediator as AsyncMediator
+
+# This script is unpinned and must run against any released pymediate; releases
+# before 0.4.0 predate the ADR 0006 rename of Handler to RequestHandler.
+try:
+    from pymediate import RequestHandler
+    from pymediate.aio import RequestHandler as AsyncHandler
+except ImportError:  # pymediate < 0.4.0
+    from pymediate import Handler as RequestHandler  # type: ignore[attr-defined, no-redef]
+    from pymediate.aio import Handler as AsyncHandler  # type: ignore[attr-defined, no-redef]
 
 
 @dataclass(frozen=True)
@@ -78,7 +94,7 @@ class Ping(Request[Pong]):
     value: int
 
 
-class PingHandler(Handler[Ping]):
+class PingHandler(RequestHandler[Ping]):
     def __call__(self, request: Ping) -> Pong:
         return Pong(request.value)
 
@@ -98,6 +114,28 @@ class AsyncPing(Request[Pong]):
 class AsyncPingHandler(AsyncHandler[AsyncPing]):
     async def __call__(self, request: AsyncPing) -> Pong:
         return Pong(request.value)
+
+
+# publish() scenarios use one subscriber so every row stays one-unit-of-work
+# against the direct-call baseline; each event type is dedicated to its group.
+@dataclass(frozen=True)
+class Pinged(Event):
+    value: int
+
+
+class PingedHandler(EventHandler[Pinged]):
+    def __call__(self, event: Pinged) -> None:
+        return None
+
+
+@dataclass(frozen=True)
+class AsyncPinged(Event):
+    value: int
+
+
+class AsyncPingedHandler(AsyncEventHandler[AsyncPinged]):
+    async def __call__(self, event: AsyncPinged) -> None:
+        return None
 
 
 def bench_sync(
@@ -146,7 +184,10 @@ def bench_async(
 @dataclass(frozen=True)
 class Scenario:
     name: str
-    group: str  # "sync" | "async" — ratios are computed within a group
+    # "sync" | "async" | "sync-publish" | "async-publish" — ratios are computed within a
+    # group, so publish() is measured against a direct call to its own (None-returning)
+    # event handler, not against the request handler's baseline.
+    group: str
     is_baseline: bool
     run: Callable[[Callable[[], None]], list[float]]
 
@@ -182,6 +223,8 @@ def build_scenarios(
 ) -> list[Scenario]:
     request = Ping(value=1)
     async_request = AsyncPing(value=1)
+    event = Pinged(value=1)
+    async_event = AsyncPinged(value=1)
 
     sync_handler = PingHandler()
     sync_mediator = Mediator(Services().add(PingHandler()).provider())
@@ -189,9 +232,13 @@ def build_scenarios(
     for _ in range(behaviors):
         behavior_services.add(NoOpBehavior())
     behavior_mediator = Mediator(behavior_services.provider())
+    event_handler = PingedHandler()
+    publish_mediator = Mediator(Services().add(PingedHandler()).provider())
 
     async_handler = AsyncPingHandler()
     async_mediator = AsyncMediator(Services().add(AsyncPingHandler()).provider())
+    async_event_handler = AsyncPingedHandler()
+    async_publish_mediator = AsyncMediator(Services().add(AsyncPingedHandler()).provider())
 
     kwargs = {"number": number, "repeat": repeat, "warmup": warmup}
     plural = "behavior" if behaviors == 1 else "behaviors"
@@ -217,6 +264,20 @@ def build_scenarios(
             ),
         ),
         Scenario(
+            "sync: handler(event) — direct call",
+            "sync-publish",
+            True,
+            lambda tick: bench_sync(lambda: event_handler(event), on_sample=tick, **kwargs),
+        ),
+        Scenario(
+            "sync: mediator.publish(event) — 1 subscriber",
+            "sync-publish",
+            False,
+            lambda tick: bench_sync(
+                lambda: publish_mediator.publish(event), on_sample=tick, **kwargs
+            ),
+        ),
+        Scenario(
             "async: await handler(request) — direct call",
             "async",
             True,
@@ -232,11 +293,27 @@ def build_scenarios(
                 lambda: async_mediator.send(async_request), on_sample=tick, **kwargs
             ),
         ),
+        Scenario(
+            "async: await handler(event) — direct call",
+            "async-publish",
+            True,
+            lambda tick: bench_async(
+                lambda: async_event_handler(async_event), on_sample=tick, **kwargs
+            ),
+        ),
+        Scenario(
+            "async: await mediator.publish(event) — 1 subscriber",
+            "async-publish",
+            False,
+            lambda tick: bench_async(
+                lambda: async_publish_mediator.publish(async_event), on_sample=tick, **kwargs
+            ),
+        ),
     ]
     if behaviors == 0:
         scenarios = [s for s in scenarios if "pipeline" not in s.name]
     if only is not Group.all:
-        scenarios = [s for s in scenarios if s.group == only.value]
+        scenarios = [s for s in scenarios if s.group.startswith(only.value)]
     return scenarios
 
 
@@ -366,12 +443,15 @@ def main(
         ),
     ] = Format.pretty,
 ) -> None:
-    """Measure what mediator.send() costs over calling the handler directly.
+    """Measure what mediator.send() and mediator.publish() cost over direct calls.
 
     Runs each scenario as a tight loop of NUMBER calls, REPEAT times, and reports
     the median — dispatch overhead, not handler work, dominates every loop. The
-    defaults match the methodology quoted in the docs; results always print the
-    exact pymediate version they measured.
+    publish scenarios use a single subscriber and their own direct-call baseline
+    (the event handler returns None, so it does less work than the request
+    handler), keeping every ratio one unit of work against its own baseline.
+    The defaults match the methodology quoted in the docs; results always print
+    the exact pymediate version they measured.
     """
     out = Console()
     err = Console(stderr=True)

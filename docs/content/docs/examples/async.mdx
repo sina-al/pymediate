@@ -11,7 +11,7 @@ PyMediate's async support lives in `pymediate.aio`, a structural mirror of the s
 import asyncio
 from dataclasses import dataclass
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import RequestHandler, Mediator
 
 @dataclass
 class UserResponse:
@@ -23,7 +23,7 @@ class CreateUserRequest(Request[UserResponse]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     async def __call__(self, request: CreateUserRequest) -> UserResponse:
         await asyncio.sleep(0.1)  # simulated async I/O
         return UserResponse(user_id=1, username=request.username)
@@ -43,8 +43,8 @@ asyncio.run(main())
 
 | Aspect | Sync API | Async API |
 | --- | --- | --- |
-| Import | `from pymediate import Handler, Mediator` | `from pymediate.aio import Handler, Mediator` |
-| Handler method | `def __call__(self, request)` | `async def __call__(self, request)` |
+| Import | `from pymediate import RequestHandler, Mediator` | `from pymediate.aio import RequestHandler, Mediator` |
+| RequestHandler method | `def __call__(self, request)` | `async def __call__(self, request)` |
 | Dispatch | `mediator.send(request)` | `await mediator.send(request)` |
 | Request / Services | `from pymediate import Request, Services` | Same — shared between both APIs |
 
@@ -56,7 +56,7 @@ A realistic example with async database access:
 import asyncio
 from dataclasses import dataclass
 from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import RequestHandler, Mediator
 
 class AsyncDatabase:
     async def get_user(self, user_id: int) -> dict | None:
@@ -77,7 +77,7 @@ class GetUserResponse:
 class GetUserRequest(Request[GetUserResponse]):
     user_id: int
 
-class GetUserHandler(Handler[GetUserRequest]):
+class GetUserHandler(RequestHandler[GetUserRequest]):
     def __init__(self, db: AsyncDatabase):
         self.db = db
 
@@ -113,7 +113,7 @@ class FetchApiRequest(Request[ApiResponse]):
     endpoint: str
     delay: float  # simulated API latency
 
-class FetchApiHandler(Handler[FetchApiRequest]):
+class FetchApiHandler(RequestHandler[FetchApiRequest]):
     async def __call__(self, request: FetchApiRequest) -> ApiResponse:
         await asyncio.sleep(request.delay)
         return ApiResponse(data=f"Data from {request.endpoint}")
@@ -136,7 +136,7 @@ async def main():
 Exactly as in the sync API — handlers raise ordinary exceptions and `await mediator.send()` lets them propagate:
 
 ```python
-class ProcessHandler(Handler[ProcessRequest]):
+class ProcessHandler(RequestHandler[ProcessRequest]):
     async def __call__(self, request: ProcessRequest) -> ProcessResponse:
         if request.value < 0:
             raise ValidationError("Value must be non-negative")
@@ -154,16 +154,16 @@ except ValidationError as e:
 The async API validates handler shapes at class-definition time, just like the sync one — including that `__call__` is actually async:
 
 ```python
-from pymediate.aio import Handler
+from pymediate.aio import RequestHandler
 
 # Fails at definition: __call__ must be async
-class BadHandler(Handler[MyRequest]):
+class BadHandler(RequestHandler[MyRequest]):
     def __call__(self, request: MyRequest) -> Response:
         return Response(value=42)
 # InvalidHandlerSignatureError: __call__ must be async
 
 # Correct
-class GoodHandler(Handler[MyRequest]):
+class GoodHandler(RequestHandler[MyRequest]):
     async def __call__(self, request: MyRequest) -> Response:
         return Response(value=42)
 ```
@@ -173,8 +173,8 @@ class GoodHandler(Handler[MyRequest]):
 One application can use both — sync handlers behind a sync `Mediator`, async handlers behind an async one. Alias the imports to keep them straight:
 
 ```python
-from pymediate import Request, Handler as SyncHandler, Mediator as SyncMediator
-from pymediate.aio import Handler as AsyncHandler, Mediator as AsyncMediator
+from pymediate import Request, RequestHandler as SyncHandler, Mediator as SyncMediator
+from pymediate.aio import RequestHandler as AsyncHandler, Mediator as AsyncMediator
 ```
 
 Each request type has exactly one handler (sync *or* async), and each mediator dispatches only to its own kind — see [the mediator](/docs/guide/mediator#the-async-mediator).
@@ -231,6 +231,7 @@ Each request type has exactly one handler (sync *or* async), and each mediator d
 
 ## See also
 
+- [Events example](/docs/examples/events) — async `publish()` runs all subscribers concurrently
 - [FastAPI example](/docs/examples/fastapi) — the full integration including error mapping
 - [Handlers guide](/docs/guide/handlers) — async handler design
 - [Type safety](/docs/advanced/type-safety) — how definition-time validation works

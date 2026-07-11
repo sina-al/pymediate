@@ -3,7 +3,7 @@ title: Mediator
 description: API reference for the sync and async Mediator classes.
 ---
 
-The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `Handler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors. It also publishes events to every subscribed `EventHandler`.
+The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `RequestHandler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors. It also publishes events to every subscribed `EventHandler`.
 
 <Tabs items={['Sync', 'Async']}>
   <Tab value="Sync">
@@ -126,7 +126,7 @@ mediator = Mediator(services.provider())
 ## See also
 
 - [Services / ServiceProvider](/docs/api/service-provider) — building the provider
-- [Event / EventHandler](/docs/api/event) — the publish-side classes
+- [Event](/docs/api/event) / [EventHandler](/docs/api/event-handler) — the publish-side classes
 - [Pipeline](/docs/api/pipeline) — the behavior API
 - [The mediator guide](/docs/guide/mediator) — lifecycle and best practices
 - [The events guide](/docs/guide/events) — publishing patterns

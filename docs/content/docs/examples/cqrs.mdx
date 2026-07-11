@@ -9,7 +9,7 @@ This example separates a product catalog into a write side (commands, backed by 
 
 ```python
 from dataclasses import dataclass, field
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class Product:
@@ -62,7 +62,7 @@ class CreateProductCommand(Request[CreateProductResponse]):
     price: float
     stock: int = 0
 
-class CreateProductHandler(Handler[CreateProductCommand]):
+class CreateProductHandler(RequestHandler[CreateProductCommand]):
     def __init__(self, store: ProductWriteStore):
         self.store = store
 
@@ -80,7 +80,7 @@ class AdjustStockCommand(Request[AdjustStockResponse]):
     product_id: int
     delta: int
 
-class AdjustStockHandler(Handler[AdjustStockCommand]):
+class AdjustStockHandler(RequestHandler[AdjustStockCommand]):
     def __init__(self, store: ProductWriteStore):
         self.store = store
 
@@ -105,7 +105,7 @@ class GetProductResponse:
 class GetProductQuery(Request[GetProductResponse]):
     product_id: int
 
-class GetProductHandler(Handler[GetProductQuery]):
+class GetProductHandler(RequestHandler[GetProductQuery]):
     def __init__(self, store: ProductReadStore):
         self.store = store
 
@@ -123,7 +123,7 @@ class SearchProductsResponse:
 class SearchProductsQuery(Request[SearchProductsResponse]):
     min_price: float = 0
 
-class SearchProductsHandler(Handler[SearchProductsQuery]):
+class SearchProductsHandler(RequestHandler[SearchProductsQuery]):
     def __init__(self, store: ProductReadStore):
         self.store = store
 
@@ -165,11 +165,13 @@ print(results)
 
 <Callout type="info">
   In a real system, `ProductReadStore` would typically be backed by a separate replica or a
-  denormalized read model kept in sync via events — this example keeps everything in one process
-  purely to stay runnable as a self-contained snippet.
+  denormalized read model kept in sync via [events](/docs/guide/events) — a command handler
+  publishes `ProductCreated`, and a subscriber updates the read model. This example keeps
+  everything in one process purely to stay runnable as a self-contained snippet.
 </Callout>
 
 ## Next steps
 
 - [Requests and responses: CQRS](/docs/guide/requests-responses#cqrs-commands-and-queries) — the underlying design pattern
+- [Events](/docs/examples/events) — the third CQRS message kind: publish facts, react in subscribers
 - [Pipeline behaviors](/docs/examples/pipeline-behaviors) — apply different behaviors to commands vs. queries (for example, caching only queries)

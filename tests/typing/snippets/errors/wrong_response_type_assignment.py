@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -23,7 +23,7 @@ class GetUserRequest(Request[UserResponse]):
     user_id: int
 
 
-class GetUserHandler(Handler[GetUserRequest]):
+class GetUserHandler(RequestHandler[GetUserRequest]):
     @override
     def __call__(self, request: GetUserRequest) -> UserResponse:
         return UserResponse(user_id=request.user_id, username="alice")

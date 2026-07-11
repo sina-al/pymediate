@@ -11,7 +11,7 @@ A full, runnable feature in one file:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 # 1. Define the response
 @dataclass
@@ -27,7 +27,7 @@ class CreateUser(Request[UserCreated]):
     email: str
 
 # 3. Write the handler
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __init__(self):
         self.next_id = 1
         self.users = {}
@@ -97,12 +97,12 @@ class CreateUser(Request[UserCreated]):
 
 ### Write the handler
 
-A handler subclasses `Handler[CreateUser]` and implements `__call__`. The type parameter is how PyMediate knows which requests it handles — no naming conventions, no registration strings:
+A handler subclasses `RequestHandler[CreateUser]` and implements `__call__`. The type parameter is how PyMediate knows which requests it handles — no naming conventions, no registration strings:
 
 ```python
-from pymediate import Handler
+from pymediate import RequestHandler
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __init__(self):
         self.next_id = 1
         self.users = {}
@@ -153,7 +153,7 @@ print(f"Created user {response.username} with ID {response.user_id}")
 PyMediate validates handler signatures when the class is *defined*, so a wiring mistake fails at import time:
 
 ```python
-class WrongHandler(Handler[CreateUser]):
+class WrongHandler(RequestHandler[CreateUser]):
     def __call__(self, request: CreateUser) -> str:  # wrong return type
         return "oops"
 
@@ -166,9 +166,9 @@ The async API in `pymediate.aio` is a structural mirror of the sync one — same
 
 ```python
 from pymediate import Services
-from pymediate.aio import Handler, Mediator
+from pymediate.aio import RequestHandler, Mediator
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     async def __call__(self, request: CreateUser) -> UserCreated:
         await database.save_user(request.username, request.email)
         return UserCreated(user_id=1, username=request.username, email=request.email)
@@ -185,5 +185,6 @@ See the [async example](/docs/examples/async) for a complete program.
 ## Next steps
 
 - Learn the [core concepts](/docs/getting-started/concepts) behind requests, handlers, and the mediator.
+- Notify many handlers at once with [events](/docs/guide/events) — `publish()` is `send()`'s one-to-many counterpart.
 - Add cross-cutting logic with [pipeline behaviors](/docs/guide/pipeline-behaviors).
 - Wire handlers through a container with [dependency injection](/docs/guide/dependency-injection).

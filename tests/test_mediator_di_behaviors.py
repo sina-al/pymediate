@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import Handler, Mediator, PipelineBehavior, Request, ServiceNotFoundError
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, ServiceNotFoundError
 from pymediate.providers import DependencyInjectorServiceProvider
 
 # ============================================================================
@@ -279,9 +279,9 @@ class DatabaseLoggingBehavior(PipelineBehavior[CounterRequest]):
 def test_di_mediator_with_single_behavior() -> None:
     """Test mediator with single behavior from DI container."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         increment = providers.Factory(IncrementBehavior, amount=5)
@@ -294,16 +294,16 @@ def test_di_mediator_with_single_behavior() -> None:
     response = mediator.send(CounterRequest(value=10))
 
     assert response.value == 15  # 10 + 5
-    assert "Handler" in response.execution_log
+    assert "RequestHandler" in response.execution_log
     assert "Increment(+5)" in response.execution_log
 
 
 def test_di_mediator_with_multiple_behaviors() -> None:
     """Test mediator with multiple behaviors from DI container."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         increment = providers.Factory(IncrementBehavior, amount=3)
@@ -320,7 +320,7 @@ def test_di_mediator_with_multiple_behaviors() -> None:
     # Execution: handler(10) -> *2 = 20 -> +3 = 23
     assert response.value == 23
     assert response.execution_log == [
-        "Handler",
+        "RequestHandler",
         "Logging(test)",
         "Multiply(*2)",
         "Increment(+3)",
@@ -330,9 +330,9 @@ def test_di_mediator_with_multiple_behaviors() -> None:
 def test_di_mediator_without_behaviors() -> None:
     """Test mediator with only handler (fast path)."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         handler = providers.Factory(CounterHandler)
@@ -344,7 +344,7 @@ def test_di_mediator_without_behaviors() -> None:
     response = mediator.send(CounterRequest(value=42))
 
     assert response.value == 42
-    assert response.execution_log == ["Handler"]
+    assert response.execution_log == ["RequestHandler"]
 
 
 # ============================================================================
@@ -355,9 +355,9 @@ def test_di_mediator_without_behaviors() -> None:
 def test_di_short_circuit_behavior() -> None:
     """Test behavior that short-circuits based on condition."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         short_circuit = providers.Factory(ShortCircuitBehavior)
@@ -383,9 +383,9 @@ def test_di_short_circuit_behavior() -> None:
 def test_di_conditional_behavior() -> None:
     """Test behavior with conditional logic."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         conditional = providers.Factory(ConditionalBehavior, threshold=50)
@@ -415,9 +415,9 @@ def test_di_conditional_behavior() -> None:
 def test_di_registration_order_matters() -> None:
     """Test that behavior registration order determines execution order."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     # Container 1: increment then multiply
     class Container1(containers.DeclarativeContainer):
@@ -439,19 +439,19 @@ def test_di_registration_order_matters() -> None:
 
     # Container1: 10 * 2 = 20, then + 5 = 25
     assert response1.value == 25
-    assert response1.execution_log == ["Handler", "Multiply(*2)", "Increment(+5)"]
+    assert response1.execution_log == ["RequestHandler", "Multiply(*2)", "Increment(+5)"]
 
     # Container2: (10 + 5) * 2 = 30
     assert response2.value == 30
-    assert response2.execution_log == ["Handler", "Increment(+5)", "Multiply(*2)"]
+    assert response2.execution_log == ["RequestHandler", "Increment(+5)", "Multiply(*2)"]
 
 
 def test_di_complex_registration_order() -> None:
     """Test complex registration order with many behaviors."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         # Behaviors registered in specific order
@@ -473,7 +473,7 @@ def test_di_complex_registration_order() -> None:
 
     # Logs should be in reverse registration order (unwinding)
     assert response.execution_log == [
-        "Handler",
+        "RequestHandler",
         "Logging(third)",
         "Multiply(*3)",
         "Logging(second)",
@@ -490,9 +490,9 @@ def test_di_complex_registration_order() -> None:
 def test_di_nested_containers() -> None:
     """Test behaviors from nested DI containers."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class CoreContainer(containers.DeclarativeContainer):
         """Core behaviors used across application."""
@@ -524,15 +524,15 @@ def test_di_nested_containers() -> None:
     # The nested providers won't be automatically discovered
     # This tests that only providers directly in the container are used
     assert response.value == 10  # No behaviors applied from nested containers
-    assert response.execution_log == ["Handler"]
+    assert response.execution_log == ["RequestHandler"]
 
 
 def test_di_flat_container_composition() -> None:
     """Test composing behaviors from multiple containers into one flat container."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class CoreBehaviors(containers.DeclarativeContainer):
         logging = providers.Factory(LoggingBehavior, label="core")
@@ -569,9 +569,9 @@ def test_di_flat_container_composition() -> None:
 def test_di_behavior_inheritance() -> None:
     """Test that behavior subclasses are resolved correctly."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         base = providers.Factory(BaseBehavior, tag="base")
@@ -594,9 +594,9 @@ def test_di_behavior_inheritance() -> None:
 def test_di_behavior_polymorphism() -> None:
     """Test that behavior subclasses are treated as PipelineBehavior instances."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         behavior1 = providers.Factory(BaseBehavior, tag="1")
@@ -621,9 +621,9 @@ def test_di_behavior_polymorphism() -> None:
 def test_di_behavior_with_audit_mixin() -> None:
     """Test behavior with audit mixin."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         audited = providers.Factory(AuditedBehavior)
@@ -642,9 +642,9 @@ def test_di_behavior_with_audit_mixin() -> None:
 def test_di_behavior_with_metrics_mixin() -> None:
     """Test behavior with metrics mixin."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         metrics = providers.Factory(MetricsBehavior)
@@ -663,9 +663,9 @@ def test_di_behavior_with_metrics_mixin() -> None:
 def test_di_behavior_with_multiple_mixins() -> None:
     """Test behavior with multiple mixins."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         combined = providers.Factory(CombinedMixinBehavior)
@@ -684,9 +684,9 @@ def test_di_behavior_with_multiple_mixins() -> None:
 def test_di_combination_of_behaviors_with_and_without_mixins() -> None:
     """Test mixture of behaviors with and without mixins."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         # Regular behaviors
@@ -726,9 +726,9 @@ def test_di_combination_of_behaviors_with_and_without_mixins() -> None:
 def test_di_singleton_behavior_reused() -> None:
     """Test that singleton behaviors are reused across requests."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         # Singleton - same instance for all requests
@@ -758,9 +758,9 @@ def test_di_singleton_behavior_reused() -> None:
 def test_di_factory_behavior_fresh_instances() -> None:
     """Test that factory behaviors create new instances per resolve."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         # Factory - new instance per request
@@ -790,9 +790,9 @@ def test_di_factory_behavior_fresh_instances() -> None:
 def test_di_mixed_scopes() -> None:
     """Test mixture of singleton and factory behaviors."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         # Singleton - shared across requests
@@ -825,9 +825,9 @@ def test_di_mixed_scopes() -> None:
 def test_di_behavior_with_injected_dependency() -> None:
     """Test behavior that has dependencies injected by DI container."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         # Database is a dependency
@@ -857,9 +857,9 @@ def test_di_behavior_with_injected_dependency() -> None:
 def test_di_behavior_with_shared_dependency() -> None:
     """Test multiple behaviors sharing the same dependency."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class AnotherDBBehavior(PipelineBehavior[CounterRequest]):
         """Another behavior using database."""
@@ -899,9 +899,9 @@ def test_di_behavior_with_shared_dependency() -> None:
 def test_di_complex_behavior_pipeline() -> None:
     """Test complex pipeline with all behavior types combined."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class ValidationBehavior(PipelineBehavior[CounterRequest]):
         """Validates request."""
@@ -948,9 +948,9 @@ def test_di_complex_behavior_pipeline() -> None:
 def test_di_real_world_scenario() -> None:
     """Test realistic scenario with authentication, logging, caching behaviors."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     @dataclass
     class User:
@@ -1042,13 +1042,13 @@ def test_di_error_handling_in_behaviors() -> None:
             except ValueError as e:
                 return ErrorTestResponse(value=-1, execution_log=[f"Recovered({e})"])
 
-    class FailingHandler(Handler[ErrorTestRequest]):
-        """Handler that fails on negative values."""
+    class FailingHandler(RequestHandler[ErrorTestRequest]):
+        """RequestHandler that fails on negative values."""
 
         def __call__(self, request: ErrorTestRequest) -> ErrorTestResponse:
             if request.value < 0:
                 raise ValueError("Negative value!")
-            return ErrorTestResponse(value=request.value, execution_log=["Handler"])
+            return ErrorTestResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         recovery = providers.Factory(ErrorRecoveryBehavior)
@@ -1077,11 +1077,11 @@ def test_di_error_handling_in_behaviors() -> None:
 def test_di_behaviors_only_apply_to_matching_requests() -> None:
     """Test that behaviors only apply to their target request types."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
-    class SimpleHandler(Handler[SimpleRequest]):
+    class SimpleHandler(RequestHandler[SimpleRequest]):
         def __call__(self, request: SimpleRequest) -> SimpleResponse:
             return SimpleResponse(message=f"Processed: {request.data}")
 
@@ -1119,9 +1119,9 @@ def test_di_behaviors_only_apply_to_matching_requests() -> None:
 def test_di_many_behaviors() -> None:
     """Test mediator with many behaviors."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         # Create 10 behaviors
@@ -1151,9 +1151,9 @@ def test_di_many_behaviors() -> None:
 def test_di_no_behaviors_registered() -> None:
     """Test that mediator works with no behaviors (fast path)."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         handler = providers.Factory(CounterHandler)
@@ -1165,7 +1165,7 @@ def test_di_no_behaviors_registered() -> None:
     response = mediator.send(CounterRequest(value=123))
 
     assert response.value == 123
-    assert response.execution_log == ["Handler"]
+    assert response.execution_log == ["RequestHandler"]
 
 
 # ============================================================================
@@ -1177,9 +1177,9 @@ def test_di_provider_get_raises_service_not_found() -> None:
     """DependencyInjectorServiceProvider.get() raises ServiceNotFoundError for an
     unregistered type, listing whatever service types *are* registered."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         handler = providers.Factory(CounterHandler)
@@ -1196,9 +1196,9 @@ def test_di_provider_get_raises_service_not_found() -> None:
 def test_di_provider_has_get_all_types_and_len() -> None:
     """Exercise has(), get_all_types(), and __len__() directly on the DI provider."""
 
-    class CounterHandler(Handler[CounterRequest]):
+    class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
-            return CounterResponse(value=request.value, execution_log=["Handler"])
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
         increment = providers.Factory(IncrementBehavior, amount=1)

@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, ResponseTypeMismatchError, Services
+from pymediate import Mediator, Request, RequestHandler, ResponseTypeMismatchError, Services
 
 
 def test_complete_workflow() -> None:
@@ -22,7 +22,7 @@ def test_complete_workflow() -> None:
             self.email = email
 
     # Define handler
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __init__(self) -> None:
             self.next_id = 1
 
@@ -59,7 +59,7 @@ def test_multiple_request_types_workflow() -> None:
         def __init__(self, user_id: int) -> None:
             self.user_id = user_id
 
-    class GetUserHandler(Handler[GetUserRequest]):
+    class GetUserHandler(RequestHandler[GetUserRequest]):
         def __call__(self, request: GetUserRequest) -> UserResponse:
             # Simulate database lookup
             return UserResponse(request.user_id, f"User_{request.user_id}")
@@ -75,7 +75,7 @@ def test_multiple_request_types_workflow() -> None:
             self.user_id = user_id
             self.items = items
 
-    class CreateOrderHandler(Handler[CreateOrderRequest]):
+    class CreateOrderHandler(RequestHandler[CreateOrderRequest]):
         def __init__(self) -> None:
             self.next_order_id = 1000
 
@@ -121,7 +121,7 @@ def test_handler_composition() -> None:
         def __init__(self, name: str) -> None:
             self.name = name
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __init__(self) -> None:
             self.next_id = 1
 
@@ -142,7 +142,7 @@ def test_handler_composition() -> None:
             self.user_id = user_id
             self.content = content
 
-    class CreatePostHandler(Handler[CreatePostRequest]):
+    class CreatePostHandler(RequestHandler[CreatePostRequest]):
         def __init__(self) -> None:
             self.next_post_id = 1
 
@@ -200,7 +200,7 @@ def test_type_safety_at_runtime() -> None:
     # This should fail at class definition time
     with pytest.raises(ResponseTypeMismatchError):
 
-        class WrongHandler(Handler[TypedRequest]):
+        class WrongHandler(RequestHandler[TypedRequest]):
             def __call__(self, request: TypedRequest) -> WrongResponse:
                 return WrongResponse(42)
 
@@ -215,7 +215,7 @@ def test_resolver_switching() -> None:
     class Req(Request[Resp]):
         pass
 
-    class ReqHandler(Handler[Req]):
+    class ReqHandler(RequestHandler[Req]):
         def __init__(self, source: str):
             self.source = source
 

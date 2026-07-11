@@ -53,14 +53,16 @@ body:
       description: Please provide a minimal code example that reproduces the issue
       render: python
       placeholder: |
-        from pymediate import Request, Handler, Mediator, SimpleResolver
+        from dataclasses import dataclass
+        from pymediate import Request, RequestHandler, Mediator, Services
 
+        @dataclass
         class MyResponse:
-            def __init__(self, value: str):
-                self.value = value
+            value: str
 
-        class MyRequest(Request, response_type=MyResponse):
-            pass
+        @dataclass
+        class MyRequest(Request[MyResponse]):
+            data: str
 
         # Your code here that reproduces the bug
     validations:

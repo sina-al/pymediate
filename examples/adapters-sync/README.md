@@ -31,7 +31,7 @@ defines requests — each declaring what it responds with — and one handler pe
 class AddTask(Request[Task]):        # "sending AddTask gives back a Task"
     title: str
 
-class AddTaskHandler(Handler[AddTask]):
+class AddTaskHandler(RequestHandler[AddTask]):
     def __call__(self, request: AddTask) -> Task:
         ...  # create the task, return it
 ```

@@ -6,7 +6,7 @@ from typing import Any
 from ._internal.handler import HandlerBaseMixin
 
 
-class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
+class RequestHandler[RequestT](HandlerBaseMixin[RequestT], ABC):
     """Abstract base handler class for synchronous request processing.
 
     Handlers contain the business logic for processing requests. They only need
@@ -23,7 +23,7 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
     This validation happens at class definition time (import time), catching
     errors early in the development cycle rather than at runtime.
 
-    As an abstract base class, Handler cannot be instantiated directly - subclasses
+    As an abstract base class, RequestHandler cannot be instantiated directly - subclasses
     must implement `__call__`, and mypy flags subclasses that omit it or type its
     request parameter incorrectly.
 
@@ -34,7 +34,7 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
         Basic handler with dataclasses:
             ```python
             from dataclasses import dataclass
-            from pymediate import Handler, Request
+            from pymediate import RequestHandler, Request
 
             @dataclass
             class UserResponse:
@@ -46,14 +46,14 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
                 username: str
                 email: str
 
-            class CreateUserHandler(Handler[CreateUserRequest]):
+            class CreateUserHandler(RequestHandler[CreateUserRequest]):
                 def __call__(self, request: CreateUserRequest) -> UserResponse:
                     return UserResponse(user_id=1, username=request.username)
             ```
 
-        Handler with dependencies:
+        RequestHandler with dependencies:
             ```python
-            class CreateUserHandler(Handler[CreateUserRequest]):
+            class CreateUserHandler(RequestHandler[CreateUserRequest]):
                 def __init__(self, database: Database):
                     self.database = database
 
@@ -66,7 +66,7 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
             ```
 
     Note:
-        For asynchronous handlers, use `pymediate.aio.Handler` instead.
+        For asynchronous handlers, use `pymediate.aio.RequestHandler` instead.
         Validation occurs at class definition time. If your __call__ signature
         doesn't match expectations, you'll get a clear error message when the
         module is imported, not when the handler is invoked.
@@ -79,7 +79,7 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
     See Also:
         - Request: Base request class
         - Mediator: Routes requests to handlers (sync version)
-        - pymediate.aio.Handler: Async handler variant
+        - pymediate.aio.RequestHandler: Async handler variant
         - pymediate.aio.Mediator: Async mediator variant
     """
 
@@ -89,7 +89,7 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
     def __call__(self, request: RequestT) -> Any:
         """Handle the request and return a response.
 
-        This is an abstract method that must be implemented by all Handler subclasses,
+        This is an abstract method that must be implemented by all RequestHandler subclasses,
         with the signature `def __call__(self, request: RequestType) -> ResponseType: ...`
 
         Args:
@@ -99,13 +99,13 @@ class Handler[RequestT](HandlerBaseMixin[RequestT], ABC):
             The response, of the type declared by the request's `Request[ResponseType]`.
 
         Note:
-            mypy checks that `request`'s type matches `Handler[RequestT]`'s type
+            mypy checks that `request`'s type matches `RequestHandler[RequestT]`'s type
             argument, but not that the return type matches the request's declared
             response type - that mismatch is caught at runtime instead, when the
             class is defined (see `ResponseTypeMismatchError`). The annotation must
             be the exact request class - a base class or union passes static
             checking (contravariance) but raises `InvalidHandlerSignatureError` at
             class definition. This method must also be synchronous; for async
-            handlers, use `pymediate.aio.Handler`.
+            handlers, use `pymediate.aio.RequestHandler`.
         """
         ...

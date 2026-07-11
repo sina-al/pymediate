@@ -10,7 +10,7 @@ takes over the wiring that ``Services`` does by hand in the basic examples. Requ
 from dataclasses import dataclass, field
 
 from dependency_injector import containers, providers
-from pymediate import Handler, Mediator, Request
+from pymediate import RequestHandler, Mediator, Request
 from pymediate.providers import DependencyInjectorServiceProvider
 
 
@@ -54,7 +54,7 @@ class GetUser(Request[User]):
 # ---- Handlers: dependencies arrive through constructors, injected by the container ----
 
 
-class RegisterUserHandler(Handler[RegisterUser]):
+class RegisterUserHandler(RequestHandler[RegisterUser]):
     """Creates users in the repository."""
 
     def __init__(self, repository: UserRepository) -> None:
@@ -67,7 +67,7 @@ class RegisterUserHandler(Handler[RegisterUser]):
         return user
 
 
-class GetUserHandler(Handler[GetUser]):
+class GetUserHandler(RequestHandler[GetUser]):
     """Looks up existing users."""
 
     def __init__(self, repository: UserRepository) -> None:

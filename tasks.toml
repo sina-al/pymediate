@@ -90,7 +90,7 @@ is fine as long as it lands as a minor bump (see CLAUDE.md's Versioning section)
 # ========== Benchmarks ==========
 
 benchmark.help = """
-Micro-benchmark mediator.send() overhead vs calling the handler directly \
+Micro-benchmark mediator.send() and mediator.publish() overhead vs direct calls \
 (usage: poe benchmark --number 100000 --repeat 5). Quoted in the docs site's \
 comparison page; results are machine-dependent.\
 """

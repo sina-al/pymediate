@@ -11,7 +11,7 @@ The fastest and most common test: construct the handler with fakes, call it, ass
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler
+from pymediate import Request, RequestHandler
 
 @dataclass
 class CreateUserResponse:
@@ -23,7 +23,7 @@ class CreateUserRequest(Request[CreateUserResponse]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, database):
         self.database = database
 
@@ -110,29 +110,29 @@ async def test_async_handler_through_mediator():
     assert response.data is not None
 ```
 
-`Services` is imported from `pymediate`, not `pymediate.aio`, even in async tests — only `Handler` and `Mediator` have separate sync/async variants.
+`Services` is imported from `pymediate`, not `pymediate.aio`, even in async tests — only `RequestHandler`, `EventHandler`, and `Mediator` have separate sync/async variants.
 
 ## A test-isolation gotcha: the handler registry is global
 
-Each `Handler[RequestT]` subclass registers itself against its request type the moment the class body executes — not per `Services` instance, but in a single registry shared by the whole process. Defining a second `Handler` for a request type that already has one raises `HandlerAlreadyRegisteredError` — and that applies across two test files just as much as in application code:
+Each `RequestHandler[RequestT]` subclass registers itself against its request type the moment the class body executes — not per `Services` instance, but in a single registry shared by the whole process. Defining a second `RequestHandler` for a request type that already has one raises `HandlerAlreadyRegisteredError` — and that applies across two test files just as much as in application code:
 
 ```python
 # test_a.py
-class TempHandler(Handler[SharedRequest]):
+class TempHandler(RequestHandler[SharedRequest]):
     def __call__(self, request: SharedRequest) -> SharedResponse:
         return SharedResponse(value=1)
 
 # test_b.py — if SharedRequest is the same class, this collides at import/collection time
-class TempHandler(Handler[SharedRequest]):
+class TempHandler(RequestHandler[SharedRequest]):
     def __call__(self, request: SharedRequest) -> SharedResponse:
         return SharedResponse(value=2)
-# HandlerAlreadyRegisteredError: Handler already registered for 'SharedRequest'
+# HandlerAlreadyRegisteredError: RequestHandler already registered for 'SharedRequest'
 ```
 
 Vary behavior through the constructor instead of redefining the class:
 
 ```python
-class ConfigurableHandler(Handler[SharedRequest]):
+class ConfigurableHandler(RequestHandler[SharedRequest]):
     def __init__(self, value: int):
         self.value = value
 
@@ -146,6 +146,8 @@ handler = ConfigurableHandler(value=2)
 ```
 
 If you genuinely need two distinct handler implementations, give them distinct request types — see [troubleshooting](/docs/advanced/troubleshooting#handleralreadyregisterederror) for the full set of options.
+
+[Event handlers](/docs/guide/events) live in the same process-global registry with the opposite failure mode. Any number may subscribe to one event type, so there's no duplicate-registration error to warn you — instead, subscriptions *accumulate*: every `EventHandler` subclass defined anywhere in the test run is subscribed to its event type. Because `publish()` resolves every subscribed class from the provider before running any of them, publishing an event whose subscribers include a class defined in *another* test file — one you never registered in this test's `Services` — raises `ServiceNotFoundError`. The fix is the same discipline: define event types and their handlers once, share them via fixtures or a module, and vary behavior through constructors rather than redefining classes per test.
 
 ## Fixtures and organization
 

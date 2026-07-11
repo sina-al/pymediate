@@ -89,7 +89,7 @@ or explicitly ignore (with a justification comment) will fail the PR.
 - Coverage floor: 95% (`--cov-fail-under=95` in `release.yml`, checked on PR diff too).
 - PR titles must follow Conventional Commits (`feat:`, `fix:`, `docs:`, etc.) — enforced by
   `pr.yml`, will hard-fail otherwise.
-- CI flags diffs to `__all__` in `__init__.py`, the `Handler` class, or the `ServiceProvider`
+- CI flags diffs to `__all__` in `__init__.py`, the `RequestHandler` class, or the `ServiceProvider`
   protocol as potential breaking changes — treat those as places requiring extra care and,
   likely, an ADR. These are also the surfaces "Versioning" below uses to decide minor vs. patch.
 
@@ -200,7 +200,7 @@ Since major can never carry a signal, minor and patch split that job between the
 - **Minor** (`0.X.0`) — a breaking change to the public API, or a new backward-compatible
   feature. "Breaking" here means the same surfaces already called out in "Quality bar" below:
   a removed/changed name in `__init__.py`'s `__all__`, or a removed/changed public symbol in
-  `Handler` or the `ServiceProvider` protocol.
+  `RequestHandler` or the `ServiceProvider` protocol.
 - **Patch** (`0.1.X`) — bug fixes, docs, refactors, tooling — anything with no public API impact.
 
 The version exists **only as a git tag** — hatch-vcs derives it at build time, `__version__`

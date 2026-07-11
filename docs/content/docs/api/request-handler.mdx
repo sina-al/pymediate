@@ -1,18 +1,25 @@
 ---
-title: Handler
-description: API reference for the sync and async Handler base classes.
+title: RequestHandler
+description: API reference for the sync and async RequestHandler base classes.
 ---
 
 Handlers contain the business logic for processing requests. They declare only the request type — the response type is inferred from that request's `Request[ResponseT]` definition.
+
+<Callout type="warn" title="Renamed from Handler in 0.4.0">
+  `RequestHandler` was named `Handler` before 0.4.0. The old name still imports through 0.4.x
+  with a `DeprecationWarning` and will be removed in the next minor release — update
+  `from pymediate import Handler` to `from pymediate import RequestHandler` (same for
+  `pymediate.aio`). The rationale is recorded in ADR 0006.
+</Callout>
 
 <Tabs items={['Sync', 'Async']}>
   <Tab value="Sync">
     ```python
     from abc import abstractmethod
     from typing import Any
-    from pymediate import Handler
+    from pymediate import RequestHandler
 
-    class Handler[RequestT](ABC):
+    class RequestHandler[RequestT](ABC):
         @abstractmethod
         def __call__(self, request: RequestT) -> Any:
             """Handle the request and return a response."""
@@ -22,9 +29,9 @@ Handlers contain the business logic for processing requests. They declare only t
     ```python
     from abc import abstractmethod
     from typing import Any
-    from pymediate.aio import Handler
+    from pymediate.aio import RequestHandler
 
-    class Handler[RequestT](ABC):
+    class RequestHandler[RequestT](ABC):
         @abstractmethod
         async def __call__(self, request: RequestT) -> Any:
             """Handle the request asynchronously and return a response."""
@@ -40,10 +47,10 @@ Handlers contain the business logic for processing requests. They declare only t
 
 ## Definition-time validation
 
-`Handler` validates every subclass via `__init_subclass__` the moment the class is defined — at import time, not dispatch time. It checks that:
+`RequestHandler` validates every subclass via `__init_subclass__` the moment the class is defined — at import time, not dispatch time. It checks that:
 
 - `__call__` exists and is implemented
-- `__call__` is sync (or async, for `pymediate.aio.Handler`)
+- `__call__` is sync (or async, for `pymediate.aio.RequestHandler`)
 - the `__call__` parameter annotation is *exactly* the declared request type — a base class or
   union is rejected, because dispatch is keyed by the exact request class (see
   [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract))
@@ -62,7 +69,7 @@ See [type safety](/docs/advanced/type-safety) for how this interacts with mypy's
 
 ```python
 from dataclasses import dataclass
-from pymediate import Handler, Request
+from pymediate import RequestHandler, Request
 
 @dataclass
 class UserResponse:
@@ -74,7 +81,7 @@ class CreateUserRequest(Request[UserResponse]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, database: Database):
         self.database = database
 
@@ -83,7 +90,7 @@ class CreateUserHandler(Handler[CreateUserRequest]):
         return UserResponse(user_id=user_id, username=request.username)
 ```
 
-As an ABC, `Handler` can't be instantiated directly, and mypy flags subclasses that omit `__call__` or type its request parameter incorrectly.
+As an ABC, `RequestHandler` can't be instantiated directly, and mypy flags subclasses that omit `__call__` or type its request parameter incorrectly.
 
 <Callout type="info" title="One handler per request type">
   The handler registry is process-wide and populated at class definition. Defining a second
@@ -94,5 +101,6 @@ As an ABC, `Handler` can't be instantiated directly, and mypy flags subclasses t
 ## See also
 
 - [Request](/docs/api/request) — the request base class
+- [EventHandler](/docs/api/event-handler) — the one-to-many counterpart for events
 - [Mediator](/docs/api/mediator) — routes requests to handlers
 - [Handlers guide](/docs/guide/handlers) — design patterns and best practices

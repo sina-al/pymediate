@@ -93,7 +93,7 @@ Key properties, and where each is enforced:
 
 [ZeroVer](https://0ver.org/): major stays 0. **Minor** = breaking public-API change or new
 feature; **patch** = everything else. "Breaking" is defined against the flagged surfaces:
-`__all__` in `__init__.py`, the `Handler` class, the `ServiceProvider` protocol.
+`__all__` in `__init__.py`, the `RequestHandler` class, the `ServiceProvider` protocol.
 `scripts/release_impact.py` recommends the bump by classifying commits and AST-diffing
 those surfaces since the last tag; `bump=auto` follows it, `bump=patch|minor` overrides.
 

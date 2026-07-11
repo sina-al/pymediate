@@ -7,7 +7,7 @@ and request-handler mappings.
 import threading
 from typing import Any
 
-from pymediate import Handler, Request
+from pymediate import Request, RequestHandler
 from pymediate._internal.registry import (
     clear_all_registries,
     get_all_handler_request_types,
@@ -83,7 +83,7 @@ def test_get_all_request_types() -> None:
     assert Request2 in all_types
 
 
-# ========== Handler Registry Tests ==========
+# ========== RequestHandler Registry Tests ==========
 
 
 def test_register_and_get_handler() -> None:
@@ -95,11 +95,11 @@ def test_register_and_get_handler() -> None:
     class TestRequest(Request[TestResponse]):
         pass
 
-    class TestHandler(Handler[TestRequest]):
+    class TestHandler(RequestHandler[TestRequest]):
         def __call__(self, request: TestRequest) -> TestResponse:
             return TestResponse()
 
-    # Handler should be auto-registered by Handler metaclass
+    # RequestHandler should be auto-registered by RequestHandler metaclass
     assert has_handler(TestRequest)
     assert get_handler_class(TestRequest) == TestHandler
 
@@ -119,7 +119,7 @@ def test_has_handler() -> None:
     class UnhandledRequest(Request[UnhandledResponse]):
         pass
 
-    class MyHandler(Handler[HandledRequest]):
+    class MyHandler(RequestHandler[HandledRequest]):
         def __call__(self, request: HandledRequest) -> HandledResponse:
             return HandledResponse()
 
@@ -154,11 +154,11 @@ def test_get_all_handler_request_types() -> None:
     class Request2(Request[Response2]):
         pass
 
-    class Handler1(Handler[Request1]):
+    class Handler1(RequestHandler[Request1]):
         def __call__(self, request: Request1) -> Response1:
             return Response1()
 
-    class Handler2(Handler[Request2]):
+    class Handler2(RequestHandler[Request2]):
         def __call__(self, request: Request2) -> Response2:
             return Response2()
 
@@ -180,7 +180,7 @@ def test_clear_all_registries() -> None:
     class Request1(Request[Response]):
         pass
 
-    class Handler1(Handler[Request1]):
+    class Handler1(RequestHandler[Request1]):
         def __call__(self, request: Request1) -> Response:
             return Response()
 
@@ -212,7 +212,7 @@ def test_get_registry_stats() -> None:
     class Request2(Request[Response2]):
         pass
 
-    class Handler1(Handler[Request1]):
+    class Handler1(RequestHandler[Request1]):
         def __call__(self, request: Request1) -> Response1:
             return Response1()
 
@@ -315,7 +315,7 @@ def test_handler_already_registered_error() -> None:
     class TestRequest(Request[Response]):
         pass
 
-    class Handler1(Handler[TestRequest]):
+    class Handler1(RequestHandler[TestRequest]):
         def __call__(self, request: TestRequest) -> Response:
             return Response()
 
@@ -324,7 +324,7 @@ def test_handler_already_registered_error() -> None:
     # Attempting to register a second handler should raise error
     with pytest.raises(HandlerAlreadyRegisteredError) as exc_info:
 
-        class Handler2(Handler[TestRequest]):
+        class Handler2(RequestHandler[TestRequest]):
             def __call__(self, request: TestRequest) -> Response:
                 return Response()
 
@@ -348,7 +348,7 @@ def test_handler_registration_error_preserves_first_handler() -> None:
     class TestRequest(Request[Response]):
         pass
 
-    class Handler1(Handler[TestRequest]):
+    class Handler1(RequestHandler[TestRequest]):
         def __call__(self, request: TestRequest) -> Response:
             return Response()
 
@@ -358,7 +358,7 @@ def test_handler_registration_error_preserves_first_handler() -> None:
     # Attempt to register second handler
     with pytest.raises(HandlerAlreadyRegisteredError):
 
-        class Handler2(Handler[TestRequest]):
+        class Handler2(RequestHandler[TestRequest]):
             def __call__(self, request: TestRequest) -> Response:
                 return Response()
 
@@ -378,14 +378,14 @@ def test_handler_registration_error_includes_location() -> None:
     class TestRequest(Request[Response]):
         pass
 
-    class Handler1(Handler[TestRequest]):
+    class Handler1(RequestHandler[TestRequest]):
         def __call__(self, request: TestRequest) -> Response:
             return Response()
 
     # Attempt to register second handler
     with pytest.raises(HandlerAlreadyRegisteredError) as exc_info:
 
-        class Handler2(Handler[TestRequest]):
+        class Handler2(RequestHandler[TestRequest]):
             def __call__(self, request: TestRequest) -> Response:
                 return Response()
 
@@ -408,14 +408,14 @@ def test_handler_registration_error_provides_solutions() -> None:
     class TestRequest(Request[Response]):
         pass
 
-    class Handler1(Handler[TestRequest]):
+    class Handler1(RequestHandler[TestRequest]):
         def __call__(self, request: TestRequest) -> Response:
             return Response()
 
     # Attempt to register second handler
     with pytest.raises(HandlerAlreadyRegisteredError) as exc_info:
 
-        class Handler2(Handler[TestRequest]):
+        class Handler2(RequestHandler[TestRequest]):
             def __call__(self, request: TestRequest) -> Response:
                 return Response()
 

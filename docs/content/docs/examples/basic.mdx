@@ -9,7 +9,7 @@ Minimal, complete examples of the core PyMediate workflow. For a guided walkthro
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class GreetResponse:
@@ -19,7 +19,7 @@ class GreetResponse:
 class GreetRequest(Request[GreetResponse]):
     name: str
 
-class GreetHandler(Handler[GreetRequest]):
+class GreetHandler(RequestHandler[GreetRequest]):
     def __call__(self, request: GreetRequest) -> GreetResponse:
         return GreetResponse(message=f"Hello, {request.name}!")
 
@@ -38,7 +38,7 @@ A more realistic case: two handlers sharing a dependency, with request validatio
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 class InMemoryUserStore:
     def __init__(self):
@@ -70,7 +70,7 @@ class CreateUserRequest(Request[CreateUserResponse]):
         if "@" not in self.email:
             raise ValueError("Invalid email address")
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, store: InMemoryUserStore):
         self.store = store
 
@@ -88,7 +88,7 @@ class GetUserResponse:
 class GetUserRequest(Request[GetUserResponse]):
     user_id: int
 
-class GetUserHandler(Handler[GetUserRequest]):
+class GetUserHandler(RequestHandler[GetUserRequest]):
     def __init__(self, store: InMemoryUserStore):
         self.store = store
 
@@ -124,5 +124,6 @@ Notice that `CreateUserHandler` and `GetUserHandler` share the same `InMemoryUse
 ## Next steps
 
 - [Async/await](/docs/examples/async) — the same patterns with async handlers
+- [Events](/docs/examples/events) — publishing one fact to many handlers
 - [Pipeline behaviors](/docs/examples/pipeline-behaviors) — adding logging, caching, and more
 - [Handlers guide](/docs/guide/handlers) — handler design and independence

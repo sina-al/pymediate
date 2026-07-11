@@ -6,7 +6,7 @@ description: Scaffold a new numbered Architecture Decision Record in docs/adr/ f
 # /adr — scaffold a new ADR
 
 Use this when starting work on a design decision worth recording: changes to public API shape
-(`__all__`, `Handler`, `Request`, `PipelineBehavior`, resolver protocols), generics/typing
+(`__all__`, `RequestHandler`, `Request`, `PipelineBehavior`, resolver protocols), generics/typing
 design, or anything CI's breaking-change checks would flag.
 
 ## Steps
