@@ -4,14 +4,14 @@
 
 | Name                                            |    Stmts |     Miss |      Cover |   Missing |
 |------------------------------------------------ | -------: | -------: | ---------: | --------: |
-| src/pymediate/\_\_init\_\_.py                   |       18 |        0 |    100.00% |           |
+| src/pymediate/\_\_init\_\_.py                   |       11 |        0 |    100.00% |           |
 | src/pymediate/\_internal/\_\_init\_\_.py        |        0 |        0 |    100.00% |           |
 | src/pymediate/\_internal/event.py               |       33 |        1 |     96.97% |        65 |
 | src/pymediate/\_internal/handler.py             |       78 |        2 |     97.44% |     92-93 |
 | src/pymediate/\_internal/mediator.py            |       19 |        0 |    100.00% |           |
 | src/pymediate/\_internal/pipeline.py            |       20 |        0 |    100.00% |           |
 | src/pymediate/\_internal/registry.py            |       84 |        4 |     95.24% |184, 190, 197, 206 |
-| src/pymediate/aio/\_\_init\_\_.py               |       12 |        0 |    100.00% |           |
+| src/pymediate/aio/\_\_init\_\_.py               |        5 |        0 |    100.00% |           |
 | src/pymediate/aio/event.py                      |        5 |        0 |    100.00% |           |
 | src/pymediate/aio/handler.py                    |        5 |        0 |    100.00% |           |
 | src/pymediate/aio/mediator.py                   |       21 |        0 |    100.00% |           |
@@ -25,7 +25,7 @@
 | src/pymediate/providers/dependency\_injector.py |       38 |        0 |    100.00% |           |
 | src/pymediate/request.py                        |       12 |        0 |    100.00% |           |
 | src/pymediate/service.py                        |       51 |        0 |    100.00% |           |
-| **TOTAL**                                       |  **544** |    **7** | **98.71%** |           |
+| **TOTAL**                                       |  **530** |    **7** | **98.68%** |           |
 
 
 ## Setup coverage badge
