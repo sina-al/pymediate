@@ -22,13 +22,15 @@ In suggested order:
 | --- | --- | --- |
 | 1 | [basic-async](basic-async/) | **Start here.** The whole pattern in one file: typed requests, one `async def` handler each, `await mediator.send()`, plus a pipeline behavior auditing every mutation. |
 | 2 | [basic-sync](basic-sync/) | The same board without the event loop, on `pymediate.sync` — PyMediate's synchronous mirror. |
-| 3 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
-| 4 | [adapters-async](adapters-async/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 5 | [adapters-sync](adapters-sync/) | The sync twin of #4: Flask, FastAPI, and a click CLI over one sync core. |
+| 3 | [events-async](events-async/) | The mediator's other half: `await mediator.publish()` fans one event out to many independent handlers. |
+| 4 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 5 | [adapters-async](adapters-async/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 6 | [adapters-sync](adapters-sync/) | The sync twin of #5: Flask, FastAPI, and a click CLI over one sync core. |
 
-1–2 teach the pattern, 3 plugs it into a container, 4–5 make the framework-independence
-argument. Async and sync examples mirror each other deliberately — diffing a pair is the
-fastest way to see how small the sync delta is.
+1–2 teach `send` (request → response), 3 adds `publish` (event fan-out), 4 plugs it into a
+container, 5–6 make the framework-independence argument. Async and sync examples mirror
+each other deliberately — diffing a pair is the fastest way to see how small the sync delta
+is.
 
 ## The examples contract
 
