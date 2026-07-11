@@ -47,6 +47,15 @@ class InvalidEventTypeError(PyMediateError):
 
 An event handler was parameterized on a type that doesn't inherit from `Event`. Because `EventHandler`'s type parameter is bound to `Event`, mypy and basedpyright flag this statically too — the runtime error is the backstop for unchecked code.
 
+### InvalidStreamRequestTypeError
+
+```python
+class InvalidStreamRequestTypeError(PyMediateError):
+    def __init__(self, stream_request_type: type): ...
+```
+
+A stream handler was parameterized on a type that doesn't inherit from `StreamRequest[ChunkType]` (or on a bare `StreamRequest` with no declared chunk type). Because `StreamRequestHandler`'s type parameter is bound to `StreamRequest`, mypy and basedpyright flag this statically too — the runtime error is the backstop for unchecked code.
+
 ### ResponseTypeMismatchError
 
 ```python

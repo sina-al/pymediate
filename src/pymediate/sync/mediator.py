@@ -1,9 +1,12 @@
 """Mediator implementation for routing requests to handlers."""
 
+from collections.abc import Iterator
+
 from .._internal.mediator import MediatorMixin
 from .._internal.pipeline import compose
 from ..event import Event
 from ..request import Request
+from ..stream import StreamRequest
 from .pipeline import PipelineBehavior
 
 
@@ -123,6 +126,63 @@ class Mediator(MediatorMixin):
         if not behaviors:
             return handler(request)  # type: ignore[no-any-return]
         return compose(behaviors, handler)(request)  # type: ignore[no-any-return]
+
+    def stream[ChunkT](self, request: StreamRequest[ChunkT]) -> Iterator[ChunkT]:
+        """Route a stream request to its handler and return the chunk stream.
+
+        Resolves the `StreamRequestHandler` registered for the request's type and
+        returns its generator. The handler is resolved **eagerly** - a missing
+        registration raises `HandlerNotFoundError` here, at the `stream()` call, not on
+        first iteration - while the stream itself is **lazy**: the handler's body runs
+        only as chunks are pulled with `for`.
+
+        `stream()` infers its element type from the request's `StreamRequest[ChunkT]`
+        type parameter, so each chunk is fully typed at the call site with no casts.
+
+        Args:
+            request: The stream request instance to dispatch.
+
+        Returns:
+            An iterator of chunks, typed as Iterator[ChunkT].
+
+        Raises:
+            HandlerNotFoundError: If no handler is registered for the request type.
+
+        Examples:
+            Streaming tokens from a completion request:
+                ```python
+                from collections.abc import Iterator
+                from dataclasses import dataclass
+                from pymediate.sync import (
+                    Mediator, Services, StreamRequest, StreamRequestHandler
+                )
+
+                @dataclass
+                class StreamCompletion(StreamRequest[str]):
+                    prompt: str
+
+                class CompletionHandler(StreamRequestHandler[StreamCompletion]):
+                    def __call__(self, request: StreamCompletion) -> Iterator[str]:
+                        yield from request.prompt.split()
+
+                services = Services()
+                services.add(CompletionHandler())
+                mediator = Mediator(services.provider())
+
+                for token in mediator.stream(StreamCompletion(prompt="hi there")):
+                    print(token)  # token is typed as str
+                ```
+
+        Note:
+            Pipeline behaviors wrap `send()` only; they do not run on `stream()`.
+
+        See Also:
+            - StreamRequest: Base class for streaming requests.
+            - StreamRequestHandler: Base class for stream handlers (sync version).
+            - pymediate.Mediator.stream: Async variant returning an AsyncIterator.
+        """
+        handler = self._resolve_handler(request)
+        return handler(request)  # type: ignore[no-any-return]
 
     def publish(self, event: Event) -> None:
         """Publish an event to every handler subscribed to its type.
