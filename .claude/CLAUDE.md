@@ -79,12 +79,14 @@ commit, running the same poe tasks as CI. Local hooks only, so tool versions com
 
 ## GitHub Actions workflows
 
-Before adding a new file under `.github/workflows/**` or editing an existing one, apply the
-`github-actions-security` skill (action pinning, least-privilege `permissions:`, script-injection
-prevention, OIDC over long-lived secrets, safe trigger scoping). This applies any time the task
-touches a workflow file, not only when security is mentioned explicitly. After editing, run
-`uv run poe actions:lint` (zizmor) — `checks.yml` enforces it in CI, so a finding you don't fix
-or explicitly ignore (with a justification comment) will fail the PR.
+zizmor owns the security bar for `.github/workflows/**` — run `uv run poe actions:lint`
+after any edit; `checks.yml` enforces it in CI, so a finding you don't fix or explicitly
+ignore (with a justification comment) will fail the PR. Its audits mechanically cover
+action pinning, template injection, permissions, dangerous triggers, and trusted
+publishing. The judgment calls it can't lint — trigger scoping (`paths:`/`branches:` +
+concurrency), `workflow_run` privilege separation over `pull_request_target`, whether a
+new third-party action is warranted at all — are injected at edit time by
+`.claude/hooks/pre_edit_reminders.py`.
 
 ### poe tasks vs. inline workflow steps
 

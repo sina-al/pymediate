@@ -14,14 +14,17 @@ import sys
 REMINDERS = [
     (
         ".github/workflows/",
-        "This touches a GitHub Actions workflow. Apply the github-actions-security skill "
-        "(.claude/skills/github-actions-security/SKILL.md): pin third-party actions to a "
-        "commit SHA, set least-privilege permissions:, never splice github.event.* into "
-        "run: (use env: instead), prefer OIDC over long-lived secrets, and scope triggers "
-        "with paths/branches/concurrency. Also apply the poe-vs-inline criteria (CLAUDE.md, "
-        "section: poe tasks vs. inline workflow steps): before writing a run: command, "
-        "check tasks.toml - if an existing poe task wraps it, route it through the task "
-        "rather than copying a neighboring raw step.",
+        "This touches a GitHub Actions workflow. zizmor owns the mechanical security bar - "
+        "run `uv run poe actions:lint` after editing (checks.yml enforces it in CI); its "
+        "audits cover action pinning, template injection, permissions, dangerous triggers, "
+        "and trusted publishing. What it cannot lint, you must judge: scope triggers "
+        "narrowly (paths/branches filters plus a concurrency group), prefer workflow_run "
+        "privilege separation over pull_request_target wherever secrets meet fork code, "
+        "and treat adding any new third-party action as a design decision, not a "
+        "convenience. Also apply the poe-vs-inline criteria (CLAUDE.md, section: poe tasks "
+        "vs. inline workflow steps): before writing a run: command, check tasks.toml - if "
+        "an existing poe task wraps it, route it through the task rather than copying a "
+        "neighboring raw step.",
     ),
     (
         "tests/typing/snippets/",
