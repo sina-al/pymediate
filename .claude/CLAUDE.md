@@ -6,14 +6,17 @@ Context for agentic work in this repo. Read this before making changes.
 
 PyMediate: a type-safe mediator/CQRS-style request-dispatch library for Python 3.12+.
 Zero runtime dependencies in core; `dependency-injector` is an optional extra (`di`).
-Sync (`pymediate`) and async (`pymediate.aio`) APIs are structural mirrors of each other —
-if you change one, check whether the other needs the equivalent change.
+Async (the top-level `pymediate`) and sync (`pymediate.sync`) APIs are structural mirrors of
+each other — if you change one, check whether the other needs the equivalent change. A parity
+test (`tests/test_parity.py`) enforces that every shared name is the identical object in both
+namespaces, with `RequestHandler`/`EventHandler`/`Mediator`/`PipelineBehavior` as the only
+intentional variants (ADR 0008).
 
 ## Layout
 
 - `src/pymediate/` — public package. `__init__.py`'s `__all__` is the public API contract.
   - `_internal/` — implementation details, not public API, no back-compat guarantees.
-  - `aio/` — async mirror of the sync API.
+  - `sync/` — sync mirror of the async top-level API.
   - `providers/dependency_injector.py` — optional DI integration (`di` extra).
 - `tests/` — pytest suite, roughly one `test_*.py` per `src/pymediate/` module (e.g.
   `test_handler.py`, `test_mediator.py`); `conftest.py` holds shared fixtures.
@@ -162,8 +165,8 @@ someone calling the API, not for someone reading the source.
   missing `@dataclass` decorators, an undefined `resolver` variable, a `providers.Self()`
   self-registration pattern that recurses infinitely - all inside docstrings, none caught until
   someone ran them.
-- Sync (`pymediate`) and async (`pymediate.aio`) docstrings are structural mirrors, same as the
-  code — if you fix or reword one, check the other side for the identical issue.
+- Async (top-level `pymediate`) and sync (`pymediate.sync`) docstrings are structural mirrors,
+  same as the code — if you fix or reword one, check the other side for the identical issue.
 - `poe lint` enforces docstring presence/formatting (ruff's `D` rules, Google convention) on
   `src/pymediate/` excluding `_internal/`; it won't catch stale content or broken examples, so
   don't rely on it as the only check.

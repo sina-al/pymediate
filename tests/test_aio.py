@@ -7,12 +7,13 @@ import pytest
 from pymediate import (
     HandlerNotFoundError,
     InvalidHandlerSignatureError,
+    Mediator,
     Request,
+    RequestHandler,
     ResponseTypeMismatchError,
     Services,
 )
 from pymediate._internal.registry import get_handler_class, has_handler
-from pymediate.aio import Mediator, RequestHandler
 
 
 def test_async_handler_extracts_request_type() -> None:
@@ -108,8 +109,7 @@ def test_async_handler_rejects_sync_call() -> None:
 
 def test_async_event_handler_rejects_sync_call() -> None:
     """Test that the async EventHandler rejects a sync __call__."""
-    from pymediate import Event
-    from pymediate.aio import EventHandler
+    from pymediate import Event, EventHandler
 
     class Ping(Event):
         pass
@@ -127,9 +127,8 @@ async def test_async_publish_runs_handlers_concurrently_and_aggregates() -> None
     import asyncio
     from dataclasses import dataclass
 
-    from pymediate import Event
-    from pymediate.aio import EventHandler
-    from pymediate.aio import Mediator as AioMediator
+    from pymediate import Event, EventHandler
+    from pymediate import Mediator as AioMediator
 
     @dataclass
     class Ping(Event):
@@ -168,7 +167,7 @@ async def test_async_publish_runs_handlers_concurrently_and_aggregates() -> None
 async def test_async_publish_with_zero_handlers_is_a_no_op() -> None:
     """Test that async publish with no subscribers succeeds silently."""
     from pymediate import Event
-    from pymediate.aio import Mediator as AioMediator
+    from pymediate import Mediator as AioMediator
 
     class NobodyListens(Event):
         pass
@@ -198,7 +197,7 @@ def test_async_handler_rejects_base_class_parameter_annotation() -> None:
 
 def test_sync_handler_rejects_async_call() -> None:
     """Test that sync RequestHandler rejects async __call__ method."""
-    from pymediate import RequestHandler as SyncHandler
+    from pymediate.sync import RequestHandler as SyncHandler
 
     class Resp:
         pass

@@ -27,14 +27,15 @@ class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self, database):
         self.database = database
 
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        user_id = self.database.create_user(request.username, request.email)
+    async def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
+        user_id = await self.database.create_user(request.username, request.email)
         return CreateUserResponse(user_id=user_id, username=request.username)
 
-def test_create_user_handler():
+@pytest.mark.asyncio
+async def test_create_user_handler():
     handler = CreateUserHandler(database=FakeDatabase())
 
-    response = handler(CreateUserRequest(username="alice", email="alice@example.com"))
+    response = await handler(CreateUserRequest(username="alice", email="alice@example.com"))
 
     assert response.username == "alice"
     assert response.user_id > 0
@@ -49,12 +50,13 @@ Reserve this for the handful of tests that specifically verify request routing, 
 ```python
 from pymediate import Mediator, Services
 
-def test_create_user_through_mediator():
+@pytest.mark.asyncio
+async def test_create_user_through_mediator():
     services = Services()
     services.add(CreateUserHandler(database=FakeDatabase()))
     mediator = Mediator(services.provider())
 
-    response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+    response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 
     assert response.username == "alice"
 ```
@@ -68,49 +70,46 @@ class FakeMediator:
     def __init__(self):
         self.sent = []
 
-    def send(self, request):
+    async def send(self, request):
         self.sent.append(request)
         return FakeResponseFor(request)
 
-def test_place_order_sends_expected_requests():
+@pytest.mark.asyncio
+async def test_place_order_sends_expected_requests():
     mediator = FakeMediator()
     handler = PlaceOrderHandler(mediator=mediator, database=FakeDatabase())
 
-    handler(PlaceOrderRequest(...))
+    await handler(PlaceOrderRequest(...))
 
     assert isinstance(mediator.sent[0], ChargePaymentRequest)
     assert isinstance(mediator.sent[1], SendEmailRequest)
 ```
 
-## Testing async handlers
+## Testing sync handlers
 
-Async handlers are `async def __call__` methods — test them with `pytest.mark.asyncio` like any other coroutine:
+Sync handlers (from `pymediate.sync`) are plain `def __call__` methods — no marker, no `await`:
 
 ```python
-import pytest
-from pymediate import Services
-from pymediate.aio import Mediator
+from pymediate.sync import Mediator, Services
 
-@pytest.mark.asyncio
-async def test_async_handler_directly():
-    handler = FetchDataHandler(http_client=FakeHttpClient())
+def test_sync_handler_directly():
+    handler = SyncFetchHandler(http_client=FakeHttpClient())
 
-    response = await handler(FetchDataRequest(url="https://api.example.com/data"))
+    response = handler(FetchDataRequest(url="https://api.example.com/data"))
 
     assert response.data is not None
 
-@pytest.mark.asyncio
-async def test_async_handler_through_mediator():
+def test_sync_handler_through_mediator():
     services = Services()
-    services.add(FetchDataHandler(http_client=FakeHttpClient()))
+    services.add(SyncFetchHandler(http_client=FakeHttpClient()))
     mediator = Mediator(services.provider())
 
-    response = await mediator.send(FetchDataRequest(url="https://api.example.com/data"))
+    response = mediator.send(FetchDataRequest(url="https://api.example.com/data"))
 
     assert response.data is not None
 ```
 
-`Services` is imported from `pymediate`, not `pymediate.aio`, even in async tests — only `RequestHandler`, `EventHandler`, and `Mediator` have separate sync/async variants.
+Shared names like `Services` and `Request` are the same objects in `pymediate` and `pymediate.sync` — only `RequestHandler`, `EventHandler`, `Mediator`, and `PipelineBehavior` have separate async/sync variants.
 
 ## A test-isolation gotcha: the handler registry is global
 
@@ -119,12 +118,12 @@ Each `RequestHandler[RequestT]` subclass registers itself against its request ty
 ```python
 # test_a.py
 class TempHandler(RequestHandler[SharedRequest]):
-    def __call__(self, request: SharedRequest) -> SharedResponse:
+    async def __call__(self, request: SharedRequest) -> SharedResponse:
         return SharedResponse(value=1)
 
 # test_b.py — if SharedRequest is the same class, this collides at import/collection time
 class TempHandler(RequestHandler[SharedRequest]):
-    def __call__(self, request: SharedRequest) -> SharedResponse:
+    async def __call__(self, request: SharedRequest) -> SharedResponse:
         return SharedResponse(value=2)
 # HandlerAlreadyRegisteredError: RequestHandler already registered for 'SharedRequest'
 ```
@@ -136,7 +135,7 @@ class ConfigurableHandler(RequestHandler[SharedRequest]):
     def __init__(self, value: int):
         self.value = value
 
-    def __call__(self, request: SharedRequest) -> SharedResponse:
+    async def __call__(self, request: SharedRequest) -> SharedResponse:
         return SharedResponse(value=self.value)
 
 # test_a.py
@@ -164,8 +163,9 @@ def fake_database():
 def create_user_handler(fake_database):
     return CreateUserHandler(database=fake_database)
 
-def test_create_user(create_user_handler):
-    response = create_user_handler(
+@pytest.mark.asyncio
+async def test_create_user(create_user_handler):
+    response = await create_user_handler(
         CreateUserRequest(username="alice", email="alice@example.com")
     )
     assert response.user_id > 0

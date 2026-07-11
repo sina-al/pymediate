@@ -1,10 +1,10 @@
 {
-    "name": "pymediate example: adapters-aio",
+    "name": "pymediate example: adapters-async",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/adapters-aio && uv sync",
+    "postCreateCommand": "cd examples/adapters-async && uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -12,7 +12,7 @@
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/adapters-aio/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/adapters-async/.venv/bin/python"
             }
         }
     }

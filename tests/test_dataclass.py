@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Mediator, Request, RequestHandler, Services
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
 # ========== Basic Dataclass Support ==========
 

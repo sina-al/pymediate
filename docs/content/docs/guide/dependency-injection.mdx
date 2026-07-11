@@ -32,7 +32,7 @@ container = AppContainer()
 provider = DependencyInjectorServiceProvider(container)
 mediator = Mediator(provider)
 
-response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 ```
 
 <Callout type="warning" title="Build the provider outside the container">
@@ -64,12 +64,13 @@ Most handlers should be `Factory` unless they're genuinely stateless and safe to
 Override providers exactly as you would in any `dependency-injector` test:
 
 ```python
-def test_create_user_with_container():
+@pytest.mark.asyncio
+async def test_create_user_with_container():
     container = AppContainer()
     container.database.override(providers.Singleton(InMemoryDatabase))
 
     mediator = Mediator(DependencyInjectorServiceProvider(container))
-    response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+    response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 
     assert response.username == "alice"
 ```

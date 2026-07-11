@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from pymediate import Request, RequestHandler
 from pymediate._internal.pipeline import compose
-from pymediate.pipeline import PipelineBehavior
+from pymediate.sync import Request, RequestHandler
+from pymediate.sync.pipeline import PipelineBehavior
 
 
 # Fixtures: Request and Response types

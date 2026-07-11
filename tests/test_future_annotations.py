@@ -16,14 +16,13 @@ import pytest
 from pymediate import (
     Event,
     InvalidHandlerSignatureError,
-    Mediator,
     Request,
-    RequestHandler,
     ResponseTypeMismatchError,
 )
-from pymediate.aio import Mediator as AsyncMediator
-from pymediate.aio import RequestHandler as AsyncHandler
+from pymediate import Mediator as AsyncMediator
+from pymediate import RequestHandler as AsyncHandler
 from pymediate.service import Services
+from pymediate.sync import Mediator, RequestHandler
 
 
 @dataclass
@@ -90,7 +89,7 @@ class UserRegistered(Event):
 
 
 def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
-    from pymediate import EventHandler, Mediator
+    from pymediate.sync import EventHandler, Mediator
 
     calls: list[int] = []
 
@@ -107,7 +106,7 @@ def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
 
 
 def test_event_handler_wrong_return_still_rejected_under_future_annotations() -> None:
-    from pymediate import EventHandler
+    from pymediate.sync import EventHandler
 
     with pytest.raises(InvalidHandlerSignatureError, match="must be annotated to return None"):
 

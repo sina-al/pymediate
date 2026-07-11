@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 def test_mediator_without_behaviors_calls_handler_directly() -> None:

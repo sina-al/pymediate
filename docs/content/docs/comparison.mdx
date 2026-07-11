@@ -50,7 +50,7 @@ The following results come from PyMediate 0.3.0 on a 2020 Intel MacBook Pro runn
 
 In practice, routing a request through the mediator costs about half a microsecond over calling the handler yourself, a pipeline behavior adds a microsecond or so more, and a sync publish sits in the same range. Dispatch cost is also independent of application size — it doesn't grow as you register more handlers.
 
-The async publish row deserves its own sentence: `pymediate.aio.Mediator.publish()` schedules every subscriber as a task and awaits them concurrently via `asyncio.gather`, and that event-loop machinery costs tens of microseconds per publish on this hardware — that 415x is the price of concurrent delivery, not of dispatch. It's the right trade exactly when subscribers do real I/O, which is the reason to be on the async API at all.
+The async publish row deserves its own sentence: the async `Mediator.publish()` schedules every subscriber as a task and awaits them concurrently via `asyncio.gather`, and that event-loop machinery costs tens of microseconds per publish on this hardware — that 415x is the price of concurrent delivery, not of dispatch. It's the right trade exactly when subscribers do real I/O, which is the reason to be on the async API at all.
 
 For scale, a single indexed database query costs hundreds of microseconds and a network round trip costs milliseconds — if your handler does any real work, dispatch overhead disappears into the noise. If you dispatch millions of trivial in-memory operations per second on a hot path, a mediator — any mediator — is the wrong tool, and you should skip this library too.
 

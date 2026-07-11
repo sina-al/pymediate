@@ -1,7 +1,7 @@
 """The application core: a task board that knows nothing about its adapters.
 
-The async mirror of `examples/adapters-sync/`'s core — same requests, same wiring,
-handlers declared ``async def`` on ``pymediate.aio``. Everything the three adapters
+Handlers are declared ``async def`` on PyMediate's top-level (async) API; the sync
+mirror of this example is `examples/adapters-sync/`. Everything the three adapters
 in this example deliver — FastAPI endpoints, aiohttp routes, an asyncclick CLI — is
 implemented here against pymediate and the standard library alone. The adapters
 (``fastapi_app.py``, ``aiohttp_app.py``, ``cli.py``) only translate their framework's
@@ -12,8 +12,7 @@ adding a framework never touches this file.
 import asyncio
 from dataclasses import dataclass, field
 
-from pymediate import Request, Services
-from pymediate.aio import RequestHandler, Mediator
+from pymediate import Mediator, Request, RequestHandler, Services
 
 
 @dataclass

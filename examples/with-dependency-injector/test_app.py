@@ -1,8 +1,8 @@
 """Tests for the with-dependency-injector example — the `uv run pytest` entrypoint."""
 
 import pytest
-from pymediate import Mediator
 from pymediate.providers import DependencyInjectorServiceProvider
+from pymediate.sync import Mediator
 
 from app import (
     AppContainer,

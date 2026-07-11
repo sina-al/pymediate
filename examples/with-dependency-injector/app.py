@@ -1,6 +1,8 @@
 """A user directory wired with a dependency-injector container — PyMediate's `di` extra.
 
-Demonstrates the optional integration in ``pymediate.providers``: declare handlers and
+Demonstrates the optional integration in ``pymediate.providers`` (shown here on the
+sync API; the provider is loop-agnostic and works identically with async handlers and
+the top-level ``pymediate`` mediator): declare handlers and
 their dependencies in a ``DeclarativeContainer``, wrap the container in
 ``DependencyInjectorServiceProvider``, and hand that to ``Mediator`` — the container
 takes over the wiring that ``Services`` does by hand in the basic examples. Requires the
@@ -10,8 +12,8 @@ takes over the wiring that ``Services`` does by hand in the basic examples. Requ
 from dataclasses import dataclass, field
 
 from dependency_injector import containers, providers
-from pymediate import RequestHandler, Mediator, Request
 from pymediate.providers import DependencyInjectorServiceProvider
+from pymediate.sync import Mediator, Request, RequestHandler
 
 
 @dataclass

@@ -1,10 +1,10 @@
 {
-    "name": "pymediate example: basic-aio",
+    "name": "pymediate example: basic-async",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/basic-aio && uv sync",
+    "postCreateCommand": "cd examples/basic-async && uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -12,7 +12,7 @@
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/basic-aio/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/basic-async/.venv/bin/python"
             }
         }
     }

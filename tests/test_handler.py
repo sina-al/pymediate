@@ -2,7 +2,8 @@
 
 import pytest
 
-from pymediate import (
+from pymediate._internal.registry import get_handler_class, has_handler
+from pymediate.sync import (
     HandlerNotFoundError,
     InvalidHandlerSignatureError,
     InvalidRequestTypeError,
@@ -10,7 +11,6 @@ from pymediate import (
     RequestHandler,
     ResponseTypeMismatchError,
 )
-from pymediate._internal.registry import get_handler_class, has_handler
 
 
 def test_handler_extracts_request_type() -> None:
@@ -404,7 +404,7 @@ def test_multiple_handlers_for_different_requests() -> None:
 def test_handler_alias_is_gone() -> None:
     """The deprecated Handler alias shipped only in 0.4.x and is removed (ADR 0006)."""
     import pymediate
-    import pymediate.aio
+    import pymediate.sync
 
     assert not hasattr(pymediate, "Handler")
-    assert not hasattr(pymediate.aio, "Handler")
+    assert not hasattr(pymediate.sync, "Handler")

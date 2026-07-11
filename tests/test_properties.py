@@ -18,7 +18,8 @@ from typing import Any
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services, aio
+import pymediate
+from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 # The autouse `clear_registries` fixture is function-scoped, so Hypothesis flags it:
 # it runs once per test, not once per generated example. That is safe here because
@@ -125,20 +126,20 @@ def test_mediator_send_round_trips_arbitrary_payloads(payload: Any) -> None:
 @relaxed
 @given(payload=payloads)
 def test_async_mediator_send_round_trips_arbitrary_payloads(payload: Any) -> None:
-    """An async echo handler returns any payload unchanged through aio.Mediator.send."""
+    """An async echo handler returns any payload unchanged through the async Mediator.send."""
 
     class EchoRequest(Request[object]):
         def __init__(self, payload: object) -> None:
             self.payload = payload
 
-    class EchoHandler(aio.RequestHandler[EchoRequest]):
+    class EchoHandler(pymediate.RequestHandler[EchoRequest]):
         async def __call__(self, request: EchoRequest) -> object:
             return request.payload
 
     async def main() -> None:
         services = Services()
         services.add(EchoHandler())
-        mediator = aio.Mediator(services.provider())
+        mediator = pymediate.Mediator(services.provider())
 
         assert await mediator.send(EchoRequest(payload)) == payload
 

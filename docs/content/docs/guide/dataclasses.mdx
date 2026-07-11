@@ -236,9 +236,9 @@ class NotificationMetricsBehavior(PipelineBehavior[BaseNotificationRequest]):
     def __init__(self, metrics):
         self.metrics = metrics
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         start = time.perf_counter()
-        response = next()
+        response = await next()
         self.metrics.histogram(
             "notification.delivery_seconds",
             time.perf_counter() - start,

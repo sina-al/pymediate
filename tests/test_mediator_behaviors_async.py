@@ -5,8 +5,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Request, Services
-from pymediate.aio import Mediator, PipelineBehavior, RequestHandler
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @pytest.mark.asyncio

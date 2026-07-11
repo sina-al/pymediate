@@ -25,11 +25,11 @@ class LoggingBehavior(PipelineBehavior[Request]):
     def __init__(self, logger):
         self.logger = logger
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         name = type(request).__name__
         self.logger.info(f"[{datetime.now()}] Processing: {name}")
         try:
-            response = next()
+            response = await next()
             self.logger.info(f"[{datetime.now()}] Success: {name}")
             return response
         except Exception as e:
@@ -47,11 +47,11 @@ class PerformanceMonitoringBehavior(PipelineBehavior[Request]):
         self.metrics = metrics_collector
         self.slow_threshold = slow_threshold
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         start = time.perf_counter()
         request_type = type(request).__name__
         try:
-            response = next()
+            response = await next()
             duration = time.perf_counter() - start
             self.metrics.record_request(request_type=request_type, duration=duration, status="success")
             if duration > self.slow_threshold:
@@ -79,15 +79,15 @@ class RedisCachingBehavior(PipelineBehavior[Request]):
         self.ttl = ttl
         self.key_prefix = key_prefix
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         cache_key = self._generate_cache_key(request)
 
-        cached_data = self.redis.get(cache_key)
+        cached_data = await self.redis.get(cache_key)
         if cached_data:
             return pickle.loads(cached_data)   # cache hit — handler never runs
 
-        response = next()
-        self.redis.setex(cache_key, self.ttl, pickle.dumps(response))
+        response = await next()
+        await self.redis.setex(cache_key, self.ttl, pickle.dumps(response))
         return response
 
     def _generate_cache_key(self, request):
@@ -111,33 +111,26 @@ class TransactionBehavior(PipelineBehavior[Request]):
     def __init__(self, session_factory):
         self.session_factory = session_factory
 
-    def __call__(self, request, next):
-        session = self.session_factory()
-        try:
-            session.begin()
-            response = next()
-            session.commit()
-            return response
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+    async def __call__(self, request, next):
+        async with self.session_factory() as session:
+            async with session.begin():
+                request.session = session   # available to the handler
+                return await next()
+            # commits on success, rolls back on exception
 ```
 
 ```python
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-engine = create_engine("postgresql://localhost/mydb")
-services.add(TransactionBehavior(sessionmaker(bind=engine)))
+engine = create_async_engine("postgresql+asyncpg://localhost/mydb")
+services.add(TransactionBehavior(async_sessionmaker(engine)))
 ```
 
 ## Retry with exponential backoff and jitter
 
 ```python
+import asyncio
 import random
-import time
 
 class RetryBehavior(PipelineBehavior[Request]):
     def __init__(self, max_attempts=3, base_delay=0.1, max_delay=10.0, jitter=True):
@@ -146,17 +139,17 @@ class RetryBehavior(PipelineBehavior[Request]):
         self.max_delay = max_delay
         self.jitter = jitter
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         for attempt in range(1, self.max_attempts + 1):
             try:
-                return next()
+                return await next()
             except (ConnectionError, TimeoutError):
                 if attempt == self.max_attempts:
                     raise
                 delay = min(self.base_delay * (2 ** (attempt - 1)), self.max_delay)
                 if self.jitter:
                     delay = delay * (0.5 + random.random())  # avoid thundering herd
-                time.sleep(delay)
+                await asyncio.sleep(delay)
 ```
 
 Note the behavior retries only *transient* errors (`ConnectionError`, `TimeoutError`) — domain errors propagate immediately.
@@ -170,7 +163,7 @@ class AuthenticationBehavior(PipelineBehavior[Request]):
     def __init__(self, token_service):
         self.token_service = token_service
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         if not hasattr(request, "auth_token"):
             raise AuthenticationError("No authentication token provided")
 
@@ -179,15 +172,15 @@ class AuthenticationBehavior(PipelineBehavior[Request]):
             raise AuthenticationError("Invalid or expired token")
 
         request.current_user = user   # available to downstream behaviors and the handler
-        return next()
+        return await next()
 
 class AuthorizationBehavior(PipelineBehavior[Request]):
     def __init__(self, permission_service):
         self.permissions = permission_service
 
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         if not hasattr(request, "required_permission"):
-            return next()   # nothing to check
+            return await next()   # nothing to check
 
         user = getattr(request, "current_user", None)
         if user is None:
@@ -196,7 +189,7 @@ class AuthorizationBehavior(PipelineBehavior[Request]):
         if not self.permissions.user_has_permission(user.id, request.required_permission):
             raise AuthorizationError(f"User {user.id} lacks permission: {request.required_permission}")
 
-        return next()
+        return await next()
 ```
 
 ```python
@@ -211,44 +204,52 @@ class DeleteUserRequest(Request[DeleteUserResponse]):
     required_permission = "users.delete"
 ```
 
-## Async pipeline
+## Sync pipeline
 
-Async behaviors subclass `pymediate.aio.PipelineBehavior` and `await next()`:
+Sync behaviors subclass `pymediate.sync.PipelineBehavior` and call `next()` plainly:
 
 ```python
 import pickle
-from pymediate import Request
-from pymediate.aio import PipelineBehavior
+from pymediate.sync import PipelineBehavior, Request
 
-class AsyncLoggingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
+class SyncLoggingBehavior(PipelineBehavior[Request]):
+    def __call__(self, request, next):
         print(f"[START] {type(request).__name__}")
-        response = await next()
+        response = next()
         print(f"[END] {type(request).__name__}")
         return response
 
-class AsyncCachingBehavior(PipelineBehavior[Request]):
+class SyncCachingBehavior(PipelineBehavior[Request]):
     def __init__(self, redis_client):
         self.redis = redis_client
 
-    async def __call__(self, request, next):
+    def __call__(self, request, next):
         cache_key = f"{type(request).__name__}:{hash(request)}"
 
-        cached = await self.redis.get(cache_key)
+        cached = self.redis.get(cache_key)
         if cached:
             return pickle.loads(cached)
 
-        response = await next()
-        await self.redis.setex(cache_key, 300, pickle.dumps(response))
+        response = next()
+        self.redis.setex(cache_key, 300, pickle.dumps(response))
         return response
 
-class AsyncTransactionBehavior(PipelineBehavior[Request]):
-    def __init__(self, async_session):
-        self.session = async_session
+class SyncTransactionBehavior(PipelineBehavior[Request]):
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
 
-    async def __call__(self, request, next):
-        async with self.session.begin():
-            return await next()   # commits on success, rolls back on exception
+    def __call__(self, request, next):
+        session = self.session_factory()
+        try:
+            session.begin()
+            response = next()
+            session.commit()
+            return response
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 ```
 
 ## A complete composed pipeline
@@ -267,7 +268,7 @@ services.add(CreateOrderHandler(database, payment_service))
 
 mediator = Mediator(services.provider())
 
-response = mediator.send(CreateOrderRequest(
+response = await mediator.send(CreateOrderRequest(
     user_id=123,
     items=[
         {"product_id": 456, "quantity": 2, "price": 29.99},
@@ -286,4 +287,4 @@ Each behavior stays independently testable; each deployment picks the subset it 
 
 - [Pipeline behaviors guide](/docs/guide/pipeline-behaviors) — concepts and matching rules
 - [Pipeline API reference](/docs/api/pipeline) — `PipelineBehavior` signatures
-- [Async examples](/docs/examples/async) — more on the async API
+- [Async patterns](/docs/examples/async) — concurrency and fan-out with the async API

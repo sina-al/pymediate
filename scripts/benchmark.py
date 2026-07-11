@@ -63,25 +63,31 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from pymediate import (
-    Event,
-    EventHandler,
-    Mediator,
-    PipelineBehavior,
-    Request,
-    Services,
-)
-from pymediate.aio import EventHandler as AsyncEventHandler
-from pymediate.aio import Mediator as AsyncMediator
+from pymediate import Event, Request, Services
 
-# This script is unpinned and must run against any released pymediate; releases
-# before 0.4.0 predate the ADR 0006 rename of Handler to RequestHandler.
-try:
-    from pymediate import RequestHandler
-    from pymediate.aio import RequestHandler as AsyncHandler
-except ImportError:  # pymediate < 0.4.0
-    from pymediate import Handler as RequestHandler  # type: ignore[attr-defined, no-redef]
-    from pymediate.aio import Handler as AsyncHandler  # type: ignore[attr-defined, no-redef]
+# This script is unpinned and must run against any released pymediate. 0.5.0
+# (ADR 0008) made async the top-level API and moved sync to pymediate.sync;
+# releases before 0.4.0 also predate the ADR 0006 rename of Handler to
+# RequestHandler.
+try:  # pymediate >= 0.5.0: async on top, sync in pymediate.sync
+    from pymediate import EventHandler as AsyncEventHandler
+    from pymediate import Mediator as AsyncMediator
+    from pymediate import RequestHandler as AsyncHandler
+    from pymediate.sync import EventHandler, Mediator, PipelineBehavior, RequestHandler
+except ModuleNotFoundError:  # pymediate < 0.5.0: sync on top, async in pymediate.aio
+    from pymediate.aio import EventHandler as AsyncEventHandler  # type: ignore[no-redef]
+    from pymediate.aio import Mediator as AsyncMediator  # type: ignore[no-redef]
+
+    from pymediate import EventHandler, Mediator, PipelineBehavior  # type: ignore[no-redef]
+
+    try:
+        from pymediate.aio import RequestHandler as AsyncHandler  # type: ignore[no-redef]
+
+        from pymediate import RequestHandler  # type: ignore[no-redef]
+    except ImportError:  # pymediate < 0.4.0
+        from pymediate.aio import Handler as AsyncHandler  # type: ignore[attr-defined, no-redef]
+
+        from pymediate import Handler as RequestHandler  # type: ignore[attr-defined, no-redef]
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
-# adapters-aio
+# adapters-async
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fadapters-aio%2Fdevcontainer.json)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fadapters-async%2Fdevcontainer.json)
 
 One small task-board application, written once — then delivered through **FastAPI**,
 **aiohttp**, and an **asyncclick CLI** without changing a line of it. It's the async twin
@@ -9,7 +9,7 @@ of [adapters-sync](../adapters-sync/): same domain, same shape, `async def` end 
 ## Run it
 
 ```bash
-cd examples/adapters-aio
+cd examples/adapters-async
 uv sync
 uv run pytest
 ```
@@ -31,7 +31,7 @@ request:
 class AddTask(Request[Task]):        # "sending AddTask gives back a Task"
     title: str
 
-class AddTaskHandler(RequestHandler[AddTask]):          # from pymediate.aio
+class AddTaskHandler(RequestHandler[AddTask]):          # from pymediate
     async def __call__(self, request: AddTask) -> Task:
         ...  # await your datastore, return the task
 ```
@@ -101,8 +101,9 @@ curl -X POST localhost:8080/tasks -H 'content-type: application/json' -d '{"titl
   `TaskNotFoundError` becomes HTTP **404** in FastAPI (`@app.exception_handler`) and
   aiohttp (a middleware), and **exit code 1** with a message on stderr in the CLI
   (`ClickException`). Try it: `uv run taskboard complete 999`.
-- Only `RequestHandler`, `Mediator`, and `PipelineBehavior` have async variants
-  (`pymediate.aio`); `Request` and `Services` are shared with the sync package.
+- Everything imports from the top-level `pymediate` — the async API. Only
+  `RequestHandler`, `Mediator`, and `PipelineBehavior` have sync variants
+  (`pymediate.sync`); `Request` and `Services` are the same objects on both sides.
 - The tests use each framework's own async tooling: httpx2 over ASGI for FastAPI,
   pytest-aiohttp's `aiohttp_client` for aiohttp, and asyncclick's `CliRunner` — all under
   pytest-asyncio's auto mode, so test functions are plain `async def`.
@@ -112,8 +113,8 @@ curl -X POST localhost:8080/tasks -H 'content-type: application/json' -d '{"titl
 
 - [adapters-sync](../adapters-sync/) — this example's sync twin (Flask, FastAPI `def`,
   click).
-- [basic-aio](../basic-aio/) — the async core pattern at its smallest, plus a pipeline
-  behavior.
+- [basic-async](../basic-async/) — the async core pattern at its smallest, plus a
+  pipeline behavior.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·
   [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) for the
   ideas this example leans on.

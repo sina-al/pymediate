@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import HandlerNotFoundError, Mediator, Request, RequestHandler, Services
+from pymediate.sync import HandlerNotFoundError, Mediator, Request, RequestHandler, Services
 
 
 def test_mediator_creation() -> None:

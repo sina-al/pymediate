@@ -13,9 +13,7 @@ from typing import Any
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import Request
-from pymediate.aio import Mediator, RequestHandler
-from pymediate.aio.pipeline import PipelineBehavior
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler
 from pymediate.providers import DependencyInjectorServiceProvider
 
 # ============================================================================
