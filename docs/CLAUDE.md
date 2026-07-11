@@ -1,7 +1,7 @@
 # docs/ — the documentation site
 
 Next.js + Fumadocs app, pnpm, Node 22, **static export** (`docs/out/`), deployed to GitHub
-Pages at <https://pymediate.sina-al.uk> from `main` via `docs.yml`. Repo-root `CLAUDE.md`
+Pages at <https://pymediate.sina-al.uk> from `main` via `docs.yml`. The project `CLAUDE.md` (at `.claude/CLAUDE.md`)
 holds the always-loaded summary; this file is the working detail for sessions touching
 `docs/`.
 
@@ -15,7 +15,7 @@ Use the `poe` tasks from the repo root — they mirror what `docs.yml` runs in C
 - `uv run poe docs:build` — static build into `docs/out/`; `docs:clean` removes outputs.
 
 `docs.yml` invokes pnpm directly rather than through poe (Node-only job — see the
-"poe tasks vs. inline workflow steps" carve-out in root CLAUDE.md); keep the workflow
+"poe tasks vs. inline workflow steps" carve-out in the project CLAUDE.md); keep the workflow
 steps and the poe tasks in sync.
 
 ## Content layout
@@ -40,7 +40,7 @@ checked by `docs:check`.
 
 ## Conventions
 
-- **Every code example must actually run** — same bar as docstrings (root CLAUDE.md,
+- **Every code example must actually run** — same bar as docstrings (the project CLAUDE.md,
   "Docstrings"): verify in a scratch shell before committing.
 - The site brand is the "midnight-signal" token system (light: violet primary on
   near-white; dark: cyan primary on near-black indigo; cyan→violet gradient used

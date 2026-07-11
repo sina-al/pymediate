@@ -286,7 +286,7 @@ the site.
 
 ## API Signatures
 
-@.claude/context/api-signatures.md
+@context/api-signatures.md
 
 Generated from source by `uv run poe context:update` (`scripts/update_context.py`); run
 `uv run poe context:check` to confirm it isn't stale. Don't hand-edit that file.

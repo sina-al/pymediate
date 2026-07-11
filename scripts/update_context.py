@@ -149,7 +149,7 @@ def build_signatures_file() -> str:
     sections = [
         "<!-- GENERATED FILE — do not hand-edit. -->",
         "<!-- Regenerate with `uv run poe context:update` (see scripts/update_context.py). -->",
-        "<!-- Imported into CLAUDE.md via @.claude/context/api-signatures.md. -->",
+        "<!-- Imported into .claude/CLAUDE.md via @context/api-signatures.md. -->",
         "",
         "# API Signatures (generated)",
         "",
