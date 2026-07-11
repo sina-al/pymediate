@@ -33,25 +33,9 @@ Note:
     operations, use `from pymediate import RequestHandler, Mediator` instead.
 """
 
-import warnings
-from typing import Any
-
 from .event import EventHandler
 from .handler import RequestHandler
 from .mediator import Mediator
 from .pipeline import PipelineBehavior
 
 __all__ = ["EventHandler", "Mediator", "PipelineBehavior", "RequestHandler"]
-
-
-def __getattr__(name: str) -> Any:
-    """Serve the deprecated ``Handler`` alias with a warning (see ADR 0006)."""
-    if name == "Handler":
-        warnings.warn(
-            "pymediate.aio.Handler was renamed to RequestHandler in 0.4.0; "
-            "the Handler alias will be removed in the next minor release.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return RequestHandler
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

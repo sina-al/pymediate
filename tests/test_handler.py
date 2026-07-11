@@ -401,30 +401,10 @@ def test_multiple_handlers_for_different_requests() -> None:
     assert r2.msg == "HELLO"
 
 
-def test_deprecated_handler_alias_warns_and_resolves() -> None:
-    """pymediate.Handler is a deprecated alias for RequestHandler (ADR 0006)."""
-    import pymediate
-
-    with pytest.warns(DeprecationWarning, match="renamed to RequestHandler in 0.4.0"):
-        alias = pymediate.Handler
-    assert alias is pymediate.RequestHandler
-
-
-def test_deprecated_aio_handler_alias_warns_and_resolves() -> None:
-    """pymediate.aio.Handler is a deprecated alias for aio.RequestHandler (ADR 0006)."""
-    import pymediate.aio
-
-    with pytest.warns(DeprecationWarning, match="renamed to RequestHandler in 0.4.0"):
-        alias = pymediate.aio.Handler
-    assert alias is pymediate.aio.RequestHandler
-
-
-def test_unknown_module_attribute_still_raises() -> None:
-    """The alias shim must not swallow genuinely missing attributes."""
+def test_handler_alias_is_gone() -> None:
+    """The deprecated Handler alias shipped only in 0.4.x and is removed (ADR 0006)."""
     import pymediate
     import pymediate.aio
 
-    with pytest.raises(AttributeError, match="does_not_exist"):
-        _ = pymediate.does_not_exist
-    with pytest.raises(AttributeError, match="does_not_exist"):
-        _ = pymediate.aio.does_not_exist
+    assert not hasattr(pymediate, "Handler")
+    assert not hasattr(pymediate.aio, "Handler")

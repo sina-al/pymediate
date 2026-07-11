@@ -6,8 +6,8 @@ description: API reference for the sync and async RequestHandler base classes.
 Handlers contain the business logic for processing requests. They declare only the request type — the response type is inferred from that request's `Request[ResponseT]` definition.
 
 <Callout type="warn" title="Renamed from Handler in 0.4.0">
-  `RequestHandler` was named `Handler` before 0.4.0. The old name still imports through 0.4.x
-  with a `DeprecationWarning` and will be removed in the next minor release — update
+  `RequestHandler` was named `Handler` before 0.4.0. The 0.4.x releases still accept the old
+  name with a `DeprecationWarning`; from the next minor release it is gone — update
   `from pymediate import Handler` to `from pymediate import RequestHandler` (same for
   `pymediate.aio`). The rationale is recorded in ADR 0006.
 </Callout>

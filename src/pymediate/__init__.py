@@ -70,9 +70,7 @@ Async Support:
 For more information, see the documentation at https://pymediate.sina-al.uk
 """
 
-import warnings
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
 
 from .errors import (
     HandlerAlreadyRegisteredError,
@@ -119,16 +117,3 @@ try:
     __version__ = version("pymediate")
 except PackageNotFoundError:  # pragma: no cover - source tree used without an install
     __version__ = "0.0.0+unknown"
-
-
-def __getattr__(name: str) -> Any:
-    """Serve the deprecated ``Handler`` alias with a warning (see ADR 0006)."""
-    if name == "Handler":
-        warnings.warn(
-            "pymediate.Handler was renamed to RequestHandler in 0.4.0; "
-            "the Handler alias will be removed in the next minor release.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return RequestHandler
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

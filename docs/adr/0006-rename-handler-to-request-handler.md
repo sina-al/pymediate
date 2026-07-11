@@ -106,6 +106,12 @@ Option A.
 - `Handler` remains importable in 0.4.x via PEP 562 `__getattr__` with a
   `DeprecationWarning`; it is dropped from `__all__` immediately and removed entirely in
   the next minor release.
+- **Amendment (2026-07-11, at review):** given the near-zero user base, the maintainer
+  judged a long deprecation window over the top. The shims were removed from `main`
+  immediately after the v0.4.0 release branch was cut, so the alias exists in exactly the
+  0.4.x line and the removal cannot be forgotten — it is already on `main` and ships with
+  whatever minor comes next. This also resolves the open question below: alias removal is
+  not tied to streaming.
 - Module paths do not change: the class lives in `pymediate/handler.py` /
   `pymediate/aio/handler.py` as before. Modules group concepts (`event.py` holds both
   `Event` and `EventHandler`); the public contract is `__init__.py`'s `__all__`, not
@@ -162,6 +168,8 @@ policy).
 
 ## Open Questions
 
-- Should the removal release also be the streaming release (so 0.5.0 both removes the
+- ~~Should the removal release also be the streaming release (so 0.5.0 both removes the
   alias and introduces the third handler kind)? Tentative lean: yes — one migration
-  window, and the family naming lands complete.
+  window, and the family naming lands complete.~~ Resolved by the 2026-07-11 amendment:
+  the removal landed on `main` immediately after the 0.4.0 cut and rides the next minor,
+  whatever it contains.
