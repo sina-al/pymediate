@@ -56,15 +56,24 @@ structure, README shape, IDE config, devcontainer, and verification are all spec
 
 ## How releases use these
 
-Releases run every example twice via `scripts/run_examples.py` (see `OPERATIONS.md`):
+The examples are the release pipeline's proxy downstream users: they consume pymediate
+from an index like any real project, so they can verify what the library's own test suite
+can't — the built, published artifact. Releases run every example **four times** via
+`scripts/run_examples.py` (see `OPERATIONS.md` for the full rationale, and ADR 0007 for
+the design decision):
 
 1. **On the release PR** — `--wheel` mode: the required "Examples" check builds a wheel
    from the cut and runs each example against it, so API breakage surfaces before the
    merge (no tag, no burned version). Reproduce locally with
    `uv build && python3 scripts/run_examples.py --wheel dist/pymediate-*.whl`.
-2. **After the TestPyPI publish** — `--version X.Y.Z` mode: each example is re-pinned to
+2. **In `release.yml`, before publishing anywhere** — `--wheel` mode again, against the
+   release-versioned artifact and freshly resolved dependencies, so drift since the PR
+   check fails before a version number burns.
+3. **After the TestPyPI publish** — `--version X.Y.Z` mode: each example is re-pinned to
    the candidate on the TestPyPI index (only pymediate resolves there — its dependencies
    still come from real PyPI) and must pass before the PyPI gate is offered.
+4. **After the PyPI publish** — `--version X.Y.Z` mode against `pypi.org`: a smoke test
+   of the exact artifact users install, gating the GitHub Release.
 
 Either way each example is copied to a temp directory first — your checkout is never
 modified.

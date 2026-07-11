@@ -25,8 +25,9 @@ if you change one, check whether the other needs the equivalent change.
     below. Deliberately outside `docs/content/`, so they are never published on the site.
 - `examples/` — standalone uv projects demonstrating the package against its *released*
   PyPI distribution (not the source tree); each satisfies the contract in
-  `examples/README.md`, and the release pipeline runs them all against the TestPyPI
-  candidate via `scripts/run_examples.py`. Not covered by the library's lint/type/coverage
+  `examples/README.md`, and the release pipeline runs them all four times via
+  `scripts/run_examples.py` (release-PR wheel, release wheel, TestPyPI, PyPI smoke —
+  see OPERATIONS.md and ADR 0007). Not covered by the library's lint/type/coverage
   scopes — each example carries its own `[tool.ruff]`, `pyrightconfig.json`, and
   `.vscode/settings.json` so it's pleasant opened standalone. **Any work on an example
   (new, restructure, or README edit) goes through the `example` skill** — it owns the
@@ -240,9 +241,9 @@ zero-commit release PR (`release/vX.Y.Z` cut of main → `stable`) whose **diff 
 since the last release** — reviewing it is the release review. Closing it is a
 consequence-free rejection (the cut branch auto-deletes); merging it makes `tag-release.yml`
 tag the merge commit, which runs `release.yml`: validate → build (+ provenance attestation)
-→ install matrix → TestPyPI → examples suite against the TestPyPI artifact
-(`scripts/run_examples.py`) → the `pypi` environment's required-reviewer gate → PyPI →
-GitHub Release last.
+→ install matrix + examples against the built wheel → TestPyPI → examples against the
+TestPyPI artifact (`scripts/run_examples.py`) → the `pypi` environment's required-reviewer
+gate → PyPI → examples smoke test against PyPI → GitHub Release last.
 
 Release workflows authenticate as the `pymediate-releaser` GitHub App — short-lived
 installation tokens minted per job via `actions/create-github-app-token` from the
