@@ -227,6 +227,9 @@ git clone https://github.com/sina-al/pymediate.git
 cd pymediate
 uv sync --all-extras --group test
 
+# Optional: commit-time format/lint gate (same checks CI runs)
+uvx pre-commit install
+
 # Run tests
 poe test
 
