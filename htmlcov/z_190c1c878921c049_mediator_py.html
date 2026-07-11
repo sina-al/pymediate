@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_190c1c878921c049_pipeline_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-11 07:51 +0000
+            created at 2026-07-11 08:19 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -96,7 +96,7 @@
     <p class="exc exc2 show_exc"><span class="n"><a id="t14" href="#t14">14</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t15" href="#t15">15</a></span><span class="t"><span class="str">    The async mirror of `pymediate.Mediator`: it works the same way, but `send()`</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t16" href="#t16">16</a></span><span class="t"><span class="str">    is a coroutine that awaits the resolved handler, so it's built to work with</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t17" href="#t17">17</a></span><span class="t"><span class="str">    `pymediate.aio.Handler` subclasses.</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc exc2 show_exc"><span class="n"><a id="t17" href="#t17">17</a></span><span class="t"><span class="str">    `pymediate.aio.RequestHandler` subclasses.</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t18" href="#t18">18</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t19" href="#t19">19</a></span><span class="t"><span class="str">    `send()` infers its return type from the request's `Request[ResponseT]` type</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t20" href="#t20">20</a></span><span class="t"><span class="str">    parameter, so the response is fully typed at the call site with no casts needed.</span>&nbsp;</span><span class="r"></span></p>
@@ -107,7 +107,7 @@
     <p class="exc exc2 show_exc"><span class="n"><a id="t25" href="#t25">25</a></span><span class="t"><span class="str">            import asyncio</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t26" href="#t26">26</a></span><span class="t"><span class="str">            from dataclasses import dataclass</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t27" href="#t27">27</a></span><span class="t"><span class="str">            from pymediate import Request, Services</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t28" href="#t28">28</a></span><span class="t"><span class="str">            from pymediate.aio import Handler, Mediator</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc exc2 show_exc"><span class="n"><a id="t28" href="#t28">28</a></span><span class="t"><span class="str">            from pymediate.aio import RequestHandler, Mediator</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t29" href="#t29">29</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t30" href="#t30">30</a></span><span class="t"><span class="str">            @dataclass</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t31" href="#t31">31</a></span><span class="t"><span class="str">            class UserResponse:</span>&nbsp;</span><span class="r"></span></p>
@@ -118,7 +118,7 @@
     <p class="exc exc2 show_exc"><span class="n"><a id="t36" href="#t36">36</a></span><span class="t"><span class="str">            class CreateUserRequest(Request[UserResponse]):</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t37" href="#t37">37</a></span><span class="t"><span class="str">                username: str</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t38" href="#t38">38</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t39" href="#t39">39</a></span><span class="t"><span class="str">            class CreateUserHandler(Handler[CreateUserRequest]):</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc exc2 show_exc"><span class="n"><a id="t39" href="#t39">39</a></span><span class="t"><span class="str">            class CreateUserHandler(RequestHandler[CreateUserRequest]):</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t40" href="#t40">40</a></span><span class="t"><span class="str">                async def __call__(self, request: CreateUserRequest) -> UserResponse:</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t41" href="#t41">41</a></span><span class="t"><span class="str">                    await asyncio.sleep(0.1)  # Simulate an async database call</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t42" href="#t42">42</a></span><span class="t"><span class="str">                    return UserResponse(user_id=1, username=request.username)</span>&nbsp;</span><span class="r"></span></p>
@@ -154,7 +154,7 @@
     <p class="exc exc2 show_exc"><span class="n"><a id="t72" href="#t72">72</a></span><span class="t"><span class="str">        - Services: Build a ServiceProvider by hand.</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t73" href="#t73">73</a></span><span class="t"><span class="str">        - DependencyInjectorServiceProvider: Build one from a DI container instead.</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t74" href="#t74">74</a></span><span class="t"><span class="str">        - pymediate.Mediator: Sync mediator variant.</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t75" href="#t75">75</a></span><span class="t"><span class="str">        - pymediate.aio.Handler: Async handler base class.</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc exc2 show_exc"><span class="n"><a id="t75" href="#t75">75</a></span><span class="t"><span class="str">        - pymediate.aio.RequestHandler: Async handler base class.</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t76" href="#t76">76</a></span><span class="t"><span class="str">    """</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t77" href="#t77">77</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t78" href="#t78">78</a></span><span class="t">    <span class="key">async</span> <span class="key">def</span> <span class="nam">send</span><span class="op">[</span><span class="nam">ResponseT</span><span class="op">]</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">request</span><span class="op">:</span> <span class="nam">Request</span><span class="op">[</span><span class="nam">ResponseT</span><span class="op">]</span><span class="op">)</span> <span class="op">-></span> <span class="nam">ResponseT</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
@@ -321,7 +321,7 @@
             <a class="nav" href="z_190c1c878921c049_pipeline_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-11 07:51 +0000
+            created at 2026-07-11 08:19 +0000
         </p>
     </div>
 </footer>
