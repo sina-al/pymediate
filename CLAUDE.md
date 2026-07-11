@@ -81,6 +81,41 @@ touches a workflow file, not only when security is mentioned explicitly. After e
 `uv run poe actions:lint` (zizmor) — `checks.yml` enforces it in CI, so a finding you don't fix
 or explicitly ignore (with a justification comment) will fail the PR.
 
+### poe tasks vs. inline workflow steps
+
+`tasks.toml` is the single source of truth for any command a human or agent might also run
+locally — that's what keeps local results matching CI. When writing a workflow `run:` step,
+decide where the command lives:
+
+**Poe task, when all of these hold:**
+
+- it runs the project toolchain (pytest, ruff, mypy, uv build, twine, `scripts/*.py`, ...)
+  needing nothing beyond `uv sync` and the repo;
+- it's meaningful to run locally, and running the *identical* invocation there matters;
+- the invocation is stable across call sites — passing runtime values (a version, an index
+  URL, a git ref) as task arguments is fine, but the flag *shape* shouldn't depend on CI
+  event context.
+
+**Inline in the workflow, when any of these hold:**
+
+- it needs CI context: `github.*` values, `GITHUB_OUTPUT`/`GITHUB_ENV`, `needs.*.result`,
+  tokens, OIDC;
+- it needs tools outside the uv-managed environment: `gh`, `git push`, pnpm/Node, or
+  pip-as-an-end-user (release.yml's install matrix deliberately avoids uv);
+- it *is* the bootstrap (`uv sync` — poe isn't installed yet);
+- it's single-call-site CI glue: summary gates over job results, path filters, ref guards.
+
+Carve-out: jobs whose toolchain isn't Python (docs.yml's Node-only build) don't bootstrap
+uv/poe just for parity — they run their tools directly, and the workflow steps and the
+mirroring poe tasks must cross-reference each other in comments so drift is caught in review.
+
+A raw invocation in a workflow that an existing poe task already wraps is a bug — route it
+through the task. This regressed once and propagated: release.yml's `run_examples.py` call
+predated both the runner and the `examples:test` task (it was a placeholder for issue #24),
+the task landed later without retrofitting the workflow, and three subsequent examples jobs
+copied the workflow's raw pattern instead of the task. Copying an adjacent step is how
+conventions erode — check `tasks.toml` first, not the neighboring job.
+
 ## Quality bar (all enforced in CI, not optional)
 
 - `mypy --strict` on `src/pymediate/` — zero untyped defs in library code. Tests are looser

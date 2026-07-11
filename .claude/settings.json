@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys\nd=json.load(sys.stdin)\nf=d.get('tool_input',{}).get('file_path','')\nif '.github/workflows/' in f:\n    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'allow', 'additionalContext': 'This touches a GitHub Actions workflow. Apply the github-actions-security skill (.claude/skills/github-actions-security/SKILL.md): pin third-party actions to a commit SHA, set least-privilege permissions:, never splice github.event.* into run: (use env: instead), prefer OIDC over long-lived secrets, and scope triggers with paths/branches/concurrency.'}}))\" 2>/dev/null || true"
+            "command": "python3 -c \"import json,sys\nd=json.load(sys.stdin)\nf=d.get('tool_input',{}).get('file_path','')\nif '.github/workflows/' in f:\n    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'allow', 'additionalContext': 'This touches a GitHub Actions workflow. Apply the github-actions-security skill (.claude/skills/github-actions-security/SKILL.md): pin third-party actions to a commit SHA, set least-privilege permissions:, never splice github.event.* into run: (use env: instead), prefer OIDC over long-lived secrets, and scope triggers with paths/branches/concurrency. Also apply the poe-vs-inline criteria (CLAUDE.md, section: poe tasks vs. inline workflow steps): before writing a run: command, check tasks.toml — if an existing poe task wraps it, route it through the task rather than copying a neighboring raw step.'}}))\" 2>/dev/null || true"
           }
         ]
       }

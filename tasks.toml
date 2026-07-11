@@ -119,7 +119,11 @@ uv run --with pip-audit pip-audit --requirement "$reqs" --require-hashes --disab
 
 # ========== Documentation ==========
 
-"docs:install".help = "Install the docs site's Node dependencies (run once before other docs tasks)"
+# docs.yml runs pnpm directly rather than through these tasks (its job is Node-only; see
+# CLAUDE.md's "poe tasks vs. inline workflow steps") — a change here likely needs the same
+# change there, and vice versa.
+
+"docs:install".help = "Install the docs site's Node dependencies (run once before other docs tasks; mirrored by docs.yml)"
 "docs:install".cmd = "pnpm install --frozen-lockfile"
 "docs:install".cwd = "docs"
 
@@ -158,7 +162,10 @@ build.cmd = "uv build"
 # no commit, which silently empties the changelog (this shipped as v0.1.5's blank notes).
 "release:notes".cmd = "uvx git-cliff --current --include-path 'src/pymediate/**' --strip header -o RELEASE_NOTES.md"
 
-"examples:test".help = "Run every examples/ project's tests against a released pymediate version (usage: poe examples:test --version 0.1.4 --index https://pypi.org/simple/; release.yml runs this against TestPyPI)"
+"release:wait-index".help = "Wait until an index's simple API serves a pymediate version, probing with uv itself (usage: poe release:wait-index --version 0.5.0 --index https://pypi.org/simple/; release.yml runs this before each index-mode examples stage)"
+"release:wait-index".cmd = "python3 scripts/wait_for_index.py"
+
+"examples:test".help = "Run every examples/ project's tests against a pymediate build (usage: poe examples:test --wheel dist/pymediate-*.whl, or --version 0.1.4 --index https://pypi.org/simple/; every examples stage in the release pipeline runs this)"
 "examples:test".cmd = "python3 scripts/run_examples.py"
 
 # ========== PR Helpers ==========

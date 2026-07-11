@@ -24,7 +24,9 @@ on:
     tags:
       - "v*.*.*"
   # Manual fallback: dispatch *on a tag ref* (gh workflow run release.yml --ref vX.Y.Z)
-  # so github.ref_name is the version tag the consistency check expects.
+  # so github.ref_name is the version tag the consistency check expects. Dispatched on a
+  # branch (e.g. reflexively instead of prepare-release.yml), validate-release's first
+  # step fails within seconds — nothing downstream can run, nothing publishes.
   workflow_dispatch:
 
 # Least privilege by default; jobs that need more grant it themselves.
@@ -37,6 +39,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Require a version-tag ref
+        # Fail in seconds if this run isn't on a version tag. workflow_dispatch exists only
+        # as the manual fallback for a lost tag-push event (gh workflow run release.yml
+        # --ref vX.Y.Z); dispatched on a branch this pipeline could never publish anything
+        # (the version-consistency check below fails first), but it would churn through the
+        # full test suite before saying so — an alarming few minutes for whoever meant to
+        # dispatch prepare-release.yml.
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "::error::release.yml started on ${REF_TYPE} '${REF_NAME}', not a version tag. To cut a release, dispatch prepare-release.yml; release.yml's own dispatch is only the recovery path for a lost tag event (gh workflow run release.yml --ref vX.Y.Z)."
+            exit 1
+          fi
+          echo "Running on tag ${REF_NAME}."
+
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -201,7 +220,7 @@ jobs:
       - name: Run examples suite against the built wheel
         run: |
           uv sync --only-dev
-          uv run python scripts/run_examples.py --wheel dist/*.whl
+          uv run poe examples:test --wheel dist/*.whl
 
   publish-testpypi:
     name: Publish to TestPyPI
@@ -245,31 +264,18 @@ jobs:
         with:
           enable-cache: false
 
+      - name: Sync dependencies
+        run: uv sync --only-dev
+
       - name: Wait for TestPyPI to serve the release
-        # The simple index is CDN-cached and can lag the upload by minutes — and a curl
-        # probe is not enough: curl gets the HTML (PEP 503) variant while uv asks for
-        # the JSON (PEP 691) variant with an Accept header, and the CDN caches them
-        # separately. v0.3.0 and v0.4.0 both passed the old curl probe within seconds
-        # of publish and then failed resolution; the JSON variant caught up after
-        # ~4m47s (v0.3.0) and ~2m21s (v0.4.0). Probe with uv itself so success means
-        # the exact client that resolves next can see the release; --no-cache keeps a
-        # stale miss from being replayed on later attempts. 40 x 15s keeps the
-        # 10-minute ceiling (~2x the worst lag observed).
+        # The simple index is CDN-cached and can lag the upload by minutes; see
+        # scripts/wait_for_index.py for why the probe must be uv itself (PEP 503 vs
+        # PEP 691 CDN variants; bit v0.3.0 and v0.4.0).
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          version="${VERSION_TAG#v}"
-          for attempt in $(seq 1 40); do
-            if echo "pymediate==${version}" \
-              | uv pip compile - --index-url https://test.pypi.org/simple/ --no-cache >/dev/null 2>&1; then
-              echo "uv resolves pymediate ${version} from TestPyPI (attempt ${attempt})."
-              exit 0
-            fi
-            echo "uv cannot resolve pymediate==${version} from TestPyPI yet (attempt ${attempt}/40); retrying in 15s."
-            sleep 15
-          done
-          echo "::error::uv never resolved pymediate ${version} from TestPyPI within 10 minutes."
-          exit 1
+          uv run poe release:wait-index --version "${VERSION_TAG#v}" \
+            --index https://test.pypi.org/simple/
 
       - name: Run examples suite against the TestPyPI release
         # Each examples/<name>/ is a standalone uv project re-pinned to the version just
@@ -279,8 +285,7 @@ jobs:
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          uv sync --only-dev
-          uv run python scripts/run_examples.py --version "${VERSION_TAG#v}" \
+          uv run poe examples:test --version "${VERSION_TAG#v}" \
             --index https://test.pypi.org/simple/
 
   publish-pypi:
@@ -327,33 +332,23 @@ jobs:
         with:
           enable-cache: false
 
+      - name: Sync dependencies
+        run: uv sync --only-dev
+
       - name: Wait for PyPI to serve the release
-        # Same CDN-lag probe as the TestPyPI stage (see that step for the full rationale:
-        # probe with uv itself, JSON and HTML index variants cache separately, --no-cache
-        # avoids replaying a stale miss). PyPI usually propagates faster than TestPyPI,
-        # but the failure mode is identical.
+        # Same CDN-lag probe as the TestPyPI stage (see scripts/wait_for_index.py). PyPI
+        # usually propagates faster than TestPyPI, but the failure mode is identical.
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          version="${VERSION_TAG#v}"
-          for attempt in $(seq 1 40); do
-            if echo "pymediate==${version}" \
-              | uv pip compile - --index-url https://pypi.org/simple/ --no-cache >/dev/null 2>&1; then
-              echo "uv resolves pymediate ${version} from PyPI (attempt ${attempt})."
-              exit 0
-            fi
-            echo "uv cannot resolve pymediate==${version} from PyPI yet (attempt ${attempt}/40); retrying in 15s."
-            sleep 15
-          done
-          echo "::error::uv never resolved pymediate ${version} from PyPI within 10 minutes."
-          exit 1
+          uv run poe release:wait-index --version "${VERSION_TAG#v}" \
+            --index https://pypi.org/simple/
 
       - name: Run examples suite against the PyPI release
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          uv sync --only-dev
-          uv run python scripts/run_examples.py --version "${VERSION_TAG#v}" \
+          uv run poe examples:test --version "${VERSION_TAG#v}" \
             --index https://pypi.org/simple/
 
   create-release:
