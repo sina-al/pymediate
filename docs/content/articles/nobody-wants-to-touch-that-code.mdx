@@ -131,9 +131,23 @@ I'll tell you how a version of this ended on a project I worked on, because the 
 
 Multiply this by an industry. Stripe once surveyed over a thousand developers and put the number at roughly [42% of engineering time](https://stripe.com/files/reports/the-developer-coefficient.pdf) spent on maintenance, technical debt, and bad code — about seventeen hours of every week, not building anything. I don't lean on that figure for precision. I lean on it because seventeen hours a week is what the staircase looks like when it stops being an anecdote and becomes a line item.
 
-## The grown-up fix
+## Easy is not simple
 
-There's a well-worn answer to everything in the last two sections, and every serious Python codebase eventually mumbles it: stop reaching for globals — hand the dependencies in. A module can't take arguments, but a class can. Looked at sideways, that's all a class is here: a module you're allowed to construct. The import block becomes an `__init__` signature, the functions become methods, and suddenly there can be more than one of it, each wired however its situation demands.
+There's a talk I keep coming back to when I think about how that codebase got there: Rich Hickey's [*Simple Made Easy*](https://www.infoq.com/presentations/Simple-Made-Easy/). Its central move is to pull apart two words we use interchangeably.
+
+*Simple*, he points out, comes from *simplex* — one fold, one braid. Simplicity is about structure: one thing, unentangled from other things. Which makes it objective — you can look at a system and see what's braided together. *Easy* comes from a root meaning *adjacent*, to lie near. Ease is about distance: near at hand, near our habits, near what we already know. Which makes it relative — easy *for whom?* And for what programmers do to systems, he found the perfect word in an old corner of the dictionary: **complect** — to interleave, entwine, braid together.
+
+Now rewind the story with those definitions in hand. Every choice was the *easy* one — genuinely, defensibly easy: the nearest diff, the familiar tool, the change that shipped that day. And almost every one of them *complected* something: the export logic with the module, the module with the framework, the config with the import, orders with customers, both ways. Nothing about the result is simple. The result is a braid.
+
+That's also the truest reading of my message-queue story. Pointing the queue at the public endpoint felt like the simple option — no refactoring, no new infrastructure, one config change. It wasn't simple. It braided internal message delivery into the public ingress path, the WAF, and the rate limiter — three things that now had to be reasoned about *together*, as the retry storm demonstrated. It was only easy: near at hand, familiar, shippable by Friday. **We reached for the near thing and called it the simple thing, and the two words let us believe they were the same.**
+
+Hickey's warning about where that leads is blunt: "if you ignore complexity, you will slow down. You will invariably slow down over the long haul." The ease is real, but it's borrowed — the early speed of the entangled codebase is an advance on velocity that gets repaid, with interest, by whoever climbs the staircase later. Usually it's us.
+
+None of this is an accusation. Choosing the near thing every time is what reasonable people do under deadline; I did it in every story above. The point of the vocabulary isn't blame — it's that you can't *choose* simplicity until you can see it as a separate axis from ease. Once you can, the question changes from "what's the fastest diff?" to "what does this diff braid together?"
+
+## The class act
+
+Ask that question of the orders module and the answers keep landing in the same place. The export got braided to the mailer it never uses because the *module* imports the mailer. The module got braided to the framework because two of its dependencies read `current_app` the moment they load. Every strand runs through the import block — because reaching out and grabbing things is the only way a module can be wired at all. Which points at a fix, and it's the one every growing Python codebase eventually arrives at: stop reaching out. Have the dependencies *handed in*. A module can't accept arguments — but a class can. Looked at sideways, that's all a class is here: a module you're finally allowed to construct. The import block becomes an `__init__` signature, the functions become methods, and suddenly there can be more than one of it, each wired however its situation demands:
 
 ```python title="orders/service.py — take two"
 class OrderService:
@@ -160,27 +174,17 @@ class OrderService:
 
 The patch tower is gone; in its place, tests that build seven fakes to exercise a method that uses two of them. And the callers have a new job. Anything that wants `refund()` must now *construct* an `OrderService` — or be handed one by something that knows how — so the knowledge of those seven collaborators and their setup no longer lives in one import block; it lives in every corner of the codebase that needs any single thing the service does. When `OrderService` needs store credit, it takes a `CustomerService` in its constructor; `CustomerService` needs open orders; and there's the year-two cycle again, reborn in constructor arguments.
 
-I can tell you the exact moment this stopped looking like progress to me. I was reviewing a worker that needed one method — the export — and its setup built the entire seven-dependency service, and I caught myself typing the comment: *why does this worker know what a PDF renderer is?* Once you've typed that question, you can't stop seeing it everywhere. Nothing anywhere cared *about orders* any more or less than before — but everything, everywhere, was intimate with how order-handling was *assembled*. Module or class, `import` or `__init__` — we had spent years moving that knowledge between containers. We had never once reduced it.
-
-## Easy is not simple
-
-There's a talk I keep coming back to when I think about how that codebase got there: Rich Hickey's [*Simple Made Easy*](https://www.infoq.com/presentations/Simple-Made-Easy/). Its central move is to pull apart two words we use interchangeably.
-
-*Simple*, he points out, comes from *simplex* — one fold, one braid. Simplicity is about structure: one thing, unentangled from other things. Which makes it objective — you can look at a system and see what's braided together. *Easy* comes from a root meaning *adjacent*, to lie near. Ease is about distance: near at hand, near our habits, near what we already know. Which makes it relative — easy *for whom?* And for what programmers do to systems, he found the perfect word in an old corner of the dictionary: **complect** — to interleave, entwine, braid together.
-
-Now rewind the story with those definitions in hand. Every choice was the *easy* one — genuinely, defensibly easy: the nearest diff, the familiar tool, the change that shipped that day. And almost every one of them *complected* something: the export logic with the module, the module with the framework, the config with the import, fifteen operations with seven collaborators and with each other, orders with customers, both ways. Nothing about the result is simple. The result is a braid.
-
-That's also the truest reading of my message-queue story. Pointing the queue at the public endpoint felt like the simple option — no refactoring, no new infrastructure, one config change. It wasn't simple. It braided internal message delivery into the public ingress path, the WAF, and the rate limiter — three things that now had to be reasoned about *together*, as the retry storm demonstrated. It was only easy: near at hand, familiar, shippable by Friday. **We reached for the near thing and called it the simple thing, and the two words let us believe they were the same.**
-
-Hickey's warning about where that leads is blunt: "if you ignore complexity, you will slow down. You will invariably slow down over the long haul." The ease is real, but it's borrowed — the early speed of the entangled codebase is an advance on velocity that gets repaid, with interest, by whoever climbs the staircase later. Usually it's us.
-
-None of this is an accusation. Choosing the near thing every time is what reasonable people do under deadline; I did it in every story above. The point of the vocabulary isn't blame — it's that you can't *choose* simplicity until you can see it as a separate axis from ease. Once you can, the question changes from "what's the fastest diff?" to "what does this diff braid together?"
+I can point at the review where this stopped looking like progress to me, because I still remember the comment I left. The diff was a worker that needed one method — the export — and its setup, quite correctly, built the whole seven-dependency service to get it. That's what gave me pause: there was nothing to push back on. The code was right; the design made it right. So the comment came out as a genuine question — *why does this worker know what a PDF renderer is?* — and the genuine answer was: because in this codebase, the only way to hold one operation is to hold the machine it's mounted in. The class had solved the problems it came for — construction, tests, lifecycles — and I'll extend it the same courtesy I extended the module: at every step, it was the right call. But sitting with that review comment, I could finally see the shape of the whole story. The knowledge I'd been calling coupling hadn't been decreasing; it had been *relocating* — out of the import block, into the constructor, one container to the next. And if moving the knowledge around wasn't working, there was one move we hadn't tried: making the thing that must be known *smaller*.
 
 ## Smaller and smaller
 
-Ask that question of the god service and it indicts itself: fifteen operations braided to seven collaborators, when each operation needs two or three. So it gets split — by what changes together, not by what shares a database table. `InvoiceService` takes the renderer and the mailer. `ExportService` takes the session and file storage. Small constructors, small tests, callers that finally depend on something roughly their own size. This is the classic remedy, and the old words for why it works still fit: *coupling* goes down, because each piece touches fewer others; *cohesion* goes up, because what remains together actually belongs together.
+So it shrinks — not by grand redesign, but the way everything else in this story happened: one reasonable diff at a time. Someone gets tired of faking seven collaborators to test a method that touches two; someone's worker builds a renderer it never runs; and the next refactor peels a clutch of operations off into a home of their own. `InvoiceService` takes the renderer and the mailer. `ExportService` takes the session and file storage. The line of the split matters more than it looks: not by database table, not alphabetically — by *what changes together*.
 
-Here's the part nobody plans. The splitting keeps paying, so it keeps happening, and the natural stopping point is much further down than anyone expects. The splits only stop being possible when every piece holds *one operation*:
+There are two old words for what just got better, and this is the refactor where they stop being abstract. *Coupling* is felt from the outside: everything a caller is forced to hold in order to reach the one thing it wants. *Cohesion* is felt from the inside: how much of what shares a home actually belongs together. The god service was the low point of both at once — every caller holding fifteen operations to use one, and fifteen operations cohabiting because they all had *orders* somewhere in the name. Each split moves both needles:
+
+<SplitDiagram />
+
+And the picture has a direction. Every panel to the right, the classes get smaller — and the callers get freer. The worker that once knew seven dependencies knows two. The test that once built seven fakes builds two. Follow the trend and it turns out to be a law you can lean on: **the smaller the class, the less its callers are coupled to.** The size of the thing you must hold and the coupling of everyone holding it are the same number — which is why the splitting, once it starts paying, sails right past where anyone intends to stop, and doesn't rest until every class holds exactly one operation:
 
 ```python title="orders/export.py"
 class ExportService:
@@ -191,7 +195,9 @@ class ExportService:
     def run(self, customer_id, fmt="csv"): ...
 ```
 
-I remember being mildly embarrassed the first time I wrote one of these — a "service" with one method feels like a bureaucratic joke, a form filled out to appease some architecture god. It took me longer than I'd like to admit to see what it actually is, which is not a service at all. It's an *operation with a name*. "Export a customer's orders" is one of the things the application exists to do — it would be on the list if you wrote the application's purpose down — and for the first time in the codebase's life, that thing has its own home: dependencies declared, logic alone, nothing else in the blast radius. Each of these little classes has exactly one reason to change, and when one breaks, the failing test file *is* the diagnosis.
+I know how this looks. We opened this essay with a plain function — direct, readable, *right* — and four years of defensible decisions later, the destination is a class with one method. It looks absurd. A "service" that serves exactly one thing; a function in a costume; the kind of object the word *enterprise* was coined to mock. The first time one of these appeared in a codebase of mine, I honestly couldn't decide whether I was looking at a refactor or a piece of satire.
+
+The absurdity dissolves the moment you stop reading it as a class and read it for what it actually is: an *operation with a name*. "Export a customer's orders" is one of the things the application exists to do — it would be on the list if you wrote the application's purpose down — and for the first time in the codebase's life, that thing has its own home: dependencies declared, logic alone, nothing else in the blast radius. Each of these little classes has exactly one reason to change, and when one breaks, the failing test file *is* the diagnosis.
 
 That's the quiet discovery waiting at the bottom of the refactor: the operations of the application were there all along, buried as method #9 on a shared object, indistinguishable from any helper anyone might call from anywhere. Splitting to the logical end didn't create them. It *revealed* them.
 
@@ -203,7 +209,9 @@ So let's ask the braid question about the innocent line at the heart of all of t
 
 You can, and you should — the call was never the problem. Look at the edges instead: at what the calling code has to *know*. In the module years, code that wanted an export knew a module path, and through it — involuntarily — seven collaborators, their import-time appetites, and a web framework. In the class years, it knew a constructor: the assembly manual for machinery it would never use. After the great splitting it knows less, but it still finds, builds, and holds — the ceremony from the last section. Tally it era by era and one thing never changes: one strand of the caller's knowledge is *about exporting orders*, and every other strand is about *machinery*.
 
-The fix, then, has a precise shape. Not "don't call functions" — rather: **let the call site know *what* it wants, and exactly one place know *how* it's done.** Between them, put a seam. The caller sends a small, dumb description of intent — the operation's name and its inputs, which were the only real content of the call anyway. On the far side of the seam, the operation's one home carries it out:
+Which means the culprit finally has a face. It was never the call — the call survived every era unchanged, one line, identical since the first page of this essay. It's the *cargo*: the dependencies, the construction, the location, the lifecycle that every call has quietly shipped along with it since the first `import`. That cargo is the coupling. And cargo, unlike calls, can be moved.
+
+So the fix has a precise shape. Not "don't call functions" — rather: **let the call site know *what* it wants, and exactly one place know *how* it's done.** Between them, put a seam. The caller sends a small, dumb description of intent — the operation's name and its inputs, which were the only real content of the call anyway. On the far side of the seam, the operation's one home carries it out:
 
 <SeamDiagram />
 
@@ -258,18 +266,36 @@ class ExportOrdersHandler(RequestHandler[ExportOrders]):
 
 Notice what's *absent*. No `current_app`, no `g`, no mailer or payment client it never needed — and no import block full of other features' machinery, because everything it uses is handed in at construction time. That's the circular-import knot from year two, untied as a side effect: modules stop importing each other's internals because nobody reaches for their own collaborators anymore.
 
-"Handed in" does mean there's one place, at startup, that constructs every handler and assembles the mediator itself — and that's not a loose end, it's the destination. The knowledge that used to be smeared across every import block in the codebase now lives in exactly one file, the only file entitled to know everything. (How that file stays pleasant as the application grows is the second essay's business.)
+Before the payoff, an honest accounting — because an inventory has been quietly piling up since the splitting, and you have every right to be suspicious of it. Not long ago this feature was one class with familiar methods. We now have a message *and* a handler per operation: for the fifteen operations of the old god service, thirty small classes where there used to be one. If every call site had to find, import, and construct its own handler, this would be the god service's problem again, chopped fine and redistributed. The reason it isn't is the other half of the pattern: no caller ever meets a handler. Every message in the application — every operation, from every doorway — goes through the same one object:
 
-Now the payoff — the ticket that broke our engineer. The route stops knowing *how* and shrinks to intent:
+<SeamFlowDiagram />
 
-```python title="app.py — the web is now one adapter among several"
+That diamond is the *mediator*, and it's the seam made runnable. The caller hands it a message; it finds the one handler registered for that message's type, invokes it, and hands back the typed result. Callers never learn which class answered — they can't, and that's the feature. However many operations the application grows, the calling side speaks a single sentence, `mediator.send(...)`, with a different noun in it each time.
+
+Which leaves the wiring, because *something* has to construct those handlers and tell the mediator who answers what. There is such a place — one file, at startup, that builds every handler and assembles the mediator — and it isn't a loose end; it's the destination. The knowledge that used to be smeared across every import block in the codebase now has a single address: the only file entitled to know everything. How that file stays pleasant as the application grows — how handlers get their dependencies *given* to them at scale — is the second essay of this pair, and I'd rather tell it properly than gesture at it here. Today's story only needs the seam itself.
+
+Now the payoff — starting with the ticket that broke our engineer, and then the whole building. The route stops knowing *how* and shrinks to intent, and it's not just the export route: every doorway gets the same renovation. Here's the file this essay opened with, all grown up:
+
+```python title="app.py — every route, three lines"
+@app.post("/orders")
+def place_order():
+    result = mediator.send(PlaceOrder(items=request.json["items"]))
+    return jsonify(id=result.order_id), 201
+
+@app.post("/orders/<int:order_id>/refund")
+def refund(order_id: int):
+    mediator.send(Refund(order_id=order_id))
+    return "", 204
+
 @app.post("/orders/export")
 def export_orders():
     result = mediator.send(ExportOrders(customer_id=g.current_user.id))
     return jsonify(url=result.url), 202
 ```
 
-And the worker — which once needed the staircase, and after the grown-up fix still needed the assembly manual — now needs neither. It's the same one line, sent from a different doorway. So is the CLI that support asks for next quarter:
+Every route is the same three lines with a different message in the middle: build the intent, send it, shape the reply. Nothing behind `send()` knows Flask exists.
+
+And the worker — which once needed the staircase, and after the class act still needed the assembly manual — now needs neither. It's the same one line, sent from a different doorway. So is the CLI that support asks for next quarter:
 
 ```python title="worker.py / cli.py — same request, different doorways"
 def handle_message(message):          # the worker: no Flask anywhere
@@ -303,11 +329,11 @@ def test_export_counts_rows():
 
 No patching, no app-context fixture, no world-building `conftest.py` — hand it fakes and call it. The assertions go back to being about what the code did. Of everything the seam buys, this is the piece teams feel first, because they feel it every day.
 
-And the tooling tax that made Python abandon this seam for twenty years — it's gone. `ExportOrders` inherits `Request[ExportResult]`, so `mediator.send(...)` *returns* `ExportResult`, inferred by mypy, autocompleted by your editor; wire a handler wrong and it raises at import, not at 2 a.m. in the worker. I'll spare you the feature tour — [the docs](/docs) exist — but this is the part that had to become true before the old wisdom could feel idiomatic in Python: the seam now costs a dataclass, and it pays you back in types. Every snippet above runs as-is against the released package.
+And the tooling tax that made Python abandon this seam for twenty years — it's gone. `ExportOrders` declared its response type up in its class line, so `mediator.send(...)` *returns* `ExportResult` — inferred by mypy, autocompleted by your editor, checked at the exact boundary where the old string-keyed registries went dark. This is the part that had to become true before the old wisdom could feel idiomatic in Python: the seam now costs a dataclass, and it pays you back in types. Every snippet above runs as-is against the released package.
 
-### Couldn't I just write this myself?
+### So why the package?
 
-You could — and I mean that without a wink. The dispatcher at the heart of all this is an afternoon of work, and I'm not being modest — it's a dict:
+Because I can hear the question that survives everything above: *couldn't I just write this myself?* You could — and I mean that without a wink. The dispatcher at the heart of all this is an afternoon of work, and I'm not being modest — it's a dict:
 
 ```python title="dispatch.py — the whole first version"
 handlers = {
@@ -321,7 +347,11 @@ def send(message):
 
 The dict with delusions of grandeur is the *mediator pattern*, catalogued decades before any of us could type. And if this essay ends with you writing your own forty-line version and never installing anything, it succeeded — the messages, the one-home-per-operation handlers, and the un-braided call sites are the point, and the dict delivers all three.
 
-What it doesn't deliver are three things, and they're exactly the three you just watched. `send()` returns `Any`, so the editor and the type checker abandon you at the seam — the precise failure that made Python give up on this pattern for twenty years. A message nobody handles fails as a `KeyError` with no suspects, in the worker, at 2 a.m. — not as a refusal at startup. And the cross-cutting concerns have no shared home yet, so they creep back into the handlers by copy-paste. Closing those gaps properly takes a lot longer than an afternoon — it's the plumbing, it's deliberately boring, and it's the package. The interesting parts — the handlers — are yours.
+What it doesn't deliver are three things, and they're exactly the three you just watched. `send()` returns `Any`, so the editor and the type checker abandon you at the seam — the precise failure that made Python give up on this pattern for twenty years. A message nobody handles fails as a `KeyError` with no suspects, in the worker, at 2 a.m. And the cross-cutting concerns have no shared home yet, so they creep back into the handlers by copy-paste.
+
+The package is those three gaps, closed — and not much else, which I mean as a compliment to any library. The piece that finally made the closing feel like Python is 3.12's generics syntax: the library's base class is literally `class Request[ResponseT]`, so the line `class ExportOrders(Request[ExportResult])` speaks to two audiences at once. The type checker reads it and knows what `send()` returns, at every call site, forever. And the *runtime* reads the same line the moment the class is created — so a handler with a malformed signature is refused at import, with its class named in the error, and a message nobody handles is refused with the missing message named and the remedy spelled out: a diagnosis instead of a shrug. Behaviors give the cross-cutting code its one home, so it stops making a comeback tour through the handlers. None of this is visible at the call site, and that's the discipline — all of the machinery lives on the far side of the seam it exists to keep.
+
+Closing those gaps properly takes a lot longer than an afternoon — it's the plumbing, it's deliberately boring, and it's the package. The interesting parts — the handlers — are yours.
 
 ## What this costs
 
