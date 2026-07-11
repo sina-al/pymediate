@@ -1,32 +1,25 @@
-"""Pipeline behavior implementation for cross-cutting concerns in the mediator pattern.
+"""Asynchronous pipeline behavior implementation for cross-cutting concerns.
 
-Pipeline behaviors provide a way to implement middleware-like functionality that wraps
-around request handlers. This is inspired by MediatR's IPipelineBehavior pattern and
-enables clean implementation of cross-cutting concerns such as:
+This module provides async/await compatible pipeline behaviors for the mediator pattern.
+Behaviors are fully asynchronous, allowing for async operations in the middleware chain.
 
-- Logging and auditing
-- Performance measurement and monitoring
-- Validation
-- Transaction management
-- Caching
-- Error handling and retry logic
-
-Behaviors are executed in the order they are registered, forming a chain where each
-behavior can execute logic before and after the next behavior (or final handler) runs.
+See Also:
+    - pymediate.sync.pipeline: Synchronous pipeline implementation
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar, get_args, get_origin
 
 from .request import Request
 
 
 class PipelineBehavior[RequestT: Request[Any]](ABC):
-    """Abstract base class for pipeline behaviors that wrap request processing.
+    """Abstract base class for asynchronous pipeline behaviors that wrap request processing.
 
-    A pipeline behavior is middleware that sits between the mediator and the handler,
-    allowing you to execute logic before and after the handler processes the request.
+    An async pipeline behavior is middleware that sits between the mediator and the
+    handler, allowing you to execute asynchronous logic before and after the handler
+    processes the request.
 
     Behaviors can be selective - they only apply to specific request types or mixins.
     The type parameter indicates which requests this behavior applies to.
@@ -35,8 +28,8 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     - The request being processed (typed as RequestT)
     - A 'next' callable that represents the next step in the pipeline
 
-    By calling next(), the behavior passes control to the next step. The behavior
-    can execute code before calling next() (pre-processing), after calling next()
+    By awaiting next(), the behavior passes control to the next step. The behavior
+    can execute code before awaiting next() (pre-processing), after awaiting next()
     (post-processing), or both.
 
     Type Parameters:
@@ -44,50 +37,61 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                   Can be Request (universal), a specific request class, or a mixin.
 
     Examples:
-        Universal behavior (applies to all requests):
+        Universal async behavior (applies to all requests):
             ```python
-            from pymediate import Request
-            from pymediate.pipeline import PipelineBehavior
+            from pymediate import PipelineBehavior, Request
 
-            class LoggingBehavior(PipelineBehavior[Request]):
-                def __call__(
+            class AsyncLoggingBehavior(PipelineBehavior[Request]):
+                async def __call__(
                     self,
                     request: Request,
-                    next: Callable[[], Any]
+                    next: Callable[[], Awaitable[Any]]
                 ) -> Any:
-                    print(f"Handling: {type(request).__name__}")
-                    response = next()
-                    print(f"Handled: {type(request).__name__}")
+                    await log_to_database(f"Handling: {type(request).__name__}")
+                    response = await next()
+                    await log_to_database(f"Handled: {type(request).__name__}")
                     return response
             ```
 
-        Selective behavior for authenticated requests:
+        Selective behavior for cacheable requests:
             ```python
-            class AuthMixin:
-                principal: Principal
+            class CacheableMixin:
+                cache_key: str
+                ttl: int
 
-            class AuthBehavior(PipelineBehavior[AuthMixin]):
-                def __call__(
+            class CachingBehavior(PipelineBehavior[CacheableMixin]):
+                def __init__(self, cache: AsyncCache):
+                    self.cache = cache
+
+                async def __call__(
                     self,
-                    request: AuthMixin,
-                    next: Callable[[], Any]
+                    request: CacheableMixin,
+                    next: Callable[[], Awaitable[Any]]
                 ) -> Any:
-                    if not request.principal.is_authenticated:
-                        raise Unauthorized()
-                    return next()
+                    # Check cache
+                    cached = await self.cache.get(request.cache_key)
+                    if cached is not None:
+                        return cached
+
+                    # Execute and cache
+                    response = await next()
+                    await self.cache.set(request.cache_key, response, ttl=request.ttl)
+                    return response
             ```
 
-        Specific request type:
+        Specific request type with transaction:
             ```python
-            class ValidationBehavior(PipelineBehavior[CreateUserRequest]):
-                def __call__(
+            class TransactionBehavior(PipelineBehavior[CreateOrderRequest]):
+                def __init__(self, db: AsyncDatabase):
+                    self.db = db
+
+                async def __call__(
                     self,
-                    request: CreateUserRequest,
-                    next: Callable[[], Any]
+                    request: CreateOrderRequest,
+                    next: Callable[[], Awaitable[Any]]
                 ) -> Any:
-                    if not request.username:
-                        raise ValueError("Username required")
-                    return next()
+                    async with self.db.transaction():
+                        return await next()
             ```
 
     Attributes:
@@ -100,18 +104,18 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         safety, manually annotate in your implementation:
 
             ```python
-            def __call__(self, request: MyRequest, next) -> MyResponse:
-                result: MyResponse = next()  # Manual type assertion
+            async def __call__(self, request: MyRequest, next) -> MyResponse:
+                result: MyResponse = await next()  # Manual type assertion
                 return result
             ```
 
-        For async behaviors, use `pymediate.aio.pipeline.PipelineBehavior` instead.
+        For synchronous behaviors, use `pymediate.sync.PipelineBehavior` instead.
 
     See Also:
-        - pymediate.Mediator.send: Discovers applicable behaviors and runs them
+        - Mediator.send: Discovers applicable behaviors and runs them
           around the handler.
         - should_apply: Override to customize behavior selection logic
-        - pymediate.aio.pipeline.PipelineBehavior: Async version
+        - pymediate.sync.PipelineBehavior: Sync version
     """
 
     apply_to_subclasses: bool = True
@@ -152,16 +156,16 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         Examples:
             Custom matching logic:
                 ```python
-                class BusinessHoursBehavior(PipelineBehavior[Request]):
+                class RateLimitBehavior(PipelineBehavior[Request]):
                     @classmethod
                     def should_apply(cls, request: Request) -> bool:
-                        from datetime import datetime
-                        return 9 <= datetime.now().hour < 17
+                        # Only apply to non-admin users
+                        return not getattr(request, 'is_admin', False)
                 ```
 
             Multiple type matching:
                 ```python
-                class MultiTypeBehavior(PipelineBehavior[Request]):
+                class ValidationBehavior(PipelineBehavior[Request]):
                     @classmethod
                     def should_apply(cls, request: Request) -> bool:
                         return isinstance(request, (CreateRequest, UpdateRequest))
@@ -176,22 +180,22 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         return type(request) is match_type
 
     @abstractmethod
-    def __call__(
+    async def __call__(
         self,
         request: RequestT,
-        next: Callable[[], Any],
+        next: Callable[[], Awaitable[Any]],
     ) -> Any:
-        """Execute the behavior's logic and call next to continue the pipeline.
+        """Execute the behavior's async logic and await next to continue the pipeline.
 
         Args:
             request: The request being processed (typed as RequestT)
-            next: Callable that invokes the next behavior or handler in the chain
+            next: Async callable that invokes the next behavior or handler in the chain
 
         Returns:
             The response from the handler (type not statically known)
 
         Note:
-            This method should call next() to continue the pipeline execution.
+            This method should await next() to continue the pipeline execution.
             Code before next() runs before the handler, code after runs after.
 
             The response type is Any because selective behaviors can apply to

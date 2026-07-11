@@ -10,8 +10,9 @@ This page builds a complete user-creation feature: a request and response, a han
 A full, runnable feature in one file:
 
 ```python
+import asyncio
 from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate import Request, RequestHandler, Mediator, Services
 
 # 1. Define the response
 @dataclass
@@ -27,12 +28,12 @@ class CreateUser(Request[UserCreated]):
     email: str
 
 # 3. Write the handler
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __init__(self):
         self.next_id = 1
         self.users = {}
 
-    def __call__(self, request: CreateUser) -> UserCreated:
+    async def __call__(self, request: CreateUser) -> UserCreated:
         user_id = self.next_id
         self.next_id += 1
         self.users[user_id] = {"username": request.username, "email": request.email}
@@ -44,8 +45,11 @@ services.add(CreateUserHandler())
 mediator = Mediator(services.provider())
 
 # 5. Send a request
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-print(f"Created user {response.username} with ID {response.user_id}")
+async def main():
+    response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+    print(f"Created user {response.username} with ID {response.user_id}")
+
+asyncio.run(main())
 # Output: Created user alice with ID 1
 ```
 
@@ -97,17 +101,17 @@ class CreateUser(Request[UserCreated]):
 
 ### Write the handler
 
-A handler subclasses `Handler[CreateUser]` and implements `__call__`. The type parameter is how PyMediate knows which requests it handles — no naming conventions, no registration strings:
+A handler subclasses `RequestHandler[CreateUser]` and implements `__call__`. The type parameter is how PyMediate knows which requests it handles — no naming conventions, no registration strings:
 
 ```python
-from pymediate import Handler
+from pymediate import RequestHandler
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __init__(self):
         self.next_id = 1
         self.users = {}
 
-    def __call__(self, request: CreateUser) -> UserCreated:
+    async def __call__(self, request: CreateUser) -> UserCreated:
         user_id = self.next_id
         self.next_id += 1
         self.users[user_id] = {"username": request.username, "email": request.email}
@@ -136,10 +140,13 @@ mediator = Mediator(services.provider())
 ### Send a request
 
 ```python
-request = CreateUser(username="alice", email="alice@example.com")
-response = mediator.send(request)
+async def main():
+    request = CreateUser(username="alice", email="alice@example.com")
+    response = await mediator.send(request)
 
-print(f"Created user {response.username} with ID {response.user_id}")
+    print(f"Created user {response.username} with ID {response.user_id}")
+
+asyncio.run(main())
 # Output: Created user alice with ID 1
 ```
 
@@ -153,37 +160,37 @@ print(f"Created user {response.username} with ID {response.user_id}")
 PyMediate validates handler signatures when the class is *defined*, so a wiring mistake fails at import time:
 
 ```python
-class WrongHandler(Handler[CreateUser]):
-    def __call__(self, request: CreateUser) -> str:  # wrong return type
+class WrongHandler(RequestHandler[CreateUser]):
+    async def __call__(self, request: CreateUser) -> str:  # wrong return type
         return "oops"
 
 # TypeError: WrongHandler.__call__ must return UserCreated, got str
 ```
 
-## Async support
+## Sync support
 
-The async API in `pymediate.aio` is a structural mirror of the sync one — same classes, same flow:
+Not running an event loop? The sync API in `pymediate.sync` is a structural mirror of the async one — same classes, same flow, with plain `def` handlers and a blocking `send()`:
 
 ```python
-from pymediate import Services
-from pymediate.aio import Handler, Mediator
+from pymediate.sync import RequestHandler, Mediator, Services
 
-class CreateUserHandler(Handler[CreateUser]):
-    async def __call__(self, request: CreateUser) -> UserCreated:
-        await database.save_user(request.username, request.email)
+class CreateUserHandler(RequestHandler[CreateUser]):
+    def __call__(self, request: CreateUser) -> UserCreated:
+        database.save_user(request.username, request.email)
         return UserCreated(user_id=1, username=request.username, email=request.email)
 
 services = Services()
 services.add(CreateUserHandler())
 mediator = Mediator(services.provider())
 
-response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 ```
 
-See the [async example](/docs/examples/async) for a complete program.
+See the [basic example](/docs/examples/basic) for complete programs on both sides.
 
 ## Next steps
 
 - Learn the [core concepts](/docs/getting-started/concepts) behind requests, handlers, and the mediator.
+- Notify many handlers at once with [events](/docs/guide/events) — `publish()` is `send()`'s one-to-many counterpart.
 - Add cross-cutting logic with [pipeline behaviors](/docs/guide/pipeline-behaviors).
 - Wire handlers through a container with [dependency injection](/docs/guide/dependency-injection).

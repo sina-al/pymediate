@@ -18,7 +18,7 @@ self-contained, gentle, and runnable by copy-paste. When in doubt, cut.
 ## The contract (mechanical requirements)
 
 `examples/README.md` § "The examples contract" is authoritative. Summary: standalone uv
-project, committed `uv.lock`, `pymediate>=0.1` loose bound (extras like `pymediate[di]`
+project, committed `uv.lock`, `pymediate>=0.5` loose bound (extras like `pymediate[di]`
 are fine — the release runner's re-pin preserves them), tests in the default `dev` group
 so `uv sync && uv run pytest` is the whole contract, **never** define `[tool.uv.sources]`
 or `[[tool.uv.index]]`, and a README. `release.yml` discovers `examples/*/pyproject.toml`
@@ -31,7 +31,7 @@ classic `httpx`, for HTTP test clients (starlette deprecated httpx there).
 ## Structure: flat or src — decide by module count
 
 - **One source module** → flat: `app.py` + `test_app.py` at the root, `[tool.uv]
-  package = false`. Template: `examples/basic-sync/`. Folder ceremony makes tiny examples
+  package = false`. Template: `examples/basic-async/`. Folder ceremony makes tiny examples
   read worse, not better.
 - **More than one source module** → src layout, installed as a real package:
 
@@ -47,14 +47,15 @@ classic `httpx`, for HTTP test clients (starlette deprecated httpx there).
   └── tests/
   ```
 
-  Template: `examples/adapters-sync/`. Being a real package is what buys pleasant
+  Template: `examples/adapters-async/`. Being a real package is what buys pleasant
   commands: `uv run taskboard …` via `[project.scripts]`,
   `uv run uvicorn taskboard.adapters.fastapi_app:app` — never
   `uv run python src/….py` paths in a README. uv installs the project editable on sync,
   which also makes IDE imports resolve.
 
-Directory names are kebab-case and content-descriptive; sync/async twins are suffixed
-`-sync` / `-aio` and must mirror each other structurally (same rule as the library).
+Directory names are kebab-case and content-descriptive; async/sync twins are suffixed
+`-async` / `-sync` and must mirror each other structurally (same rule as the library:
+async is the top-level API, sync the mirror — the async twin leads in reading order).
 
 ## The README — treat it as a landing page
 
@@ -111,8 +112,8 @@ venv. Copy an existing one and adjust the three obvious fields. README badge:
 
 `examples/README.md` opens with the gallery. Add/update the new example's card: name
 (linked), one-sentence hook, "start here"-ordering position. Keep the recommended reading
-order coherent: basic-sync → basic-aio → with-dependency-injector → adapters-sync →
-adapters-aio → (new ones slotted deliberately, not appended blindly).
+order coherent: basic-async → basic-sync → with-dependency-injector → adapters-async →
+adapters-sync → (new ones slotted deliberately, not appended blindly).
 
 ## Verification bar (all of it, every time)
 

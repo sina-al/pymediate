@@ -15,15 +15,14 @@ import pytest
 
 from pymediate import (
     Event,
-    Handler,
     InvalidHandlerSignatureError,
-    Mediator,
     Request,
     ResponseTypeMismatchError,
 )
-from pymediate.aio import Handler as AsyncHandler
-from pymediate.aio import Mediator as AsyncMediator
+from pymediate import Mediator as AsyncMediator
+from pymediate import RequestHandler as AsyncHandler
 from pymediate.service import Services
+from pymediate.sync import Mediator, RequestHandler
 
 
 @dataclass
@@ -42,7 +41,7 @@ class OtherRequest(Request[UserCreated]):
 
 
 def test_sync_handler_defines_and_dispatches_under_future_annotations() -> None:
-    class CreateUserHandler(Handler[CreateUser]):
+    class CreateUserHandler(RequestHandler[CreateUser]):
         def __call__(self, request: CreateUser) -> UserCreated:
             return UserCreated(user_id=1)
 
@@ -71,7 +70,7 @@ def test_async_handler_defines_and_dispatches_under_future_annotations() -> None
 def test_wrong_parameter_type_still_rejected_under_future_annotations() -> None:
     with pytest.raises(InvalidHandlerSignatureError, match="exact request class"):
 
-        class BadHandler(Handler[CreateUser]):
+        class BadHandler(RequestHandler[CreateUser]):
             def __call__(self, request: OtherRequest) -> UserCreated:
                 return UserCreated(user_id=1)
 
@@ -79,7 +78,7 @@ def test_wrong_parameter_type_still_rejected_under_future_annotations() -> None:
 def test_wrong_return_type_still_rejected_under_future_annotations() -> None:
     with pytest.raises(ResponseTypeMismatchError):
 
-        class BadHandler(Handler[OtherRequest]):
+        class BadHandler(RequestHandler[OtherRequest]):
             def __call__(self, request: OtherRequest) -> int:
                 return 1
 
@@ -90,7 +89,7 @@ class UserRegistered(Event):
 
 
 def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
-    from pymediate import EventHandler, Mediator
+    from pymediate.sync import EventHandler, Mediator
 
     calls: list[int] = []
 
@@ -107,7 +106,7 @@ def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
 
 
 def test_event_handler_wrong_return_still_rejected_under_future_annotations() -> None:
-    from pymediate import EventHandler
+    from pymediate.sync import EventHandler
 
     with pytest.raises(InvalidHandlerSignatureError, match="must be annotated to return None"):
 

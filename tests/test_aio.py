@@ -1,4 +1,4 @@
-"""Tests for async Handler and Mediator classes."""
+"""Tests for async RequestHandler and Mediator classes."""
 
 import asyncio
 
@@ -7,16 +7,17 @@ import pytest
 from pymediate import (
     HandlerNotFoundError,
     InvalidHandlerSignatureError,
+    Mediator,
     Request,
+    RequestHandler,
     ResponseTypeMismatchError,
     Services,
 )
 from pymediate._internal.registry import get_handler_class, has_handler
-from pymediate.aio import Handler, Mediator
 
 
 def test_async_handler_extracts_request_type() -> None:
-    """Test that async Handler extracts request type from generic."""
+    """Test that async RequestHandler extracts request type from generic."""
 
     class TestResponse:
         def __init__(self, value: int):
@@ -26,7 +27,7 @@ def test_async_handler_extracts_request_type() -> None:
         def __init__(self, data: str):
             self.data = data
 
-    class TestHandler(Handler[TestRequest]):
+    class TestHandler(RequestHandler[TestRequest]):
         async def __call__(self, request: TestRequest) -> TestResponse:
             return TestResponse(42)
 
@@ -35,7 +36,7 @@ def test_async_handler_extracts_request_type() -> None:
 
 
 def test_async_handler_registration() -> None:
-    """Test that async Handler is registered in handler registry."""
+    """Test that async RequestHandler is registered in handler registry."""
 
     class Response:
         pass
@@ -43,7 +44,7 @@ def test_async_handler_registration() -> None:
     class Req(Request[Response]):
         pass
 
-    class ReqHandler(Handler[Req]):
+    class ReqHandler(RequestHandler[Req]):
         async def __call__(self, request: Req) -> Response:
             return Response()
 
@@ -52,7 +53,7 @@ def test_async_handler_registration() -> None:
 
 
 def test_async_handler_validates_correct_return_type() -> None:
-    """Test that async Handler with correct return type is accepted."""
+    """Test that async RequestHandler with correct return type is accepted."""
 
     class GoodResponse:
         def __init__(self, msg: str):
@@ -62,7 +63,7 @@ def test_async_handler_validates_correct_return_type() -> None:
         pass
 
     # This should not raise
-    class GoodHandler(Handler[GoodRequest]):
+    class GoodHandler(RequestHandler[GoodRequest]):
         async def __call__(self, request: GoodRequest) -> GoodResponse:
             return GoodResponse("ok")
 
@@ -70,7 +71,7 @@ def test_async_handler_validates_correct_return_type() -> None:
 
 
 def test_async_handler_rejects_wrong_return_type() -> None:
-    """Test that async Handler with wrong return type is rejected."""
+    """Test that async RequestHandler with wrong return type is rejected."""
 
     class CorrectResponse:
         pass
@@ -84,13 +85,13 @@ def test_async_handler_rejects_wrong_return_type() -> None:
     # This should raise ResponseTypeMismatchError
     with pytest.raises(ResponseTypeMismatchError):
 
-        class BadHandler(Handler[ReqWithCorrectResponse]):
+        class BadHandler(RequestHandler[ReqWithCorrectResponse]):
             async def __call__(self, request: ReqWithCorrectResponse) -> WrongResponse:
                 return WrongResponse()
 
 
 def test_async_handler_rejects_sync_call() -> None:
-    """Test that async Handler rejects sync __call__ method."""
+    """Test that async RequestHandler rejects sync __call__ method."""
 
     class Resp:
         pass
@@ -101,15 +102,14 @@ def test_async_handler_rejects_sync_call() -> None:
     # This should raise InvalidHandlerSignatureError because __call__ must be async
     with pytest.raises(InvalidHandlerSignatureError, match="__call__ must be async"):
 
-        class BadHandler(Handler[Req]):
+        class BadHandler(RequestHandler[Req]):
             def __call__(self, request: Req) -> Resp:  # Missing async!
                 return Resp()
 
 
 def test_async_event_handler_rejects_sync_call() -> None:
     """Test that the async EventHandler rejects a sync __call__."""
-    from pymediate import Event
-    from pymediate.aio import EventHandler
+    from pymediate import Event, EventHandler
 
     class Ping(Event):
         pass
@@ -127,9 +127,8 @@ async def test_async_publish_runs_handlers_concurrently_and_aggregates() -> None
     import asyncio
     from dataclasses import dataclass
 
-    from pymediate import Event
-    from pymediate.aio import EventHandler
-    from pymediate.aio import Mediator as AioMediator
+    from pymediate import Event, EventHandler
+    from pymediate import Mediator as AioMediator
 
     @dataclass
     class Ping(Event):
@@ -168,7 +167,7 @@ async def test_async_publish_runs_handlers_concurrently_and_aggregates() -> None
 async def test_async_publish_with_zero_handlers_is_a_no_op() -> None:
     """Test that async publish with no subscribers succeeds silently."""
     from pymediate import Event
-    from pymediate.aio import Mediator as AioMediator
+    from pymediate import Mediator as AioMediator
 
     class NobodyListens(Event):
         pass
@@ -191,14 +190,14 @@ def test_async_handler_rejects_base_class_parameter_annotation() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError, match="a base class of DerivedReq"):
 
-        class BadHandler(Handler[DerivedReq]):
+        class BadHandler(RequestHandler[DerivedReq]):
             async def __call__(self, request: BaseReq) -> Resp:
                 return Resp()
 
 
 def test_sync_handler_rejects_async_call() -> None:
-    """Test that sync Handler rejects async __call__ method."""
-    from pymediate import Handler as SyncHandler
+    """Test that sync RequestHandler rejects async __call__ method."""
+    from pymediate.sync import RequestHandler as SyncHandler
 
     class Resp:
         pass
@@ -226,7 +225,7 @@ async def test_async_handler_call() -> None:
         def __init__(self, value: int):
             self.value = value
 
-    class DoubleHandler(Handler[NumRequest]):
+    class DoubleHandler(RequestHandler[NumRequest]):
         async def __call__(self, request: NumRequest) -> NumResponse:
             # Simulate async operation
             await asyncio.sleep(0.001)
@@ -261,7 +260,7 @@ async def test_async_mediator_send_request() -> None:
         def __init__(self, name: str):
             self.name = name
 
-    class GreetingHandler(Handler[GreetingRequest]):
+    class GreetingHandler(RequestHandler[GreetingRequest]):
         async def __call__(self, request: GreetingRequest) -> GreetingResponse:
             await asyncio.sleep(0.001)
             return GreetingResponse(f"Hello, {request.name}!")
@@ -319,12 +318,12 @@ async def test_async_mediator_with_multiple_handlers() -> None:
             self.a = a
             self.b = b
 
-    class AddHandler(Handler[AddRequest]):
+    class AddHandler(RequestHandler[AddRequest]):
         async def __call__(self, request: AddRequest) -> AddResponse:
             await asyncio.sleep(0.001)
             return AddResponse(request.a + request.b)
 
-    class MultiplyHandler(Handler[MultiplyRequest]):
+    class MultiplyHandler(RequestHandler[MultiplyRequest]):
         async def __call__(self, request: MultiplyRequest) -> MultiplyResponse:
             await asyncio.sleep(0.001)
             return MultiplyResponse(request.a * request.b)
@@ -353,7 +352,7 @@ async def test_async_mediator_with_stateful_handler() -> None:
     class CountRequest(Request[CountResponse]):
         pass
 
-    class CounterHandler(Handler[CountRequest]):
+    class CounterHandler(RequestHandler[CountRequest]):
         def __init__(self) -> None:
             self.count = 0
 
@@ -394,7 +393,7 @@ async def test_async_handler_with_actual_async_operations() -> None:
         await asyncio.sleep(0.01)
         return f"data from {url}"
 
-    class FetchHandler(Handler[FetchRequest]):
+    class FetchHandler(RequestHandler[FetchRequest]):
         async def __call__(self, request: FetchRequest) -> FetchResponse:
             data = await mock_fetch(request.url)
             return FetchResponse(data)
@@ -418,7 +417,7 @@ async def test_async_mediator_error_propagation() -> None:
     class ErrorRequest(Request[ErrorResponse]):
         pass
 
-    class ErrorHandler(Handler[ErrorRequest]):
+    class ErrorHandler(RequestHandler[ErrorRequest]):
         async def __call__(self, request: ErrorRequest) -> ErrorResponse:
             await asyncio.sleep(0.001)
             raise RuntimeError("Async handler error")
@@ -445,7 +444,7 @@ async def test_async_mediator_concurrent_requests() -> None:
             self.value = value
             self.delay = delay
 
-    class SlowHandler(Handler[SlowRequest]):
+    class SlowHandler(RequestHandler[SlowRequest]):
         async def __call__(self, request: SlowRequest) -> SlowResponse:
             await asyncio.sleep(request.delay)
             return SlowResponse(request.value * 2)
@@ -485,7 +484,7 @@ async def test_async_handler_with_complex_async_flow() -> None:
         await asyncio.sleep(0.001)
         return item * item
 
-    class ProcessHandler(Handler[ProcessRequest]):
+    class ProcessHandler(RequestHandler[ProcessRequest]):
         async def __call__(self, request: ProcessRequest) -> ProcessResponse:
             # Process all items concurrently
             results = await asyncio.gather(*[process_item(item) for item in request.items])

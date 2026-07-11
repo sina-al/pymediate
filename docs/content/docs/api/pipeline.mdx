@@ -1,16 +1,16 @@
 ---
 title: Pipeline
-description: API reference for PipelineBehavior, sync and async.
+description: API reference for PipelineBehavior, async and sync.
 ---
 
-Pipeline behaviors wrap request processing with middleware-style logic. The mediator discovers registered behaviors at dispatch and chains them around the handler for you. Sync (`pymediate`) and async (`pymediate.aio`) variants exist.
+Pipeline behaviors wrap request processing with middleware-style logic. The mediator discovers registered behaviors at dispatch and chains them around the handler for you. Async (`pymediate`) and sync (`pymediate.sync`) variants exist.
 
 ## PipelineBehavior
 
-<Tabs items={['Sync', 'Async']}>
-  <Tab value="Sync">
+<Tabs items={['Async', 'Sync']}>
+  <Tab value="Async">
     ```python
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
     from typing import Any
     from pymediate import PipelineBehavior, Request
 
@@ -20,23 +20,23 @@ Pipeline behaviors wrap request processing with middleware-style logic. The medi
             """Determine if this behavior should apply to the given request."""
 
         @abstractmethod
-        def __call__(self, request: RequestT, next: Callable[[], Any]) -> Any:
-            """Execute the behavior's logic and call next to continue the pipeline."""
+        async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
+            """Execute the behavior's async logic and await next to continue the pipeline."""
     ```
   </Tab>
-  <Tab value="Async">
+  <Tab value="Sync">
     ```python
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Callable
     from typing import Any
-    from pymediate.aio import PipelineBehavior
+    from pymediate.sync import PipelineBehavior, Request
 
     class PipelineBehavior[RequestT: Request[Any]](ABC):
         @classmethod
         def should_apply(cls, request: Request[Any]) -> bool: ...
 
         @abstractmethod
-        async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
-            """Execute the behavior's async logic and await next to continue the pipeline."""
+        def __call__(self, request: RequestT, next: Callable[[], Any]) -> Any:
+            """Execute the behavior's logic and call next to continue the pipeline."""
     ```
   </Tab>
 </Tabs>
@@ -49,7 +49,7 @@ Pipeline behaviors wrap request processing with middleware-style logic. The medi
 
 ### `__call__(request, next)`
 
-The behavior's body. `next` is a callable representing the rest of the pipeline — remaining behaviors and, ultimately, the handler. Call it (or `await` it in the async variant) to continue; skip it to short-circuit.
+The behavior's body. `next` is a callable representing the rest of the pipeline — remaining behaviors and, ultimately, the handler. Await it (or call it plainly in the sync variant) to continue; skip it to short-circuit.
 
 | | |
 | --- | --- |
@@ -71,16 +71,7 @@ class BusinessHoursBehavior(PipelineBehavior[Request]):
 
 There is no public pipeline class — the chain the mediator builds is internal. To exercise a behavior in isolation (in a unit test, say), call it directly; `next` is just a zero-argument callable:
 
-<Tabs items={['Sync', 'Async']}>
-  <Tab value="Sync">
-    ```python
-    behavior = LoggingBehavior(logger)
-    handler = GetUserHandler(database)
-    request = GetUserRequest(user_id=123)
-
-    response = behavior(request, lambda: handler(request))
-    ```
-  </Tab>
+<Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
     behavior = LoggingBehavior(logger)
@@ -88,6 +79,15 @@ There is no public pipeline class — the chain the mediator builds is internal.
     request = GetUserRequest(user_id=123)
 
     response = await behavior(request, lambda: handler(request))
+    ```
+  </Tab>
+  <Tab value="Sync">
+    ```python
+    behavior = LoggingBehavior(logger)
+    handler = GetUserHandler(database)
+    request = GetUserRequest(user_id=123)
+
+    response = behavior(request, lambda: handler(request))
     ```
   </Tab>
 </Tabs>
@@ -102,7 +102,7 @@ services.add(TimingBehavior(metrics))     # last registered = innermost
 services.add(GetUserHandler(database))
 
 mediator = Mediator(services.provider())
-response = mediator.send(GetUserRequest(user_id=123))
+response = await mediator.send(GetUserRequest(user_id=123))
 ```
 
 ## See also

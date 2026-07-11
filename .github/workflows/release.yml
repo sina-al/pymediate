@@ -9,14 +9,24 @@ name: Release
 # version — TestPyPI/PyPI filenames are immutable forever, so a version that reached
 # TestPyPI is dead and the retry is simply the next version.
 #
-#   validate -> build (+ provenance attestation) -> install matrix -> TestPyPI
-#     -> examples suite against TestPyPI -> [pypi environment gate] -> PyPI -> GitHub Release
+#   validate -> build (+ provenance attestation) -> install matrix + examples vs wheel
+#     -> TestPyPI -> examples vs TestPyPI -> [pypi environment gate] -> PyPI
+#     -> examples vs PyPI -> GitHub Release
+#
+# The examples suite runs three times, each answering a different question (the release
+# PR's required "Examples" check already asked "does this code break downstream users?"
+# pre-merge): the wheel stage re-asks it against the release-versioned artifact and
+# today's dependency resolution, before any version burns; the TestPyPI stage validates
+# the publish-and-install path; the PyPI stage smoke-tests the exact artifact users
+# install, and gates the GitHub Release on it.
 on:
   push:
     tags:
       - "v*.*.*"
   # Manual fallback: dispatch *on a tag ref* (gh workflow run release.yml --ref vX.Y.Z)
-  # so github.ref_name is the version tag the consistency check expects.
+  # so github.ref_name is the version tag the consistency check expects. Dispatched on a
+  # branch (e.g. reflexively instead of prepare-release.yml), validate-release's first
+  # step fails within seconds — nothing downstream can run, nothing publishes.
   workflow_dispatch:
 
 # Least privilege by default; jobs that need more grant it themselves.
@@ -29,6 +39,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Require a version-tag ref
+        # Fail in seconds if this run isn't on a version tag. workflow_dispatch exists only
+        # as the manual fallback for a lost tag-push event (gh workflow run release.yml
+        # --ref vX.Y.Z); dispatched on a branch this pipeline could never publish anything
+        # (the version-consistency check below fails first), but it would churn through the
+        # full test suite before saying so — an alarming few minutes for whoever meant to
+        # dispatch prepare-release.yml.
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "::error::release.yml started on ${REF_TYPE} '${REF_NAME}', not a version tag. To cut a release, dispatch prepare-release.yml; release.yml's own dispatch is only the recovery path for a lost tag event (gh workflow run release.yml --ref vX.Y.Z)."
+            exit 1
+          fi
+          echo "Running on tag ${REF_NAME}."
+
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -151,7 +178,7 @@ jobs:
 
       - name: Test import
         run: |
-          python -c "from pymediate import Request, Handler, Mediator, Services; print('Core import successful')"
+          python -c "from pymediate import Request, RequestHandler, Mediator, Services; print('Core import successful')"
 
       - name: Install with DI extra
         shell: bash
@@ -163,16 +190,15 @@ jobs:
         run: |
           python -c "from pymediate.providers import DependencyInjectorServiceProvider; print('DI import successful')"
 
-  publish-testpypi:
-    name: Publish to TestPyPI
+  examples-wheel:
+    name: Examples against the built wheel
+    # The same examples the release PR's required "Examples" check already ran, but against
+    # the artifact this run just built (real release version, not the PR wheel's dev
+    # version) and today's dependency resolution — a release PR that sat open lets the
+    # examples' unpinned-by-design dependencies drift between check time and tag time.
+    # Failing here is free; the same failure one stage later burns the version.
     runs-on: ubuntu-latest
-    needs: [validate-release, build-package, test-install]
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/pymediate/
-    permissions:
-      contents: read
-      id-token: write
+    needs: build-package
 
     steps:
       - name: Checkout code
@@ -191,11 +217,38 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Publish to TestPyPI
+      - name: Run examples suite against the built wheel
         run: |
-          uv publish --index testpypi --trusted-publishing always
+          uv sync --only-dev
+          uv run poe examples:test --wheel dist/*.whl
 
-  examples:
+  publish-testpypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-package, test-install, examples-wheel]
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/pymediate/
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        # pypa's canonical publisher: same OIDC Trusted Publishing as `uv publish`, plus
+        # PEP 740 attestations on upload — and the publishing pattern OpenSSF Scorecard's
+        # Packaging check recognizes. No checkout needed; it publishes dist/ as-is.
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  examples-testpypi:
     name: Examples against TestPyPI
     runs-on: ubuntu-latest
     needs: publish-testpypi
@@ -211,51 +264,62 @@ jobs:
         with:
           enable-cache: false
 
+      - name: Sync dependencies
+        run: uv sync --only-dev
+
       - name: Wait for TestPyPI to serve the release
-        # The simple index is CDN-cached and can lag the upload by minutes; resolving
-        # before it propagates fails the whole job (v0.2.0 needed two reruns for this).
-        # Poll the same URL uv resolves against until the version's files appear.
+        # The simple index is CDN-cached and can lag the upload by minutes; see
+        # scripts/wait_for_index.py for why the probe must be uv itself (PEP 503 vs
+        # PEP 691 CDN variants; bit v0.3.0 and v0.4.0).
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          version="${VERSION_TAG#v}"
-          for attempt in $(seq 1 40); do
-            if curl -fsS "https://test.pypi.org/simple/pymediate/" | grep -qF "pymediate-${version}.tar.gz"; then
-              echo "TestPyPI serves pymediate ${version} (attempt ${attempt})."
-              exit 0
-            fi
-            echo "TestPyPI does not serve ${version} yet (attempt ${attempt}/40); retrying in 15s."
-            sleep 15
-          done
-          echo "::error::TestPyPI never served pymediate ${version} after 10 minutes."
-          exit 1
+          uv run poe release:wait-index --version "${VERSION_TAG#v}" \
+            --index https://test.pypi.org/simple/
 
       - name: Run examples suite against the TestPyPI release
-        # Each examples/<name>/ is a standalone uv project pinned to the version just
+        # Each examples/<name>/ is a standalone uv project re-pinned to the version just
         # published on TestPyPI (only pymediate resolves there; its dependencies come from
-        # real PyPI). The examples contract and runner land with ops-overhaul phase 4
-        # (issue #24); until then this passes with a notice.
+        # real PyPI). This validates the publish-and-install path — the code itself already
+        # passed the wheel stage.
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          if ! ls examples/*/pyproject.toml >/dev/null 2>&1; then
-            echo "::notice::No examples/ projects yet (see issue #24); skipping examples stage."
-            exit 0
-          fi
-          uv sync --only-dev
-          uv run python scripts/run_examples.py --version "${VERSION_TAG#v}" \
+          uv run poe examples:test --version "${VERSION_TAG#v}" \
             --index https://test.pypi.org/simple/
 
   publish-pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: examples
+    needs: examples-testpypi
     environment:
       name: pypi
       url: https://pypi.org/p/pymediate/
     permissions:
       contents: read
       id-token: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        # See the TestPyPI job for why the pypa action replaced `uv publish`.
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+
+  examples-pypi:
+    name: Examples against PyPI
+    # Post-publish smoke test: the only stage that exercises the exact artifact users
+    # install, from the index they install it from. It gates the GitHub Release — the
+    # announcement should only exist once the announced thing is proven installable. A
+    # failure here can't unpublish (PyPI files are immutable), it just withholds the
+    # GitHub Release: fix whatever broke (or accept the finding) and re-run the failed
+    # jobs to resume.
+    runs-on: ubuntu-latest
+    needs: publish-pypi
 
     steps:
       - name: Checkout code
@@ -268,22 +332,32 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Download artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: dist
-          path: dist/
+      - name: Sync dependencies
+        run: uv sync --only-dev
 
-      - name: Publish to PyPI
+      - name: Wait for PyPI to serve the release
+        # Same CDN-lag probe as the TestPyPI stage (see scripts/wait_for_index.py). PyPI
+        # usually propagates faster than TestPyPI, but the failure mode is identical.
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
         run: |
-          uv publish --trusted-publishing always
+          uv run poe release:wait-index --version "${VERSION_TAG#v}" \
+            --index https://pypi.org/simple/
+
+      - name: Run examples suite against the PyPI release
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
+        run: |
+          uv run poe examples:test --version "${VERSION_TAG#v}" \
+            --index https://pypi.org/simple/
 
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    # Last on purpose: a release that never reached PyPI should not present itself to the
-    # world as released. Everything before the pypi gate is retractable-by-design.
-    needs: publish-pypi
+    # Last on purpose: a release that never reached PyPI — or reached it but failed the
+    # PyPI smoke test — should not present itself to the world as released. Everything
+    # before the pypi gate is retractable-by-design.
+    needs: examples-pypi
     permissions:
       contents: write
 
@@ -310,6 +384,20 @@ jobs:
 
       - name: Generate release notes
         run: uv run poe release:notes
+
+      - name: Attach provenance bundles to the release assets
+        # build-package attested these artifacts; fetch each one's Sigstore bundle from the
+        # attestation store into dist/ as <artifact>.intoto.jsonl so the release publishes
+        # artifact + provenance side by side (verifiable offline with `gh attestation
+        # verify <artifact> -b <bundle>`; also what Signed-Releases scanners look for).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for artifact in dist/*.whl dist/*.tar.gz; do
+            gh attestation download "$artifact" --repo "$GITHUB_REPOSITORY"
+            digest=$(sha256sum "$artifact" | awk '{print $1}')
+            mv "sha256:${digest}.jsonl" "${artifact}.intoto.jsonl"
+          done
 
       - name: Create Release
         # Plain `gh release create` instead of a third-party action: one less thing in the

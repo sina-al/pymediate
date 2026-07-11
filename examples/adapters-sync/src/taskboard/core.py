@@ -1,15 +1,17 @@
 """The application core: a task board that knows nothing about its adapters.
 
-Everything the three adapters in this example deliver — Flask routes, FastAPI
-endpoints, a click CLI — is implemented here against pymediate and the standard
-library alone. The adapters (``flask_app.py``, ``fastapi_app.py``, ``cli.py``) only
-translate their framework's input into these request objects and ``mediator.send()``
-calls; swapping or adding a framework never touches this file.
+Built on ``pymediate.sync``, the sync mirror of the async API (the async twin of
+this example is `examples/adapters-async/`). Everything the three adapters in this
+example deliver — Flask routes, FastAPI endpoints, a click CLI — is implemented here
+against pymediate and the standard library alone. The adapters (``flask_app.py``,
+``fastapi_app.py``, ``cli.py``) only translate their framework's input into these
+request objects and ``mediator.send()`` calls; swapping or adding a framework never
+touches this file.
 """
 
 from dataclasses import dataclass, field
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -58,7 +60,7 @@ class ListOpenTasks(Request[list[Task]]):
 # ---- Handlers: exactly one per request type ----
 
 
-class AddTaskHandler(Handler[AddTask]):
+class AddTaskHandler(RequestHandler[AddTask]):
     """Creates tasks in the store."""
 
     def __init__(self, store: TaskStore) -> None:
@@ -71,7 +73,7 @@ class AddTaskHandler(Handler[AddTask]):
         return task
 
 
-class CompleteTaskHandler(Handler[CompleteTask]):
+class CompleteTaskHandler(RequestHandler[CompleteTask]):
     """Marks existing tasks as done."""
 
     def __init__(self, store: TaskStore) -> None:
@@ -85,7 +87,7 @@ class CompleteTaskHandler(Handler[CompleteTask]):
         return task
 
 
-class ListOpenTasksHandler(Handler[ListOpenTasks]):
+class ListOpenTasksHandler(RequestHandler[ListOpenTasks]):
     """Lists tasks that are still open."""
 
     def __init__(self, store: TaskStore) -> None:

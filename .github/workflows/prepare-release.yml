@@ -38,7 +38,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ vars.PYMEDIATE_RELEASER_APP_ID }}
+          client-id: ${{ vars.PYMEDIATE_RELEASER_CLIENT_ID }}
           private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
           # Push the cut branch (contents) and open/close PRs (pull-requests). Nothing else.
           permission-contents: write
@@ -174,7 +174,7 @@ jobs:
             echo
             echo "### On merge"
             echo "1. \`tag-release.yml\` tags the merge commit \`v${VERSION}\` (the version is tag-derived; nothing else moves)"
-            echo "2. \`release.yml\` validates, builds + attests, publishes to TestPyPI, runs the examples suite against it, then pauses at the \`pypi\` environment gate for your final approval"
+            echo "2. \`release.yml\` validates, builds + attests, runs the examples against the built wheel, publishes to TestPyPI, re-runs the examples against it, then pauses at the \`pypi\` environment gate for your final approval — after PyPI, the examples smoke-test the live release before the GitHub Release is created"
             echo
             echo "### To reject"
             echo "Close this PR. The cut branch is deleted automatically and a fresh dispatch starts clean. A version only burns once it reaches TestPyPI."

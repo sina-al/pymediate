@@ -66,7 +66,7 @@ class MediatorMixin:
             request: The request instance to process
 
         Returns:
-            Handler instance for the request
+            RequestHandler instance for the request
 
         Raises:
             HandlerNotFoundError: If no handler is registered for the request type
@@ -91,7 +91,7 @@ class MediatorMixin:
             event: The event instance to publish
 
         Returns:
-            Handler instances in registration order, empty if none subscribed
+            EventHandler instances in registration order, empty if none subscribed
 
         Raises:
             ServiceNotFoundError: If a subscribed handler class has no

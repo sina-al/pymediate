@@ -61,8 +61,10 @@ check on the exact tree being released, and `stable`'s ruleset will not merge wi
                                         ▼
               tag-release.yml tags the merge commit vX.Y.Z  →  starts release.yml:
               validate → build (+ provenance attestation) → install matrix
-                → TestPyPI → examples suite against TestPyPI
+                → examples against the built wheel → TestPyPI
+                → examples against TestPyPI
                 → pypi environment gate (human approval #2) → PyPI
+                → examples against PyPI (smoke test)
                 → GitHub Release (created last, on purpose)
 ```
 
@@ -82,9 +84,10 @@ Key properties, and where each is enforced:
   after deletion. A version that reached TestPyPI and didn't complete is therefore dead:
   the retry is the next version (prepare-release skips existing tags automatically). Gaps
   in the version sequence are normal and expected.
-- **Nothing user-visible outlives a failed release.** The GitHub Release is created after
-  the PyPI publish succeeds. A run that dies earlier leaves only the tag and, past the
-  TestPyPI stage, a burned number.
+- **Nothing user-visible outlives a failed release.** The GitHub Release is created only
+  after the PyPI publish succeeds *and* the examples smoke-test the published artifact. A
+  run that dies earlier leaves only the tag and, past the TestPyPI stage, a burned number
+  (past the PyPI stage, an unannounced-but-live PyPI release the maintainer can yank).
 - **`stable` = last approved cut**, not necessarily "last published": if a release fails
   after merge, its changes were still reviewed and stay in stable's history; the next cut's
   diff picks up from there.
@@ -93,7 +96,7 @@ Key properties, and where each is enforced:
 
 [ZeroVer](https://0ver.org/): major stays 0. **Minor** = breaking public-API change or new
 feature; **patch** = everything else. "Breaking" is defined against the flagged surfaces:
-`__all__` in `__init__.py`, the `Handler` class, the `ServiceProvider` protocol.
+`__all__` in `__init__.py`, the `RequestHandler` class, the `ServiceProvider` protocol.
 `scripts/release_impact.py` recommends the bump by classifying commits and AST-diffing
 those surfaces since the last tag; `bump=auto` follows it, `bump=patch|minor` overrides.
 
@@ -123,20 +126,44 @@ silently emptying the changelog rather than failing.
 ### Examples as release verification
 
 Every `examples/<name>/` is a standalone uv project that depends on pymediate from PyPI
-like any downstream user (see `examples/README.md` for the contract). They gate a release
-twice, via the two modes of `scripts/run_examples.py`:
+like any downstream user (see `examples/README.md` for the contract). That's the intent,
+not an accident: the examples are the release pipeline's **proxy downstream users** — the
+only consumers of the package the pipeline can observe before real ones exist. The library's
+own test suite runs against the source tree inside the repo's environment; only the examples
+exercise what a release actually changes — the built artifact, resolved from an index, into
+a fresh environment, driving the public API the way the docs tell people to. The design
+rationale (why standalone uv projects, why outside the library's lint/type/coverage scopes,
+why the loose `>=` bound, why four gates rather than one) is recorded in
+[ADR 0007](docs/adr/0007-examples-as-release-verification.md).
+
+They gate a release **four times**, via the two modes of `scripts/run_examples.py` — each
+gate answers a different question, and each is placed at the cheapest point where its
+failure can be caught:
 
 1. **On the release PR** (required "Examples" check, wheel mode): every example runs
-   against a wheel built from the cut itself. A breaking change whose examples weren't
-   updated fails *here* — before the merge, so closing the PR costs nothing and no
-   version is burned. Consequence: shipping a breaking release means updating the
-   examples on main first; until that release publishes, the updated examples'
-   standalone `uv run pytest` fails against released PyPI — a bounded, expected window
-   that Dependabot's post-release re-lock closes.
-2. **After the TestPyPI publish** (index mode): each example re-pins to the candidate
+   against a wheel built from the cut itself. *Does this code break downstream users?*
+   A breaking change whose examples weren't updated fails *here* — before the merge, so
+   closing the PR costs nothing and no version is burned. Consequence: shipping a breaking
+   release means updating the examples on main first; until that release publishes, the
+   updated examples' standalone `uv run pytest` fails against released PyPI — a bounded,
+   expected window that Dependabot's post-release re-lock closes.
+2. **In release.yml, before the TestPyPI publish** (wheel mode, against the built dist
+   artifact): *does the release artifact, with today's dependency resolution, still work?*
+   The runner re-resolves each example's dependencies fresh from PyPI, so a release PR
+   that sat open lets them drift between check time and tag time; and the PR check's wheel
+   carries a hatch-vcs dev version while this one is the real, release-versioned artifact.
+   Failing here is free; the same failure one stage later burns the version.
+3. **After the TestPyPI publish** (index mode): each example re-pins to the candidate
    version via an *explicit* uv index — only pymediate resolves from TestPyPI while its
-   dependencies stay on real PyPI — validating the true publish-and-install path. All
-   examples must pass before the PyPI gate is offered.
+   dependencies stay on real PyPI. *Does the publish-and-install path work?* All examples
+   must pass before the PyPI gate is offered.
+4. **After the PyPI publish** (index mode, against `pypi.org`): the smoke test — the only
+   stage that exercises the exact artifact users install, from the index they install it
+   from (PyPI and TestPyPI are separate services: separate registration, upload, and CDN).
+   *Does the thing we just shipped actually work?* It gates the GitHub Release: the
+   announcement is only created once the announced artifact is proven installable. A
+   failure here can't unpublish — it withholds the announcement while the maintainer
+   investigates, and re-running the failed jobs resumes the pipeline.
 
 ## Enforcement inventory
 
@@ -144,13 +171,17 @@ twice, via the two modes of `scripts/run_examples.py`:
 
 | Ruleset | Target | Rules | Bypass |
 |---|---|---|---|
-| `main-guard` | `main` | PR required (1 approval, squash only), required checks (strict), CodeQL, no deletion/force-push | maintainer (lane 1) |
-| `stable-guard` | `stable` | PR required (merge commit only), required checks incl. Release Test Results + Examples, CodeQL, no deletion/force-push | **none** |
+| `main-guard` | `main` | PR required (1 approval incl. of the last push, squash only), required checks (strict), CodeQL, no deletion/force-push | maintainer (lane 1) |
+| `stable-guard` | `stable` | PR required (1 approval incl. code owner + last push, stale reviews dismissed, threads resolved, merge commit only), required checks incl. Release Test Results + Examples, CodeQL, no deletion/force-push | **none** |
 | `branch-guard` | all other branches | no create/update/delete | maintainer, Dependabot, releaser App |
 | `tag-guard` | all tags | no create/update/delete | maintainer, releaser App |
 
 Notes: stable-guard deliberately has **no bypass actors** — merging a red release PR
-requires editing the ruleset itself, which is the break-glass. Its up-to-date-with-base
+requires editing the ruleset itself, which is the break-glass. Its review requirements
+(code owner + last-push approval) work because release PRs are authored and pushed by the
+releaser App, so the maintainer's approval satisfies both; the flip side is that a cut
+branch the maintainer pushes to by hand can no longer be self-approved — the remedy stays
+the same as ever: close the PR, fix on main, re-cut. Its up-to-date-with-base
 requirement is off by design: a cut branch never contains stable's previous merge commit,
 and the merge result tree always equals the cut tree, so "stale" is impossible in any way
 that matters. Merge commits (not squash) are required on stable because a squash would

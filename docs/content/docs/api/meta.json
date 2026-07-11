@@ -1,4 +1,4 @@
 {
   "title": "API Reference",
-  "pages": ["request", "handler", "mediator", "event", "pipeline", "service-provider", "errors"]
+  "pages": ["request", "request-handler", "mediator", "event", "event-handler", "pipeline", "service-provider", "errors"]
 }

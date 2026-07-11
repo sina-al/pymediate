@@ -6,10 +6,8 @@ from typing import Any
 
 import pytest
 
-from pymediate import Request
+from pymediate import PipelineBehavior, Request, RequestHandler
 from pymediate._internal.pipeline import compose_async
-from pymediate.aio import Handler
-from pymediate.aio.pipeline import PipelineBehavior
 
 
 # Test fixtures: Request and Response types
@@ -24,7 +22,7 @@ class SampleRequest(Request[SampleResponse]):
         self.value = value
 
 
-class SampleHandler(Handler[SampleRequest]):
+class SampleHandler(RequestHandler[SampleRequest]):
     async def __call__(self, request: SampleRequest) -> SampleResponse:
         # Simulate async operation
         await asyncio.sleep(0.001)
@@ -272,7 +270,7 @@ async def test_async_pipeline_behavior_can_modify_response() -> None:
     request = SampleRequest(value=5)
     response = await pipeline(request)
 
-    # Handler returns 5 * 2 = 10, behavior multiplies by 3
+    # RequestHandler returns 5 * 2 = 10, behavior multiplies by 3
     assert response.value == 30
 
 
@@ -289,7 +287,7 @@ async def test_async_pipeline_multiple_modifying_behaviors() -> None:
     request = SampleRequest(value=5)
     response = await pipeline(request)
 
-    # Handler: 5 * 2 = 10
+    # RequestHandler: 5 * 2 = 10
     # multiply_by_3 (inner): 10 * 3 = 30
     # multiply_by_2 (outer): 30 * 2 = 60
     assert response.value == 60
@@ -305,7 +303,7 @@ async def test_async_pipeline_behavior_can_short_circuit() -> None:
     request = SampleRequest(value=5)
     response = await pipeline(request)
 
-    # Handler should not be called, response is from behavior
+    # RequestHandler should not be called, response is from behavior
     assert response.value == -1
 
 
@@ -400,7 +398,7 @@ async def test_async_pipeline_complex_scenario() -> None:
     request = SampleRequest(value=3)
     response = await pipeline(request)
 
-    # Handler: 3 * 2 = 6
+    # RequestHandler: 3 * 2 = 6
     # Multiplier: 6 * 2 = 12
     assert response.value == 12
 
@@ -523,7 +521,7 @@ async def test_async_pipeline_with_different_request_response_types() -> None:
         def __init__(self, text: str) -> None:
             self.text = text
 
-    class StringHandler(Handler[StringRequest]):
+    class StringHandler(RequestHandler[StringRequest]):
         async def __call__(self, request: StringRequest) -> StringResponse:
             await asyncio.sleep(0.001)
             return StringResponse(message=request.text.upper())

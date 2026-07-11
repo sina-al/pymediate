@@ -5,8 +5,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator, PipelineBehavior
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @pytest.mark.asyncio
@@ -22,7 +21,7 @@ async def test_async_mediator_without_behaviors() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -51,7 +50,7 @@ async def test_async_mediator_with_single_behavior() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -91,7 +90,7 @@ async def test_async_mediator_with_multiple_behaviors() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -143,7 +142,7 @@ async def test_async_mediator_behaviors_can_modify_response() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -180,7 +179,7 @@ async def test_async_mediator_behavior_can_short_circuit() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -199,7 +198,7 @@ async def test_async_mediator_behavior_can_short_circuit() -> None:
     mediator = Mediator(provider)
     response = await mediator.send(CreateUserRequest(username="alice"))
 
-    # Handler should not be called
+    # RequestHandler should not be called
     assert response.user_id == -1
     assert response.username == "short-circuited"
 
@@ -217,7 +216,7 @@ async def test_async_mediator_validation_behavior() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -258,7 +257,7 @@ async def test_async_mediator_behaviors_are_stateful() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -301,7 +300,7 @@ async def test_async_mediator_behavior_exception_propagates() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
@@ -334,9 +333,9 @@ async def test_async_mediator_behavior_can_wrap_handler_exception() -> None:
     class FailingRequest(Request[UserResponse]):
         username: str
 
-    class AsyncFailingHandler(Handler[FailingRequest]):
+    class AsyncFailingHandler(RequestHandler[FailingRequest]):
         async def __call__(self, request: FailingRequest) -> UserResponse:
-            raise ValueError("Handler failed")
+            raise ValueError("RequestHandler failed")
 
     class AsyncExceptionHandlingBehavior(PipelineBehavior[FailingRequest]):
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
@@ -372,7 +371,7 @@ async def test_async_mediator_concurrent_requests_with_behaviors() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class AsyncCreateUserHandler(Handler[CreateUserRequest]):
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
         async def __call__(self, request: CreateUserRequest) -> UserResponse:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)

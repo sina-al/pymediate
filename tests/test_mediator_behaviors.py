@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pymediate import Handler, Mediator, PipelineBehavior, Request, Services
+from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 def test_mediator_without_behaviors_calls_handler_directly() -> None:
@@ -20,7 +20,7 @@ def test_mediator_without_behaviors_calls_handler_directly() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -47,7 +47,7 @@ def test_mediator_with_single_behavior() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -85,7 +85,7 @@ def test_mediator_with_multiple_behaviors_executes_in_order() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -136,7 +136,7 @@ def test_mediator_behaviors_can_modify_response() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -170,7 +170,7 @@ def test_mediator_behavior_can_short_circuit() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -187,7 +187,7 @@ def test_mediator_behavior_can_short_circuit() -> None:
     mediator = Mediator(provider)
     response = mediator.send(CreateUserRequest(username="alice"))
 
-    # Handler should not be called
+    # RequestHandler should not be called
     assert response.user_id == -1
     assert response.username == "short-circuited"
 
@@ -204,7 +204,7 @@ def test_mediator_validation_behavior() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -242,7 +242,7 @@ def test_mediator_behaviors_are_stateful() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -282,7 +282,7 @@ def test_mediator_behavior_exception_propagates() -> None:
     class CreateUserRequest(Request[UserResponse]):
         username: str
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __call__(self, request: CreateUserRequest) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
@@ -313,9 +313,9 @@ def test_mediator_behavior_can_wrap_handler_exception() -> None:
     class FailingRequest(Request[UserResponse]):
         username: str
 
-    class FailingHandler(Handler[FailingRequest]):
+    class FailingHandler(RequestHandler[FailingRequest]):
         def __call__(self, request: FailingRequest) -> UserResponse:
-            raise ValueError("Handler failed")
+            raise ValueError("RequestHandler failed")
 
     class ExceptionHandlingBehavior(PipelineBehavior[FailingRequest]):
         def __call__(self, request, next):  # type: ignore[no-untyped-def]
@@ -354,11 +354,11 @@ def test_mediator_registration_order_matters() -> None:
     class Request2(Request[UserResponse]):
         username: str
 
-    class Handler1(Handler[Request1]):
+    class Handler1(RequestHandler[Request1]):
         def __call__(self, request: Request1) -> UserResponse:
             return UserResponse(user_id=1, username=request.username)
 
-    class Handler2(Handler[Request2]):
+    class Handler2(RequestHandler[Request2]):
         def __call__(self, request: Request2) -> UserResponse:
             return UserResponse(user_id=2, username=request.username)
 

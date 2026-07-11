@@ -1,20 +1,20 @@
-"""Tests for Handler class and metaclass."""
+"""Tests for RequestHandler class and metaclass."""
 
 import pytest
 
-from pymediate import (
-    Handler,
+from pymediate._internal.registry import get_handler_class, has_handler
+from pymediate.sync import (
     HandlerNotFoundError,
     InvalidHandlerSignatureError,
     InvalidRequestTypeError,
     Request,
+    RequestHandler,
     ResponseTypeMismatchError,
 )
-from pymediate._internal.registry import get_handler_class, has_handler
 
 
 def test_handler_extracts_request_type() -> None:
-    """Test that Handler metaclass extracts request type from generic."""
+    """Test that RequestHandler metaclass extracts request type from generic."""
 
     class TestResponse:
         def __init__(self, value: int):
@@ -24,7 +24,7 @@ def test_handler_extracts_request_type() -> None:
         def __init__(self, data: str):
             self.data = data
 
-    class TestHandler(Handler[TestRequest]):
+    class TestHandler(RequestHandler[TestRequest]):
         def __call__(self, request: TestRequest) -> TestResponse:
             return TestResponse(42)
 
@@ -33,7 +33,7 @@ def test_handler_extracts_request_type() -> None:
 
 
 def test_handler_registration() -> None:
-    """Test that Handler is registered in handler registry."""
+    """Test that RequestHandler is registered in handler registry."""
 
     class Response:
         pass
@@ -41,7 +41,7 @@ def test_handler_registration() -> None:
     class Req(Request[Response]):
         pass
 
-    class ReqHandler(Handler[Req]):
+    class ReqHandler(RequestHandler[Req]):
         def __call__(self, request: Req) -> Response:
             return Response()
 
@@ -50,7 +50,7 @@ def test_handler_registration() -> None:
 
 
 def test_handler_validates_correct_return_type() -> None:
-    """Test that Handler with correct return type is accepted."""
+    """Test that RequestHandler with correct return type is accepted."""
 
     class GoodResponse:
         def __init__(self, msg: str):
@@ -60,7 +60,7 @@ def test_handler_validates_correct_return_type() -> None:
         pass
 
     # This should not raise
-    class GoodHandler(Handler[GoodRequest]):
+    class GoodHandler(RequestHandler[GoodRequest]):
         def __call__(self, request: GoodRequest) -> GoodResponse:
             return GoodResponse("ok")
 
@@ -68,7 +68,7 @@ def test_handler_validates_correct_return_type() -> None:
 
 
 def test_handler_rejects_wrong_return_type() -> None:
-    """Test that Handler with wrong return type is rejected."""
+    """Test that RequestHandler with wrong return type is rejected."""
 
     class CorrectResponse:
         pass
@@ -82,13 +82,13 @@ def test_handler_rejects_wrong_return_type() -> None:
     # This should raise ResponseTypeMismatchError
     with pytest.raises(ResponseTypeMismatchError):
 
-        class BadHandler(Handler[ReqWithCorrectResponse]):
+        class BadHandler(RequestHandler[ReqWithCorrectResponse]):
             def __call__(self, request: ReqWithCorrectResponse) -> WrongResponse:
                 return WrongResponse()
 
 
 def test_handler_rejects_wrong_parameter_type() -> None:
-    """Test that Handler with wrong parameter type is rejected."""
+    """Test that RequestHandler with wrong parameter type is rejected."""
 
     class Resp:
         pass
@@ -101,7 +101,7 @@ def test_handler_rejects_wrong_parameter_type() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError):
 
-        class BadHandler(Handler[CorrectReq]):
+        class BadHandler(RequestHandler[CorrectReq]):
             def __call__(self, request: WrongReq) -> Resp:
                 return Resp()
 
@@ -124,7 +124,7 @@ def test_handler_rejects_base_class_parameter_annotation() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError, match="a base class of DerivedReq"):
 
-        class BadHandler(Handler[DerivedReq]):
+        class BadHandler(RequestHandler[DerivedReq]):
             def __call__(self, request: BaseReq) -> Resp:
                 return Resp()
 
@@ -143,13 +143,13 @@ def test_handler_rejects_union_parameter_annotation() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError, match="exact request class"):
 
-        class BadHandler(Handler[ReqA]):
+        class BadHandler(RequestHandler[ReqA]):
             def __call__(self, request: ReqA | ReqB) -> Resp:
                 return Resp()
 
 
 def test_handler_requires_exactly_one_parameter() -> None:
-    """Test that Handler __call__ must have exactly one parameter besides self."""
+    """Test that RequestHandler __call__ must have exactly one parameter besides self."""
 
     class Resp:
         pass
@@ -159,13 +159,13 @@ def test_handler_requires_exactly_one_parameter() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError):
 
-        class TooManyParams(Handler[Req]):
+        class TooManyParams(RequestHandler[Req]):
             def __call__(self, request: Req, extra: str) -> Resp:
                 return Resp()
 
 
 def test_handler_requires_call_method() -> None:
-    """Test that a Handler subclass without a __call__ override is rejected."""
+    """Test that a RequestHandler subclass without a __call__ override is rejected."""
 
     class Resp:
         pass
@@ -175,12 +175,12 @@ def test_handler_requires_call_method() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError, match="must implement __call__"):
 
-        class NoCallHandler(Handler[Req]):
+        class NoCallHandler(RequestHandler[Req]):
             pass
 
 
 def test_handler_requires_request_parameter_annotation() -> None:
-    """Test that Handler __call__'s request parameter must have a type annotation."""
+    """Test that RequestHandler __call__'s request parameter must have a type annotation."""
 
     class Resp:
         pass
@@ -190,13 +190,13 @@ def test_handler_requires_request_parameter_annotation() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError, match="type annotation"):
 
-        class UnannotatedParamHandler(Handler[Req]):
+        class UnannotatedParamHandler(RequestHandler[Req]):
             def __call__(self, request) -> Resp:  # type: ignore[no-untyped-def]
                 return Resp()
 
 
 def test_handler_requires_return_type_annotation() -> None:
-    """Test that Handler __call__ must have a return type annotation."""
+    """Test that RequestHandler __call__ must have a return type annotation."""
 
     class Resp:
         pass
@@ -206,13 +206,13 @@ def test_handler_requires_return_type_annotation() -> None:
 
     with pytest.raises(InvalidHandlerSignatureError, match="return type annotation"):
 
-        class UnannotatedReturnHandler(Handler[Req]):
+        class UnannotatedReturnHandler(RequestHandler[Req]):
             def __call__(self, request: Req):  # type: ignore[no-untyped-def]
                 return Resp()
 
 
 def test_handler_with_request_not_in_registry() -> None:
-    """Test that Handler with unregistered request type raises error."""
+    """Test that RequestHandler with unregistered request type raises error."""
 
     class UnregisteredRequest:
         """Not a Request subclass"""
@@ -221,7 +221,7 @@ def test_handler_with_request_not_in_registry() -> None:
 
     with pytest.raises(InvalidRequestTypeError):
 
-        class BadHandler(Handler[UnregisteredRequest]):
+        class BadHandler(RequestHandler[UnregisteredRequest]):
             def __call__(self, request: UnregisteredRequest) -> None:
                 pass
 
@@ -237,7 +237,7 @@ def test_handler_call() -> None:
         def __init__(self, value: int):
             self.value = value
 
-    class DoubleHandler(Handler[NumRequest]):
+    class DoubleHandler(RequestHandler[NumRequest]):
         def __call__(self, request: NumRequest) -> NumResponse:
             return NumResponse(request.value * 2)
 
@@ -250,7 +250,7 @@ def test_handler_call() -> None:
 
 
 def test_get_request_type() -> None:
-    """Test Handler.get_request_type() method."""
+    """Test RequestHandler.get_request_type() method."""
 
     class Resp:
         pass
@@ -258,7 +258,7 @@ def test_get_request_type() -> None:
     class Req(Request[Resp]):
         pass
 
-    class TestHandler(Handler[Req]):
+    class TestHandler(RequestHandler[Req]):
         def __call__(self, request: Req) -> Resp:
             return Resp()
 
@@ -266,7 +266,7 @@ def test_get_request_type() -> None:
 
 
 def test_get_response_type() -> None:
-    """Test Handler.get_response_type() method."""
+    """Test RequestHandler.get_response_type() method."""
 
     class MyResp:
         pass
@@ -274,7 +274,7 @@ def test_get_response_type() -> None:
     class MyReq(Request[MyResp]):
         pass
 
-    class TestHandler(Handler[MyReq]):
+    class TestHandler(RequestHandler[MyReq]):
         def __call__(self, request: MyReq) -> MyResp:
             return MyResp()
 
@@ -282,7 +282,7 @@ def test_get_response_type() -> None:
 
 
 def test_get_handler_for_request() -> None:
-    """Test Handler.get_handler_for_request() class method."""
+    """Test RequestHandler.get_handler_for_request() class method."""
 
     class Resp:
         pass
@@ -290,11 +290,11 @@ def test_get_handler_for_request() -> None:
     class Req(Request[Resp]):
         pass
 
-    class ReqHandler(Handler[Req]):
+    class ReqHandler(RequestHandler[Req]):
         def __call__(self, request: Req) -> Resp:
             return Resp()
 
-    handler_class = Handler.get_handler_for_request(Req)
+    handler_class = RequestHandler.get_handler_for_request(Req)
     assert handler_class == ReqHandler
 
 
@@ -310,7 +310,7 @@ def test_get_handler_for_unregistered_request() -> None:
     # Don't create a handler for it
 
     with pytest.raises(HandlerNotFoundError):
-        Handler.get_handler_for_request(UnhandledReq)
+        RequestHandler.get_handler_for_request(UnhandledReq)
 
 
 def test_get_handler_for_unregistered_request_lists_available_handlers() -> None:
@@ -322,7 +322,7 @@ def test_get_handler_for_unregistered_request_lists_available_handlers() -> None
     class RegisteredReq(Request[RegisteredResp]):
         pass
 
-    class RegisteredHandler(Handler[RegisteredReq]):
+    class RegisteredHandler(RequestHandler[RegisteredReq]):
         def __call__(self, request: RegisteredReq) -> RegisteredResp:
             return RegisteredResp()
 
@@ -333,7 +333,7 @@ def test_get_handler_for_unregistered_request_lists_available_handlers() -> None
         pass
 
     with pytest.raises(HandlerNotFoundError) as exc_info:
-        Handler.get_handler_for_request(UnhandledReq)
+        RequestHandler.get_handler_for_request(UnhandledReq)
 
     assert exc_info.value.available_handlers == [RegisteredReq]
     assert "RegisteredReq" in str(exc_info.value)
@@ -350,7 +350,7 @@ def test_get_handler_for_unregistered_request_truncates_many_available_handlers(
         class RegisteredReq(Request[Resp]):
             pass
 
-        class RegisteredHandler(Handler[RegisteredReq]):
+        class RegisteredHandler(RequestHandler[RegisteredReq]):
             def __call__(self, request: RegisteredReq) -> Resp:
                 return Resp()
 
@@ -358,7 +358,7 @@ def test_get_handler_for_unregistered_request_truncates_many_available_handlers(
         pass
 
     with pytest.raises(HandlerNotFoundError) as exc_info:
-        Handler.get_handler_for_request(UnhandledReq)
+        RequestHandler.get_handler_for_request(UnhandledReq)
 
     assert len(exc_info.value.available_handlers) == 6
     assert "... and 1 more" in str(exc_info.value)
@@ -383,11 +383,11 @@ def test_multiple_handlers_for_different_requests() -> None:
         def __init__(self, text: str):
             self.text = text
 
-    class Handler1(Handler[Req1]):
+    class Handler1(RequestHandler[Req1]):
         def __call__(self, request: Req1) -> Resp1:
             return Resp1(request.x + 1)
 
-    class Handler2(Handler[Req2]):
+    class Handler2(RequestHandler[Req2]):
         def __call__(self, request: Req2) -> Resp2:
             return Resp2(request.text.upper())
 
@@ -399,3 +399,12 @@ def test_multiple_handlers_for_different_requests() -> None:
 
     assert r1.val == 11
     assert r2.msg == "HELLO"
+
+
+def test_handler_alias_is_gone() -> None:
+    """The deprecated Handler alias shipped only in 0.4.x and is removed (ADR 0006)."""
+    import pymediate
+    import pymediate.sync
+
+    assert not hasattr(pymediate, "Handler")
+    assert not hasattr(pymediate.sync, "Handler")

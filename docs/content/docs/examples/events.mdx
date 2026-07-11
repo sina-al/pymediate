@@ -1,0 +1,178 @@
+---
+title: Events
+description: Minimal, complete event examples — publish a fact once, react in many handlers, async and sync.
+---
+
+Minimal, complete examples of event publishing. For the semantics — ordering, `ExceptionGroup` aggregation, async concurrency — see the [events guide](/docs/guide/events); this page is a compact reference to copy from.
+
+## Fan-out to multiple handlers
+
+One request handler does the work; the reactions — confirmation, analytics — are separate subscribers that neither the publisher nor each other know about:
+
+```python
+import asyncio
+from dataclasses import dataclass
+from pymediate import Event, EventHandler, RequestHandler, Mediator, Request, Services
+
+@dataclass
+class OrderPlaced(Event):
+    order_id: int
+    customer_email: str
+
+class SendConfirmation(EventHandler[OrderPlaced]):
+    async def __call__(self, event: OrderPlaced) -> None:
+        print(f"Emailing {event.customer_email}: order {event.order_id} confirmed")
+
+class UpdateAnalytics(EventHandler[OrderPlaced]):
+    async def __call__(self, event: OrderPlaced) -> None:
+        print(f"Recording metric: order_placed ({event.order_id})")
+
+@dataclass
+class PlaceOrderResponse:
+    order_id: int
+
+@dataclass
+class PlaceOrderCommand(Request[PlaceOrderResponse]):
+    customer_email: str
+
+class PlaceOrderHandler(RequestHandler[PlaceOrderCommand]):
+    def __init__(self, get_mediator):
+        self._get_mediator = get_mediator  # late-bound: the mediator is built after this handler
+
+    async def __call__(self, request: PlaceOrderCommand) -> PlaceOrderResponse:
+        order_id = 42  # persist the order here
+        await self._get_mediator().publish(
+            OrderPlaced(order_id=order_id, customer_email=request.customer_email)
+        )
+        return PlaceOrderResponse(order_id=order_id)
+
+services = Services()
+services.add(SendConfirmation()).add(UpdateAnalytics())
+services.add(PlaceOrderHandler(lambda: mediator))
+mediator = Mediator(services.provider())
+
+async def main():
+    response = await mediator.send(PlaceOrderCommand(customer_email="alice@example.com"))
+    # Output: Emailing alice@example.com: order 42 confirmed
+    #         Recording metric: order_placed (42)
+    print(response)
+    # Output: PlaceOrderResponse(order_id=42)
+
+asyncio.run(main())
+```
+
+Subscribers run concurrently (tasks created in registration order), and publishing an event with zero subscribers is a silent no-op — the publisher never depends on who's listening.
+
+## Handling subscriber failures
+
+A raising handler doesn't stop the others. Every subscriber runs, then the failures arrive together as an `ExceptionGroup`:
+
+```python
+import asyncio
+from dataclasses import dataclass
+from pymediate import Event, EventHandler, Mediator, Services
+
+@dataclass
+class PaymentReceived(Event):
+    payment_id: int
+
+class WriteAuditLog(EventHandler[PaymentReceived]):
+    async def __call__(self, event: PaymentReceived) -> None:
+        print(f"audit: payment {event.payment_id}")
+
+class NotifyWarehouse(EventHandler[PaymentReceived]):
+    async def __call__(self, event: PaymentReceived) -> None:
+        raise ConnectionError("warehouse service unreachable")
+
+services = Services()
+services.add(WriteAuditLog()).add(NotifyWarehouse())
+mediator = Mediator(services.provider())
+
+async def main():
+    try:
+        await mediator.publish(PaymentReceived(payment_id=7))
+    except* ConnectionError as group:
+        print(f"{len(group.exceptions)} subscriber(s) unavailable")
+
+asyncio.run(main())
+# Output: audit: payment 7
+#         1 subscriber(s) unavailable
+```
+
+The audit log was written even though the warehouse notification failed — delivery never depends on another subscriber's success.
+
+## Concurrent delivery, measured
+
+The async mediator runs all subscribers **concurrently** via `asyncio.gather`, so slow reactions overlap instead of queuing:
+
+```python
+import asyncio
+import time
+from dataclasses import dataclass
+from pymediate import Event, EventHandler, Mediator, Services
+
+@dataclass
+class ReportReady(Event):
+    report_id: int
+
+class EmailReport(EventHandler[ReportReady]):
+    async def __call__(self, event: ReportReady) -> None:
+        await asyncio.sleep(0.3)  # simulated SMTP round trip
+        print(f"emailed report {event.report_id}")
+
+class ArchiveReport(EventHandler[ReportReady]):
+    async def __call__(self, event: ReportReady) -> None:
+        await asyncio.sleep(0.2)  # simulated blob upload
+        print(f"archived report {event.report_id}")
+
+async def main():
+    services = Services()
+    services.add(EmailReport()).add(ArchiveReport())
+    mediator = Mediator(services.provider())
+
+    start = time.perf_counter()
+    await mediator.publish(ReportReady(report_id=1))
+    print(f"published in {time.perf_counter() - start:.1f}s")
+
+asyncio.run(main())
+# Output: archived report 1
+#         emailed report 1
+#         published in 0.3s   (the max of the two, not the sum)
+```
+
+Because subscribers run at the same time, they must be independent — no relying on each other's effects. If two reactions must happen in order, that's one handler, not two.
+
+## Sync: sequential delivery
+
+The sync mirror (`pymediate.sync`) runs subscribers sequentially, in registration order — same fan-out, no event loop:
+
+```python
+from dataclasses import dataclass
+from pymediate.sync import Event, EventHandler, Mediator, Services
+
+@dataclass
+class InvoiceIssued(Event):
+    invoice_id: int
+
+class PrintInvoice(EventHandler[InvoiceIssued]):
+    def __call__(self, event: InvoiceIssued) -> None:
+        print(f"printed invoice {event.invoice_id}")
+
+class FileInvoice(EventHandler[InvoiceIssued]):
+    def __call__(self, event: InvoiceIssued) -> None:
+        print(f"filed invoice {event.invoice_id}")
+
+services = Services()
+services.add(PrintInvoice()).add(FileInvoice())
+mediator = Mediator(services.provider())
+
+mediator.publish(InvoiceIssued(invoice_id=9))
+# Output: printed invoice 9
+#         filed invoice 9
+```
+
+## Next steps
+
+- [Events guide](/docs/guide/events) — full semantics, error handling, and best practices
+- [CQRS pattern](/docs/examples/cqrs) — where events fit alongside commands and queries
+- [Event](/docs/api/event) and [EventHandler](/docs/api/event-handler) API reference

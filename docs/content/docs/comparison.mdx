@@ -1,6 +1,6 @@
 ---
 title: How it compares
-description: A source-level comparison with the Python mediator ecosystem, and what send() costs over a direct call.
+description: A source-level comparison with the Python mediator ecosystem, and what send() and publish() cost over direct calls.
 ---
 
 Two questions come up whenever you evaluate a library like this: why not one of the alternatives, and what does the indirection cost? This page answers both with evidence you can check.
@@ -19,32 +19,40 @@ In July 2026, we read the source of the six most popular mediator libraries in t
 
 | Capability | PyMediate | Typical alternatives |
 | --- | --- | --- |
-| Request-to-handler link | A type parameter: `Handler[CreateUser]`. Dispatch is keyed on the class itself. | Class-name strings, naming conventions, or a separate `bind(request, handler)` call that can pair the wrong two. |
+| Request-to-handler link | A type parameter: `RequestHandler[CreateUser]`. Dispatch is keyed on the class itself. | Class-name strings, naming conventions, or a separate `bind(request, handler)` call that can pair the wrong two. |
 | Response type at the call site | `send()` returns the `T` declared in `Request[T]` — inferred by mypy, autocompleted by your editor. | `object`, `Any`, or a generic that isn't bound to the request. |
 | Handler signature validation | At class-definition time. A wrong parameter type, a missing return annotation, or a sync/async mixup raises at import. | None of the six validate signatures — mistakes surface at runtime, when a request is dispatched. |
 | Duplicate handler registration | Raises immediately, pointing at the file and line of the first registration. | Silently overwrites the original handler, or silently ignores the new one. |
 | Sync API | A first-class structural mirror of the async API — same classes, same semantics. | Almost always async-only; synchronous codebases must adopt an event loop. |
-| Event publishing (one request, many handlers) | Not yet — planned in [issue #10](https://github.com/sina-al/pymediate/issues/10). | Five of six have it. Every implementation surveyed is type-erased or async-only, but they have it today. |
+| Event publishing (one event, many handlers) | Typed `Event` / `EventHandler[E]`, validated at class definition like request handlers. Sync delivery is sequential, async is concurrent; failures aggregate into an `ExceptionGroup`. | Five of six have it. Every implementation surveyed is type-erased or async-only. |
 | Streaming responses | Not yet — planned in [issue #12](https://github.com/sina-al/pymediate/issues/12). | One of the six offers it, untyped. |
 | Runtime dependencies | Zero. Ships `py.typed` and is checked under `mypy --strict`; `dependency-injector` is an optional extra. | Varies — several require a serialization framework or a dependency-injection container to participate at all. |
 
-Two of those rows favor the alternatives. If you need event publishing or streaming today, another library gets you there sooner. Both are on the [roadmap](https://github.com/sina-al/pymediate/issues), and when they land they'll be typed, consistent with the rest of the API.
+One of those rows favors the alternatives. If you need streaming responses today, another library gets you there sooner. It's on the [roadmap](https://github.com/sina-al/pymediate/issues/12), and when it lands it will be typed, consistent with the rest of the API — the same path event publishing took in 0.3.0.
 
-## What does `send()` cost?
+## What do `send()` and `publish()` cost?
 
-Indirection is never free — a direct call is always faster than a dispatched one. The honest questions are how much, and whether it matters. The benchmark measures PyMediate against the direct call it replaces, never against other libraries, because overhead numbers across different feature sets aren't comparable — the goal is a number you can reproduce on your own hardware.
+Indirection is never free — a direct call is always faster than a dispatched one. The honest questions are how much, and whether it matters. The benchmark measures PyMediate against the direct calls it replaces, never against other libraries, because overhead numbers across different feature sets aren't comparable — the goal is a number you can reproduce on your own hardware.
 
-The following results come from PyMediate 0.2.0 on a 2020 Intel MacBook Pro running Python 3.13.0 (CPython) on macOS 15.7. Each value is the median of five samples of 100,000 calls, with a trivial handler so dispatch dominates.
+The following results come from PyMediate 0.3.0 on a 2020 Intel MacBook Pro running Python 3.13.0 (CPython) on macOS 15.7. Each value is the median of five samples of 100,000 calls, with a trivial handler so dispatch dominates. Every ratio is one unit of work against its own baseline — the publish scenarios use a single subscriber and are measured against a direct call to that same (`None`-returning) event handler.
 
 | Scenario | Median per call | Relative to direct call |
 | --- | ---: | ---: |
-| Sync: `handler(request)` — direct call | 0.65 µs | Baseline |
-| Sync: `mediator.send(request)` | 1.6 µs | 2.4x |
-| Sync: `send()` plus one pipeline behavior | 3.7 µs | 5.7x |
-| Async: `await handler(request)` — direct call | 0.88 µs | Baseline |
-| Async: `await mediator.send(request)` | 2.6 µs | 2.9x |
+| Sync: `handler(request)` — direct call | 0.34 µs | Baseline |
+| Sync: `mediator.send(request)` | 0.87 µs | 2.6x |
+| Sync: `send()` plus one pipeline behavior | 1.8 µs | 5.4x |
+| Sync: `handler(event)` — direct call | 0.12 µs | Baseline |
+| Sync: `mediator.publish(event)` — one subscriber | 0.52 µs | 4.3x |
+| Async: `await handler(request)` — direct call | 0.45 µs | Baseline |
+| Async: `await mediator.send(request)` | 1.0 µs | 2.3x |
+| Async: `await handler(event)` — direct call | 0.22 µs | Baseline |
+| Async: `await mediator.publish(event)` — one subscriber | 91 µs | 415x |
 
-In practice, routing through the mediator costs about a microsecond over calling the handler yourself, and a pipeline behavior adds a couple of microseconds more. Dispatch cost is also independent of application size — it doesn't grow as you register more handlers. For scale, a single indexed database query costs hundreds of microseconds and a network round trip costs milliseconds — if your handler does any real work, dispatch overhead disappears into the noise. If you dispatch millions of trivial in-memory operations per second on a hot path, a mediator — any mediator — is the wrong tool, and you should skip this library too.
+In practice, routing a request through the mediator costs about half a microsecond over calling the handler yourself, a pipeline behavior adds a microsecond or so more, and a sync publish sits in the same range. Dispatch cost is also independent of application size — it doesn't grow as you register more handlers.
+
+The async publish row deserves its own sentence: the async `Mediator.publish()` schedules every subscriber as a task and awaits them concurrently via `asyncio.gather`, and that event-loop machinery costs tens of microseconds per publish on this hardware — that 415x is the price of concurrent delivery, not of dispatch. It's the right trade exactly when subscribers do real I/O, which is the reason to be on the async API at all.
+
+For scale, a single indexed database query costs hundreds of microseconds and a network round trip costs milliseconds — if your handler does any real work, dispatch overhead disappears into the noise. If you dispatch millions of trivial in-memory operations per second on a hot path, a mediator — any mediator — is the wrong tool, and you should skip this library too.
 
 Absolute numbers vary by machine. Treat the table as orders of magnitude, and rerun it yourself. The benchmark is a self-contained [uv script](https://docs.astral.sh/uv/guides/scripts/) served by this site — it resolves the latest PyMediate release, shows live progress while it measures, and prints the exact version it measured. Pass `--help` for the knobs: calls per sample, sync-only or async-only runs, pipeline depth, and markdown or JSON output.
 

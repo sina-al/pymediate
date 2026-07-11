@@ -4,8 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -24,7 +23,7 @@ async def async_operation(data: str) -> str:
     return data.upper()
 
 
-class ProcessHandler(Handler[ProcessRequest]):
+class ProcessHandler(RequestHandler[ProcessRequest]):
     @override
     async def __call__(self, request: ProcessRequest) -> ProcessResponse:
         # Properly await async operations

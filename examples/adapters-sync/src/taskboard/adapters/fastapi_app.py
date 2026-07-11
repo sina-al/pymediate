@@ -1,7 +1,7 @@
 """FastAPI adapter: the same routes as the Flask adapter, on a different framework.
 
 Endpoints are plain ``def`` functions (FastAPI runs them in a threadpool) because the
-core is synchronous — the async mirror of this example (`examples/adapters-aio/`) has
+core is synchronous — the async mirror of this example (`examples/adapters-async/`) has
 the ``async def`` version. The core's Task dataclass doubles as the response model,
 and TaskNotFoundError maps to HTTP 404 via FastAPI's exception_handler hook.
 """

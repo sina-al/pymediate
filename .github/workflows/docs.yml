@@ -77,6 +77,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: docs/pnpm-lock.yaml
 
+      # The three pnpm steps below deliberately mirror the docs:install / docs:check /
+      # docs:build poe tasks instead of invoking them: this job's toolchain is Node-only,
+      # and bootstrapping Python + uv just so poe can shell out to pnpm buys nothing (the
+      # non-Python-job carve-out in CLAUDE.md's "poe tasks vs. inline workflow steps").
+      # Keep them in sync with tasks.toml.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

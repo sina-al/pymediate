@@ -2,7 +2,7 @@
 
 This module provides thread-safe registration and lookup of request-response type
 mappings and request-handler class mappings. These registries are populated
-automatically via __init_subclass__ hooks in Request and Handler classes.
+automatically via __init_subclass__ hooks in Request and RequestHandler classes.
 
 Warning:
     This module is internal to PyMediate. Package consumers should not access
@@ -162,7 +162,7 @@ def get_all_request_types() -> list[type]:
 
 
 # ============================================================================
-# Request-Handler Registry API
+# Request-handler registry API
 # ============================================================================
 
 
@@ -211,7 +211,7 @@ def _get_user_code_location() -> str | None:
 def register_handler(request_type: type, handler_class: type) -> None:
     """Register a handler class for a request type.
 
-    This function is called automatically when a Handler[RequestT] subclass is
+    This function is called automatically when a RequestHandler[RequestT] subclass is
     defined via __init_subclass__. It stores the mapping so handlers can be
     looked up by request type.
 
@@ -230,7 +230,7 @@ def register_handler(request_type: type, handler_class: type) -> None:
 
     Examples:
         ```python
-        # This is called automatically by Handler.__init_subclass__
+        # This is called automatically by RequestHandler.__init_subclass__
         # You typically don't call this directly
         register_handler(CreateUserRequest, CreateUserHandler)
         ```
@@ -238,7 +238,7 @@ def register_handler(request_type: type, handler_class: type) -> None:
     Note:
         This is an internal API for PyMediate developers. Package consumers
         should not call this function directly - it's handled automatically
-        by the Handler base class.
+        by the RequestHandler base class.
     """
     with _handler_lock:
         # Check if handler already exists
@@ -305,7 +305,7 @@ def has_handler(request_type: type) -> bool:
     Examples:
         ```python
         if has_handler(CreateUserRequest):
-            print("Handler registered for CreateUserRequest")
+            print("RequestHandler registered for CreateUserRequest")
         ```
 
     Note:
@@ -337,7 +337,7 @@ def get_all_handler_request_types() -> list[type]:
 
 
 # ============================================================================
-# Event-Handler Registry API
+# Event-RequestHandler Registry API
 # ============================================================================
 
 

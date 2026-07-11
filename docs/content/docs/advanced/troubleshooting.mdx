@@ -47,7 +47,7 @@ Verify the install (`pip show pymediate`), reinstall if needed, and confirm your
 ### `HandlerNotFoundError`
 
 ```python
-response = mediator.send(MyRequest())
+response = await mediator.send(MyRequest())
 # HandlerNotFoundError: No handler registered for request type 'MyRequest'
 ```
 
@@ -86,36 +86,36 @@ Raised at class-definition time when `__call__` has the wrong shape. The signatu
 
 ```python
 # Wrong: missing annotations
-class MyHandler(Handler[MyRequest]):
-    def __call__(self, request):
+class MyHandler(RequestHandler[MyRequest]):
+    async def __call__(self, request):
         return MyResponse()
 
 # Correct
-class MyHandler(Handler[MyRequest]):
-    def __call__(self, request: MyRequest) -> MyResponse:
+class MyHandler(RequestHandler[MyRequest]):
+    async def __call__(self, request: MyRequest) -> MyResponse:
         return MyResponse()
 ```
 
-The parameter annotation must be the **exact** request class declared in `Handler[...]` — a base class or union is rejected, even though static type checkers accept the broader annotation (widening a parameter in an override is legal contravariance, so this is the one signature mistake mypy will *not* flag for you):
+The parameter annotation must be the **exact** request class declared in `RequestHandler[...]` — a base class or union is rejected, even though static type checkers accept the broader annotation (widening a parameter in an override is legal contravariance, so this is the one signature mistake mypy will *not* flag for you):
 
 ```python
 class CreateAdminRequest(CreateUserRequest):
     ...
 
 # Wrong: annotates a base class of the declared request type
-class CreateAdminHandler(Handler[CreateAdminRequest]):
-    def __call__(self, request: CreateUserRequest) -> UserResponse:
+class CreateAdminHandler(RequestHandler[CreateAdminRequest]):
+    async def __call__(self, request: CreateUserRequest) -> UserResponse:
         ...
 
-# Correct: the exact class from Handler[...]
-class CreateAdminHandler(Handler[CreateAdminRequest]):
-    def __call__(self, request: CreateAdminRequest) -> UserResponse:
+# Correct: the exact class from RequestHandler[...]
+class CreateAdminHandler(RequestHandler[CreateAdminRequest]):
+    async def __call__(self, request: CreateAdminRequest) -> UserResponse:
         ...
 ```
 
-PyMediate dispatches on the exact class of the request instance, so a broader annotation could never actually receive other request types — the check catches drift between the `Handler[...]` declaration and the implementation. The rationale is covered in [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract).
+PyMediate dispatches on the exact class of the request instance, so a broader annotation could never actually receive other request types — the check catches drift between the `RequestHandler[...]` declaration and the implementation. The rationale is covered in [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract).
 
-The same exactness applies (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the async API, `__call__` must also be `async def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
+The same exactness applies (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the top-level (async) API, `__call__` must also be `async def`; in `pymediate.sync`, a plain `def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
 
 ### `InvalidEventTypeError`
 
@@ -124,7 +124,7 @@ class OrderPlaced:  # missing Event inheritance
     ...
 
 class SendConfirmation(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None: ...
+    async def __call__(self, event: OrderPlaced) -> None: ...
 # InvalidEventTypeError: Event type 'OrderPlaced' must inherit from Event
 ```
 
@@ -143,10 +143,10 @@ Since `EventHandler[EventT: Event]` is bound, mypy and basedpyright flag this mi
 ### `HandlerAlreadyRegisteredError`
 
 ```python
-class CreateUserHandler(Handler[CreateUserRequest]): ...
+class CreateUserHandler(RequestHandler[CreateUserRequest]): ...
 
-class CreateUserHandlerV2(Handler[CreateUserRequest]): ...
-# HandlerAlreadyRegisteredError: Handler already registered for 'CreateUserRequest'
+class CreateUserHandlerV2(RequestHandler[CreateUserRequest]): ...
+# HandlerAlreadyRegisteredError: RequestHandler already registered for 'CreateUserRequest'
 ```
 
 **Cause:** PyMediate enforces one handler per request type, registered at class-definition time in a process-wide registry. This guarantees you always know which handler processes a request, catches configuration mistakes early, and removes any need to reason about handler precedence.
@@ -173,15 +173,15 @@ class CreateUserHandlerV2(Handler[CreateUserRequest]): ...
 3. **Compose behaviors into one handler** if you were splitting a single responsibility:
 
    ```python
-   class CreateUserHandler(Handler[CreateUserRequest]):
+   class CreateUserHandler(RequestHandler[CreateUserRequest]):
        def __init__(self, validator: UserValidator, mailer: EmailService):
            self.validator = validator
            self.mailer = mailer
 
-       def __call__(self, request: CreateUserRequest) -> UserResponse:
+       async def __call__(self, request: CreateUserRequest) -> UserResponse:
            self.validator.validate(request)
-           user = self.create_user(request)
-           self.mailer.send_welcome_email(user)
+           user = await self.create_user(request)
+           await self.mailer.send_welcome_email(user)
            return UserResponse(user_id=user.id, username=user.username)
    ```
 

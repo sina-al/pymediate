@@ -13,7 +13,7 @@ Build the mediator once, at import time, and expose it through a dependency:
 from dataclasses import dataclass
 from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
-from pymediate import Request, Handler, Mediator, Services, HandlerNotFoundError
+from pymediate import Request, RequestHandler, Mediator, Services, HandlerNotFoundError
 
 @dataclass
 class CreateUserResponse:
@@ -29,11 +29,11 @@ class CreateUserRequest(Request[CreateUserResponse]):
         if "@" not in self.email:
             raise ValueError("Invalid email address")
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     def __init__(self):
         self._next_id = 1
 
-    def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
+    async def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
         user_id = self._next_id
         self._next_id += 1
         return CreateUserResponse(user_id=user_id, username=request.username)
@@ -58,13 +58,13 @@ class CreateUserBody(BaseModel):
     email: str
 
 @app.post("/users")
-def create_user(body: CreateUserBody, mediator: Mediator = Depends(get_mediator)):
+async def create_user(body: CreateUserBody, mediator: Mediator = Depends(get_mediator)):
     try:
         request = CreateUserRequest(username=body.username, email=body.email)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    response = mediator.send(request)
+    response = await mediator.send(request)
     return {"user_id": response.user_id, "username": response.username}
 ```
 
@@ -90,8 +90,8 @@ class GetUserResponse:
 class GetUserRequest(Request[GetUserResponse]):
     user_id: int
 
-class GetUserHandler(Handler[GetUserRequest]):
-    def __call__(self, request: GetUserRequest) -> GetUserResponse:
+class GetUserHandler(RequestHandler[GetUserRequest]):
+    async def __call__(self, request: GetUserRequest) -> GetUserResponse:
         if request.user_id != 1:
             raise ValueError("User not found")
         return GetUserResponse(user_id=1, username="alice")
@@ -99,9 +99,9 @@ class GetUserHandler(Handler[GetUserRequest]):
 services.add(GetUserHandler())
 
 @app.get("/users/{user_id}")
-def get_user(user_id: int, mediator: Mediator = Depends(get_mediator)):
+async def get_user(user_id: int, mediator: Mediator = Depends(get_mediator)):
     try:
-        response = mediator.send(GetUserRequest(user_id=user_id))
+        response = await mediator.send(GetUserRequest(user_id=user_id))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except HandlerNotFoundError as e:
@@ -118,45 +118,42 @@ def get_user(user_id: int, mediator: Mediator = Depends(get_mediator)):
   the rest of PyMediate's exception hierarchy.
 </Callout>
 
-## Async routes
+## Sync routes
 
-If your handlers do real I/O, use `pymediate.aio` and `async def` routes — FastAPI awaits them the same way. A sync and an async handler can't both be registered for the *same* request type (each request type has exactly one handler, sync or async, fixed at class-definition time) — so an async route needs its own request/handler pair, and typically its own `Services`/`Mediator` kept separate from the sync ones above.
+CPU-bound work with no I/O can use the sync mirror and plain `def` routes — FastAPI runs them in its thread pool. A sync and an async handler can't both be registered for the *same* request type (each request type has exactly one handler, async or sync, fixed at class-definition time) — so a sync route needs its own request/handler pair, and typically its own `Services`/`Mediator` kept separate from the async ones above.
 
 ```python
-from pymediate import Services
-from pymediate.aio import Handler as AsyncHandler, Mediator as AsyncMediator
+from pymediate.sync import RequestHandler as SyncHandler, Mediator as SyncMediator, Services as SyncServices
 
 @dataclass
-class FetchProfileResponse:
-    user_id: int
-    bio: str
+class RenderBadgeResponse:
+    svg: str
 
 @dataclass
-class FetchProfileRequest(Request[FetchProfileResponse]):
+class RenderBadgeRequest(Request[RenderBadgeResponse]):
     user_id: int
 
-class FetchProfileHandler(AsyncHandler[FetchProfileRequest]):
-    async def __call__(self, request: FetchProfileRequest) -> FetchProfileResponse:
-        bio = await profile_service.fetch_bio(request.user_id)
-        return FetchProfileResponse(user_id=request.user_id, bio=bio)
+class RenderBadgeHandler(SyncHandler[RenderBadgeRequest]):
+    def __call__(self, request: RenderBadgeRequest) -> RenderBadgeResponse:
+        return RenderBadgeResponse(svg=render_badge_svg(request.user_id))
 
-async_services = Services()
-async_services.add(FetchProfileHandler())
-async_mediator = AsyncMediator(async_services.provider())
+sync_services = SyncServices()
+sync_services.add(RenderBadgeHandler())
+sync_mediator = SyncMediator(sync_services.provider())
 
-def get_async_mediator() -> AsyncMediator:
-    return async_mediator
+def get_sync_mediator() -> SyncMediator:
+    return sync_mediator
 
-@app.get("/users/{user_id}/profile")
-async def get_profile(user_id: int, mediator: AsyncMediator = Depends(get_async_mediator)):
-    response = await mediator.send(FetchProfileRequest(user_id=user_id))
-    return {"user_id": response.user_id, "bio": response.bio}
+@app.get("/users/{user_id}/badge")
+def get_badge(user_id: int, mediator: SyncMediator = Depends(get_sync_mediator)):
+    response = mediator.send(RenderBadgeRequest(user_id=user_id))
+    return Response(content=response.svg, media_type="image/svg+xml")
 ```
 
-See [the mediator: async](/docs/guide/mediator#the-async-mediator) for why a sync and an async mediator never route to each other's handlers.
+See [the mediator: sync](/docs/guide/mediator#the-sync-mediator) for why an async and a sync mediator never route to each other's handlers.
 
 ## Next steps
 
 - [Error handling](/docs/guide/error-handling) — mapping domain errors to HTTP responses at the edge
-- [Async/await support](/docs/examples/async) — choosing between the sync and async APIs
+- [Async patterns](/docs/examples/async) — concurrency and fan-out with the async API
 - [Dependency injection](/docs/guide/dependency-injection) — wiring handlers through a DI container

@@ -2,9 +2,9 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fbasic-sync%2Fdevcontainer.json)
 
-The smallest useful PyMediate application: an in-memory task board in one file. If you're
-new to PyMediate, **start with this example** — everything else in `examples/` builds on
-the pattern shown here.
+[basic-async](../basic-async/)'s task board without the event loop: the same one-file
+board on `pymediate.sync`, PyMediate's synchronous mirror. Read basic-async first if you
+haven't; this example is best enjoyed as a diff against it.
 
 ## Run it
 
@@ -19,28 +19,25 @@ Created: Task(task_id=1, title='Buy groceries', done=False)
 Open: Write the release notes
 ```
 
-## The idea, in ten lines
+## What changed from basic-async
 
-A request declares what it responds with, right in its type:
+Everything imports from `pymediate.sync` instead of `pymediate`; handlers declare a
+plain `def __call__`, and sending blocks — no `await`, no `asyncio.run()`. Shared
+classes (`Request`, `Services`) are the *same objects* in both namespaces — only
+`RequestHandler`, `Mediator`, and `PipelineBehavior` have sync variants.
 
 ```python
-@dataclass
-class AddTask(Request[Task]):        # "sending AddTask gives back a Task"
-    title: str
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
-class AddTaskHandler(Handler[AddTask]):
+class AddTaskHandler(RequestHandler[AddTask]):
     def __call__(self, request: AddTask) -> Task:
         ...  # create the task, return it
+
+task = mediator.send(AddTask(title="Buy groceries"))   # still fully typed
 ```
 
-Register one handler per request, then send:
-
-```python
-task = mediator.send(AddTask(title="Buy groceries"))   # typed: task is a Task
-```
-
-Your IDE and type checker know `task` is a `Task` — and `mediator.send(ListOpenTasks())`
-is a `list[Task]` — with no casts and no stringly-typed routing. That's the whole trick.
+This mirror keeps to the core loop — basic-async's `AuditTrail` trick works identically
+here via `pymediate.sync.PipelineBehavior`, with `next()` in place of `await next()`.
 
 ## The files
 
@@ -52,14 +49,13 @@ is a `list[Task]` — with no casts and no stringly-typed routing. That's the wh
 ## Small print
 
 - A handler's `__call__` signature is validated when the class is defined, so a
-  wrongly-annotated handler fails at import time, not at dispatch time.
+  wrongly-annotated handler — including an `async def` where a plain `def` is required —
+  fails at import time, not at dispatch time.
 - Handlers take their dependencies (here, a shared `TaskStore`) through plain
   constructors — no framework, no magic.
 
 ## Where next
 
-- [basic-aio](../basic-aio/) — this exact example with `async def` handlers, plus a
-  pipeline behavior.
 - [adapters-sync](../adapters-sync/) — the same core pattern serving Flask, FastAPI, and
   a CLI at once.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·

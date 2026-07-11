@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
 # ========== Basic Dataclass Support ==========
 
@@ -42,7 +42,7 @@ def test_basic_dataclass_with_pymediate() -> None:
     - Full type safety and IDE autocomplete support
     """
 
-    class CreateUserHandler(Handler[CreateUserRequest]):
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
         def __init__(self) -> None:
             self.next_id = 1
 
@@ -100,11 +100,11 @@ class ExtendedRequest(Request[ExtendedResponse]):
 def test_dataclass_request_inheritance() -> None:
     """Test that dataclass requests can have inheritance hierarchies."""
 
-    class BaseHandler(Handler[BaseRequest]):
+    class BaseHandler(RequestHandler[BaseRequest]):
         def __call__(self, request: BaseRequest) -> BaseResponse:
             return BaseResponse(status="ok")
 
-    class ExtendedHandler(Handler[ExtendedRequest]):
+    class ExtendedHandler(RequestHandler[ExtendedRequest]):
         def __call__(self, request: ExtendedRequest) -> ExtendedResponse:
             return ExtendedResponse(status="ok", data=request.payload)
 
@@ -153,11 +153,11 @@ class RequestB(Request[StatusResponse]):
 def test_multiple_dataclass_requests_same_response() -> None:
     """Test that multiple request types can return the same response type."""
 
-    class HandlerA(Handler[RequestA]):
+    class HandlerA(RequestHandler[RequestA]):
         def __call__(self, request: RequestA) -> StatusResponse:
             return StatusResponse(result=f"A:{request.value_a}")
 
-    class HandlerB(Handler[RequestB]):
+    class HandlerB(RequestHandler[RequestB]):
         def __call__(self, request: RequestB) -> StatusResponse:
             return StatusResponse(result=f"B:{request.value_b}")
 
@@ -202,7 +202,7 @@ class TimestampedRequest(TimestampMixin, Request[TimestampedResponse]):
 def test_dataclass_with_mixin() -> None:
     """Test that dataclasses can use mixins with Request inheritance."""
 
-    class TimestampedHandler(Handler[TimestampedRequest]):
+    class TimestampedHandler(RequestHandler[TimestampedRequest]):
         def __call__(self, request: TimestampedRequest) -> TimestampedResponse:
             return TimestampedResponse(value=len(request.data), timestamp=request.get_timestamp())
 
@@ -245,7 +245,7 @@ def test_dataclass_with_dependency_injection() -> None:
             self.next_id += 1
             return user_id
 
-    class DIHandler(Handler[DIRequest]):
+    class DIHandler(RequestHandler[DIRequest]):
         def __init__(self, database: Database):
             self.database = database
 
@@ -288,7 +288,7 @@ class EmptyRequest(Request[EmptyResponse]):
 def test_empty_dataclasses() -> None:
     """Test that empty dataclasses work with PyMediate."""
 
-    class EmptyHandler(Handler[EmptyRequest]):
+    class EmptyHandler(RequestHandler[EmptyRequest]):
         def __call__(self, request: EmptyRequest) -> EmptyResponse:
             return EmptyResponse()
 

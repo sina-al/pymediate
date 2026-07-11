@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -33,7 +33,7 @@ class GetCustomerDetailsRequest(Request[CustomerDetailsResponse]):
     customer_id: int
 
 
-class GetCustomerDetailsHandler(Handler[GetCustomerDetailsRequest]):
+class GetCustomerDetailsHandler(RequestHandler[GetCustomerDetailsRequest]):
     @override
     def __call__(self, request: GetCustomerDetailsRequest) -> CustomerDetailsResponse:
         return CustomerDetailsResponse(

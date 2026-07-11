@@ -4,8 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -28,14 +27,14 @@ class Request2(Request[Response2]):
     text: str
 
 
-class Handler1(Handler[Request1]):
+class Handler1(RequestHandler[Request1]):
     @override
     async def __call__(self, request: Request1) -> Response1:
         await asyncio.sleep(0.01)
         return Response1(value=request.data * 2)
 
 
-class Handler2(Handler[Request2]):
+class Handler2(RequestHandler[Request2]):
     @override
     async def __call__(self, request: Request2) -> Response2:
         await asyncio.sleep(0.01)

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Handler, Mediator, Request, Services
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
 
 @dataclass
@@ -19,7 +19,7 @@ class GetUserProfileRequest(Request[UserProfileResponse]):
     user_id: int
 
 
-class GetUserProfileHandler(Handler[GetUserProfileRequest]):
+class GetUserProfileHandler(RequestHandler[GetUserProfileRequest]):
     @override
     def __call__(self, request: GetUserProfileRequest) -> UserProfileResponse:
         return UserProfileResponse(

@@ -17,7 +17,7 @@ import { LogoMark } from '@/components/logo';
 import { gitConfig, pypiUrl } from '@/lib/shared';
 
 const syncExample = `from dataclasses import dataclass
-from pymediate import Request, Handler, Mediator, Services
+from pymediate.sync import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class UserCreated:
@@ -29,7 +29,7 @@ class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     def __call__(self, request: CreateUser) -> UserCreated:
         return UserCreated(user_id=1, username=request.username)
 
@@ -41,8 +41,7 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 # response is UserCreated — inferred from the request, checked by mypy`;
 
 const asyncExample = `from dataclasses import dataclass
-from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator
+from pymediate import Request, RequestHandler, Mediator, Services
 
 @dataclass
 class UserCreated:
@@ -54,7 +53,7 @@ class CreateUser(Request[UserCreated]):
     username: str
     email: str
 
-class CreateUserHandler(Handler[CreateUser]):
+class CreateUserHandler(RequestHandler[CreateUser]):
     async def __call__(self, request: CreateUser) -> UserCreated:
         user_id = await user_repository.save(request.username, request.email)
         return UserCreated(user_id=user_id, username=request.username)
@@ -63,28 +62,47 @@ mediator = Mediator(Services().add(CreateUserHandler()).provider())
 
 response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))`;
 
-const pipelineExample = `from collections.abc import Callable
+const pipelineExample = `from collections.abc import Awaitable, Callable
 from typing import Any
 from pymediate import PipelineBehavior, Request
 
 class LoggingBehavior(PipelineBehavior[Request]):
     """Applies to every request — before and after its handler runs."""
 
-    def __call__(self, request: Request, next: Callable[[], Any]) -> Any:
+    async def __call__(self, request: Request, next: Callable[[], Awaitable[Any]]) -> Any:
         print(f"handling {type(request).__name__}")
-        response = next()
+        response = await next()
         print(f"returning {type(response).__name__}")
         return response
 
 class AuditCreateUser(PipelineBehavior[CreateUser]):
     """Selective: only wraps CreateUser requests."""
 
-    def __call__(self, request: CreateUser, next: Callable[[], Any]) -> Any:
+    async def __call__(self, request: CreateUser, next: Callable[[], Awaitable[Any]]) -> Any:
         audit_log.record(request.email)
-        return next()
+        return await next()
 
 services.add(LoggingBehavior())
 services.add(AuditCreateUser())`;
+
+const eventsExample = `from dataclasses import dataclass
+from pymediate import Event, EventHandler
+
+@dataclass
+class UserCreated(Event):
+    user_id: int
+    username: str
+
+class SendWelcomeEmail(EventHandler[UserCreated]):
+    async def __call__(self, event: UserCreated) -> None:
+        await mailer.send_welcome(event.username)
+
+class RecordSignup(EventHandler[UserCreated]):
+    async def __call__(self, event: UserCreated) -> None:
+        analytics.record("signup", user_id=event.user_id)
+
+await mediator.publish(UserCreated(user_id=1, username="alice"))
+# every subscriber runs — the publisher never knows who's listening`;
 
 const features = [
   {
@@ -99,8 +117,8 @@ const features = [
   },
   {
     icon: Workflow,
-    title: 'Async mirror',
-    body: 'pymediate.aio mirrors the sync API structurally — same classes, same semantics, await where it matters.',
+    title: 'Async-first, sync mirror',
+    body: 'The top-level API is async; pymediate.sync mirrors it structurally — same classes, same semantics, no event loop required.',
   },
   {
     icon: Layers,
@@ -110,7 +128,7 @@ const features = [
   {
     icon: Zap,
     title: 'Fails at definition time',
-    body: 'Handler signatures are validated when the class is defined, so wiring mistakes surface at import — not in production.',
+    body: 'Every handler signature — request or event — is validated when the class is defined, so wiring mistakes surface at import, not in production.',
   },
   {
     icon: Plug,
@@ -126,7 +144,7 @@ const reasons = [
   },
   {
     title: 'CQRS by construction',
-    body: 'Commands and queries are just request types. Separating writes from reads becomes a naming convention, not framework machinery.',
+    body: 'Commands and queries are just request types, and domain events fan out through publish(). Separating writes from reads becomes a naming convention, not framework machinery.',
   },
   {
     title: 'Trivially testable',
@@ -199,7 +217,10 @@ export default function HomePage() {
               Declare the response type once, on the request. From there the mediator, the handler
               signature, and every call site agree — and <code className="font-mono text-[0.9em]">mypy</code>{' '}
               enforces it. The async API is a structural mirror: switch the import, add{' '}
-              <code className="font-mono text-[0.9em]">await</code>, done.
+              <code className="font-mono text-[0.9em]">await</code>, done. And when something{' '}
+              <em>happened</em> rather than something is wanted,{' '}
+              <code className="font-mono text-[0.9em]">publish()</code> fans an event out to every
+              subscriber.
             </p>
             <Link
               href="/docs/getting-started/concepts"
@@ -209,15 +230,18 @@ export default function HomePage() {
               <ArrowRight aria-hidden className="size-4" />
             </Link>
           </div>
-          <Tabs items={['Sync', 'Async', 'Pipeline']}>
-            <Tab value="Sync">
-              <CodeWindow code={syncExample} title="app.py" className="not-prose" />
-            </Tab>
+          <Tabs items={['Async', 'Sync', 'Pipeline', 'Events']}>
             <Tab value="Async">
               <CodeWindow code={asyncExample} title="app.py" className="not-prose" />
             </Tab>
+            <Tab value="Sync">
+              <CodeWindow code={syncExample} title="app.py" className="not-prose" />
+            </Tab>
             <Tab value="Pipeline">
               <CodeWindow code={pipelineExample} title="behaviors.py" className="not-prose" />
+            </Tab>
+            <Tab value="Events">
+              <CodeWindow code={eventsExample} title="events.py" className="not-prose" />
             </Tab>
           </Tabs>
         </div>
@@ -230,8 +254,8 @@ export default function HomePage() {
             Small surface, sharp edges filed off
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-fd-muted-foreground">
-            A handful of concepts — requests, handlers, behaviors, one mediator — designed to stay
-            out of your way.
+            A handful of concepts — requests, handlers, events, behaviors, one mediator — designed
+            to stay out of your way.
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (

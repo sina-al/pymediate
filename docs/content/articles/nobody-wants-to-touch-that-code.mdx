@@ -150,7 +150,7 @@ The caller's side of the seam is the message. It's a dataclass: dumb, importable
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request
+from pymediate.sync import Request
 
 @dataclass
 class ExportResult:
@@ -166,9 +166,9 @@ class ExportOrders(Request[ExportResult]):
 The far side is the handler — the *dedicated home* for this one unit of the application. Not a method on a shared anything: a class whose entire identity is "how exports happen," with its real dependencies arriving through the constructor instead of being reached for:
 
 ```python
-from pymediate import Handler
+from pymediate.sync import RequestHandler
 
-class ExportOrdersHandler(Handler[ExportOrders]):
+class ExportOrdersHandler(RequestHandler[ExportOrders]):
     def __init__(self, session: Session, storage: Storage) -> None:
         self._session = session
         self._storage = storage
@@ -206,7 +206,7 @@ Ambient context is gone from the core — who's asking travels *in the message*,
 Two more strands, briefly. The cross-cutting code that was copy-pasted through the service — auditing, timing, logging — gets one home that wraps every request instead of an appearance in every method:
 
 ```python
-from pymediate import PipelineBehavior, Request
+from pymediate.sync import PipelineBehavior, Request
 
 class AuditBehavior(PipelineBehavior[Request]):
     def __call__(self, request: Request, next):

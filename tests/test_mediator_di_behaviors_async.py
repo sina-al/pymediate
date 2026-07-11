@@ -13,9 +13,7 @@ from typing import Any
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import Request
-from pymediate.aio import Handler, Mediator
-from pymediate.aio.pipeline import PipelineBehavior
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler
 from pymediate.providers import DependencyInjectorServiceProvider
 
 # ============================================================================
@@ -159,7 +157,7 @@ class AsyncCountingBehavior(PipelineBehavior[AsyncCounterRequest]):
 async def test_async_di_mediator_with_single_behavior() -> None:
     """Test async mediator with single behavior from DI container."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -183,7 +181,7 @@ async def test_async_di_mediator_with_single_behavior() -> None:
 async def test_async_di_mediator_with_multiple_behaviors() -> None:
     """Test async mediator with multiple behaviors from DI container."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -214,7 +212,7 @@ async def test_async_di_mediator_with_multiple_behaviors() -> None:
 async def test_async_di_mediator_without_behaviors() -> None:
     """Test async mediator with only handler (fast path)."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -241,7 +239,7 @@ async def test_async_di_mediator_without_behaviors() -> None:
 async def test_async_di_short_circuit_behavior() -> None:
     """Test async short-circuit behavior."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -276,7 +274,7 @@ async def test_async_di_short_circuit_behavior() -> None:
 async def test_async_di_registration_order_matters() -> None:
     """Test that async behavior registration order determines execution order."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -317,7 +315,7 @@ async def test_async_di_registration_order_matters() -> None:
 async def test_async_di_singleton_behavior_reused() -> None:
     """Test that singleton async behaviors are reused across requests."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -350,7 +348,7 @@ async def test_async_di_singleton_behavior_reused() -> None:
 async def test_async_di_factory_behavior_fresh_instances() -> None:
     """Test that factory async behaviors create new instances per resolve."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -388,7 +386,7 @@ async def test_async_di_factory_behavior_fresh_instances() -> None:
 async def test_async_di_concurrent_requests() -> None:
     """Test concurrent async requests with shared singleton behavior."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -419,7 +417,7 @@ async def test_async_di_concurrent_requests() -> None:
 async def test_async_di_concurrent_requests_with_io() -> None:
     """Test concurrent requests with I/O-bound async behaviors."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -453,7 +451,7 @@ async def test_async_di_concurrent_requests_with_io() -> None:
 async def test_async_di_race_condition_safety() -> None:
     """Test that async behaviors handle concurrent access safely."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -522,7 +520,7 @@ async def test_async_di_error_recovery() -> None:
             except ValueError:
                 return AsyncErrorTestResponse(value=-1, execution_log=["AsyncRecovered"])
 
-    class AsyncFailingHandler(Handler[AsyncErrorTestRequest]):
+    class AsyncFailingHandler(RequestHandler[AsyncErrorTestRequest]):
         async def __call__(self, request: AsyncErrorTestRequest) -> AsyncErrorTestResponse:
             if request.value < 0:
                 raise ValueError("Negative!")
@@ -550,7 +548,7 @@ async def test_async_di_error_recovery() -> None:
 async def test_async_di_exception_propagation() -> None:
     """Test that exceptions in async behaviors propagate correctly."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -589,7 +587,7 @@ async def test_async_di_exception_propagation() -> None:
 async def test_async_di_complex_pipeline() -> None:
     """Test complex async pipeline with mixed behaviors."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -636,7 +634,7 @@ async def test_async_di_complex_pipeline() -> None:
 async def test_async_di_real_world_caching() -> None:
     """Test realistic async caching scenario."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -715,7 +713,7 @@ async def test_async_di_real_world_caching() -> None:
 async def test_async_di_parallel_pipeline_execution() -> None:
     """Test that multiple requests execute in parallel."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
@@ -756,7 +754,7 @@ async def test_async_di_parallel_pipeline_execution() -> None:
 async def test_async_di_many_behaviors() -> None:
     """Test async mediator with many behaviors."""
 
-    class AsyncCounterHandler(Handler[AsyncCounterRequest]):
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])

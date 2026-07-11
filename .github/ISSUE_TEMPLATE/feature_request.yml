@@ -41,11 +41,11 @@ body:
       description: Show how you would use this feature
       render: python
       placeholder: |
-        from pymediate import Request, Handler
+        from pymediate import Request, RequestHandler
 
         # Example of how the new feature would work
-        class MyRequest(Request, response_type=MyResponse):
-            pass
+        class MyRequest(Request[MyResponse]):
+            ...
     validations:
       required: false
 

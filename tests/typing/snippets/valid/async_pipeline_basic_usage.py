@@ -5,8 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Request, Services
-from pymediate.aio import Handler, Mediator, PipelineBehavior
+from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -20,7 +19,7 @@ class CreateUserRequest(Request[UserResponse]):
     username: str
 
 
-class CreateUserHandler(Handler[CreateUserRequest]):
+class CreateUserHandler(RequestHandler[CreateUserRequest]):
     @override
     async def __call__(self, request: CreateUserRequest) -> UserResponse:
         await asyncio.sleep(0.01)
