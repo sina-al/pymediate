@@ -9,8 +9,16 @@ name: Release
 # version — TestPyPI/PyPI filenames are immutable forever, so a version that reached
 # TestPyPI is dead and the retry is simply the next version.
 #
-#   validate -> build (+ provenance attestation) -> install matrix -> TestPyPI
-#     -> examples suite against TestPyPI -> [pypi environment gate] -> PyPI -> GitHub Release
+#   validate -> build (+ provenance attestation) -> install matrix + examples vs wheel
+#     -> TestPyPI -> examples vs TestPyPI -> [pypi environment gate] -> PyPI
+#     -> examples vs PyPI -> GitHub Release
+#
+# The examples suite runs three times, each answering a different question (the release
+# PR's required "Examples" check already asked "does this code break downstream users?"
+# pre-merge): the wheel stage re-asks it against the release-versioned artifact and
+# today's dependency resolution, before any version burns; the TestPyPI stage validates
+# the publish-and-install path; the PyPI stage smoke-tests the exact artifact users
+# install, and gates the GitHub Release on it.
 on:
   push:
     tags:
@@ -163,10 +171,42 @@ jobs:
         run: |
           python -c "from pymediate.providers import DependencyInjectorServiceProvider; print('DI import successful')"
 
+  examples-wheel:
+    name: Examples against the built wheel
+    # The same examples the release PR's required "Examples" check already ran, but against
+    # the artifact this run just built (real release version, not the PR wheel's dev
+    # version) and today's dependency resolution — a release PR that sat open lets the
+    # examples' unpinned-by-design dependencies drift between check time and tag time.
+    # Failing here is free; the same failure one stage later burns the version.
+    runs-on: ubuntu-latest
+    needs: build-package
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: false
+
+      - name: Download artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Run examples suite against the built wheel
+        run: |
+          uv sync --only-dev
+          uv run python scripts/run_examples.py --wheel dist/*.whl
+
   publish-testpypi:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
-    needs: [validate-release, build-package, test-install]
+    needs: [validate-release, build-package, test-install, examples-wheel]
     environment:
       name: testpypi
       url: https://test.pypi.org/p/pymediate/
@@ -189,7 +229,7 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
 
-  examples:
+  examples-testpypi:
     name: Examples against TestPyPI
     runs-on: ubuntu-latest
     needs: publish-testpypi
@@ -232,17 +272,13 @@ jobs:
           exit 1
 
       - name: Run examples suite against the TestPyPI release
-        # Each examples/<name>/ is a standalone uv project pinned to the version just
+        # Each examples/<name>/ is a standalone uv project re-pinned to the version just
         # published on TestPyPI (only pymediate resolves there; its dependencies come from
-        # real PyPI). The examples contract and runner land with ops-overhaul phase 4
-        # (issue #24); until then this passes with a notice.
+        # real PyPI). This validates the publish-and-install path — the code itself already
+        # passed the wheel stage.
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          if ! ls examples/*/pyproject.toml >/dev/null 2>&1; then
-            echo "::notice::No examples/ projects yet (see issue #24); skipping examples stage."
-            exit 0
-          fi
           uv sync --only-dev
           uv run python scripts/run_examples.py --version "${VERSION_TAG#v}" \
             --index https://test.pypi.org/simple/
@@ -250,7 +286,7 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: examples
+    needs: examples-testpypi
     environment:
       name: pypi
       url: https://pypi.org/p/pymediate/
@@ -269,12 +305,64 @@ jobs:
         # See the TestPyPI job for why the pypa action replaced `uv publish`.
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
 
+  examples-pypi:
+    name: Examples against PyPI
+    # Post-publish smoke test: the only stage that exercises the exact artifact users
+    # install, from the index they install it from. It gates the GitHub Release — the
+    # announcement should only exist once the announced thing is proven installable. A
+    # failure here can't unpublish (PyPI files are immutable), it just withholds the
+    # GitHub Release: fix whatever broke (or accept the finding) and re-run the failed
+    # jobs to resume.
+    runs-on: ubuntu-latest
+    needs: publish-pypi
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: false
+
+      - name: Wait for PyPI to serve the release
+        # Same CDN-lag probe as the TestPyPI stage (see that step for the full rationale:
+        # probe with uv itself, JSON and HTML index variants cache separately, --no-cache
+        # avoids replaying a stale miss). PyPI usually propagates faster than TestPyPI,
+        # but the failure mode is identical.
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
+        run: |
+          version="${VERSION_TAG#v}"
+          for attempt in $(seq 1 40); do
+            if echo "pymediate==${version}" \
+              | uv pip compile - --index-url https://pypi.org/simple/ --no-cache >/dev/null 2>&1; then
+              echo "uv resolves pymediate ${version} from PyPI (attempt ${attempt})."
+              exit 0
+            fi
+            echo "uv cannot resolve pymediate==${version} from PyPI yet (attempt ${attempt}/40); retrying in 15s."
+            sleep 15
+          done
+          echo "::error::uv never resolved pymediate ${version} from PyPI within 10 minutes."
+          exit 1
+
+      - name: Run examples suite against the PyPI release
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
+        run: |
+          uv sync --only-dev
+          uv run python scripts/run_examples.py --version "${VERSION_TAG#v}" \
+            --index https://pypi.org/simple/
+
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    # Last on purpose: a release that never reached PyPI should not present itself to the
-    # world as released. Everything before the pypi gate is retractable-by-design.
-    needs: publish-pypi
+    # Last on purpose: a release that never reached PyPI — or reached it but failed the
+    # PyPI smoke test — should not present itself to the world as released. Everything
+    # before the pypi gate is retractable-by-design.
+    needs: examples-pypi
     permissions:
       contents: write
 

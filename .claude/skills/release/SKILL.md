@@ -28,13 +28,13 @@ release PR  "chore(release): vX.Y.Z"    ← human-in-the-loop #1: review & merge
         │  (close instead = consequence-free rejection; cut branch auto-deletes)
         │  merge (MERGE COMMIT) → tag-release.yml tags the merge commit vX.Y.Z
         ▼
-release.yml   validate → build(+attest) → test-install → TestPyPI → examples
-        │
+release.yml   validate → build(+attest) → test-install + examples(wheel)
+        │     → TestPyPI → examples(TestPyPI)
         ▼
 pypi environment approval                ← human-in-the-loop #2: approve in Actions UI
-        │  (only reachable if TestPyPI and the examples suite succeeded)
+        │  (only reachable if the wheel + TestPyPI examples stages succeeded)
         ▼
-PyPI → GitHub Release (created last)
+PyPI → examples(PyPI smoke test) → GitHub Release (created last)
 ```
 
 ## Pre-flight
@@ -87,9 +87,11 @@ PyPI → GitHub Release (created last)
    gh run watch $(gh run list --workflow=release.yml --limit 1 --json databaseId --jq '.[0].databaseId')
    ```
    Order: `validate-release` (full suite + tag-vs-hatch-vcs version check) →
-   `build-package` (+ provenance attestation) → `test-install` (3 OS × 3 Pythons) →
-   `publish-testpypi` → `examples` (each examples/ project against the TestPyPI artifact)
-   → **waits at the `pypi` environment** → `publish-pypi` → `create-release`.
+   `build-package` (+ provenance attestation) → `test-install` (3 OS × 3 Pythons) +
+   `examples-wheel` (each examples/ project against the built artifact, before anything
+   publishes) → `publish-testpypi` → `examples-testpypi` (same suite against the TestPyPI
+   artifact) → **waits at the `pypi` environment** → `publish-pypi` → `examples-pypi`
+   (smoke test against the live PyPI release) → `create-release`.
 
 5. **Approve the PyPI publish** at the `pypi` environment gate from the run page. This is
    the final confirmation — unreachable unless TestPyPI and the examples suite succeeded.
@@ -115,8 +117,14 @@ PyPI → GitHub Release (created last)
     needs re-uploading: confirm visibility (`curl -s
     https://test.pypi.org/pypi/pymediate/json`), then `gh run rerun <run-id> --failed` —
     it re-tests the already-published artifact, and the burn policy doesn't apply.
+- **After PyPI, at the smoke test** (`examples-pypi`): the version is live on PyPI but
+  unannounced — the GitHub Release is withheld. Index-lag failures follow the same
+  rerun-the-failed-jobs remedy as the TestPyPI exception above. A genuine breakage means
+  deciding with the user: yank the release on PyPI and ship the next version, or accept
+  the finding and `gh run rerun --failed` to publish the announcement anyway.
 - A tag for a never-published version may remain — expected under the burn policy; the
-  GitHub Release is only created after PyPI succeeds, so nothing user-facing dangles.
+  GitHub Release is only created after PyPI *and* the smoke test succeed, so nothing
+  user-facing dangles.
 
 ## Manual fallback
 
