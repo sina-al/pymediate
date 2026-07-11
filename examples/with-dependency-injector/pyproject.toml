@@ -7,7 +7,7 @@ dependencies = [
     # The [di] extra pulls in dependency-injector. Loose lower bound per the examples
     # contract: the release pipeline re-pins this to the exact release candidate on
     # TestPyPI (scripts/run_examples.py) — uv keeps the extra when it re-pins.
-    "pymediate[di]>=0.2.0",
+    "pymediate[di]>=0.3.0",
 ]
 
 [dependency-groups]
