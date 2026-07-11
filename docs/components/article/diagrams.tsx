@@ -169,10 +169,10 @@ export function TangleDiagram() {
 export function CascadeDiagram() {
   const steps: { x: number; y: number; w: number; label: string; first?: boolean }[] = [
     { x: 12, y: 18, w: 212, label: 'move the export to a worker', first: true },
-    { x: 152, y: 76, w: 172, label: 'needs OrderService' },
-    { x: 264, y: 134, w: 232, label: 'needs mailer, payments, pdf…' },
-    { x: 416, y: 192, w: 180, label: 'needs the app context' },
-    { x: 548, y: 250, w: 176, label: 'needs a live request' },
+    { x: 152, y: 76, w: 176, label: 'imports orders.service' },
+    { x: 258, y: 134, w: 252, label: 'which imports payments, mailer, pdf…' },
+    { x: 416, y: 192, w: 188, label: 'which need the app context' },
+    { x: 548, y: 250, w: 184, label: 'which needs a live request' },
   ];
   return (
     <figure className="not-prose my-8">
@@ -181,7 +181,7 @@ export function CascadeDiagram() {
           viewBox="0 0 760 316"
           className="w-full min-w-140"
           role="img"
-          aria-label="A staircase of five boxes descending to the right: the change you wanted at the top, followed by the chain of prerequisite changes it turned out to require"
+          aria-label="A staircase of five boxes descending to the right: the change you wanted at the top, followed by the chain of imports and ambient context it turned out to require"
           style={mono}
         >
           <defs>
@@ -261,9 +261,26 @@ export function SeamDiagram() {
           viewBox="0 0 760 252"
           className="w-full min-w-140"
           role="img"
-          aria-label="Before: the call site connects directly to the service, its dependencies, and the framework. After: the call site connects only to a message; a seam separates it from the handler, which owns the dependencies"
+          aria-label="Before: the call site connects directly to the module, its import block, and the framework. After: the call site connects only to a message that crosses a seam; the handler on the far side owns the dependencies"
           style={mono}
         >
+          <style>{`
+            .pm-seam-msg {
+              transform: translate(580px, 87px);
+              opacity: 0.95;
+              animation: pm-seam-cross 3.2s ease-in-out infinite;
+            }
+            @keyframes pm-seam-cross {
+              0% { transform: translate(524px, 87px); opacity: 0; }
+              12% { opacity: 0.95; }
+              55% { transform: translate(636px, 87px); opacity: 0.95; }
+              68% { transform: translate(636px, 87px); opacity: 0; }
+              100% { transform: translate(636px, 87px); opacity: 0; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .pm-seam-msg { animation: none; opacity: 0; }
+            }
+          `}</style>
           <defs>
             <linearGradient id="pm-seam-g" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0" stopColor="#22d3ee" />
@@ -287,8 +304,8 @@ export function SeamDiagram() {
             </text>
             {(
               [
-                [62, 118, 'OrderService'],
-                [165, 118, 'its constructor'],
+                [62, 118, 'orders.service'],
+                [165, 118, 'its import block'],
                 [268, 118, 'db session'],
                 [112, 168, 'mailer'],
                 [218, 168, 'app config'],
@@ -363,7 +380,15 @@ export function SeamDiagram() {
             </text>
 
             <line x1="520" y1="87" x2="556" y2="87" stroke="var(--color-fd-border)" strokeWidth="1.2" />
-            <path d="M580 65 L602 87 L580 109 L558 87 Z" fill="url(#pm-seam-g)" />
+            {/* the message: a static outline marks its lane; a filled twin crosses the seam */}
+            <path
+              d="M580 71 L596 87 L580 103 L564 87 Z"
+              fill="none"
+              stroke="url(#pm-seam-g)"
+              strokeWidth="1.2"
+              opacity="0.55"
+            />
+            <path className="pm-seam-msg" d="M0 -8 L8 0 L0 8 L-8 0 Z" fill="url(#pm-seam-g)" />
             <text
               x="580"
               y="126"
@@ -406,7 +431,7 @@ export function SeamDiagram() {
             {(
               [
                 [660, 'db session'],
-                [724, 'mailer'],
+                [724, 'storage'],
               ] as [number, string][]
             ).map(([cx, label]) => (
               <g key={label}>
