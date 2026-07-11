@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import (
+from pymediate._internal import registry
+from pymediate.sync import (
     Event,
     EventHandler,
     InvalidEventTypeError,
@@ -13,7 +14,6 @@ from pymediate import (
     ServiceNotFoundError,
     Services,
 )
-from pymediate._internal import registry
 
 
 def test_event_handler_extracts_event_type() -> None:

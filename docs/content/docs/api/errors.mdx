@@ -27,7 +27,7 @@ class InvalidHandlerSignatureError(PyMediateError):
     def __init__(self, handler_type: type, issue: str): ...
 ```
 
-The handler's `__call__` has the wrong shape: missing type annotations, wrong parameter count, a parameter annotation that isn't *exactly* the request class declared in `RequestHandler[RequestT]` (a base class or union is rejected — see [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract)), or sync/async mismatch (an `async def __call__` on a sync `RequestHandler`, or vice versa).
+The handler's `__call__` has the wrong shape: missing type annotations, wrong parameter count, a parameter annotation that isn't *exactly* the request class declared in `RequestHandler[RequestT]` (a base class or union is rejected — see [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract)), or async/sync mismatch (a plain `def __call__` on the async `RequestHandler`, or vice versa).
 
 ### InvalidRequestTypeError
 
@@ -88,7 +88,7 @@ class HandlerNotFoundError(PyMediateError):
 from pymediate import HandlerNotFoundError
 
 try:
-    response = mediator.send(GetUserRequest(user_id=1))
+    response = await mediator.send(GetUserRequest(user_id=1))
 except HandlerNotFoundError:
     logger.error("RequestHandler missing from services — config bug")
     raise

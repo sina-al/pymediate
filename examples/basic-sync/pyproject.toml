@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the
     # exact release candidate on TestPyPI (scripts/run_examples.py).
-    "pymediate>=0.4.0",
+    "pymediate>=0.5.0",
 ]
 
 [dependency-groups]

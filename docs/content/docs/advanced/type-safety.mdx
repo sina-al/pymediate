@@ -24,14 +24,14 @@ class CreateUserRequest(Request[UserResponse]):
     email: str
 
 class CreateUserHandler(RequestHandler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> UserResponse:
+    async def __call__(self, request: CreateUserRequest) -> UserResponse:
         return UserResponse(user_id=1, username=request.username)
 
 services = Services()
 services.add(CreateUserHandler())
 mediator = Mediator(services.provider())
 
-response = mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 reveal_type(response)  # note: Revealed type is "UserResponse"
 ```
 
@@ -39,7 +39,7 @@ mypy also enforces that a handler's `__call__` accepts the request type declared
 
 ```python
 class BadHandler(RequestHandler[CreateUserRequest]):
-    def __call__(self, request: SomeOtherRequest) -> UserResponse:
+    async def __call__(self, request: SomeOtherRequest) -> UserResponse:
         ...
 # error: Argument 1 of "__call__" is incompatible with supertype "RequestHandler";
 # supertype defines the argument type as "CreateUserRequest"  [override]
@@ -51,13 +51,13 @@ A handler's **return** type isn't checked by mypy the same way — a mismatched 
 
 ```python
 class BadHandler(RequestHandler[CreateUserRequest]):
-    def __call__(self, request: CreateUserRequest) -> WrongResponse:  # mypy: no error here
+    async def __call__(self, request: CreateUserRequest) -> WrongResponse:  # mypy: no error here
         return WrongResponse(...)
 # ResponseTypeMismatchError: Response type mismatch in BadHandler
 # (raised the moment this class is defined, i.e. at import time)
 ```
 
-This still catches the mistake early — the error fires as soon as the module is imported, before any request is ever sent — just not during a `mypy` run. The same hook also validates that `__call__` exists, takes exactly one parameter besides `self`, and is sync or async as expected (`InvalidHandlerSignatureError`), and that a request actually inherits from `Request[ResponseType]` (`InvalidRequestTypeError`). See [error handling](/docs/guide/error-handling#pymediates-own-errors) for the full hierarchy.
+This still catches the mistake early — the error fires as soon as the module is imported, before any request is ever sent — just not during a `mypy` run. The same hook also validates that `__call__` exists, takes exactly one parameter besides `self`, and is async or sync as expected (`InvalidHandlerSignatureError`), and that a request actually inherits from `Request[ResponseType]` (`InvalidRequestTypeError`). See [error handling](/docs/guide/error-handling#pymediates-own-errors) for the full hierarchy.
 
 `EventHandler` subclasses get the same treatment, with two event-specific twists: the return annotation must be `None` (publishing has no response), and the type parameter is *bound* to `Event` — so parameterizing an event handler with a non-`Event` type is one runtime check (`InvalidEventTypeError`) that mypy and pyright also catch statically.
 
@@ -81,7 +81,7 @@ A few things that keep mypy effective on PyMediate-based code:
 
 - **Always parameterize `Request`.** `class CreateUserRequest(Request):` (no type argument) type-checks, but you lose response-type inference entirely.
 - **Prefer dataclasses over hand-written `__init__`.** mypy infers field types directly from dataclass annotations; a hand-rolled `__init__` is just as valid at runtime but gives mypy less to work with. See [dataclasses with PyMediate](/docs/guide/dataclasses).
-- **Avoid `Any` in handler signatures.** It silences exactly the override checking described above — a handler typed `def __call__(self, request: Any) -> Any` will never get an LSP violation from mypy, no matter what it actually does.
+- **Avoid `Any` in handler signatures.** It silences exactly the override checking described above — a handler typed `async def __call__(self, request: Any) -> Any` will never get an LSP violation from mypy, no matter what it actually does.
 
 ## How PyMediate tests its own type safety
 

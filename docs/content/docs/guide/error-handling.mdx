@@ -37,14 +37,14 @@ A handler raises them and nothing else — no status codes, no `abort()`, no imp
 
 ```python
 class PlaceOrderHandler(RequestHandler[PlaceOrderRequest]):
-    def __call__(self, request: PlaceOrderRequest) -> PlaceOrderResponse:
-        product = self.database.get_product(request.product_id)
+    async def __call__(self, request: PlaceOrderRequest) -> PlaceOrderResponse:
+        product = await self.database.get_product(request.product_id)
         if not product:
             raise ProductNotFoundError(request.product_id)
         if product.stock < request.quantity:
             raise OutOfStockError(request.product_id, request.quantity, product.stock)
 
-        order_id = self.database.create_order(request)
+        order_id = await self.database.create_order(request)
         return PlaceOrderResponse(order_id=order_id)
 ```
 
@@ -75,7 +75,7 @@ The coupling costs nothing on the day you write it. The bill arrives the day you
 $ python replay_orders.py
 Traceback (most recent call last):
   File "replay_orders.py", line 40, in <module>
-    response = mediator.send(PlaceOrderRequest(...))
+    response = asyncio.run(mediator.send(PlaceOrderRequest(...)))
   ...
   File "shop/handlers.py", line 12, in __call__
     raise HTTPException(status_code=404, detail="Product not found")
@@ -107,8 +107,8 @@ Every mainstream web framework has a construct for turning an exception into a r
         return JSONResponse(status_code=409, content={"error": str(err)})
 
     @app.post("/orders")
-    def place_order():
-        response = mediator.send(PlaceOrderRequest(...))
+    async def place_order():
+        response = await mediator.send(PlaceOrderRequest(...))
         return {"order_id": response.order_id}
     ```
   </Tab>
@@ -129,7 +129,7 @@ Every mainstream web framework has a construct for turning an exception into a r
     @app.post("/orders")
     def place_order():
         # No try/except: the route describes success; the handlers above map failure.
-        response = mediator.send(PlaceOrderRequest(...))
+        response = asyncio.run(mediator.send(PlaceOrderRequest(...)))
         return jsonify(order_id=response.order_id), 201
     ```
   </Tab>
@@ -144,9 +144,9 @@ Because a [pipeline behavior](/docs/guide/pipeline-behaviors) wraps every dispat
 ```python
 # Tempting, but it pulls the web framework into your core pipeline.
 class HttpErrorMappingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         try:
-            return next()
+            return await next()
         except ProductNotFoundError as err:
             raise HTTPException(status_code=404, detail=str(err))  # framework leak
         except OutOfStockError as err:
@@ -186,7 +186,7 @@ Both usually signal a *misconfigured deployment* (a handler or service was never
 from pymediate import HandlerNotFoundError
 
 try:
-    response = mediator.send(GetUserRequest(user_id=1))
+    response = await mediator.send(GetUserRequest(user_id=1))
 except HandlerNotFoundError as err:
     # A handler is missing from the container — a config bug, not the caller's fault.
     logger.error("No handler registered for %s", err)

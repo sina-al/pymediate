@@ -20,14 +20,29 @@ class Request:
     ...
 ```
 
+### `pymediate.event`
+
+```python
+class Event:
+    """Base class for events published to zero or more handlers."""
+    ...
+
+class EventHandler(EventHandlerBaseMixin[EventT], ABC):
+    """Abstract base class for asynchronous event handlers."""
+    @abstractmethod
+    async def __call__(self, event: EventT) -> None:
+        """Handle the published event asynchronously."""
+        ...
+```
+
 ### `pymediate.handler`
 
 ```python
 class RequestHandler(HandlerBaseMixin[RequestT], ABC):
-    """Abstract base handler class for synchronous request processing."""
+    """Abstract base handler class for asynchronous request processing."""
     @abstractmethod
-    def __call__(self, request: RequestT) -> Any:
-        """Handle the request and return a response."""
+    async def __call__(self, request: RequestT) -> Any:
+        """Handle the request asynchronously and return a response."""
         ...
 ```
 
@@ -35,12 +50,12 @@ class RequestHandler(HandlerBaseMixin[RequestT], ABC):
 
 ```python
 class Mediator(MediatorMixin):
-    """Routes requests to their handlers using a service provider."""
-    def send(self, request: Request[ResponseT]) -> ResponseT:
-        """Send a request and get the typed response from its handler."""
+    """Routes requests to their async handlers using a service provider."""
+    async def send(self, request: Request[ResponseT]) -> ResponseT:
+        """Send a request and await the typed response from its handler."""
         ...
-    def publish(self, event: Event) -> None:
-        """Publish an event to every handler subscribed to its type."""
+    async def publish(self, event: Event) -> None:
+        """Publish an event to every async handler subscribed to its type."""
         ...
 ```
 
@@ -48,14 +63,14 @@ class Mediator(MediatorMixin):
 
 ```python
 class PipelineBehavior(ABC):
-    """Abstract base class for pipeline behaviors that wrap request processing."""
+    """Abstract base class for asynchronous pipeline behaviors that wrap request processing."""
     @classmethod
     def should_apply(cls, request: Request[Any]) -> bool:
         """Determine if this behavior should apply to the given request."""
         ...
     @abstractmethod
-    def __call__(self, request: RequestT, next: Callable[[], Any]) -> Any:
-        """Execute the behavior's logic and call next to continue the pipeline."""
+    async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
+        """Execute the behavior's async logic and await next to continue the pipeline."""
         ...
 ```
 
@@ -171,47 +186,58 @@ class DependencyInjectorServiceProvider:
         ...
 ```
 
-### `pymediate.aio`
+### `pymediate.sync`
 
 ```python
-# Re-exports: EventHandler, Mediator, PipelineBehavior, RequestHandler
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, ResponseTypeMismatchError
 ```
 
-### `pymediate.aio.handler`
+### `pymediate.sync.event`
+
+```python
+class EventHandler(EventHandlerBaseMixin[EventT], ABC):
+    """Abstract base class for synchronous event handlers."""
+    @abstractmethod
+    def __call__(self, event: EventT) -> None:
+        """Handle the published event."""
+        ...
+```
+
+### `pymediate.sync.handler`
 
 ```python
 class RequestHandler(HandlerBaseMixin[RequestT], ABC):
-    """Abstract base handler class for asynchronous request processing."""
+    """Abstract base handler class for synchronous request processing."""
     @abstractmethod
-    async def __call__(self, request: RequestT) -> Any:
-        """Handle the request asynchronously and return a response."""
+    def __call__(self, request: RequestT) -> Any:
+        """Handle the request and return a response."""
         ...
 ```
 
-### `pymediate.aio.mediator`
+### `pymediate.sync.mediator`
 
 ```python
 class Mediator(MediatorMixin):
-    """Routes requests to their async handlers using a service provider."""
-    async def send(self, request: Request[ResponseT]) -> ResponseT:
-        """Send a request and await the typed response from its handler."""
+    """Routes requests to their handlers using a service provider."""
+    def send(self, request: Request[ResponseT]) -> ResponseT:
+        """Send a request and get the typed response from its handler."""
         ...
-    async def publish(self, event: Event) -> None:
-        """Publish an event to every async handler subscribed to its type."""
+    def publish(self, event: Event) -> None:
+        """Publish an event to every handler subscribed to its type."""
         ...
 ```
 
-### `pymediate.aio.pipeline`
+### `pymediate.sync.pipeline`
 
 ```python
 class PipelineBehavior(ABC):
-    """Abstract base class for asynchronous pipeline behaviors that wrap request processing."""
+    """Abstract base class for pipeline behaviors that wrap request processing."""
     @classmethod
     def should_apply(cls, request: Request[Any]) -> bool:
         """Determine if this behavior should apply to the given request."""
         ...
     @abstractmethod
-    async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
-        """Execute the behavior's async logic and await next to continue the pipeline."""
+    def __call__(self, request: RequestT, next: Callable[[], Any]) -> Any:
+        """Execute the behavior's logic and call next to continue the pipeline."""
         ...
 ```

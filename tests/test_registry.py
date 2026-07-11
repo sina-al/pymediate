@@ -7,7 +7,6 @@ and request-handler mappings.
 import threading
 from typing import Any
 
-from pymediate import Request, RequestHandler
 from pymediate._internal.registry import (
     clear_all_registries,
     get_all_handler_request_types,
@@ -19,6 +18,7 @@ from pymediate._internal.registry import (
     has_response_type,
     register_request_response_type,
 )
+from pymediate.sync import Request, RequestHandler
 
 # ========== Request Registry Tests ==========
 

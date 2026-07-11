@@ -1,28 +1,14 @@
 ---
 title: Mediator
-description: API reference for the sync and async Mediator classes.
+description: API reference for the async and sync Mediator classes.
 ---
 
 The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `RequestHandler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors. It also publishes events to every subscribed `EventHandler`.
 
-<Tabs items={['Sync', 'Async']}>
-  <Tab value="Sync">
-    ```python
-    from pymediate import Mediator
-
-    class Mediator:
-        def __init__(self, provider: ServiceProvider) -> None: ...
-
-        def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
-            """Send a request and get the typed response from its handler."""
-
-        def publish(self, event: Event) -> None:
-            """Publish an event to every handler subscribed to its type."""
-    ```
-  </Tab>
+<Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
-    from pymediate.aio import Mediator
+    from pymediate import Mediator
 
     class Mediator:
         def __init__(self, provider: ServiceProvider) -> None: ...
@@ -32,6 +18,20 @@ The mediator routes requests to their handlers through a `ServiceProvider`. It l
 
         async def publish(self, event: Event) -> None:
             """Publish an event to every async handler subscribed to its type."""
+    ```
+  </Tab>
+  <Tab value="Sync">
+    ```python
+    from pymediate.sync import Mediator
+
+    class Mediator:
+        def __init__(self, provider: ServiceProvider) -> None: ...
+
+        def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
+            """Send a request and get the typed response from its handler."""
+
+        def publish(self, event: Event) -> None:
+            """Publish an event to every handler subscribed to its type."""
     ```
   </Tab>
 </Tabs>
@@ -56,7 +56,7 @@ Exceptions raised inside handlers propagate unchanged — `send()` never catches
 
 ## `publish()`
 
-Resolves every `EventHandler` registered for the event's **exact** class and invokes each one with the event. Zero subscribers is a silent no-op. The sync mediator runs handlers sequentially in registration order; the async mediator runs them **concurrently** via `asyncio.gather` (tasks created in registration order).
+Resolves every `EventHandler` registered for the event's **exact** class and invokes each one with the event. Zero subscribers is a silent no-op. The async mediator runs handlers **concurrently** via `asyncio.gather` (tasks created in registration order); the sync mediator runs them sequentially in registration order.
 
 | | |
 | --- | --- |
@@ -71,7 +71,7 @@ Error semantics, in order:
 
 ```python
 try:
-    mediator.publish(OrderPlaced(order_id=42))
+    await mediator.publish(OrderPlaced(order_id=42))
 except* ConnectionError as group:
     for exc in group.exceptions:
         log.warning("subscriber unavailable: %s", exc)
@@ -91,7 +91,7 @@ services = Services()
 services.add(CreateUserHandler())
 mediator = Mediator(services.provider())
 
-response = mediator.send(CreateUserRequest(username="alice"))
+response = await mediator.send(CreateUserRequest(username="alice"))
 # response is typed as UserCreatedResponse
 ```
 
@@ -109,9 +109,9 @@ With behaviors:
 from pymediate import PipelineBehavior, Request
 
 class LoggingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):
+    async def __call__(self, request, next):
         print(f"Before: {type(request).__name__}")
-        response = next()
+        response = await next()
         print(f"After: {type(request).__name__}")
         return response
 

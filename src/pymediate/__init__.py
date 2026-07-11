@@ -7,14 +7,15 @@ injection frameworks.
 
 Key Features:
     - Type-safe: Full runtime validation with mypy support
-    - Async/await support: Built-in async handlers and mediators via pymediate.aio
+    - Async-first: The top-level API is async; sync variants live in pymediate.sync
     - DI ready: Built-in dependency-injector integration
     - Well tested: 95%+ coverage enforced in CI
 
 Quick Example:
     ```python
+    import asyncio
     from dataclasses import dataclass
-    from pymediate import Request, RequestHandler, Mediator, Services
+    from pymediate import Mediator, Request, RequestHandler, Services
 
     @dataclass
     class UserCreated:
@@ -27,44 +28,45 @@ Quick Example:
         email: str
 
     class CreateUserHandler(RequestHandler[CreateUser]):
-        def __call__(self, req: CreateUser) -> UserCreated:
+        async def __call__(self, req: CreateUser) -> UserCreated:
             return UserCreated(user_id=1, username=req.username)
 
-    services = Services()
-    services.add(CreateUserHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    async def main():
+        services = Services()
+        services.add(CreateUserHandler())
+        provider = services.provider()
+        mediator = Mediator(provider)
 
-    response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-    print(f"User {response.username} created with ID {response.user_id}")
+        response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+        print(f"User {response.username} created with ID {response.user_id}")
+
+    asyncio.run(main())
     ```
 
 Main Components:
     - Request: Base class for all requests
-    - RequestHandler: Base class for synchronous handlers
-    - Mediator: Routes requests to handlers and publishes events (sync version)
+    - RequestHandler: Base class for asynchronous handlers
+    - Mediator: Routes requests to handlers and publishes events (async version)
     - Event: Base class for events published to zero or more handlers
-    - EventHandler: Base class for synchronous event handlers
+    - EventHandler: Base class for asynchronous event handlers
     - ServiceProvider: Protocol for resolving service instances
     - Services: Builder for registering services
 
-Async Support:
-    For asynchronous operations, use the async variants from pymediate.aio:
+Sync Support:
+    For synchronous operations, use the sync variants from pymediate.sync -
+    the same API with plain `def` handlers and a blocking `send()`:
     ```python
-    from pymediate import Services
-    from pymediate.aio import RequestHandler, Mediator
+    from pymediate.sync import Mediator, RequestHandler, Services
 
-    class AsyncHandler(RequestHandler[CreateUser]):
-        async def __call__(self, req: CreateUser) -> UserCreated:
-            # Can use await here
-            result = await async_database_operation(req)
-            return UserCreated(user_id=result.id, username=req.username)
+    class SyncHandler(RequestHandler[CreateUser]):
+        def __call__(self, req: CreateUser) -> UserCreated:
+            return UserCreated(user_id=1, username=req.username)
 
     services = Services()
-    services.add(AsyncHandler())
+    services.add(SyncHandler())
     provider = services.provider()
     mediator = Mediator(provider)
-    response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+    response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
     ```
 
 For more information, see the documentation at https://pymediate.sina-al.uk

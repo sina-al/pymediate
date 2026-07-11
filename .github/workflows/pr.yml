@@ -68,9 +68,13 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if [[ ! "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: ]]; then
+          # The optional `!` is Conventional Commits' breaking-change marker — the squash-merge
+          # title becomes the commit message, and release_impact.py/git-cliff read `!` to
+          # classify the release bump, so it must pass this gate (same pattern as
+          # scripts/release_impact.py's COMMIT_RE).
+          if [[ ! "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?\!?: ]]; then
             echo "Error: PR title must follow conventional commits format"
-            echo "Examples: 'feat: add async support', 'fix(handler): correct type validation'"
+            echo "Examples: 'feat: add async support', 'fix(handler): correct type validation', 'feat!: drop the legacy alias'"
             exit 1
           fi
 

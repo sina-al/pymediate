@@ -4,8 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Event, Services
-from pymediate.aio import EventHandler, Mediator
+from pymediate import Event, EventHandler, Mediator, Services
 
 
 @dataclass

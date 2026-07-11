@@ -31,7 +31,7 @@ defines requests — each declaring what it responds with — and one handler pe
 class AddTask(Request[Task]):        # "sending AddTask gives back a Task"
     title: str
 
-class AddTaskHandler(RequestHandler[AddTask]):
+class AddTaskHandler(RequestHandler[AddTask]):          # from pymediate.sync
     def __call__(self, request: AddTask) -> Task:
         ...  # create the task, return it
 ```
@@ -103,13 +103,13 @@ curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"titl
   (`ClickException`). Try it: `uv run taskboard complete 999`.
 - The FastAPI endpoints here are plain `def` functions because the core is synchronous
   (FastAPI runs them in a threadpool). The async mirror of this whole example —
-  same domain, `async def` end to end — is [adapters-aio](../adapters-aio/).
+  same domain, `async def` end to end — is [adapters-async](../adapters-async/).
 - The store is in memory, so every app instance and every CLI invocation starts empty.
   The tests lean on that for isolation.
 
 ## Where next
 
-- [adapters-aio](../adapters-aio/) — this example's async twin (FastAPI `async def`,
+- [adapters-async](../adapters-async/) — this example's async twin (FastAPI `async def`,
   aiohttp, asyncclick).
 - [basic-sync](../basic-sync/) — the same core pattern at its smallest, if this felt
   like too much at once.

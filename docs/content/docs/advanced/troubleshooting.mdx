@@ -47,7 +47,7 @@ Verify the install (`pip show pymediate`), reinstall if needed, and confirm your
 ### `HandlerNotFoundError`
 
 ```python
-response = mediator.send(MyRequest())
+response = await mediator.send(MyRequest())
 # HandlerNotFoundError: No handler registered for request type 'MyRequest'
 ```
 
@@ -87,12 +87,12 @@ Raised at class-definition time when `__call__` has the wrong shape. The signatu
 ```python
 # Wrong: missing annotations
 class MyHandler(RequestHandler[MyRequest]):
-    def __call__(self, request):
+    async def __call__(self, request):
         return MyResponse()
 
 # Correct
 class MyHandler(RequestHandler[MyRequest]):
-    def __call__(self, request: MyRequest) -> MyResponse:
+    async def __call__(self, request: MyRequest) -> MyResponse:
         return MyResponse()
 ```
 
@@ -104,18 +104,18 @@ class CreateAdminRequest(CreateUserRequest):
 
 # Wrong: annotates a base class of the declared request type
 class CreateAdminHandler(RequestHandler[CreateAdminRequest]):
-    def __call__(self, request: CreateUserRequest) -> UserResponse:
+    async def __call__(self, request: CreateUserRequest) -> UserResponse:
         ...
 
 # Correct: the exact class from RequestHandler[...]
 class CreateAdminHandler(RequestHandler[CreateAdminRequest]):
-    def __call__(self, request: CreateAdminRequest) -> UserResponse:
+    async def __call__(self, request: CreateAdminRequest) -> UserResponse:
         ...
 ```
 
 PyMediate dispatches on the exact class of the request instance, so a broader annotation could never actually receive other request types — the check catches drift between the `RequestHandler[...]` declaration and the implementation. The rationale is covered in [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract).
 
-The same exactness applies (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the async API, `__call__` must also be `async def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
+The same exactness applies (as `ResponseTypeMismatchError`) to a return type that doesn't match the request's `Request[MyResponse]` declaration. In the top-level (async) API, `__call__` must also be `async def`; in `pymediate.sync`, a plain `def`. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time) for which mechanism catches what.
 
 ### `InvalidEventTypeError`
 
@@ -124,7 +124,7 @@ class OrderPlaced:  # missing Event inheritance
     ...
 
 class SendConfirmation(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None: ...
+    async def __call__(self, event: OrderPlaced) -> None: ...
 # InvalidEventTypeError: Event type 'OrderPlaced' must inherit from Event
 ```
 
@@ -178,10 +178,10 @@ class CreateUserHandlerV2(RequestHandler[CreateUserRequest]): ...
            self.validator = validator
            self.mailer = mailer
 
-       def __call__(self, request: CreateUserRequest) -> UserResponse:
+       async def __call__(self, request: CreateUserRequest) -> UserResponse:
            self.validator.validate(request)
-           user = self.create_user(request)
-           self.mailer.send_welcome_email(user)
+           user = await self.create_user(request)
+           await self.mailer.send_welcome_email(user)
            return UserResponse(user_id=user.id, username=user.username)
    ```
 

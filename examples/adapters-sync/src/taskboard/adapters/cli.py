@@ -7,7 +7,7 @@ via ClickException.
 """
 
 import click
-from pymediate import Mediator
+from pymediate.sync import Mediator
 
 from taskboard.core import AddTask, CompleteTask, ListOpenTasks, TaskNotFoundError, build_mediator
 

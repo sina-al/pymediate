@@ -33,16 +33,18 @@ SRC = ROOT / "src"
 MODULES = [
     "pymediate",
     "pymediate.request",
+    "pymediate.event",
     "pymediate.handler",
     "pymediate.mediator",
     "pymediate.pipeline",
     "pymediate.service",
     "pymediate.errors",
     "pymediate.providers.dependency_injector",
-    "pymediate.aio",
-    "pymediate.aio.handler",
-    "pymediate.aio.mediator",
-    "pymediate.aio.pipeline",
+    "pymediate.sync",
+    "pymediate.sync.event",
+    "pymediate.sync.handler",
+    "pymediate.sync.mediator",
+    "pymediate.sync.pipeline",
 ]
 
 # Dunder methods worth showing on a class even though they're "private" by name.
@@ -123,7 +125,7 @@ def render_class(cls: Class) -> list[str]:
 
 
 def render_module(module: Module) -> list[str]:
-    if module.name == "pymediate" or module.name == "aio":
+    if module.name == "pymediate" or module.name == "sync":
         # Top-level packages only re-export names defined (and rendered) elsewhere;
         # list the re-exports instead of repeating full definitions.
         exported = [str(name) for name in module.exports or [] if is_public(str(name))]

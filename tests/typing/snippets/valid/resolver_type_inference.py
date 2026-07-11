@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Request, RequestHandler, Services
+from pymediate.sync import Request, RequestHandler, Services
 
 
 @dataclass
