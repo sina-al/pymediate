@@ -73,11 +73,14 @@ PyPI → GitHub Release (created last)
 
 3. **Merge with a merge commit** (required; squash is blocked on stable):
    ```bash
-   gh pr merge <n> --merge
+   gh pr merge <n> --merge --auto
    ```
-   stable-guard requires no approval count, so this needs no admin bypass — if it won't
-   merge, a required check is failing; do NOT bypass it. Merging is the point of no
-   return for the tag: `tag-release.yml` tags the merge commit, starting `release.yml`.
+   Since 2026-07-10 the stable ruleset **requires a PR review** — that approval is the
+   maintainer's, in the GitHub UI; an agent must not approve the release PR it prepared
+   (two-party control; the permission layer blocks it). Arm `--auto` so the maintainer's
+   approval merges immediately. If it still won't merge, a required check is failing; do
+   NOT bypass it. Merging is the point of no return for the tag: `tag-release.yml` tags
+   the merge commit, starting `release.yml`.
 
 4. **Watch the pipeline:**
    ```bash
@@ -105,6 +108,13 @@ PyPI → GitHub Release (created last)
   version is burned. Land any fix on main, re-dispatch `prepare-release.yml`; the version
   computation skips existing tags automatically, so the next PR proposes the next free
   version. Never try to reuse a burned version.
+  - **Exception — TestPyPI index lag**: if the examples job fails with "there is no
+    version of pymediate==X.Y.Z", the publish succeeded but the CDN hadn't propagated to
+    the JSON simple-index variant uv reads (observed on v0.3.0 and v0.4.0: ~2–5 minutes;
+    the wait step now probes with uv itself, which should prevent a recurrence). Nothing
+    needs re-uploading: confirm visibility (`curl -s
+    https://test.pypi.org/pypi/pymediate/json`), then `gh run rerun <run-id> --failed` —
+    it re-tests the already-published artifact, and the burn policy doesn't apply.
 - A tag for a never-published version may remain — expected under the burn policy; the
   GitHub Release is only created after PyPI succeeds, so nothing user-facing dangles.
 

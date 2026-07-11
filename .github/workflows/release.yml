@@ -206,22 +206,29 @@ jobs:
           enable-cache: false
 
       - name: Wait for TestPyPI to serve the release
-        # The simple index is CDN-cached and can lag the upload by minutes; resolving
-        # before it propagates fails the whole job (v0.2.0 needed two reruns for this).
-        # Poll the same URL uv resolves against until the version's files appear.
+        # The simple index is CDN-cached and can lag the upload by minutes — and a curl
+        # probe is not enough: curl gets the HTML (PEP 503) variant while uv asks for
+        # the JSON (PEP 691) variant with an Accept header, and the CDN caches them
+        # separately. v0.3.0 and v0.4.0 both passed the old curl probe within seconds
+        # of publish and then failed resolution; the JSON variant caught up after
+        # ~4m47s (v0.3.0) and ~2m21s (v0.4.0). Probe with uv itself so success means
+        # the exact client that resolves next can see the release; --no-cache keeps a
+        # stale miss from being replayed on later attempts. 40 x 15s keeps the
+        # 10-minute ceiling (~2x the worst lag observed).
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
           version="${VERSION_TAG#v}"
           for attempt in $(seq 1 40); do
-            if curl -fsS "https://test.pypi.org/simple/pymediate/" | grep -qF "pymediate-${version}.tar.gz"; then
-              echo "TestPyPI serves pymediate ${version} (attempt ${attempt})."
+            if echo "pymediate==${version}" \
+              | uv pip compile - --index-url https://test.pypi.org/simple/ --no-cache >/dev/null 2>&1; then
+              echo "uv resolves pymediate ${version} from TestPyPI (attempt ${attempt})."
               exit 0
             fi
-            echo "TestPyPI does not serve ${version} yet (attempt ${attempt}/40); retrying in 15s."
+            echo "uv cannot resolve pymediate==${version} from TestPyPI yet (attempt ${attempt}/40); retrying in 15s."
             sleep 15
           done
-          echo "::error::TestPyPI never served pymediate ${version} after 10 minutes."
+          echo "::error::uv never resolved pymediate ${version} from TestPyPI within 10 minutes."
           exit 1
 
       - name: Run examples suite against the TestPyPI release
