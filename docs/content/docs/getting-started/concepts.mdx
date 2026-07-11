@@ -1,9 +1,9 @@
 ---
 title: Core concepts
-description: The vocabulary of PyMediate — requests, handlers, the mediator, pipeline behaviors, and the service provider.
+description: The vocabulary of PyMediate — requests, handlers, the mediator, events, pipeline behaviors, and the service provider.
 ---
 
-PyMediate has five moving parts. This page introduces each one and shows how they fit together.
+PyMediate has six moving parts. This page introduces each one and shows how they fit together.
 
 ## Requests
 
@@ -57,6 +57,30 @@ response = mediator.send(CreateUser(username="alice", email="alice@example.com")
 
 Callers depend only on the mediator, never on individual handlers.
 
+## Events
+
+`send()` is one-to-one: a request has exactly one handler and produces a response. Events are the one-to-many counterpart: something *happened*, any number of subscribers care, and nothing comes back. An event inherits from `Event` (no type parameter — there's no response to declare), subscribers inherit from `EventHandler[EventType]`, and `mediator.publish()` delivers the event to every one of them:
+
+```python
+from pymediate import Event, EventHandler
+
+@dataclass
+class UserCreated(Event):
+    user_id: int
+
+class SendWelcomeEmail(EventHandler[UserCreated]):
+    def __call__(self, event: UserCreated) -> None:
+        ...
+
+class RecordSignupMetric(EventHandler[UserCreated]):
+    def __call__(self, event: UserCreated) -> None:
+        ...
+
+mediator.publish(UserCreated(user_id=1))   # both handlers run
+```
+
+Zero subscribers is fine — the publisher never knows or cares who's listening. The full semantics (ordering, error aggregation, async concurrency) are in the [events guide](/docs/guide/events).
+
 ## Pipeline behaviors
 
 Pipeline behaviors are [middleware](https://en.wikipedia.org/wiki/Middleware) that wrap request processing. They handle cross-cutting concerns — logging, validation, caching, transactions — without touching handler code.
@@ -82,7 +106,7 @@ services.add(GetUserHandler())
 mediator = Mediator(services.provider())
 ```
 
-Behaviors can be **universal** (`PipelineBehavior[Request]`, applying to everything) or **selective** (`PipelineBehavior[CreateUser]`, applying to one request type or a mixin).
+Behaviors can be **universal** (`PipelineBehavior[Request]`, applying to everything) or **selective** (`PipelineBehavior[CreateUser]`, applying to one request type or a mixin). They wrap `send()` only — a published event goes straight to its subscribers.
 
 ### How the chain executes
 
@@ -119,7 +143,7 @@ mediator = Mediator(services.provider())
 
 ```python
 from dataclasses import dataclass
-from pymediate import Request, Handler, PipelineBehavior, Services, Mediator
+from pymediate import Event, EventHandler, Request, Handler, PipelineBehavior, Services, Mediator
 
 # 1. Request and response
 @dataclass
@@ -143,20 +167,34 @@ class LoggingBehavior(PipelineBehavior[Request]):
         print(f"After: {type(request).__name__}")
         return response
 
-# 4. Wire it up
+# 4. Optional event and subscriber — announce the fact, react anywhere
+@dataclass
+class UserRegistered(Event):
+    user_id: int
+
+class LogRegistration(EventHandler[UserRegistered]):
+    def __call__(self, event: UserRegistered) -> None:
+        print(f"Registered user {event.user_id}")
+
+# 5. Wire it up
 services = Services()
 services.add(LoggingBehavior())
 services.add(CreateUserHandler())
+services.add(LogRegistration())
 mediator = Mediator(services.provider())
 
-# 5. Send
+# 6. Send, then publish
 response = mediator.send(CreateUser(username="alice"))
 # Output: Before: CreateUser
 #         After: CreateUser
+
+mediator.publish(UserRegistered(user_id=response.user_id))
+# Output: Registered user 1
 ```
 
 ## Next steps
 
 - Deep-dive into [requests and responses](/docs/guide/requests-responses).
 - Learn handler design in the [handlers guide](/docs/guide/handlers).
+- Fan out notifications with [events](/docs/guide/events).
 - Add middleware with [pipeline behaviors](/docs/guide/pipeline-behaviors).

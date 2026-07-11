@@ -44,6 +44,13 @@ user = mediator.send(CreateUser(username="alice", email="alice@example.com"))
 
 Now the caller knows only the message it sends and the mediator it sends it to. The handler knows only the request it receives. The web view, the CLI command, and the background job all send the same `CreateUser` and none of them can tell — or need to know — how it's fulfilled. And cross-cutting concerns get a real home: a **pipeline behavior** wraps every dispatch, so logging or validation is written once instead of scattered across handlers.
 
+Requests are one-to-one: something is *wanted*, and exactly one handler does it. The same mediator also covers the one-to-many case — something *happened*, and any number of places care. `mediator.publish()` delivers an **event** to every subscribed **event handler**, with no response and no knowledge of who's listening:
+
+```python
+mediator.publish(UserRegistered(user_id=user.user_id))
+# the welcome email, the analytics record, the audit log — each a separate EventHandler
+```
+
 ## Why PyMediate?
 
 PyMediate implements the pattern entirely inside Python's type system — built on [PEP 695](https://peps.python.org/pep-0695/) generics, new in Python 3.12 — so the indirection costs you nothing you'd have with a direct call:
@@ -54,7 +61,7 @@ PyMediate implements the pattern entirely inside Python's type system — built 
 - **Sync and async are equals.** `pymediate.aio` mirrors the sync API class for class — switch the import, add `await`, done.
 - **It travels light.** Zero runtime dependencies, ships `py.typed`, and is checked under `mypy --strict`. `dependency-injector` support is an optional extra.
 
-Evaluating it against other libraries? [How it compares](/docs/comparison) has a feature-by-feature look at the Python mediator ecosystem and a reproducible benchmark of what `send()` costs over a direct call.
+Evaluating it against other libraries? [How it compares](/docs/comparison) has a feature-by-feature look at the Python mediator ecosystem and a reproducible benchmark of what `send()` and `publish()` cost over direct calls.
 
 ## The moving parts
 
@@ -62,7 +69,9 @@ Evaluating it against other libraries? [How it compares](/docs/comparison) has a
 | --- | --- |
 | `Request[T]` | A message declaring what it wants and the response type `T` it expects |
 | `Handler[R]` | The single place where a request type `R` gets handled |
-| `Mediator` | Routes each request to its handler; the only thing callers depend on |
+| `Event` | A fact that already happened, published to whoever subscribed — no response |
+| `EventHandler[E]` | One subscriber's reaction to an event type `E`; any number may subscribe |
+| `Mediator` | Routes each request to its handler and each event to its subscribers; the only thing callers depend on |
 | `PipelineBehavior` | Optional middleware wrapping handlers — logging, validation, transactions |
 | `Services` / `ServiceProvider` | Registration and resolution of handlers, behaviors, and their dependencies |
 

@@ -165,11 +165,13 @@ print(results)
 
 <Callout type="info">
   In a real system, `ProductReadStore` would typically be backed by a separate replica or a
-  denormalized read model kept in sync via events — this example keeps everything in one process
-  purely to stay runnable as a self-contained snippet.
+  denormalized read model kept in sync via [events](/docs/guide/events) — a command handler
+  publishes `ProductCreated`, and a subscriber updates the read model. This example keeps
+  everything in one process purely to stay runnable as a self-contained snippet.
 </Callout>
 
 ## Next steps
 
 - [Requests and responses: CQRS](/docs/guide/requests-responses#cqrs-commands-and-queries) — the underlying design pattern
+- [Events](/docs/examples/events) — the third CQRS message kind: publish facts, react in subscribers
 - [Pipeline behaviors](/docs/examples/pipeline-behaviors) — apply different behaviors to commands vs. queries (for example, caching only queries)

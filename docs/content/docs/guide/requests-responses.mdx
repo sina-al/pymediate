@@ -187,6 +187,8 @@ class GetUserHandler(Handler[GetUserQuery]):
         self.read_db = read_db
 ```
 
+Alongside commands and queries, CQRS architectures usually name a third message kind: **events** — facts announced after a command succeeds (`UserCreated`, `OrderPlaced`), consumed by any number of subscribers. PyMediate models these directly with `Event` and `mediator.publish()`; see the [events guide](/docs/guide/events).
+
 See the [CQRS example](/docs/examples/cqrs) for a complete feature.
 
 ## Request design patterns

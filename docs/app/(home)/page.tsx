@@ -86,6 +86,25 @@ class AuditCreateUser(PipelineBehavior[CreateUser]):
 services.add(LoggingBehavior())
 services.add(AuditCreateUser())`;
 
+const eventsExample = `from dataclasses import dataclass
+from pymediate import Event, EventHandler
+
+@dataclass
+class UserCreated(Event):
+    user_id: int
+    username: str
+
+class SendWelcomeEmail(EventHandler[UserCreated]):
+    def __call__(self, event: UserCreated) -> None:
+        mailer.send_welcome(event.username)
+
+class RecordSignup(EventHandler[UserCreated]):
+    def __call__(self, event: UserCreated) -> None:
+        analytics.record("signup", user_id=event.user_id)
+
+mediator.publish(UserCreated(user_id=1, username="alice"))
+# every subscriber runs — the publisher never knows who's listening`;
+
 const features = [
   {
     icon: ShieldCheck,
@@ -126,7 +145,7 @@ const reasons = [
   },
   {
     title: 'CQRS by construction',
-    body: 'Commands and queries are just request types. Separating writes from reads becomes a naming convention, not framework machinery.',
+    body: 'Commands and queries are just request types, and domain events fan out through publish(). Separating writes from reads becomes a naming convention, not framework machinery.',
   },
   {
     title: 'Trivially testable',
@@ -199,7 +218,10 @@ export default function HomePage() {
               Declare the response type once, on the request. From there the mediator, the handler
               signature, and every call site agree — and <code className="font-mono text-[0.9em]">mypy</code>{' '}
               enforces it. The async API is a structural mirror: switch the import, add{' '}
-              <code className="font-mono text-[0.9em]">await</code>, done.
+              <code className="font-mono text-[0.9em]">await</code>, done. And when something{' '}
+              <em>happened</em> rather than something is wanted,{' '}
+              <code className="font-mono text-[0.9em]">publish()</code> fans an event out to every
+              subscriber.
             </p>
             <Link
               href="/docs/getting-started/concepts"
@@ -209,7 +231,7 @@ export default function HomePage() {
               <ArrowRight aria-hidden className="size-4" />
             </Link>
           </div>
-          <Tabs items={['Sync', 'Async', 'Pipeline']}>
+          <Tabs items={['Sync', 'Async', 'Pipeline', 'Events']}>
             <Tab value="Sync">
               <CodeWindow code={syncExample} title="app.py" className="not-prose" />
             </Tab>
@@ -218,6 +240,9 @@ export default function HomePage() {
             </Tab>
             <Tab value="Pipeline">
               <CodeWindow code={pipelineExample} title="behaviors.py" className="not-prose" />
+            </Tab>
+            <Tab value="Events">
+              <CodeWindow code={eventsExample} title="events.py" className="not-prose" />
             </Tab>
           </Tabs>
         </div>
@@ -230,8 +255,8 @@ export default function HomePage() {
             Small surface, sharp edges filed off
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-fd-muted-foreground">
-            A handful of concepts — requests, handlers, behaviors, one mediator — designed to stay
-            out of your way.
+            A handful of concepts — requests, handlers, events, behaviors, one mediator — designed
+            to stay out of your way.
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (

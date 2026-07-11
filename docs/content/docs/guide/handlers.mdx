@@ -5,6 +5,8 @@ description: Writing handlers — single responsibility, dependency injection, a
 
 Handlers are PyMediate's execution units. Each one holds the business logic for exactly one request type, independent of every other handler and of the infrastructure that invokes it.
 
+This page covers *request* handlers — the one-handler-per-request side of the API. Their one-to-many counterpart, `EventHandler`, follows the same shape (subclass, implement `__call__`, register) and has [its own guide](/docs/guide/events).
+
 ## Anatomy of a handler
 
 A handler subclasses `Handler[RequestType]` and implements `__call__`:
@@ -275,7 +277,7 @@ More strategies — including faking the mediator for consumers — in the [test
 
 ## Best practices
 
-- **Keep handlers focused.** Sending a welcome email and updating analytics are their own handlers, dispatched via the mediator — not extra lines in `CreateUserHandler`.
+- **Keep handlers focused.** Sending a welcome email and updating analytics are not extra lines in `CreateUserHandler` — they're reactions to a fact, which is exactly what [events](/docs/guide/events) are for: publish `UserCreated` and let each subscriber react.
 - **Inject dependencies; never construct them inside.** `self.database = DatabaseConnection()` makes the handler untestable.
 - **Return rich response objects,** not bare primitives — callers shouldn't need a second query for data the handler already had.
 - **Validate early.** Check invariants at the top of `__call__` before doing work.
@@ -285,5 +287,6 @@ More strategies — including faking the mediator for consumers — in the [test
 ## Next steps
 
 - [The mediator](/docs/guide/mediator) — how requests find their handlers
+- [Events](/docs/guide/events) — `EventHandler`, the one-to-many counterpart
 - [Pipeline behaviors](/docs/guide/pipeline-behaviors) — cross-cutting concerns without touching handlers
 - [Error handling](/docs/guide/error-handling) — separating domain errors from framework errors
