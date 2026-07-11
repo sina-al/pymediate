@@ -53,6 +53,7 @@ from typing import Annotated, Any
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -67,19 +68,36 @@ from pymediate import Event, Request, Services
 
 # The script is unpinned (it measures the latest release), so on rare occasions it can
 # land in an environment holding an older pymediate. The 0.5.0 async-first inversion
-# (ADR 0008) rehomed every class measured here; older layouts get a clear failure, not
-# a compat shim.
+# rehomed every class measured here; older layouts get an explanation, not a compat shim.
 try:
     from pymediate import EventHandler as AsyncEventHandler
     from pymediate import Mediator as AsyncMediator
     from pymediate import RequestHandler as AsyncHandler
     from pymediate.sync import EventHandler, Mediator, PipelineBehavior, RequestHandler
 except ImportError as exc:  # pymediate < 0.5.0: pre-inversion layout
-    raise SystemExit(
-        "benchmark.py requires pymediate>=0.5.0 (the async-first layout); this "
-        f"environment resolved pymediate=={importlib.metadata.version('pymediate')}. "
-        "For older releases, use the benchmark.py that shipped alongside them."
-    ) from exc
+    Console(stderr=True).print(
+        Panel.fit(
+            f"This benchmark needs [bold]pymediate>=0.5.0[/]; this environment resolved\n"
+            f"[bold red]pymediate=={importlib.metadata.version('pymediate')}[/].\n"
+            "\n"
+            "0.5.0 inverted the package namespace: the top-level [bold]pymediate[/] became\n"
+            "the [bold]async[/] API, the sync API moved to [bold]pymediate.sync[/], and\n"
+            "[bold]pymediate.aio[/] is gone — every class this script measures was rehomed.\n"
+            "The full change, and why:\n"
+            "[link=https://github.com/sina-al/pymediate/pull/58]"
+            "https://github.com/sina-al/pymediate/pull/58[/link]\n"
+            "\n"
+            "To get unstuck:\n"
+            "  • benchmark the current release: [bold]pip install -U 'pymediate>=0.5'[/]\n"
+            "    (or rerun [bold]uv run https://pymediate.sina-al.uk/benchmark.py[/],\n"
+            "    which always resolves the latest release into a fresh environment)\n"
+            "  • benchmark an older release: use the benchmark that shipped with it —\n"
+            "    from a repo clone, [bold]git checkout vX.Y.Z -- scripts/benchmark.py[/]",
+            title="pymediate is too old for this benchmark",
+            border_style="red",
+        )
+    )
+    raise SystemExit(1) from exc
 
 
 @dataclass(frozen=True)
