@@ -1,0 +1,19 @@
+{
+    "name": "pymediate example: 040-pipeline-behaviors-sync",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    },
+    "postCreateCommand": "cd examples/040-pipeline-behaviors-sync && uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/040-pipeline-behaviors-sync/.venv/bin/python"
+            }
+        }
+    }
+}
