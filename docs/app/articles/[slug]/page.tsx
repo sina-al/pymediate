@@ -16,6 +16,11 @@ export default async function ArticlePage(props: PageProps<'/articles/[slug]'>) 
 
   return (
     <main className="flex-1">
+      {/* Warm the connection to giscus.app while the reader is still reading, so the
+          lazy-loaded comment iframe (below the fold) has DNS + TLS already done by the
+          time it mounts. Only this route renders <Comments>, so the hint is scoped here. */}
+      <link rel="preconnect" href="https://giscus.app" />
+      <link rel="dns-prefetch" href="https://giscus.app" />
       <section className="relative overflow-hidden">
         <div aria-hidden className="pm-hero-glow absolute inset-0" />
         <div aria-hidden className="pm-grid-bg absolute inset-0" />
