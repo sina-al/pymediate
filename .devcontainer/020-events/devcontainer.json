@@ -1,10 +1,10 @@
 {
-    "name": "pymediate example: events",
+    "name": "pymediate example: 020-events",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/events && uv sync",
+    "postCreateCommand": "cd examples/020-events && uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -12,7 +12,7 @@
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/events/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/020-events/.venv/bin/python"
             }
         }
     }

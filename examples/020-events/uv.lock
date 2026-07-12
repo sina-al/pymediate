@@ -57,7 +57,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pymediate-example-events"
+name = "pymediate-example-020-events"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
