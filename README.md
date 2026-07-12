@@ -4,28 +4,31 @@
 
 | Name                                            |    Stmts |     Miss |      Cover |   Missing |
 |------------------------------------------------ | -------: | -------: | ---------: | --------: |
-| src/pymediate/\_\_init\_\_.py                   |       11 |        0 |    100.00% |           |
+| src/pymediate/\_\_init\_\_.py                   |       12 |        0 |    100.00% |           |
 | src/pymediate/\_internal/\_\_init\_\_.py        |        0 |        0 |    100.00% |           |
 | src/pymediate/\_internal/event.py               |       33 |        1 |     96.97% |        65 |
-| src/pymediate/\_internal/handler.py             |       78 |        2 |     97.44% |     92-93 |
+| src/pymediate/\_internal/handler.py             |       85 |        2 |     97.65% |     84-85 |
 | src/pymediate/\_internal/mediator.py            |       19 |        0 |    100.00% |           |
 | src/pymediate/\_internal/pipeline.py            |       20 |        0 |    100.00% |           |
 | src/pymediate/\_internal/registry.py            |       84 |        4 |     95.24% |184, 190, 197, 206 |
-| src/pymediate/errors.py                         |       54 |        0 |    100.00% |           |
+| src/pymediate/\_internal/stream.py              |       52 |        1 |     98.08% |       143 |
+| src/pymediate/errors.py                         |       60 |        0 |    100.00% |           |
 | src/pymediate/event.py                          |        5 |        0 |    100.00% |           |
 | src/pymediate/handler.py                        |        5 |        0 |    100.00% |           |
-| src/pymediate/mediator.py                       |       21 |        0 |    100.00% |           |
+| src/pymediate/mediator.py                       |       26 |        0 |    100.00% |           |
 | src/pymediate/pipeline.py                       |       29 |        0 |    100.00% |           |
 | src/pymediate/providers/\_\_init\_\_.py         |        2 |        0 |    100.00% |           |
 | src/pymediate/providers/dependency\_injector.py |       38 |        0 |    100.00% |           |
 | src/pymediate/request.py                        |       12 |        0 |    100.00% |           |
 | src/pymediate/service.py                        |       51 |        0 |    100.00% |           |
-| src/pymediate/sync/\_\_init\_\_.py              |        9 |        0 |    100.00% |           |
+| src/pymediate/stream.py                         |       17 |        0 |    100.00% |           |
+| src/pymediate/sync/\_\_init\_\_.py              |       11 |        0 |    100.00% |           |
 | src/pymediate/sync/event.py                     |        5 |        0 |    100.00% |           |
 | src/pymediate/sync/handler.py                   |        5 |        0 |    100.00% |           |
-| src/pymediate/sync/mediator.py                  |       24 |        0 |    100.00% |           |
+| src/pymediate/sync/mediator.py                  |       29 |        0 |    100.00% |           |
 | src/pymediate/sync/pipeline.py                  |       29 |        0 |    100.00% |           |
-| **TOTAL**                                       |  **534** |    **7** | **98.69%** |           |
+| src/pymediate/sync/stream.py                    |        7 |        0 |    100.00% |           |
+| **TOTAL**                                       |  **636** |    **8** | **98.74%** |           |
 
 
 ## Setup coverage badge
