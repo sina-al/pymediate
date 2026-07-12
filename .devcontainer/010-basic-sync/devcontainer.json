@@ -1,10 +1,10 @@
 {
-    "name": "pymediate example: basic-sync",
+    "name": "pymediate example: 010-basic-sync",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/basic-sync && uv sync",
+    "postCreateCommand": "cd examples/010-basic-sync && uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -12,7 +12,7 @@
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/basic-sync/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/010-basic-sync/.venv/bin/python"
             }
         }
     }
