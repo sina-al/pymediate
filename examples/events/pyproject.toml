@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-basic-async"
+name = "pymediate-example-events"
 version = "0.1.0"
-description = "Asynchronous PyMediate example: async handlers, awaited dispatch, and a selective pipeline behavior"
+description = "Asynchronous PyMediate example: publishing an event that fans out to many handlers"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

@@ -1,7 +1,7 @@
 """The application core: a task board that knows nothing about its adapters.
 
 Built on ``pymediate.sync``, the sync mirror of the async API (the async twin of
-this example is `examples/adapters-async/`). Everything the three adapters in this
+this example is `examples/adapters/`). Everything the three adapters in this
 example deliver — Flask routes, FastAPI endpoints, a click CLI — is implemented here
 against pymediate and the standard library alone. The adapters (``flask_app.py``,
 ``fastapi_app.py``, ``cli.py``) only translate their framework's input into these

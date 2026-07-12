@@ -1,6 +1,6 @@
-# events-async
+# events
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fevents-async%2Fdevcontainer.json)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fevents%2Fdevcontainer.json)
 
 The other half of the mediator: **`publish`**. Where `send` routes one request to one
 handler, `publish` fans one event out to *every* handler subscribed to it. Here, finishing
@@ -10,7 +10,7 @@ notifier, and a metrics counter — none aware of the others.
 ## Run it
 
 ```bash
-cd examples/events-async
+cd examples/events
 uv sync
 uv run python app.py
 ```
@@ -70,7 +70,7 @@ notifies them all. That's the difference between *asking* and *announcing*.
 
 ## Where next
 
-- [basic-async](../basic-async/) — the `send` side of the mediator: typed requests, one
+- [basic](../basic/) — the `send` side of the mediator: typed requests, one
   handler each, and a pipeline behavior.
 - A sync mirror on `pymediate.sync` (`events-sync`) is a planned follow-up.
 - The docs: [events guide](https://pymediate.sina-al.uk/docs/guide/events) ·
