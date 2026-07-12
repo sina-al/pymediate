@@ -9,7 +9,7 @@ Signatures-only blueprint of pymediate's public API. Full docstrings, guides, an
 ### `pymediate`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.request`
@@ -53,6 +53,9 @@ class Mediator(MediatorMixin):
     """Routes requests to their async handlers using a service provider."""
     async def send(self, request: Request[ResponseT]) -> ResponseT:
         """Send a request and await the typed response from its handler."""
+        ...
+    def stream(self, request: StreamRequest[ChunkT]) -> AsyncIterator[ChunkT]:
+        """Route a stream request to its handler and return the async chunk stream."""
         ...
     async def publish(self, event: Event) -> None:
         """Publish an event to every async handler subscribed to its type."""
@@ -147,6 +150,12 @@ class InvalidEventTypeError(PyMediateError):
         """Initialize the error for a type parameter that isn't an Event subclass."""
         ...
 
+class InvalidStreamRequestTypeError(PyMediateError):
+    """Raised when a stream handler's type parameter doesn't inherit from StreamRequest."""
+    def __init__(self, stream_request_type: type):
+        """Initialize the error for a type parameter that isn't a StreamRequest subclass."""
+        ...
+
 class ResponseTypeMismatchError(PyMediateError):
     """Raised when a handler returns the wrong response type."""
     def __init__(self, handler_type: type, expected_type: type, actual_type: type):
@@ -189,7 +198,7 @@ class DependencyInjectorServiceProvider:
 ### `pymediate.sync`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.sync.event`
@@ -221,6 +230,9 @@ class Mediator(MediatorMixin):
     """Routes requests to their handlers using a service provider."""
     def send(self, request: Request[ResponseT]) -> ResponseT:
         """Send a request and get the typed response from its handler."""
+        ...
+    def stream(self, request: StreamRequest[ChunkT]) -> Iterator[ChunkT]:
+        """Route a stream request to its handler and return the chunk stream."""
         ...
     def publish(self, event: Event) -> None:
         """Publish an event to every handler subscribed to its type."""

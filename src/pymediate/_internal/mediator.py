@@ -59,14 +59,18 @@ class MediatorMixin:
         """
         self._services = services
 
-    def _resolve_handler(self, request: "Request[Any]") -> Any:
+    def _resolve_handler(self, request: Any) -> Any:
         """Resolve the handler for a request.
+
+        Accepts both `Request` and `StreamRequest` instances - dispatch is keyed by the
+        exact request type, which is disjoint between the two, so the same one-handler
+        registry resolves either.
 
         Args:
             request: The request instance to process
 
         Returns:
-            RequestHandler instance for the request
+            RequestHandler or StreamRequestHandler instance for the request
 
         Raises:
             HandlerNotFoundError: If no handler is registered for the request type
