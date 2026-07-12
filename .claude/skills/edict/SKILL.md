@@ -130,6 +130,32 @@ artifact URL, and republish the html with the filed status so the archived docum
 issue of record point at each other. Reply with the issue URL, the artifact URL, and a
 one-line restatement of what was captured.
 
+## Epic edicts — linking a family of issues
+
+Some requests are one outcome; some are a *program* of many independently-implementable
+outcomes (a roadmap, a curriculum, a migration touching N sites). Step 2 already says to split
+those — this is how to split them **and keep them connected**, so each child is a cold-start
+issue while the whole still reads as one plan.
+
+- **File an epic edict + one child edict per outcome.** Each gets its own `EDICT-NNNN` (the
+  series is shared — number them in sequence) and its own GitHub issue.
+- **The epic issue is the tracker.** Its body carries the shared context — the philosophy, the
+  scheme, the tiered sequence — and a **checklist that links out to every child** (`- [ ] NNN
+  <name> — #<issue>`). Label it `roadmap`. It does *not* restate each child's spec.
+- **Each child issue is fully self-contained.** A cold agent implements it from the child alone
+  (Step 4 template in full). The child links back to the epic in its `## Pointers`
+  ("Part of the <epic> roadmap, #<epic-issue>"); the epic never holds the child's only copy of a
+  fact. Duplicate the *minimum* shared context each child needs (don't make children read the
+  epic to be implementable) — self-sufficiency wins over DRY here.
+- **Link them natively.** Attach each child as a **GitHub sub-issue of the epic**
+  (`mcp__github__sub_issue_write`, or `gh` where available) so the parent/child tree is real,
+  not just prose. Board every issue (epic + children) the same way (Todo).
+- **Gate at scale.** Rendering and gating an HTML artifact for *every* child (Step 5) doesn't
+  scale past a handful. Publish the **epic artifact + two or three representative child
+  artifacts**, gate once on those, and — with the maintainer's approval at that gate — **batch-file
+  the remaining children** without an artifact each. The filed issues are the durable record;
+  the EDICT `.md` files still get archived for all of them.
+
 ---
 
 ## Repo plumbing — pymediate (swap this section when porting the skill to another repo)

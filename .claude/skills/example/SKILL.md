@@ -15,6 +15,31 @@ do I run it* within ~10 seconds, they leave; developers who reach a working resu
 minutes convert at 3–4× the rate of those who don't. So every example must be
 self-contained, gentle, and runnable by copy-paste. When in doubt, cut.
 
+## Pedagogy — write for adoption
+
+The whole `examples/` set is a **curriculum**, and every README and code comment is written
+with one goal: **adoption**. Not by selling — by *teaching*. Internalize these:
+
+- **Write for the reader who came looking for *their* use case.** Someone lands on an example
+  because they have a specific question ("how do I stream a response?", "where does auth go?").
+  The example must answer *exactly that question* — the questions that reader actually has, no
+  more, no less. It is not a brochure; it's the answer they searched for.
+- **No example needs to sell the package.** Drop the pitch. An example earns adoption by being
+  the thing that unblocks the reader. Trust the curriculum as a whole to make the broader case.
+- **Each example is an exposition — the story of a problem pymediate solves.** Start from the
+  *fundamental problem* (the pain a developer feels without the library), then reveal how
+  pymediate resolves it. The README tells that story; the code comments serve the same story,
+  narrating the *why* at the point it becomes concrete, not restating the *what*.
+- **One primary revelation per example.** Every example anchors exactly one insight. If it needs
+  two, it's two examples. This is what makes the set a curriculum instead of a pile.
+- **Two example flavors, both valid:**
+  - *Revelation* — show the good pattern for one capability, cleanly (`send`, `publish`, `stream`).
+  - *Objection-answering contrast* — take a real doubt ("why not one big service?", "why not a
+    decorator?", "where does validation even go?"), **build the naive approach, show it failing
+    concretely**, then show the pymediate approach succeeding at the identical task. A contrast
+    example's single revelation *is* the comparison, so its before→after shape is the teaching
+    device — not a violation of the one-revelation rule.
+
 ## The contract (mechanical requirements)
 
 `examples/README.md` § "The examples contract" is authoritative. Summary: standalone uv
