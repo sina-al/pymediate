@@ -1,6 +1,6 @@
-# adapters-async
+# adapters
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fadapters-async%2Fdevcontainer.json)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fadapters%2Fdevcontainer.json)
 
 One small task-board application, written once — then delivered through **FastAPI**,
 **aiohttp**, and an **asyncclick CLI** without changing a line of it. It's the async twin
@@ -9,7 +9,7 @@ of [adapters-sync](../adapters-sync/): same domain, same shape, `async def` end 
 ## Run it
 
 ```bash
-cd examples/adapters-async
+cd examples/adapters
 uv sync
 uv run pytest
 ```
@@ -113,7 +113,7 @@ curl -X POST localhost:8080/tasks -H 'content-type: application/json' -d '{"titl
 
 - [adapters-sync](../adapters-sync/) — this example's sync twin (Flask, FastAPI `def`,
   click).
-- [basic-async](../basic-async/) — the async core pattern at its smallest, plus a
+- [basic](../basic/) — the async core pattern at its smallest, plus a
   pipeline behavior.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·
   [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) for the

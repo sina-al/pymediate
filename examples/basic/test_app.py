@@ -1,4 +1,4 @@
-"""Tests for the basic-async example — the examples contract's `uv run pytest` entrypoint."""
+"""Tests for the basic example — the examples contract's `uv run pytest` entrypoint."""
 
 import pytest
 from pymediate import Mediator

@@ -45,6 +45,15 @@ one issue per independently implementable outcome.
 
 Use `AskUserQuestion`. Hard rules, tuned for answering from a phone:
 
+- **The interview is mandatory for M/L requests — a failed tool call is not a skip.** If an
+  `AskUserQuestion` call errors (e.g. "permission stream closed", a transient harness/MCP
+  fault), **retry it** — same questions — rather than silently defaulting every answer and
+  proceeding. Retry up to 3 times; if it still won't go through, do **not** invent decisions:
+  post the questions as plain text and wait for the maintainer's reply before drafting the
+  Decisions table. The same rule applies to the Step 5 file-it gate — never file an issue on a
+  failed/absent gate; retry, then fall back to a plain-text confirmation. Defaulting is only
+  for decisions with a conventional answer, never a substitute for an interview the tooling
+  failed to deliver.
 - At most **2 rounds**, ≤4 questions each. If more than ~6 decisions are genuinely open, the
   request is underbaked — say which decisions you defaulted and let the preview catch wrong calls.
 - Every question is **decision-shaped**: concrete options with consequences spelled out, your
@@ -106,8 +115,23 @@ a numbered, permanent record of what was decided, archived in the Claude project
 rendered EDICT, not chat text: the `AskUserQuestion` modal can hide everything printed
 before it, so a draft that exists only in chat is a draft the maintainer never saw.
 
-1. **Number it**: next `NNNN` after the highest existing `EDICT-NNNN-*` in the edicts folder
-   (zero-padded 4; the series is independent of issue numbers, like ADRs).
+1. **Number it — from the global registry, not the local folder.** The local edicts folder is
+   invisible to parallel sessions (especially remote Claude Code on the web), so numbering from
+   it alone collides — three EDICTs once all became `0004`. Compute `NNNN` as `max + 1` (zero-
+   padded 4) across **both** shared, cross-session sources:
+   - **Published artifacts** — call the Artifact tool with `action: "list"` and scan titles for
+     `EDICT-NNNN`.
+   - **Filed issues** — scan issue bodies for the `<!-- edict:NNNN ... -->` marker (step 6):
+     `gh issue list --search "edict:" --state all` (or the search API), reading the marker.
+
+   Re-run this check **immediately before publishing the html and again immediately before
+   filing**; if the number was taken since, bump. The series stays independent of issue numbers
+   (like ADRs), but the filed **issue number is the atomic tiebreaker**: if two sessions still
+   race to the same EDICT number, their distinct issue numbers disambiguate — so always record
+   the `EDICT-NNNN ↔ #issue` pairing (step 6). A residual same-second race can't be fully
+   eliminated without a lock the environment doesn't provide; the issue-number anchor is the
+   backstop. If you discover an existing collision, keep the earliest-filed EDICT at the lower
+   number and renumber the later one(s), noting the correction on the affected issues.
 2. **Write `EDICT-NNNN-<slug>.md`** in the edicts folder: a status header (Status: Draft,
    Date, Labels, Artifact: pending) followed by the full issue body.
 3. **Build `EDICT-NNNN-<slug>.html`** beside it and publish with the Artifact tool —
@@ -124,11 +148,50 @@ before it, so a draft that exists only in chat is a draft the maintainer never s
 
 ## Step 6 — File and board
 
-Create the issue, apply labels, add to the board, set status (see plumbing). Then close out
-the EDICT: set its md Status to `Filed as <owner/repo>#NN` with the issue URL, record the
-artifact URL, and republish the html with the filed status so the archived document and the
-issue of record point at each other. Reply with the issue URL, the artifact URL, and a
+Create the issue, apply labels, add to the board, set status (see plumbing).
+
+**The filed issue body must carry the artifact link and a machine marker** — this is not
+optional, and it's what makes step-5 numbering clash-proof over time. Include, at the bottom of
+the body:
+
+- a human footer, e.g. *Captured via the `/edict` skill as **EDICT-NNNN** — [rendered decision
+  record & spec](<artifact-url>). Implements [ADR NNNN](...)* (drop the ADR clause if none); and
+- a hidden marker: `<!-- edict:NNNN artifact:<artifact-url> adr:<n or omit> -->`.
+
+If the issue was already created without them, add the footer + marker as a **comment** instead
+(and backfill the same on any older edict-created issue that lacks it — find them by cross-
+referencing the artifact registry against the issues).
+
+Then close out the EDICT: set its md Status to `Filed as <owner/repo>#NN` with the issue URL,
+record the artifact URL, and republish the html with the filed status so the archived document
+and the issue of record point at each other. Reply with the issue URL, the artifact URL, and a
 one-line restatement of what was captured.
+
+## Epic edicts — linking a family of issues
+
+Some requests are one outcome; some are a *program* of many independently-implementable
+outcomes (a roadmap, a curriculum, a migration touching N sites). Step 2 already says to split
+those — this is how to split them **and keep them connected**, so each child is a cold-start
+issue while the whole still reads as one plan.
+
+- **File an epic edict + one child edict per outcome.** Each gets its own `EDICT-NNNN` (the
+  series is shared — number them in sequence) and its own GitHub issue.
+- **The epic issue is the tracker.** Its body carries the shared context — the philosophy, the
+  scheme, the tiered sequence — and a **checklist that links out to every child** (`- [ ] NNN
+  <name> — #<issue>`). Label it `roadmap`. It does *not* restate each child's spec.
+- **Each child issue is fully self-contained.** A cold agent implements it from the child alone
+  (Step 4 template in full). The child links back to the epic in its `## Pointers`
+  ("Part of the <epic> roadmap, #<epic-issue>"); the epic never holds the child's only copy of a
+  fact. Duplicate the *minimum* shared context each child needs (don't make children read the
+  epic to be implementable) — self-sufficiency wins over DRY here.
+- **Link them natively.** Attach each child as a **GitHub sub-issue of the epic**
+  (`mcp__github__sub_issue_write`, or `gh` where available) so the parent/child tree is real,
+  not just prose. Board every issue (epic + children) the same way (Todo).
+- **Gate at scale.** Rendering and gating an HTML artifact for *every* child (Step 5) doesn't
+  scale past a handful. Publish the **epic artifact + two or three representative child
+  artifacts**, gate once on those, and — with the maintainer's approval at that gate — **batch-file
+  the remaining children** without an artifact each. The filed issues are the durable record;
+  the EDICT `.md` files still get archived for all of them.
 
 ---
 
