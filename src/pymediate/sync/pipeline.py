@@ -21,6 +21,19 @@ from typing import Any, ClassVar, TypeVar, get_args, get_origin
 
 from ..request import Request
 
+type Next[ResponseT] = Callable[[], ResponseT]
+"""The continuation handed to a behavior's ``__call__``.
+
+Calling it runs the rest of the pipeline - the remaining behaviors and, finally,
+the handler - and returns the response. ``ResponseT`` is the response type the
+behavior expects back; annotate it concretely (``Next[UserResponse]``) to keep the
+call site typed, or ``Next[Any]`` for a universal behavior that passes the response
+through untouched.
+
+See Also:
+    - pymediate.Next: Asynchronous variant (``Callable[[], Awaitable[ResponseT]]``)
+"""
+
 
 def _resolve_request_type(cls: type) -> Any:
     """Find the type argument that fills ``PipelineBehavior``'s parameter for ``cls``.
@@ -73,13 +86,13 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     Examples:
         Universal behavior (applies to all requests):
             ```python
-            from pymediate.sync import PipelineBehavior, Request
+            from pymediate.sync import Next, PipelineBehavior, Request
 
             class LoggingBehavior(PipelineBehavior[Request]):
                 def __call__(
                     self,
                     request: Request,
-                    next: Callable[[], Any]
+                    next: Next[Any]
                 ) -> Any:
                     print(f"Handling: {type(request).__name__}")
                     response = next()
@@ -96,7 +109,7 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                 def __call__(
                     self,
                     request: AuthMixin,
-                    next: Callable[[], Any]
+                    next: Next[Any]
                 ) -> Any:
                     if not request.principal.is_authenticated:
                         raise Unauthorized()
@@ -109,7 +122,7 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                 def __call__(
                     self,
                     request: CreateUserRequest,
-                    next: Callable[[], Any]
+                    next: Next[Any]
                 ) -> Any:
                     if not request.username:
                         raise ValueError("Username required")
@@ -205,13 +218,14 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     def __call__(
         self,
         request: RequestT,
-        next: Callable[[], Any],
+        next: Next[Any],
     ) -> Any:
         """Execute the behavior's logic and call next to continue the pipeline.
 
         Args:
             request: The request being processed (typed as RequestT)
-            next: Callable that invokes the next behavior or handler in the chain
+            next: Continuation that invokes the next behavior or handler in the
+                chain; annotate it as ``Next[YourResponse]`` to type the call site
 
         Returns:
             The response from the handler (type not statically known)
@@ -228,5 +242,6 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
 
 
 __all__ = [
+    "Next",
     "PipelineBehavior",
 ]

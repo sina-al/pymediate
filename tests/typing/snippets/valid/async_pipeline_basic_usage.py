@@ -1,11 +1,10 @@
 """Async behavior authoring and typed dispatch through the mediator - should pass mypy."""
 
 import asyncio
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate import Mediator, Next, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -31,7 +30,7 @@ class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest]):
     async def __call__(
         self,
         request: CreateUserRequest,
-        next: Callable[[], Awaitable[UserResponse]],
+        next: Next[UserResponse],
     ) -> UserResponse:
         print(f"Before: {request.username}")
         response = await next()

@@ -13,6 +13,19 @@ from typing import Any, ClassVar, TypeVar, get_args, get_origin
 
 from .request import Request
 
+type Next[ResponseT] = Callable[[], Awaitable[ResponseT]]
+"""The continuation handed to a behavior's ``__call__``.
+
+Awaiting it runs the rest of the pipeline - the remaining behaviors and, finally,
+the handler - and yields the response. ``ResponseT`` is the response type the
+behavior expects back; annotate it concretely (``Next[UserResponse]``) to keep the
+call site typed, or ``Next[Any]`` for a universal behavior that passes the response
+through untouched.
+
+See Also:
+    - pymediate.sync.Next: Synchronous variant (``Callable[[], ResponseT]``)
+"""
+
 
 def _resolve_request_type(cls: type) -> Any:
     """Find the type argument that fills ``PipelineBehavior``'s parameter for ``cls``.
@@ -66,13 +79,13 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     Examples:
         Universal async behavior (applies to all requests):
             ```python
-            from pymediate import PipelineBehavior, Request
+            from pymediate import Next, PipelineBehavior, Request
 
             class AsyncLoggingBehavior(PipelineBehavior[Request]):
                 async def __call__(
                     self,
                     request: Request,
-                    next: Callable[[], Awaitable[Any]]
+                    next: Next[Any]
                 ) -> Any:
                     await log_to_database(f"Handling: {type(request).__name__}")
                     response = await next()
@@ -93,7 +106,7 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                 async def __call__(
                     self,
                     request: CacheableMixin,
-                    next: Callable[[], Awaitable[Any]]
+                    next: Next[Any]
                 ) -> Any:
                     # Check cache
                     cached = await self.cache.get(request.cache_key)
@@ -115,7 +128,7 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                 async def __call__(
                     self,
                     request: CreateOrderRequest,
-                    next: Callable[[], Awaitable[Any]]
+                    next: Next[Any]
                 ) -> Any:
                     async with self.db.transaction():
                         return await next()
@@ -210,13 +223,14 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     async def __call__(
         self,
         request: RequestT,
-        next: Callable[[], Awaitable[Any]],
+        next: Next[Any],
     ) -> Any:
         """Execute the behavior's async logic and await next to continue the pipeline.
 
         Args:
             request: The request being processed (typed as RequestT)
-            next: Async callable that invokes the next behavior or handler in the chain
+            next: Async continuation that invokes the next behavior or handler in
+                the chain; annotate it as ``Next[YourResponse]`` to type the call site
 
         Returns:
             The response from the handler (type not statically known)
@@ -233,5 +247,6 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
 
 
 __all__ = [
+    "Next",
     "PipelineBehavior",
 ]

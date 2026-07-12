@@ -1,10 +1,9 @@
 """Behavior modifying the response - type safety should be maintained."""
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate.sync import Mediator, Next, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -31,7 +30,7 @@ class ProcessingBehavior(PipelineBehavior[ProcessRequest]):
     def __call__(
         self,
         request: ProcessRequest,
-        next: Callable[[], ProcessedResponse],
+        next: Next[ProcessedResponse],
     ) -> ProcessedResponse:
         response = next()
         # Modify response

@@ -51,7 +51,7 @@ from ..stream import StreamRequest
 from .event import EventHandler
 from .handler import RequestHandler
 from .mediator import Mediator
-from .pipeline import PipelineBehavior
+from .pipeline import Next, PipelineBehavior
 from .stream import StreamRequestHandler
 
 __all__ = [
@@ -70,6 +70,7 @@ __all__ = [
     "ServiceNotFoundError",
     # Pipeline
     "PipelineBehavior",
+    "Next",
     # Errors
     "PyMediateError",
     "HandlerNotFoundError",
