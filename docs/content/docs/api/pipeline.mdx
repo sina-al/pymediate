@@ -10,9 +10,8 @@ Pipeline behaviors wrap request processing with middleware-style logic. The medi
 <Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
-    from collections.abc import Awaitable, Callable
     from typing import Any
-    from pymediate import PipelineBehavior, Request
+    from pymediate import Next, PipelineBehavior, Request
 
     class PipelineBehavior[RequestT: Request[Any]](ABC):
         @classmethod
@@ -20,22 +19,21 @@ Pipeline behaviors wrap request processing with middleware-style logic. The medi
             """Determine if this behavior should apply to the given request."""
 
         @abstractmethod
-        async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
+        async def __call__(self, request: RequestT, next: Next[Any]) -> Any:
             """Execute the behavior's async logic and await next to continue the pipeline."""
     ```
   </Tab>
   <Tab value="Sync">
     ```python
-    from collections.abc import Callable
     from typing import Any
-    from pymediate.sync import PipelineBehavior, Request
+    from pymediate.sync import Next, PipelineBehavior, Request
 
     class PipelineBehavior[RequestT: Request[Any]](ABC):
         @classmethod
         def should_apply(cls, request: Request[Any]) -> bool: ...
 
         @abstractmethod
-        def __call__(self, request: RequestT, next: Callable[[], Any]) -> Any:
+        def __call__(self, request: RequestT, next: Next[Any]) -> Any:
             """Execute the behavior's logic and call next to continue the pipeline."""
     ```
   </Tab>
@@ -50,6 +48,8 @@ Pipeline behaviors wrap request processing with middleware-style logic. The medi
 ### `__call__(request, next)`
 
 The behavior's body. `next` is a callable representing the rest of the pipeline — remaining behaviors and, ultimately, the handler. Await it (or call it plainly in the sync variant) to continue; skip it to short-circuit.
+
+Its type is the public `Next` alias — `Next[ResponseT]` is `Callable[[], Awaitable[ResponseT]]` (async, `from pymediate import Next`) or `Callable[[], ResponseT]` (sync, `from pymediate.sync import Next`). Annotate `next: Next[YourResponse]` to keep the continuation's result typed, or `Next[Any]` for a universal behavior that passes the response through untouched.
 
 | | |
 | --- | --- |

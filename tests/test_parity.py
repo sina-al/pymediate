@@ -3,7 +3,7 @@
 The top-level package is the async API; `pymediate.sync` is its structural
 mirror. These tests pin the contract so future top-level additions can't
 drift: every public name exists on both sides, shared names are the identical
-object, and only the four intentional variants differ.
+object, and only the intentional variants differ.
 """
 
 import inspect
@@ -16,7 +16,9 @@ import pymediate
 import pymediate.sync
 
 # The only names allowed to differ between the two namespaces: each side has
-# its own handler/mediator/behavior classes. Everything else is shared.
+# its own handler/mediator/behavior classes, plus the `Next` continuation alias
+# (async resolves to Callable[[], Awaitable[T]], sync to Callable[[], T]).
+# Everything else is shared.
 INTENTIONAL_VARIANTS = frozenset(
     {
         "RequestHandler",
@@ -24,6 +26,7 @@ INTENTIONAL_VARIANTS = frozenset(
         "StreamRequestHandler",
         "Mediator",
         "PipelineBehavior",
+        "Next",
     }
 )
 
