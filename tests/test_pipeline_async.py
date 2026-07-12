@@ -653,3 +653,78 @@ def test_should_apply_respects_apply_to_subclasses_false() -> None:
 
     assert ExactOnlyBehavior.should_apply(BaseSampleRequest(value=1)) is True
     assert ExactOnlyBehavior.should_apply(SubSampleRequest(value=1)) is False
+
+
+# A reusable generic behavior layer (the shape a batteries-included behavior takes): callers
+# scope it by subclassing with a concrete request type, so the narrowing passes through this
+# intermediate generic base rather than a direct PipelineBehavior[X] base.
+class ReusableBehavior[RequestT: Request[Any]](PipelineBehavior[RequestT]):
+    async def __call__(self, request: RequestT, next: Callable[[], Awaitable[Any]]) -> Any:
+        return await next()
+
+
+def test_generic_behavior_registered_directly_is_universal() -> None:
+    """A reusable generic behavior used directly (RequestT left unbound) matches any request.
+
+    Its type parameter resolves to a TypeVar; that must fall back to the bound (Request) and
+    match universally instead of raising in should_apply's isinstance() check.
+    """
+    assert ReusableBehavior.__match_type__ is Request
+    assert ReusableBehavior.should_apply(SampleRequest(value=1)) is True
+
+
+def test_generic_behavior_scoped_by_subclass_narrows() -> None:
+    """Subclassing a reusable generic behavior with a concrete request type scopes it.
+
+    The request type is recovered through the intermediate ReusableBehavior[...] base.
+    """
+
+    class ScopedBehavior(ReusableBehavior[BaseSampleRequest]):
+        pass
+
+    assert ScopedBehavior.__request_type__ is BaseSampleRequest
+    assert ScopedBehavior.should_apply(BaseSampleRequest(value=1)) is True
+    assert ScopedBehavior.should_apply(SubSampleRequest(value=1)) is True
+    assert ScopedBehavior.should_apply(SampleRequest(value=1)) is False
+
+
+def test_generic_behavior_scoped_subclass_exact_match() -> None:
+    """A scoped subclass can still opt into exact-type matching via apply_to_subclasses."""
+
+    class ExactScopedBehavior(ReusableBehavior[BaseSampleRequest]):
+        apply_to_subclasses = False
+
+    assert ExactScopedBehavior.should_apply(BaseSampleRequest(value=1)) is True
+    assert ExactScopedBehavior.should_apply(SubSampleRequest(value=1)) is False
+
+
+def test_resolve_through_concrete_intermediate_base() -> None:
+    """Ancestry walk recovers a request type an intermediate generic layer already fixed."""
+
+    class ConcreteMid[Unused: Request[Any]](PipelineBehavior[BaseSampleRequest]):
+        async def __call__(
+            self, request: BaseSampleRequest, next: Callable[[], Awaitable[Any]]
+        ) -> Any:
+            return await next()
+
+    class Leaf(ConcreteMid[SampleRequest]):
+        pass
+
+    assert Leaf.__request_type__ is BaseSampleRequest
+
+
+def test_resolve_through_plain_base_in_multiple_inheritance() -> None:
+    """A plain PipelineBehavior base contributes its request type when it appears in
+    __orig_bases__ alongside a generic base."""
+
+    class PlainConcrete(PipelineBehavior[BaseSampleRequest]):
+        async def __call__(
+            self, request: BaseSampleRequest, next: Callable[[], Awaitable[Any]]
+        ) -> Any:
+            return await next()
+
+    class Leaf(PlainConcrete, ReusableBehavior[SampleRequest]):
+        async def __call__(self, request: Request[Any], next: Callable[[], Awaitable[Any]]) -> Any:
+            return await next()
+
+    assert Leaf.__request_type__ is BaseSampleRequest

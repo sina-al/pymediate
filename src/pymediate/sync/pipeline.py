@@ -17,9 +17,36 @@ behavior can execute logic before and after the next behavior (or final handler)
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, ClassVar, get_args, get_origin
+from typing import Any, ClassVar, TypeVar, get_args, get_origin
 
 from ..request import Request
+
+
+def _resolve_request_type(cls: type) -> Any:
+    """Find the type argument that fills ``PipelineBehavior``'s parameter for ``cls``.
+
+    Walks intermediate generic bases (e.g. a reusable ``Behavior[RequestT]`` layer) and
+    substitutes their type variables, so ``class Scoped(Behavior[Foo])`` resolves to ``Foo``.
+    Returns the base's own parameter (a ``TypeVar``) when the behavior is left generic; the
+    caller turns that into a universal match.
+    """
+    for base in getattr(cls, "__orig_bases__", ()):
+        origin = get_origin(base)
+        if origin is PipelineBehavior:
+            args = get_args(base)
+            return args[0] if args else Request
+        if isinstance(origin, type) and issubclass(origin, PipelineBehavior):
+            inner = _resolve_request_type(origin)
+            if isinstance(inner, TypeVar):
+                params = getattr(origin, "__type_params__", ()) or getattr(
+                    origin, "__parameters__", ()
+                )
+                mapping = dict(zip(params, get_args(base), strict=False))
+                return mapping.get(inner, inner)
+            return inner
+        if isinstance(base, type) and issubclass(base, PipelineBehavior):
+            return _resolve_request_type(base)
+    return Request
 
 
 class PipelineBehavior[RequestT: Request[Any]](ABC):
@@ -122,13 +149,13 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Resolve and cache the behavior's request type when a subclass is defined."""
         super().__init_subclass__(**kwargs)
-        request_type: Any = Request
-        for base in getattr(cls, "__orig_bases__", []):
-            if get_origin(base) is PipelineBehavior:
-                args = get_args(base)
-                if args:
-                    request_type = args[0]
-                    break
+        request_type = _resolve_request_type(cls)
+        # A behavior left generic (registered without narrowing, e.g. a reusable base used
+        # directly) resolves to a TypeVar - fall back to its bound so it matches universally
+        # instead of raising in should_apply's isinstance() check.
+        if isinstance(request_type, TypeVar):
+            bound = request_type.__bound__
+            request_type = bound if bound is not None else Request
         cls.__request_type__ = request_type
         # A subscripted generic like Request[Any] has no isinstance()/type() meaning of
         # its own - match against its origin (Request) instead.
