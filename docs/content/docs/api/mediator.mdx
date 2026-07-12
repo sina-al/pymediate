@@ -3,11 +3,12 @@ title: Mediator
 description: API reference for the async and sync Mediator classes.
 ---
 
-The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `RequestHandler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors. It also publishes events to every subscribed `EventHandler`.
+The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `RequestHandler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors. It also streams `StreamRequest`s to their stream handlers and publishes events to every subscribed `EventHandler`.
 
 <Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
+    from collections.abc import AsyncIterator
     from pymediate import Mediator
 
     class Mediator:
@@ -16,12 +17,16 @@ The mediator routes requests to their handlers through a `ServiceProvider`. It l
         async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
             """Send a request and await the typed response from its handler."""
 
+        def stream[ChunkT](self, request: StreamRequest[ChunkT]) -> AsyncIterator[ChunkT]:
+            """Route a stream request to its handler and return the async chunk stream."""
+
         async def publish(self, event: Event) -> None:
             """Publish an event to every async handler subscribed to its type."""
     ```
   </Tab>
   <Tab value="Sync">
     ```python
+    from collections.abc import Iterator
     from pymediate.sync import Mediator
 
     class Mediator:
@@ -29,6 +34,9 @@ The mediator routes requests to their handlers through a `ServiceProvider`. It l
 
         def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
             """Send a request and get the typed response from its handler."""
+
+        def stream[ChunkT](self, request: StreamRequest[ChunkT]) -> Iterator[ChunkT]:
+            """Route a stream request to its handler and return the chunk stream."""
 
         def publish(self, event: Event) -> None:
             """Publish an event to every handler subscribed to its type."""
@@ -52,6 +60,28 @@ Exceptions raised inside handlers propagate unchanged — `send()` never catches
   If no behaviors apply to a request, the handler is called directly with no
   pipeline-construction overhead. Otherwise a pipeline is built per request from every applicable
   behavior in registration order (first registered is outermost), then the handler.
+</Callout>
+
+## `stream()`
+
+Resolves the [`StreamRequestHandler`](/docs/api/stream-request-handler) registered for the request's type and returns its (async) generator. The handler is resolved **eagerly** — a missing registration raises `HandlerNotFoundError` at the `stream()` call, not on first iteration — while the stream itself is **lazy**: the handler's body runs only as chunks are pulled.
+
+| | |
+| --- | --- |
+| **Args** | `request` — the stream request instance to dispatch |
+| **Returns** | An `AsyncIterator[ChunkT]` (async) or `Iterator[ChunkT]` (sync); the element type is inferred from `StreamRequest[ChunkT]` |
+| **Raises** | `HandlerNotFoundError` — no handler is registered for the request type |
+
+Unlike `send()`, the handler is a generator, so `stream()` itself is not awaited — iterate its result:
+
+```python
+async for token in mediator.stream(StreamCompletion(prompt="hi there")):
+    print(token)  # token is typed from StreamRequest[ChunkT]
+```
+
+<Callout type="info" title="Pipeline behaviors wrap send() only">
+  Behaviors do not run on `stream()`. Cross-cutting concerns around a stream live in the handler
+  itself.
 </Callout>
 
 ## `publish()`
@@ -126,6 +156,7 @@ mediator = Mediator(services.provider())
 ## See also
 
 - [Services / ServiceProvider](/docs/api/service-provider) — building the provider
+- [StreamRequest](/docs/api/stream-request) / [StreamRequestHandler](/docs/api/stream-request-handler) — the stream-side classes
 - [Event](/docs/api/event) / [EventHandler](/docs/api/event-handler) — the publish-side classes
 - [Pipeline](/docs/api/pipeline) — the behavior API
 - [The mediator guide](/docs/guide/mediator) — lifecycle and best practices

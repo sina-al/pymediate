@@ -202,6 +202,50 @@ class InvalidEventTypeError(PyMediateError):
         )
 
 
+class InvalidStreamRequestTypeError(PyMediateError):
+    """Raised when a stream handler's type parameter doesn't inherit from StreamRequest.
+
+    All streaming request classes must inherit from StreamRequest[ChunkType] so they
+    can be dispatched via Mediator.stream() and their chunk type inferred.
+
+    Example:
+        ```python
+        class StreamCompletion:  # Missing StreamRequest inheritance!
+            pass
+
+        class CompletionHandler(StreamRequestHandler[StreamCompletion]):
+            pass
+        # InvalidStreamRequestTypeError: Invalid stream request type
+        ```
+    """
+
+    def __init__(self, stream_request_type: type):
+        """Initialize the error for a type parameter that isn't a StreamRequest subclass.
+
+        Args:
+            stream_request_type: The type that doesn't inherit from StreamRequest
+        """
+        self.stream_request_type = stream_request_type
+
+        name = getattr(stream_request_type, "__name__", str(stream_request_type))
+        message = (
+            f"Stream request type '{name}' must inherit from StreamRequest[ChunkType]\n\n"
+            "✅ Correct stream request definition:\n"
+            "  @dataclass\n"
+            f"  class {name}(StreamRequest[str]):\n"
+            "      field1: str\n"
+            "      field2: int\n\n"
+            "💡 Inheriting from StreamRequest[ChunkType] is what makes a request\n"
+            "   streamable via mediator.stream() and tells PyMediate the element type\n"
+            "   its handler yields."
+        )
+
+        super().__init__(
+            message,
+            docs_path="docs/advanced/troubleshooting#invalidstreamrequesttypeerror",
+        )
+
+
 class ResponseTypeMismatchError(PyMediateError):
     """Raised when a handler returns the wrong response type.
 
