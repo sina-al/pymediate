@@ -15,24 +15,15 @@ export const pypiUrl = 'https://pypi.org/project/pymediate/';
 /**
  * Giscus configuration for the article comment threads.
  *
- * `repoId` and `categoryId` are public, non-secret values (not tokens) — generate
- * them from the configurator at https://giscus.app after two one-time setup steps:
- *
- *   1. Install the giscus GitHub App (https://github.com/apps/giscus) on the repo.
- *   2. Create a Discussions category named "Comments" using an *open* format
- *      (not the "Announcements" format — that restricts thread creation to
- *      maintainers and breaks commenting).
- *
- * Then paste the generated `repoId` / `categoryId` below, replacing the placeholders.
- * Threads map to article pages by pathname.
+ * `repoId` and `categoryId` are public, non-secret values (not tokens) — the ones
+ * the configurator at https://giscus.app generates for this repo and its "Comments"
+ * discussion category. Threads map to article pages by pathname.
  */
 export const giscusConfig = {
   repo: `${gitConfig.user}/${gitConfig.repo}`,
-  // TODO(giscus setup): replace with the real repo ID from https://giscus.app
-  repoId: 'PLACEHOLDER_REPO_ID',
+  repoId: 'R_kgDOQExYuA',
   category: 'Comments',
-  // TODO(giscus setup): replace with the "Comments" category ID from https://giscus.app
-  categoryId: 'PLACEHOLDER_CATEGORY_ID',
+  categoryId: 'DIC_kwDOQExYuM4DBAXt',
 } as const;
 
 /**
