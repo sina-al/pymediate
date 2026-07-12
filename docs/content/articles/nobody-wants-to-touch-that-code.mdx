@@ -187,7 +187,7 @@ class ExportService:
     def run(self, customer_id, fmt="csv"): ...
 ```
 
-I know how this looks. We opened this essay with a plain function — direct, readable, *right* — and four years of defensible decisions later, the destination is a class with one method. It looks absurd: a function in a costume, the kind of object the word *enterprise* was coined to mock. The first time one of these appeared in a codebase of mine, I truly couldn't decide whether I was looking at a refactor or a piece of satire.
+I know how this looks. We opened this essay with a plain function — direct, readable, *right* — and four years of defensible decisions later, the destination is a class with one method. It looks absurd: a function in a costume, the kind of object the word *enterprise* was coined to mock.
 
 The absurdity dissolves the moment you stop reading it as a class and read it for what it actually is: an *operation with a name*. "Export a customer's orders" is one of the things the application exists to do — it would be on the list if you wrote the application's purpose down — and for the first time in the codebase's life, that thing has its own home: dependencies declared, logic alone, nothing else in the blast radius. Each of these little classes has exactly one reason to change, and when one breaks, the failing test file *is* the diagnosis.
 
