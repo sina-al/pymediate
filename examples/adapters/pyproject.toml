@@ -1,5 +1,5 @@
 [project]
-name = "pymediate-example-adapters-async"
+name = "pymediate-example-adapters"
 version = "0.1.0"
 description = "Framework independence: one asynchronous PyMediate core behind FastAPI, aiohttp, and asyncclick adapters"
 requires-python = ">=3.12"

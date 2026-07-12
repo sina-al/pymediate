@@ -1,6 +1,6 @@
-# basic-async
+# basic
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fbasic-async%2Fdevcontainer.json)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fbasic%2Fdevcontainer.json)
 
 The smallest useful PyMediate application: an in-memory task board in one file. If you're
 new to PyMediate, **start with this example** — everything else in `examples/` builds on
@@ -9,7 +9,7 @@ the pattern shown here.
 ## Run it
 
 ```bash
-cd examples/basic-async
+cd examples/basic
 uv sync
 uv run python app.py
 ```
@@ -81,7 +81,7 @@ registration lists to maintain, the types carry the routing.
 
 - [basic-sync](../basic-sync/) — this exact board without the event loop, on
   `pymediate.sync`.
-- [adapters-async](../adapters-async/) — this core pattern serving FastAPI, aiohttp, and
+- [adapters](../adapters/) — this core pattern serving FastAPI, aiohttp, and
   an async CLI at once.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·
   [pipeline behaviors](https://pymediate.sina-al.uk/docs/guide/pipeline-behaviors).

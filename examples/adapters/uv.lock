@@ -670,15 +670,15 @@ wheels = [
 
 [[package]]
 name = "pymediate"
-version = "0.2.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4f/89/597e8b4b0ca8982f8fc21627052d6fd465f0176c694ef42b1ced906b68d6/pymediate-0.2.0.tar.gz", hash = "sha256:5aaf354350fb9aaa0572c39e8ac34997e419965157cba8b063e38dcd547ce277", size = 375107, upload-time = "2026-07-09T18:17:53.492Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/c2/f0f3d83d0333b102b21739b4cc653226517c8ca82183dca4ce394aae0b6b/pymediate-0.5.0.tar.gz", hash = "sha256:1fb25b48f6302ec95558732824d74a04d7faed949b56b1f7c54bc4a6bfc9e37e", size = 1146525, upload-time = "2026-07-11T15:34:29.778Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/68/1bcd94d9bbb265e7d30e1459b61e753f88103461e4ce74d0f1c93aec9371/pymediate-0.2.0-py3-none-any.whl", hash = "sha256:5def4479d07241e33a83cd8030f6731f09005208576798a439af4bb27ad560d8", size = 36860, upload-time = "2026-07-09T18:17:52.559Z" },
+    { url = "https://files.pythonhosted.org/packages/39/7c/ee294c7dbe5994f530f9b64aa44f852578f447c6c8521ca0abab6aab04cd/pymediate-0.5.0-py3-none-any.whl", hash = "sha256:8edfef331992524a623f9a4edc05ba4baf81bd23cfeca674862f395b130cf3bf", size = 46728, upload-time = "2026-07-11T15:34:28.345Z" },
 ]
 
 [[package]]
-name = "pymediate-example-adapters-aio"
+name = "pymediate-example-adapters"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -702,7 +702,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.11" },
     { name = "asyncclick", specifier = ">=8.2" },
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "pymediate", specifier = ">=0.1" },
+    { name = "pymediate", specifier = ">=0.5.0" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
 

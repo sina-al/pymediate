@@ -1,10 +1,10 @@
 {
-    "name": "pymediate example: events-async",
+    "name": "pymediate example: adapters",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/events-async && uv sync",
+    "postCreateCommand": "cd examples/adapters && uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -12,7 +12,7 @@
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/events-async/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/adapters/.venv/bin/python"
             }
         }
     }

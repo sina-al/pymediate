@@ -3,7 +3,7 @@
 Demonstrates the core loop without an event loop: define requests typed by their
 response (``Request[Response]``), write one handler per request, register the handlers
 in ``Services``, and send requests through a ``Mediator`` — which infers the response
-type from the request, end to end. The async mirror of this example is basic-async,
+type from the request, end to end. The async mirror of this example is basic,
 built on the top-level ``pymediate`` API.
 """
 

@@ -6,7 +6,7 @@ in about a minute. You don't need to have read the documentation first: each REA
 starts from zero.
 
 ```bash
-cd examples/basic-async   # or any other example
+cd examples/basic   # or any other example
 uv sync
 uv run pytest
 ```
@@ -20,11 +20,11 @@ In suggested order:
 
 | # | Example | What it shows |
 | --- | --- | --- |
-| 1 | [basic-async](basic-async/) | **Start here.** The whole pattern in one file: typed requests, one `async def` handler each, `await mediator.send()`, plus a pipeline behavior auditing every mutation. |
+| 1 | [basic](basic/) | **Start here.** The whole pattern in one file: typed requests, one `async def` handler each, `await mediator.send()`, plus a pipeline behavior auditing every mutation. |
 | 2 | [basic-sync](basic-sync/) | The same board without the event loop, on `pymediate.sync` — PyMediate's synchronous mirror. |
-| 3 | [events-async](events-async/) | The mediator's other half: `await mediator.publish()` fans one event out to many independent handlers. |
+| 3 | [events](events/) | The mediator's other half: `await mediator.publish()` fans one event out to many independent handlers. |
 | 4 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
-| 5 | [adapters-async](adapters-async/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 5 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
 | 6 | [adapters-sync](adapters-sync/) | The sync twin of #5: Flask, FastAPI, and a click CLI over one sync core. |
 
 1–2 teach `send` (request → response), 3 adds `publish` (event fan-out), 4 plugs it into a

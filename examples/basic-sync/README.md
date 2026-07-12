@@ -2,8 +2,8 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2Fbasic-sync%2Fdevcontainer.json)
 
-[basic-async](../basic-async/)'s task board without the event loop: the same one-file
-board on `pymediate.sync`, PyMediate's synchronous mirror. Read basic-async first if you
+[basic](../basic/)'s task board without the event loop: the same one-file
+board on `pymediate.sync`, PyMediate's synchronous mirror. Read basic first if you
 haven't; this example is best enjoyed as a diff against it.
 
 ## Run it
@@ -19,7 +19,7 @@ Created: Task(task_id=1, title='Buy groceries', done=False)
 Open: Write the release notes
 ```
 
-## What changed from basic-async
+## What changed from basic
 
 Everything imports from `pymediate.sync` instead of `pymediate`; handlers declare a
 plain `def __call__`, and sending blocks — no `await`, no `asyncio.run()`. Shared
@@ -36,7 +36,7 @@ class AddTaskHandler(RequestHandler[AddTask]):
 task = mediator.send(AddTask(title="Buy groceries"))   # still fully typed
 ```
 
-This mirror keeps to the core loop — basic-async's `AuditTrail` trick works identically
+This mirror keeps to the core loop — basic's `AuditTrail` trick works identically
 here via `pymediate.sync.PipelineBehavior`, with `next()` in place of `await next()`.
 
 ## The files
