@@ -112,8 +112,8 @@ venv. Copy an existing one and adjust the three obvious fields. README badge:
 
 `examples/README.md` opens with the gallery. Add/update the new example's card: name
 (linked), one-sentence hook, "start here"-ordering position. Keep the recommended reading
-order coherent: basic-async → basic-sync → with-dependency-injector → adapters-async →
-adapters-sync → (new ones slotted deliberately, not appended blindly).
+order coherent: basic-async → basic-sync → events-async → with-dependency-injector →
+adapters-async → adapters-sync → (new ones slotted deliberately, not appended blindly).
 
 ## Verification bar (all of it, every time)
 
