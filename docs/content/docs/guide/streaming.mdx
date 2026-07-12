@@ -1,0 +1,130 @@
+---
+title: Streaming
+description: Answering a request with a stream of typed chunks — StreamRequest, generator handlers, lazy iteration, and how streaming differs from send and publish.
+---
+
+`send()` is a conversation: one request, one handler, one typed response. `publish()` is an announcement: one event, many handlers, no response. `stream()` is a feed: one request, one handler, **many typed chunks** — pulled lazily, one at a time. Use streaming when the answer arrives incrementally: LLM tokens, paginated reads, a large export you don't want to materialize in memory.
+
+## Three dispatch shapes
+
+| | `send(request)` | `stream(request)` | `publish(event)` |
+| --- | --- | --- | --- |
+| Base class | `Request[ResponseT]` | `StreamRequest[ChunkT]` | `Event` |
+| Handlers | Exactly one | Exactly one | Zero or more |
+| Handler `__call__` | `return`s a response | **`yield`s** chunks (a generator) | `return`s `None` |
+| Result | One typed response | Iterator of typed chunks | Nothing |
+| Pipeline behaviors | Wrap the dispatch | Not applied | Not applied |
+
+`StreamRequest` is a separate base class from `Request`, so the type checker keeps the two apart: `send()` accepts only a `Request`, `stream()` accepts only a `StreamRequest`. Calling the wrong one is a static error, not a runtime surprise.
+
+## Defining a stream
+
+A stream request inherits from `StreamRequest[ChunkT]`, where `ChunkT` is the type of each item the handler yields. The handler subclasses `StreamRequestHandler[RequestType]` and its `__call__` is a **generator** — it uses `yield`:
+
+```python
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from pymediate import Mediator, Services, StreamRequest, StreamRequestHandler
+
+@dataclass
+class StreamCompletion(StreamRequest[str]):
+    prompt: str
+
+class CompletionHandler(StreamRequestHandler[StreamCompletion]):
+    async def __call__(self, request: StreamCompletion) -> AsyncIterator[str]:
+        for token in request.prompt.split():
+            yield token
+
+services = Services()
+services.add(CompletionHandler())
+mediator = Mediator(services.provider())
+
+async for token in mediator.stream(StreamCompletion(prompt="hello typed world")):
+    print(token)  # token is typed as str
+```
+
+The chunk type flows end to end: it's declared once on `StreamRequest[str]`, validated against the handler's `AsyncIterator[str]` return at import time, and inferred at the `stream()` call site so each `token` is a `str` with no casts.
+
+Delegating to an existing async stream — an LLM client, a database cursor — stays a one-liner:
+
+```python
+class CompletionHandler(StreamRequestHandler[StreamCompletion]):
+    def __init__(self, client: LLMClient):
+        self.client = client
+
+    async def __call__(self, request: StreamCompletion) -> AsyncIterator[str]:
+        async for token in self.client.stream(request.prompt):
+            yield token
+```
+
+## Eager resolution, lazy iteration
+
+`stream()` resolves the handler **eagerly**: if no handler is registered for the request type, `HandlerNotFoundError` is raised at the `stream()` call, not on the first iteration — a missing handler is a configuration bug you want to see immediately. The stream itself is **lazy**: the handler's body runs only as you pull chunks, so nothing is computed (and no side effects fire) until you iterate.
+
+```python
+stream = mediator.stream(StreamCompletion(prompt="a b c"))  # handler resolved here
+async for token in stream:                                   # handler body runs here, per chunk
+    ...
+```
+
+## Definition-time validation
+
+Like request and event handlers, stream handlers are validated the moment the class is defined — the failing `import` is the signal. On top of the [exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract) (the `__call__` parameter must annotate the *exact* declared request class), streaming adds:
+
+- **`__call__` must be a generator.** A plain `def`/`async def` that merely *returns* an iterator is rejected — use `yield`. The async handler must be an async generator; the sync handler a plain generator.
+- **The return annotation must be `AsyncIterator[ChunkT]`** (async) or `Iterator[ChunkT]` (sync), matching the request's declared chunk type — not the element type, and not a different element type.
+
+A bad type argument (`StreamRequestHandler[NotAStreamRequest]`) is caught statically too, because the type parameter is bound to `StreamRequest`; the runtime `InvalidStreamRequestTypeError` is the backstop for unchecked code.
+
+<Callout type="info" title="Element types aren't checked at runtime">
+  Validation confirms the handler is *annotated* to yield `ChunkT`. It can't check what the
+  generator actually yields without consuming it — which would defeat laziness — so a generator
+  that yields the wrong type is caught by the type checker, not at runtime. This is the same
+  division of labor `send()` has for its response type.
+</Callout>
+
+## Sync streams
+
+The sync mirror is identical with `def` / `Iterator` / `for`:
+
+```python
+from collections.abc import Iterator
+from dataclasses import dataclass
+from pymediate.sync import Mediator, Services, StreamRequest, StreamRequestHandler
+
+@dataclass
+class ExportRows(StreamRequest[str]):
+    table: str
+
+class ExportRowsHandler(StreamRequestHandler[ExportRows]):
+    def __init__(self, database):
+        self.database = database
+
+    def __call__(self, request: ExportRows) -> Iterator[str]:
+        for row in self.database.iter_rows(request.table):
+            yield row
+
+services = Services()
+services.add(ExportRowsHandler(database))
+mediator = Mediator(services.provider())
+
+for row in mediator.stream(ExportRows(table="orders")):
+    write(row)
+```
+
+## Pipeline behaviors and streams
+
+Pipeline behaviors wrap `send()` only — they do **not** run on `stream()`. Wrapping a stream raises questions a single-response behavior contract can't answer (does a behavior wrap the stream as a unit, or run per chunk?), so cross-cutting concerns around a stream — timing, logging, retry — live in the handler itself for now.
+
+## Best practices
+
+- **Name the chunk type precisely.** `StreamRequest[Token]`, not `StreamRequest[Any]` — the element type is the whole point.
+- **`yield`, don't `return` an iterator.** The generator form is the contract; it keeps sync and async symmetric and makes validation unambiguous.
+- **Keep the handler lazy.** Don't build the whole result up front and yield from a list — stream from the source so memory stays flat.
+- **One stream handler per request type.** Same one-per-type registry as request handlers; a second raises `HandlerAlreadyRegisteredError`.
+
+## Next steps
+
+- [The mediator](/docs/guide/mediator) — how `send()` routes requests
+- [Events](/docs/guide/events) — the one-to-many, no-response counterpart
+- [StreamRequestHandler](/docs/api/stream-request-handler) — the full API reference
