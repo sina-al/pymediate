@@ -30,17 +30,20 @@ In suggested order:
 | 8 | [030-streaming-sync](030-streaming-sync/) | The same lazy stream on `pymediate.sync` (`Iterator`). |
 | 9 | [040-pipeline-behaviors](040-pipeline-behaviors/) | Cross-cutting concerns (logging, auth, caching, transactions) as one ordered `PipelineBehavior` stack, routed by the type parameter; a cache hit short-circuits the handler. |
 | 10 | [040-pipeline-behaviors-sync](040-pipeline-behaviors-sync/) | The same stack on `pymediate.sync`. |
-| 11 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 12 | [adapters-sync](adapters-sync/) | The sync twin of #11: Flask, FastAPI, and a click CLI over one sync core. |
-| 13 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 11 | [045-behaviors-vs-decorators](045-behaviors-vs-decorators/) | Why not just a decorator? The same rate limit as a decorator (dependency bound at import time) vs. a behavior (dependency injected) — the decorator can't cleanly swap it, the behavior can. |
+| 12 | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | The same contrast on `pymediate.sync`, no event loop. |
+| 13 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 14 | [adapters-sync](adapters-sync/) | The sync twin of #13: Flask, FastAPI, and a click CLI over one sync core. |
+| 15 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
-requests with pipeline behaviors; 11–12 make the framework-independence argument; 13 plugs
-it into a DI container. Async and sync examples mirror each other deliberately — diffing a
-pair is the fastest way to see how small the sync delta is. (`adapters` and
-`with-dependency-injector` keep their original names for now; they're renumbered later as
-the [examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
+requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
+make the framework-independence argument; 15 plugs it into a DI container. Async and sync
+examples mirror each other deliberately — diffing a pair is the fastest way to see how
+small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
+names for now; they're renumbered later as the
+[examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
 
 ## The examples contract
 
