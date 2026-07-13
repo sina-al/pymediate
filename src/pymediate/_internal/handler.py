@@ -26,6 +26,109 @@ def _qualified_name(annotation: object) -> str:
     return f"{module}.{qualname}"
 
 
+def _require_call_method(cls: type) -> Any:
+    """Return the class's own ``__call__`, or raise if it doesn't define one.
+
+    Args:
+        cls: The handler class to inspect.
+
+    Returns:
+        The ``__call__`` function object from ``cls.__dict__``.
+
+    Raises:
+        InvalidHandlerSignatureError: If ``cls`` does not define ``__call__``.
+    """
+    if "__call__" not in cls.__dict__:
+        raise errors.InvalidHandlerSignatureError(cls, "must implement __call__ method")
+    return cls.__dict__["__call__"]
+
+
+def _resolve_call_annotations(cls: type, call_method: Any) -> tuple[Any, Any]:
+    """Validate __call__'s parameter shape and return its resolved annotations.
+
+    Enforces the structural contract shared by request, event, and stream handlers:
+    exactly one parameter besides ``self``, both it and the return annotated. String
+    (PEP 563) annotations are resolved via ``get_type_hints``; if resolution fails,
+    the raw annotations are returned so the caller's comparison reports the mismatch.
+
+    Args:
+        cls: The handler class (named in error messages).
+        call_method: The ``__call__`` function object.
+
+    Returns:
+        A ``(request_annotation, return_annotation)`` tuple.
+
+    Raises:
+        InvalidHandlerSignatureError: If the parameter count or annotations are wrong.
+    """
+    sig = inspect.signature(call_method)
+
+    params = list(sig.parameters.values())
+    if len(params) != 2:  # self, request
+        raise errors.InvalidHandlerSignatureError(
+            cls,
+            f"__call__ must accept exactly one parameter (besides self), got {len(params) - 1}",
+        )
+
+    request_param = params[1]  # Skip 'self'
+    if request_param.annotation == inspect.Parameter.empty:
+        raise errors.InvalidHandlerSignatureError(
+            cls, "__call__ request parameter must have type annotation"
+        )
+
+    if sig.return_annotation == inspect.Signature.empty:
+        raise errors.InvalidHandlerSignatureError(cls, "__call__ must have return type annotation")
+
+    try:
+        hints = get_type_hints(call_method)
+    except Exception:
+        hints = {}
+    request_annotation = hints.get(request_param.name, request_param.annotation)
+    return_annotation = hints.get("return", sig.return_annotation)
+    return request_annotation, return_annotation
+
+
+def _validate_request_annotation(
+    cls: type,
+    request_annotation: object,
+    expected_request_type: type,
+    *,
+    kind: str = "request",
+    declaration_name: str = "RequestHandler",
+) -> None:
+    """Enforce ADR 0004's exact-annotation contract for the request parameter.
+
+    Dispatch is keyed by ``type(request)``, so the parameter must annotate the exact
+    declared class - a base class or union passes static checking (contravariance) but
+    is rejected here.
+
+    Args:
+        cls: The handler class (named in error messages).
+        request_annotation: The resolved parameter annotation.
+        expected_request_type: The exact class the parameter must annotate.
+        kind: What the parameter is called in error messages ("request" or "event").
+        declaration_name: The generic base class named in error messages.
+
+    Raises:
+        InvalidHandlerSignatureError: If the annotation isn't the exact expected type.
+    """
+    if request_annotation != expected_request_type:
+        issue = (
+            f"__call__ parameter must annotate the exact {kind} class declared in "
+            f"{declaration_name}[...]: expected {_qualified_name(expected_request_type)}, "
+            f"got {_qualified_name(request_annotation)}"
+        )
+        if isinstance(request_annotation, type) and issubclass(
+            expected_request_type, request_annotation
+        ):
+            issue += (
+                f" (a base class of {expected_request_type.__name__}). PyMediate dispatches "
+                f"on the exact {kind} class, so a broader annotation is not accepted even "
+                "though static type checkers allow it"
+            )
+        raise errors.InvalidHandlerSignatureError(cls, issue)
+
+
 def _validate_call_signature(
     cls: type,
     expected_request_type: type,
@@ -48,10 +151,7 @@ def _validate_call_signature(
     Raises:
         TypeError: If the signature doesn't match expectations
     """
-    if "__call__" not in cls.__dict__:
-        raise errors.InvalidHandlerSignatureError(cls, "must implement __call__ method")
-
-    call_method = cls.__dict__["__call__"]
+    call_method = _require_call_method(cls)
 
     # Check if it's async when it should be (or vice versa)
     if is_async and not inspect.iscoroutinefunction(call_method):
@@ -63,52 +163,10 @@ def _validate_call_signature(
             cls, "__call__ must be sync (remove 'async' from 'def __call__')"
         )
 
-    sig = inspect.signature(call_method)
-
-    # Validate parameters
-    params = list(sig.parameters.values())
-    if len(params) != 2:  # self, request
-        raise errors.InvalidHandlerSignatureError(
-            cls,
-            f"__call__ must accept exactly one parameter (besides self), got {len(params) - 1}",
-        )
-
-    request_param = params[1]  # Skip 'self'
-    if request_param.annotation == inspect.Parameter.empty:
-        raise errors.InvalidHandlerSignatureError(
-            cls, "__call__ request parameter must have type annotation"
-        )
-
-    # Validate return type is present
-    if sig.return_annotation == inspect.Signature.empty:
-        raise errors.InvalidHandlerSignatureError(cls, "__call__ must have return type annotation")
-
-    # Resolve string/forward-ref annotations, e.g. under `from __future__ import
-    # annotations` (PEP 563), where signature annotations are stored as strings.
-    # If resolution fails (a name that isn't importable in the method's module),
-    # fall back to the raw annotations so the comparison below reports the mismatch.
-    try:
-        hints = get_type_hints(call_method)
-    except Exception:
-        hints = {}
-    request_annotation = hints.get(request_param.name, request_param.annotation)
-    return_annotation = hints.get("return", sig.return_annotation)
-
-    if request_annotation != expected_request_type:
-        issue = (
-            f"__call__ parameter must annotate the exact {kind} class declared in "
-            f"{declaration_name}[...]: expected {_qualified_name(expected_request_type)}, "
-            f"got {_qualified_name(request_annotation)}"
-        )
-        if isinstance(request_annotation, type) and issubclass(
-            expected_request_type, request_annotation
-        ):
-            issue += (
-                f" (a base class of {expected_request_type.__name__}). PyMediate dispatches "
-                f"on the exact {kind} class, so a broader annotation is not accepted even "
-                "though static type checkers allow it"
-            )
-        raise errors.InvalidHandlerSignatureError(cls, issue)
+    request_annotation, return_annotation = _resolve_call_annotations(cls, call_method)
+    _validate_request_annotation(
+        cls, request_annotation, expected_request_type, kind=kind, declaration_name=declaration_name
+    )
 
     if return_annotation != expected_response_type:
         raise errors.ResponseTypeMismatchError(cls, expected_response_type, return_annotation)

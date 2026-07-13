@@ -3,10 +3,12 @@
 The top-level package is the async API; `pymediate.sync` is its structural
 mirror. These tests pin the contract so future top-level additions can't
 drift: every public name exists on both sides, shared names are the identical
-object, and only the four intentional variants differ.
+object, and only the intentional variants differ.
 """
 
 import inspect
+from collections.abc import AsyncIterator, Iterator
+from typing import get_origin, get_type_hints
 
 import pytest
 
@@ -14,8 +16,19 @@ import pymediate
 import pymediate.sync
 
 # The only names allowed to differ between the two namespaces: each side has
-# its own handler/mediator/behavior classes. Everything else is shared.
-INTENTIONAL_VARIANTS = frozenset({"RequestHandler", "EventHandler", "Mediator", "PipelineBehavior"})
+# its own handler/mediator/behavior classes, plus the `Next` continuation alias
+# (async resolves to Callable[[], Awaitable[T]], sync to Callable[[], T]).
+# Everything else is shared.
+INTENTIONAL_VARIANTS = frozenset(
+    {
+        "RequestHandler",
+        "EventHandler",
+        "StreamRequestHandler",
+        "Mediator",
+        "PipelineBehavior",
+        "Next",
+    }
+)
 
 
 def test_sync_all_mirrors_top_level_all() -> None:
@@ -48,6 +61,24 @@ def test_variants_split_async_and_sync() -> None:
     for method in ("send", "publish"):
         assert inspect.iscoroutinefunction(getattr(pymediate.Mediator, method))
         assert not inspect.iscoroutinefunction(getattr(pymediate.sync.Mediator, method))
+
+
+def test_stream_variants_split_async_and_sync() -> None:
+    """Stream handlers/method split by iterator kind, not coroutine-ness.
+
+    A stream handler's __call__ is a generator (async-gen on the async side, plain
+    generator on the sync side), and Mediator.stream returns the iterator directly -
+    neither is a coroutine function, so the split shows up in the return annotation.
+    """
+    async_call_return = get_type_hints(pymediate.StreamRequestHandler.__call__)["return"]
+    sync_call_return = get_type_hints(pymediate.sync.StreamRequestHandler.__call__)["return"]
+    assert get_origin(async_call_return) is AsyncIterator
+    assert get_origin(sync_call_return) is Iterator
+
+    async_stream_return = get_type_hints(pymediate.Mediator.stream)["return"]
+    sync_stream_return = get_type_hints(pymediate.sync.Mediator.stream)["return"]
+    assert get_origin(async_stream_return) is AsyncIterator
+    assert get_origin(sync_stream_return) is Iterator
 
 
 def test_aio_namespace_is_gone() -> None:

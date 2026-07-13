@@ -5,6 +5,7 @@
     "handlers",
     "mediator",
     "events",
+    "streaming",
     "pipeline-behaviors",
     "dependency-injection",
     "dataclasses",

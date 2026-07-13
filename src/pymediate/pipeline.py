@@ -9,9 +9,49 @@ See Also:
 
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import Any, ClassVar, get_args, get_origin
+from typing import Any, ClassVar, TypeVar, get_args, get_origin
 
 from .request import Request
+
+type Next[ResponseT] = Callable[[], Awaitable[ResponseT]]
+"""The continuation handed to a behavior's ``__call__``.
+
+Awaiting it runs the rest of the pipeline - the remaining behaviors and, finally,
+the handler - and yields the response. ``ResponseT`` is the response type the
+behavior expects back; annotate it concretely (``Next[UserResponse]``) to keep the
+call site typed, or ``Next[Any]`` for a universal behavior that passes the response
+through untouched.
+
+See Also:
+    - pymediate.sync.Next: Synchronous variant (``Callable[[], ResponseT]``)
+"""
+
+
+def _resolve_request_type(cls: type) -> Any:
+    """Find the type argument that fills ``PipelineBehavior``'s parameter for ``cls``.
+
+    Walks intermediate generic bases (e.g. a reusable ``Behavior[RequestT]`` layer) and
+    substitutes their type variables, so ``class Scoped(Behavior[Foo])`` resolves to ``Foo``.
+    Returns the base's own parameter (a ``TypeVar``) when the behavior is left generic; the
+    caller turns that into a universal match.
+    """
+    for base in getattr(cls, "__orig_bases__", ()):
+        origin = get_origin(base)
+        if origin is PipelineBehavior:
+            args = get_args(base)
+            return args[0] if args else Request
+        if isinstance(origin, type) and issubclass(origin, PipelineBehavior):
+            inner = _resolve_request_type(origin)
+            if isinstance(inner, TypeVar):
+                params = getattr(origin, "__type_params__", ()) or getattr(
+                    origin, "__parameters__", ()
+                )
+                mapping = dict(zip(params, get_args(base), strict=False))
+                return mapping.get(inner, inner)
+            return inner
+        if isinstance(base, type) and issubclass(base, PipelineBehavior):
+            return _resolve_request_type(base)
+    return Request
 
 
 class PipelineBehavior[RequestT: Request[Any]](ABC):
@@ -39,13 +79,13 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     Examples:
         Universal async behavior (applies to all requests):
             ```python
-            from pymediate import PipelineBehavior, Request
+            from pymediate import Next, PipelineBehavior, Request
 
             class AsyncLoggingBehavior(PipelineBehavior[Request]):
                 async def __call__(
                     self,
                     request: Request,
-                    next: Callable[[], Awaitable[Any]]
+                    next: Next[Any]
                 ) -> Any:
                     await log_to_database(f"Handling: {type(request).__name__}")
                     response = await next()
@@ -66,7 +106,7 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                 async def __call__(
                     self,
                     request: CacheableMixin,
-                    next: Callable[[], Awaitable[Any]]
+                    next: Next[Any]
                 ) -> Any:
                     # Check cache
                     cached = await self.cache.get(request.cache_key)
@@ -88,7 +128,7 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
                 async def __call__(
                     self,
                     request: CreateOrderRequest,
-                    next: Callable[[], Awaitable[Any]]
+                    next: Next[Any]
                 ) -> Any:
                     async with self.db.transaction():
                         return await next()
@@ -127,13 +167,13 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Resolve and cache the behavior's request type when a subclass is defined."""
         super().__init_subclass__(**kwargs)
-        request_type: Any = Request
-        for base in getattr(cls, "__orig_bases__", []):
-            if get_origin(base) is PipelineBehavior:
-                args = get_args(base)
-                if args:
-                    request_type = args[0]
-                    break
+        request_type = _resolve_request_type(cls)
+        # A behavior left generic (registered without narrowing, e.g. a reusable base used
+        # directly) resolves to a TypeVar - fall back to its bound so it matches universally
+        # instead of raising in should_apply's isinstance() check.
+        if isinstance(request_type, TypeVar):
+            bound = request_type.__bound__
+            request_type = bound if bound is not None else Request
         cls.__request_type__ = request_type
         # A subscripted generic like Request[Any] has no isinstance()/type() meaning of
         # its own - match against its origin (Request) instead.
@@ -183,13 +223,14 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     async def __call__(
         self,
         request: RequestT,
-        next: Callable[[], Awaitable[Any]],
+        next: Next[Any],
     ) -> Any:
         """Execute the behavior's async logic and await next to continue the pipeline.
 
         Args:
             request: The request being processed (typed as RequestT)
-            next: Async callable that invokes the next behavior or handler in the chain
+            next: Async continuation that invokes the next behavior or handler in
+                the chain; annotate it as ``Next[YourResponse]`` to type the call site
 
         Returns:
             The response from the handler (type not statically known)
@@ -206,5 +247,6 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
 
 
 __all__ = [
+    "Next",
     "PipelineBehavior",
 ]

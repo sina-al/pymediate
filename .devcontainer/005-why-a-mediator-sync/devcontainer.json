@@ -1,0 +1,19 @@
+{
+    "name": "pymediate example: 005-why-a-mediator-sync",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    },
+    "postCreateCommand": "cd examples/005-why-a-mediator-sync && uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/005-why-a-mediator-sync/.venv/bin/python"
+            }
+        }
+    }
+}

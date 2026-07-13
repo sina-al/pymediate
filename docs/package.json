@@ -8,10 +8,13 @@
     "dev": "next dev",
     "start": "serve out",
     "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "check": "pnpm run lint && pnpm run types:check",
+    "clean": "rm -rf out .next",
     "postinstall": "fumadocs-mdx",
     "lint": "oxlint"
   },
   "dependencies": {
+    "@giscus/react": "^3.1.0",
     "@orama/orama": "^3.1.18",
     "cnfast": "^0.0.8",
     "fumadocs-core": "16.10.7",
@@ -19,6 +22,7 @@
     "fumadocs-ui": "16.10.7",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
+    "next-themes": "^0.4.6",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "zod": "^4.4.3"

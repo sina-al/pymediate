@@ -1,10 +1,9 @@
 """Behavior authoring and typed dispatch through the mediator - should pass mypy."""
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate.sync import Mediator, Next, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -26,9 +25,7 @@ class CreateUserHandler(RequestHandler[CreateUserRequest]):
 
 class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
     @override
-    def __call__(
-        self, request: CreateUserRequest, next: Callable[[], UserResponse]
-    ) -> UserResponse:
+    def __call__(self, request: CreateUserRequest, next: Next[UserResponse]) -> UserResponse:
         print(f"Before: {request.username}")
         response = next()
         print(f"After: {response.user_id}")

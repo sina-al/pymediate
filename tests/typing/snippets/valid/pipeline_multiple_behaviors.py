@@ -1,10 +1,9 @@
 """Multiple typed behaviors around one handler - type inference should work correctly."""
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import override
 
-from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate.sync import Mediator, Next, PipelineBehavior, Request, RequestHandler, Services
 
 
 @dataclass
@@ -29,7 +28,7 @@ class LoggingBehavior(PipelineBehavior[CreateOrderRequest]):
     def __call__(
         self,
         request: CreateOrderRequest,
-        next: Callable[[], OrderResponse],
+        next: Next[OrderResponse],
     ) -> OrderResponse:
         print(f"Logging: {len(request.items)} items")
         return next()
@@ -40,7 +39,7 @@ class TimingBehavior(PipelineBehavior[CreateOrderRequest]):
     def __call__(
         self,
         request: CreateOrderRequest,
-        next: Callable[[], OrderResponse],
+        next: Next[OrderResponse],
     ) -> OrderResponse:
         print("Timing started")
         response = next()
@@ -53,7 +52,7 @@ class ValidationBehavior(PipelineBehavior[CreateOrderRequest]):
     def __call__(
         self,
         request: CreateOrderRequest,
-        next: Callable[[], OrderResponse],
+        next: Next[OrderResponse],
     ) -> OrderResponse:
         if not request.items:
             raise ValueError("No items")

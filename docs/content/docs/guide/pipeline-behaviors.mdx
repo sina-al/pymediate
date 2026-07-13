@@ -18,17 +18,18 @@ Response ← Behavior 1 ← Behavior 2 ← Behavior 3 ← RequestHandler
 A behavior inherits from `PipelineBehavior` and implements `__call__` with two parameters — the request, and `next`, a callable that continues the pipeline:
 
 ```python
-from collections.abc import Awaitable, Callable
 from typing import Any
-from pymediate import Request, PipelineBehavior
+from pymediate import Next, Request, PipelineBehavior
 
 class MyBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request: Request, next: Callable[[], Awaitable[Any]]) -> Any:
+    async def __call__(self, request: Request, next: Next[Any]) -> Any:
         print(f"Before: {type(request).__name__}")   # pre-processing
         response = await next()                       # continue the chain
         print(f"After: {type(response).__name__}")   # post-processing
         return response
 ```
+
+`Next[ResponseT]` is a public alias for the pipeline continuation — `Callable[[], Awaitable[ResponseT]]` in async behaviors (`from pymediate import Next`), `Callable[[], ResponseT]` in [sync](#sync-behaviors) ones (`from pymediate.sync import Next`). Use `Next[Any]` for a universal behavior; name the response — `Next[UserResponse]` — when a behavior works with a specific one.
 
 <Callout type="warning" title="Always call next() — unless you mean not to">
   `next()` is the rest of the pipeline: the remaining behaviors and, ultimately, the handler. If a

@@ -80,15 +80,17 @@ from .errors import (
     InvalidEventTypeError,
     InvalidHandlerSignatureError,
     InvalidRequestTypeError,
+    InvalidStreamRequestTypeError,
     PyMediateError,
     ResponseTypeMismatchError,
 )
 from .event import Event, EventHandler
 from .handler import RequestHandler
 from .mediator import Mediator
-from .pipeline import PipelineBehavior
+from .pipeline import Next, PipelineBehavior
 from .request import Request
 from .service import ServiceNotFoundError, ServiceProvider, Services
+from .stream import StreamRequest, StreamRequestHandler
 
 __all__ = [
     "Request",
@@ -97,12 +99,16 @@ __all__ = [
     # Events
     "Event",
     "EventHandler",
+    # Streaming
+    "StreamRequest",
+    "StreamRequestHandler",
     # Service Provider
     "ServiceProvider",
     "Services",
     "ServiceNotFoundError",
     # Pipeline
     "PipelineBehavior",
+    "Next",
     # Errors
     "PyMediateError",
     "HandlerNotFoundError",
@@ -110,6 +116,7 @@ __all__ = [
     "InvalidHandlerSignatureError",
     "InvalidRequestTypeError",
     "InvalidEventTypeError",
+    "InvalidStreamRequestTypeError",
     "ResponseTypeMismatchError",
 ]
 

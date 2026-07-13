@@ -103,13 +103,13 @@ curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"titl
   (`ClickException`). Try it: `uv run taskboard complete 999`.
 - The FastAPI endpoints here are plain `def` functions because the core is synchronous
   (FastAPI runs them in a threadpool). The async mirror of this whole example —
-  same domain, `async def` end to end — is [adapters-async](../adapters-async/).
+  same domain, `async def` end to end — is [adapters](../adapters/).
 - The store is in memory, so every app instance and every CLI invocation starts empty.
   The tests lean on that for isolation.
 
 ## Where next
 
-- [adapters-async](../adapters-async/) — this example's async twin (FastAPI `async def`,
+- [adapters](../adapters/) — this example's async twin (FastAPI `async def`,
   aiohttp, asyncclick).
 - [basic-sync](../basic-sync/) — the same core pattern at its smallest, if this felt
   like too much at once.
