@@ -1,23 +1,25 @@
 ---
 title: Nobody wants to touch that code
-description: A story about how a codebase becomes untouchable — one reasonable commit at a time — and what it takes to put a seam in.
+description: How a growing Python application becomes hard to change, and the small steps that make it approachable again.
 date: 2026-07-09
 author: sina-al
 ---
 
 I've watched the same scene play out on more than one team.
 
-Someone decides to finally make the improvement everyone agrees is needed. Morale is high. They've read the code, they've scoped the work, it looks like two days. They start, and things go well — until the change they're making turns out to need another change first. Fine; that one's small too. But *that* change needs a third, and the third needs a fourth, and somewhere around the fifth the diff has spread across half the codebase and touched things they don't understand and can't safely test. The original goal is still visible, but it's at the bottom of a staircase that keeps growing new steps.
+Someone picks up an improvement everyone wants. It looks like two days. They start work and discover that the first change needs another change underneath it. That one needs a third. Soon the diff has crossed into code they don't understand, tests they don't trust, and configuration nobody has touched since the person who wrote it left.
 
-And then the quiet thing happens: they stop. Not because they were wrong about the improvement — everyone still agrees it's the right thing — but because the cost has become unknowable. The branch goes stale. The ticket drifts to the bottom of the backlog with a comment like *"bigger than expected, needs a design discussion."* Six months later somebody new proposes the same improvement, and someone who remembers says: careful, we tried that.
+The original change is still reasonable. The path to it isn't.
 
-That's the moment a codebase becomes untouchable. Nothing dramatic marks it. No single commit caused it. But from then on, velocity only goes down, initiative only gets rarer, and the best engineers start finding reasons to work on something greener.
+So the branch goes stale. The ticket returns to the backlog with a note saying it needs more design work. Six months later, somebody proposes the same improvement. Someone who remembers says: careful, we tried that.
 
-I used to think this was just what happens to software — entropy, as inevitable as rust. I don't think that anymore. This essay is the story of how a codebase gets there, told through an application that could be any of ours, and the small, old idea that gives it a way out.
+That's how a codebase becomes untouchable. It rarely looks terrible. The individual functions may be clean. The problem is how much unrelated knowledge a person must gather before changing one of them.
+
+It did not begin that way.
 
 ## Where it starts
 
-Nobody sets out to build the codebase nobody wants to touch. It starts like this:
+Here is the first endpoint in a small shop:
 
 ```python title="app.py"
 from flask import Flask, jsonify, request
@@ -35,28 +37,26 @@ def place_order():
     return jsonify(id=order.id), 201
 ```
 
-I want to be clear about something before we go any further: **this code is right.** It's direct, it's readable, a new hire understands it in one sitting, and it will serve a small application faithfully for years. If your whole codebase looks like this and is going to stay this size, you don't need this essay, and you certainly don't need another dependency. The function call is the correct tool.
+**This code is right.** The route receives input, does the work, and returns a response. A new developer can understand the feature without first learning how the whole application is arranged.
 
-The story isn't about a mistake in this file. That's what makes the story worth telling — nothing that follows is a mistake either, exactly. Watch what happens.
-
-## One reasonable commit at a time
-
-The shop grows. Refunds arrive as a requirement, and refunds need the payment provider and a confirmation email — too much to keep in a route. So the logic moves into its own module, the most Pythonic refactor there is:
+Then the shop grows. Placing an order starts checking stock, taking payment, and sending a confirmation email. Refunds arrive. Customers ask for invoices and exports. Keeping all of that inside the routes makes them harder to scan, so the order logic moves into a module:
 
 ```python title="orders/service.py"
 from db import session
+from inventory import stock_levels
 from mail import mailer
 from payments import payment_client
 
 def place_order(items, customer_id): ...
-def refund(order_id, amount): ...
+def cancel_order(order_id): ...
+def refund_order(order_id, amount): ...
 ```
 
-Textbook cleanup. What the module needs, imported at the top; what it does, defined below; both routes call `refund()` and stop disagreeing about edge cases.
+The routes become small again. Several routes can share the same rules. The module gives the order feature a clear home.
 
-A wholesale customer asks for invoices, so `from documents import pdf_renderer` joins the imports. The biggest customer asks for a CSV export of their order history. Inventory checks arrive, then currency conversion, then an audit trail — and each one adds its line at the top, because the top of the file is where this file is honest about what it needs. Two years of diffs later:
+More work collects there:
 
-```python title="orders/service.py — two years later"
+```python title="orders/service.py — later"
 from audit import audit_log
 from currency import exchange_rates
 from db import session
@@ -67,163 +67,260 @@ from payments import payment_client
 
 def place_order(items, customer_id): ...
 def cancel_order(order_id): ...
-def refund(order_id, amount): ...
+def refund_order(order_id, amount): ...
 def invoice_pdf(order_id): ...
 def monthly_statement(customer_id): ...
 def export_orders(customer_id, fmt="csv"): ...
-# ...nine more
 ```
 
-Somewhere in year two, the first circular import shows up. Refunds need to adjust store credit, which lives in `customers`; customer deletion needs to check open orders, which lives in `orders`. Python won't allow the cycle at module level, so the import moves inside the function, wearing the comment every growing codebase eventually writes:
+Every import supports a real requirement. Every function concerns orders. The file still has a clear theme.
 
-```python title="orders/service.py"
-def refund(order_id, amount):
-    # imported here to avoid a circular import
-    from customers.service import adjust_store_credit
-    ...
-```
-
-Note what that diff actually does. The dependency isn't gone — refunds still reach into `customers` on every call. It's just no longer written at the top of the file, which is to say: the one honest ledger this module kept has started omitting entries.
-
-The test file tells the same story from the other side. Testing `refund` runs into a fact about Python so ordinary that nobody ever says it out loud: you don't construct a module. Python does — once, the first time anyone imports anything from it, wired to exactly what the import block says. There is no way to build a second `orders.service` connected to fakes. So the tests do the only thing left, which is to reach into the finished module and swap out its organs:
-
-```python title="tests/test_orders.py"
-@patch("orders.service.audit_log")
-@patch("orders.service.exchange_rates")
-@patch("orders.service.mailer")
-@patch("orders.service.payment_client")
-@patch("orders.service.session")
-def test_refund_converts_currency(session, payments, mailer, rates, audit):
-    ...
-```
-
-One decorator per collaborator, and beneath the tower a `conftest.py` that builds "the world" — config, app context — because merely importing the module demands one. The suite still passes; it just verifies less every month, as the assertions drift from *what the code did* to *which mocks got called*. Nobody decides this either. But if you want a single early-warning instrument for everything in this essay, it's the moment setting up a test starts taking longer than writing the code it tests.
-
-Notice what *didn't* happen in this section. Nobody made a bad decision. Every one of those diffs was the smallest change that could satisfy its requirement — the kind a good reviewer approves in five minutes. Extracting the module *was* the right call; the deferred import *did* fix the build, and shipping mattered that day. Nobody designed this system. It *emerged*, from two years of individually sensible choices:
-
-<TangleDiagram />
-
-The modules are the same handful you'd have drawn on a whiteboard on day one; what grew is the knowledge between them — who imports whom, and by year three, in which order, because some of it now points both ways. And there's a mechanism the diagram can't show, sitting under everything that follows: those edges don't come à la carte. Importing *one name* from a module runs the *whole file* — every line of the import block, then every line of theirs, before the function you asked for even exists. You cannot ask Python for `export_orders` by itself; you summon the module, whole. Pick any function below and try to buy less:
+But the functions do different work. Select one below and look at which imports it uses:
 
 <BlastRadiusDiagram />
 
-Whichever function you choose, the bill is the same. The mailer loads for the export that will never send an email — it's along for the ride because `place_order` once wanted a confirmation. Nobody chose that either; it's just what `import` does, and by year three it's load-bearing.
+`export_orders()` only uses the database session. `invoice_pdf()` needs the session and PDF renderer. Placing an order needs stock, payment, mail, and the session.
 
-## The day the bill arrives
+Python still creates the module as one object. The first time anything imports `orders.service`, Python runs every import at the top. Asking for the export brings the payment client and mailer into the process even though the export never calls them.
 
-Here's the ticket that starts our opening scene: *"Order export times out for our largest customer."* Of course it does — the export walks every order, and the largest customer now has four years of them. The fix is obvious and everyone agrees on it: move the export out of the request cycle into a background worker, email a download link when it's done. A day of work, maybe two.
+That may be harmless for years. It becomes noticeable when one operation needs to go somewhere the rest of the module does not.
 
-The engineer starts. The worker needs to run the export, so it imports `orders.service` — and that one line runs the whole import block: the payment client, the mailer, the PDF renderer, none of which exporting needs. Two of those modules read their settings from `current_app.config` *at import time*, and `current_app` only exists inside a Flask application context, so the worker can't even *import* the code without standing up a fake app first. The export itself reaches for `g.current_user` to check permissions — the *request* is who knows the user, and there is no request in a worker. And the session at the top of the file is request-scoped, torn down by the framework; the worker needs its own lifecycle for it, which means changing the one line every other function in the module shares.
+## The part that needs to move
 
-<CascadeDiagram />
+One customer now has enough orders for the export endpoint to time out. The team decides to run it in a background worker and return immediately from HTTP.
 
-The task was "run this one operation somewhere else." Each step of the staircase was invisible from the top of the stairs; each was discovered only after committing to the previous one. That's what makes the estimate wrong — not optimism, geometry. And that's the shape that breaks people: not the total cost, but the way it *compounds while you're already inside it*.
+The export rules are unchanged. Read the customer's order history, render a file, store it, and return a location. Only the place where the code runs is changing.
 
-The costlier version of this moment happens in a meeting. The engineer comes back with the news: the two-day estimate is now "maybe three weeks, and I'm not confident." To a product manager that sentence is incomprehensible — the feature already *exists*; the ask was to run it somewhere else. Nobody in the room has language for "the export is load-bearing for reasons that have nothing to do with exporting," so the revised estimate just sounds like sandbagging. Some trust quietly leaves the room. Do this a few times and estimates stop being believed in general — and that's when the folklore starts: *careful, that area is cursed, we tried that once.* This is how a codebase becomes the one nobody wants to touch. It doesn't arrive with a bang. It arrives as a calendar invite.
+The worker imports `export_orders`. That loads the payment client, mailer, PDF renderer, stock service, exchange rates, and audit log. Some read web configuration while they load. The worker has no web application, so code unrelated to exporting can stop the import before the export runs.
 
-This pattern has formal names. Martin Fowler's refactoring catalog calls the symptom *shotgun surgery* — one conceptual change, edits scattered everywhere. John Ousterhout, in *A Philosophy of Software Design*, calls it *change amplification*: the gap between the size of a change's intent and the size of its implementation. The names matter for one reason: if it has a name in the literature, it isn't a defect of your team.
+The first improvement is simply to give the export its own module:
 
-I'll tell you how a version of this ended on a project I worked on, because the ending is the honest part. Faced with exactly this staircase — an endpoint whose logic needed to become asynchronous, welded to its framework — we judged the extraction too risky. So we didn't extract it. We configured the message queue to deliver its messages *by HTTP push, back to the public endpoint*. The internal background work would enter through the front door like any other user. It shipped, and it worked — until the queue retried a burst of messages and the rate limiter, sitting in front of the public ingress and doing exactly its job, started throttling our own plumbing. Our infrastructure was DDoS-ing itself, politely, through the WAF. I've made peace with my share of hacks, but that one taught me something: **the coupling didn't just make the right change expensive — it made the wrong change cheap.**
+```python title="orders/export.py"
+from dataclasses import dataclass
 
-Multiply this by an industry. Stripe once surveyed over a thousand developers and put the number at roughly [42% of engineering time](https://stripe.com/files/reports/the-developer-coefficient.pdf) spent on maintenance, technical debt, and bad code — seventeen hours of every week, not building anything. That's the staircase when it stops being an anecdote and becomes a line item.
+from db import session
+from files import file_store
 
-## Easy is not simple
+@dataclass
+class ExportOrders:
+    customer_id: int
+    fmt: str = "csv"
 
-There's a talk I keep coming back to when I think about how that codebase got there: Rich Hickey's [*Simple Made Easy*](https://www.infoq.com/presentations/Simple-Made-Easy/). Its central move is to pull apart two words we use interchangeably.
+@dataclass
+class ExportResult:
+    url: str
+    rows: int
 
-*Simple*, he points out, comes from *simplex* — one fold, one braid. Simplicity is about structure: one thing, unentangled from other things. Which makes it objective — you can look at a system and see what's braided together. *Easy* comes from a root meaning *adjacent*, to lie near. Ease is about distance: near at hand, near our habits, near what we already know. Which makes it relative — easy *for whom?* And for what programmers do to systems, he found the perfect word in an old corner of the dictionary: **complect** — to interleave, entwine, braid together.
-
-Now rewind the story with those definitions in hand. Every choice was the *easy* one — genuinely, defensibly easy: the nearest diff, the familiar tool, the change shippable by Friday. And almost every one of them *complected* something: the export logic with the module, the module with the framework, the config with the import, orders with customers, both ways. Even my message-queue hack — the "simple option," one config change, no refactoring — braided internal message delivery into the public ingress, the WAF, and the rate limiter, three things the retry storm forced us to reason about *together*. Nothing about the results is simple. They are braids. **We reached for the near thing and called it the simple thing, and the two words let us believe they were the same.**
-
-Hickey's warning about where that leads is blunt: "if you ignore complexity, you will slow down. You will invariably slow down over the long haul." The early speed of the entangled codebase is borrowed — an advance on velocity that gets repaid, with interest, by whoever climbs the staircase later. Usually us. None of this is an accusation; choosing the near thing under deadline is what reasonable people do, and I did it in every story above. The point of the vocabulary is that you can't *choose* simplicity until you can see it as a separate axis from ease. Once you can, the question changes from "what's the fastest diff?" to "what does this diff braid together?"
-
-## The class act
-
-Ask that question of the orders module and the answers keep landing in the same place. The export got braided to the mailer it never uses because the *module* imports the mailer. The module got braided to the framework because two of its dependencies read `current_app` the moment they load. Every strand runs through the import block, because reaching out and grabbing things is the only way a module can be wired. Which points at a fix, and every growing Python codebase eventually arrives at it: stop reaching out — have the dependencies *handed in*. A module can't accept arguments, but a class can. Looked at sideways, that's all a class is here: a module you're finally allowed to construct. The import block becomes an `__init__` signature, the functions become methods, and suddenly there can be more than one of it, each wired however its situation demands:
-
-```python title="orders/service.py — take two"
-class OrderService:
-    def __init__(self, session, payments, mailer):
-        self._session = session
-        self._payments = payments
-        self._mailer = mailer
-
-    def place_order(self, items, customer_id): ...
-    def refund(self, order_id, amount): ...
+def export_orders(request: ExportOrders) -> ExportResult:
+    rows = session.orders_for(request.customer_id)
+    content = render(rows, request.fmt)
+    url = file_store.write(content)
+    return ExportResult(url=url, rows=len(rows))
 ```
 
-I want to be fair to this refactor, because it delivers. The tests transform overnight — no patch tower, no app-context fixture; construct it with fakes and call it. The worker is unblocked, because it can finally build an `OrderService` of its own, with its own session lifecycle. The import-time config reads disappear, because construction now happens at startup, on purpose. The module's defining flaw was that nobody gets to construct it; the class fixes exactly that flaw — and on the teams I've watched make this move, it bought real peace. For about two years.
+This is still a module and a function. It still imports real implementations. What changed is its boundary.
 
-Because the class attracts its feature's work exactly the way the module did:
+The export now travels with the two things it uses rather than every dependency of the order feature. It accepts a customer ID instead of reaching into `g.current_user`, so the caller supplies the identity in whatever form it received it.
 
-```python title="orders/service.py — two more years later"
-class OrderService:
-    def __init__(self, session, payments, mailer, pdf_renderer,
-                 stock_levels, exchange_rates, audit_log):
-        ...
-    # fifteen methods
+The HTTP route translates an HTTP request:
+
+```python title="app.py"
+@app.post("/orders/export")
+def export_orders_route():
+    export = ExportOrders(customer_id=g.current_user.id)
+    result = export_orders(export)
+    return jsonify(url=result.url), 202
 ```
 
-The patch tower is gone; in its place, tests that build seven fakes to exercise a method that uses two of them. And the callers have a new job. Anything that wants `refund()` must now *construct* an `OrderService` — or be handed one by something that knows how — so the knowledge of those seven collaborators no longer lives in one import block; it lives in every corner of the codebase that needs any single thing the service does. When `OrderService` needs store credit, it takes a `CustomerService` in its constructor; `CustomerService` needs open orders; and there's the year-two cycle again, reborn in constructor arguments.
+The worker translates a queue message:
 
-I can point at the review where this stopped looking like progress to me. The diff was a worker that needed one method — the export — and its setup, quite correctly, built the whole seven-dependency service to get it. There was nothing to push back on: the code was right; the design made it right. So the comment came out as a genuine question — *why does this worker know what a PDF renderer is?* — and the genuine answer was: because in this codebase, the only way to hold one operation is to hold the machine it's mounted in. Sitting with that comment, I could finally see the shape of the whole story. The knowledge I'd been calling coupling hadn't been decreasing; it had been *relocating* — out of the import block, into the constructor, one container to the next. And if moving the knowledge around wasn't working, there was one move we hadn't tried: making the thing that must be known *smaller*.
+```python title="worker.py"
+def handle_message(message):
+    export_orders(ExportOrders(**message.body))
+```
 
-## Smaller and smaller
+Flask stays in the route. The queue library stays in the worker. The export input belongs to neither, so both callers can construct it.
 
-So it shrinks — not by grand redesign, but the way everything else in this story happened: one reasonable diff at a time. Someone gets tired of faking seven collaborators to test a method that touches two; someone's worker builds a renderer it never runs; and the next refactor peels a clutch of operations off into a home of their own. `InvoiceService` takes the renderer and the mailer. `ExportService` takes the session and file storage. The line of the split matters: not by database table, not alphabetically — by *what changes together*.
+Nothing here depends on the module being tiny for its own sake. The useful boundary comes from keeping together the code that performs one business operation and excluding code that belongs to other operations.
 
-There are two old words for what just got better, and this is the refactor where they stop being abstract. *Coupling* is felt from the outside: everything a caller is forced to hold in order to reach the one thing it wants. *Cohesion* is felt from the inside: how much of what shares a home actually belongs together. The god service was the low point of both at once — every caller holding fifteen operations to use one, and fifteen operations cohabiting because they all had *orders* somewhere in the name. Each split moves both needles:
+The worker can now import the export without taking payment and email code with it. Whether it can run the function depends on the two implementations still imported by `orders/export.py`. That is the next problem.
+
+## The thing that needs to change
+
+The new worker needs a database connection with a different lifetime from the web request. Later, the shop may move exports to a different storage provider. In both cases, `orders/export.py` imports a particular implementation before the caller gets a say.
+
+We could pass the database session and file store into the function on every call:
+
+```python
+result = export_orders(export, session, file_store)
+```
+
+That makes them replaceable, but it also makes every caller responsible for carrying them. The export always needs the same two objects, so we can supply them once:
+
+```python title="orders/export.py"
+class OrderExporter:
+    def __init__(self, history, destination):
+        self._history = history
+        self._destination = destination
+
+    def __call__(self, request: ExportOrders) -> ExportResult:
+        rows = self._history.for_customer(request.customer_id)
+        content = render(rows, request.fmt)
+        url = self._destination.write(content)
+        return ExportResult(url=url, rows=len(rows))
+```
+
+The class stores the two objects between calls. That is the job it adds. Startup constructs the class; routes and workers only provide `ExportOrders`.
+
+There is one more useful step. The export does not need every method on a database session or a storage SDK. It needs to read order history and write an export. Python lets us describe those small shapes:
+
+```python title="orders/export.py"
+from typing import Protocol
+
+class OrderHistory(Protocol):
+    def for_customer(self, customer_id: int) -> list[OrderRow]: ...
+
+class ExportDestination(Protocol):
+    def write(self, content: bytes) -> str: ...
+```
+
+The constructor can now say exactly what the operation uses:
+
+```python title="orders/export.py"
+class OrderExporter:
+    def __init__(self, history: OrderHistory, destination: ExportDestination) -> None:
+        self._history = history
+        self._destination = destination
+
+    def __call__(self, request: ExportOrders) -> ExportResult:
+        rows = self._history.for_customer(request.customer_id)
+        content = render(rows, request.fmt)
+        url = self._destination.write(content)
+        return ExportResult(url=url, rows=len(rows))
+```
+
+Startup chooses the real implementations:
+
+```python title="bootstrap.py"
+order_exporter = OrderExporter(
+    history=StoredOrderHistory(worker_database),
+    destination=DownloadFiles(storage_client),
+)
+```
+
+A test can supply small in-memory objects. A web process can supply an `OrderHistory` built around its database connection. The worker can supply another with the lifetime it needs. A new storage provider requires a new `ExportDestination`, while the export rules stay untouched.
+
+The `Protocol` classes do not perform any runtime work. They record the narrow agreement between the export and the objects supplied to it. The freedom comes from the export using only that agreement and from startup choosing the real objects.
+
+The two changes together give the export two kinds of freedom:
+
+- its plain input keeps Flask and the queue outside the operation, while supplied dependencies let each process use objects with the right lifetime;
+- its database and storage products can change by supplying new objects that meet the same small descriptions.
+
+The two improvements reinforce each other, but they solve different problems.
+
+## The unusual result
+
+The same approach can be applied to another operation when it starts resisting change.
+
+Placing an order uses inventory, payment, order storage, and notifications. Creating an invoice uses order data and a renderer. Refunding an order has its own input and rules.
 
 <SplitDiagram />
 
-And the picture has a direction: every panel to the right, the classes get smaller — and the callers get freer. The worker that once knew seven dependencies knows two. The test that once built seven fakes builds two. Follow the trend and it becomes a law you can lean on: **the smaller the class, the less its callers are coupled to.** Which is why the splitting, once it starts paying, sails right past where anyone intends to stop, and doesn't rest until every class holds exactly one operation:
+Code that uses the same things and changes together remains together. Code that only shared the word "order" no longer has to travel as one unit.
 
-```python title="orders/export.py"
-class ExportService:
-    def __init__(self, session, storage):
-        self._session = session
-        self._storage = storage
+After a few operations have been treated this way, the application contains classes like these:
 
-    def run(self, customer_id, fmt="csv"): ...
+```python
+place_order = PlaceOrder(orders, payments, inventory, notifications)
+refund_order = RefundOrder(orders, payments)
+create_invoice = CreateInvoice(orders, renderer)
+order_exporter = OrderExporter(history, destination)
 ```
 
-I know how this looks. We opened this essay with a plain function — direct, readable, *right* — and four years of defensible decisions later, the destination is a class with one method. It looks absurd: a function in a costume, the kind of object the word *enterprise* was coined to mock.
+Each class may have only one public method.
 
-The absurdity dissolves the moment you stop reading it as a class and read it for what it actually is: an *operation with a name*. "Export a customer's orders" is one of the things the application exists to do — it would be on the list if you wrote the application's purpose down — and for the first time in the codebase's life, that thing has its own home: dependencies declared, logic alone, nothing else in the blast radius. Each of these little classes has exactly one reason to change, and when one breaks, the failing test file *is* the diagnosis.
+Without the path that led here, that looks like an elaborate way to write a function. With the path in view, the shape is less mysterious.
 
-That's the quiet discovery waiting at the bottom of the refactor: the operations of the application were there all along, buried as method #9 on a shared object, indistinguishable from any helper anyone might call from anywhere. Splitting to the logical end didn't create them. It *revealed* them.
+The operation needed its own home so it could move without unrelated code. Its outside dependencies needed to be supplied so their implementations could change. A class stores those supplied objects, and one public method performs the operation. The method count is a consequence of those choices, not a goal.
 
-What it doesn't fix is the calling side. Every call site now performs the same dance: obtain the right little class — built here, or handed in from somewhere — then invoke its one method with a few values. Written out, the calls are almost insulting in their uniformity. The only information in any of them is *which operation* and *with what inputs*. Everything else — the class's location, its construction, the wiring — is ceremony the caller performs to be allowed to say those two things.
+Each object represents one thing the application promises it can do: place an order, refund an order, create an invoice, export order history. Frameworks turn outside input into those operations. Providers do general-purpose work on their behalf. The operation holds the decisions unique to this shop.
 
-## What does the call site know?
+The application is now easier to change, but it is also more explicit. There are more files, classes, and objects than before.
 
-So let's ask the braid question about the innocent line at the heart of all of this. Because I know what a reasonable reader has been thinking since the top of this essay: *all of this hand-wringing, and the alternative to a function call is — what? I can just call the function.*
+That cost is real.
 
-You can, and you should — the call was never the problem. Look at the edges instead: at what the calling code has to *know*. In the module years, code that wanted an export knew a module path, and through it — involuntarily — seven collaborators, their import-time appetites, and a web framework. In the class years, it knew a constructor: the assembly manual for machinery it would never use. After the great splitting it knows less, but it still finds, builds, and holds — the ceremony from the last section. Tally it era by era and one thing never changes: one strand of the caller's knowledge is *about exporting orders*, and every other strand is about *machinery*.
+## There are rather a lot of objects
 
-Which means the culprit finally has a face. It was never the call — the call survived every era unchanged, one line, identical since the first page of this essay. It's the *cargo*: the dependencies, the construction, the location, the lifecycle that every call has shipped along with it since the first `import`. That cargo is the coupling. And cargo, unlike calls, can be moved.
+The original route imported one module. A later version received one large `OrderService`. Now the application starts several focused objects:
 
-So the fix has a precise shape. Not "don't call functions" — rather: **let the call site know *what* it wants, and exactly one place know *how* it's done.** Between them, put a seam. The caller sends a small, dumb description of intent — the operation's name and its inputs, which were the only real content of the call anyway. On the far side of the seam, the operation's one home carries it out:
+```python title="bootstrap.py"
+place_order = PlaceOrder(...)
+refund_order = RefundOrder(...)
+create_invoice = CreateInvoice(...)
+order_exporter = OrderExporter(...)
+monthly_statement = CreateMonthlyStatement(...)
+# and more as the application grows
+```
 
-<SeamDiagram />
+The HTTP layer may need four of them. A command-line tool needs three. Workers and scheduled jobs have their own lists.
 
-Every strand the caller used to hold moves to the far side of the seam, into the one place that actually needs it. That's not indirection for its own sake — it's the *un-braiding*, drawn as a picture. The seam doesn't make the call fancier. It leaves the caller holding a name.
+Passing each object directly is a good design. It is visible and easy to follow. If the lists remain short, this can be the end of the story.
 
-## This is old wisdom
+When the same wiring starts appearing at every doorway, a small dictionary can put the lookup in one place:
 
-I want to be honest about the intellectual provenance here: none of this is new, and none of it is mine. The industry has circled this exact idea for decades under different names. [*Inversion of control*](https://martinfowler.com/bliki/InversionOfControl.html): don't reach out for your dependencies; have them handed to you. [*Ports and adapters*](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/hexagonal-architecture.html) — hexagonal architecture: the application core declares what it needs; frameworks and databases plug in from outside. [*Clean architecture*](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html): dependencies point inward, toward the center, never outward from it — and it turns out the center already had a name waiting for those embarrassing little one-method classes: the *use cases*. Different diagrams, one conviction — **the code that decides what your application does should not know about the machinery that carries it out.**
+```python title="dispatch.py"
+operations = {
+    PlaceOrder: place_order,
+    RefundOrder: refund_order,
+    CreateInvoice: create_invoice,
+    ExportOrders: order_exporter,
+}
 
-I'll admit I used to bounce off those names hard. They arrived smelling of the enterprise stacks I'd dodged by choosing Python, wrapped in UML and delivered with a certainty I didn't trust. If that's you, fair — the story above got where it got without them. But the names raise a question worth taking seriously: if this is fifty years of accumulated consensus, why does the average Python codebase still look like the year-three diagram?
+def send(request):
+    operation = operations[type(request)]
+    return operation(request)
+```
 
-I don't think Python developers are less capable. I think the honest answer is that in Python, the seam has historically been *expensive*. Building one meant ceremony: registries and factories and indirection that felt deeply unidiomatic in a language whose superpower is that `import` and `def` just work. And the versions of it that did get built usually cost you your tooling — once dispatch went through some registry keyed by strings, your editor no longer knew what anything returned, and the type checker went quiet at the exact boundary you cared most about. Faced with that trade, taking the direct call every time isn't ignorance. It's a defensible judgment that the cure cost more than the disease.
+The objects still exist. Startup still constructs them. The dictionary changes what callers need to hold.
 
-Which means the missing piece was never the idea. It was a seam cheap enough — in ceremony *and* in tooling — to justify itself before year three.
+A route can receive `send` and an input type rather than every operation it might invoke:
 
-## The seam
+```python title="app.py"
+@app.post("/orders/export")
+def export_orders_route():
+    result = send(ExportOrders(customer_id=g.current_user.id))
+    return jsonify(url=result.url), 202
+```
 
-This is where I should say plainly: I maintain a library because of everything above. It's called [PyMediate](/docs), it implements the seam — the *mediator pattern* — for Python 3.12+, and the code below uses it. The pattern matters more than the package; if you take the shape and build it yourself, this essay has done its job.
+The worker uses the same entrance:
 
-The caller's side of the seam is the message. It's a dataclass: dumb, importable from anywhere, owning nothing but the intent — and it declares what it expects back:
+```python title="worker.py"
+def handle_message(message):
+    send(ExportOrders(**message.body))
+```
+
+<SeamFlowDiagram />
+
+This gives every doorway one way to talk to the application: create a description of the work, send it, receive the result.
+
+The registered input types also form a useful list of the operations available through that entrance. The dictionary knows which object performs each one. The result still appears in the operation's return annotation, although the plain `send()` function cannot preserve that relationship for the type checker.
+
+This small dispatcher is a mediator. Its contribution is limited and useful: callers no longer need to locate or hold each operation object individually.
+
+For many applications, the dictionary is enough.
+
+## Making the dictionary dependable
+
+The first rough edge appears in the editor. A human can see that `ExportOrders` produces `ExportResult`, but the type checker sees a dictionary of different callables. `send()` returns `Any`, so autocomplete disappears after the call.
+
+A missing entry becomes a `KeyError` when that path runs. A callable with the wrong parameter type may sit unnoticed until its first call. Accidentally registering two objects for the same input needs another check.
+
+Those are ordinary problems in a small hand-written dispatcher. Solving them well takes more code than the original dictionary.
+
+[PyMediate](/docs) provides that code.
+
+The input declares its result type:
 
 ```python
 from dataclasses import dataclass
@@ -240,129 +337,71 @@ class ExportOrders(Request[ExportResult]):
     fmt: str = "csv"
 ```
 
-The far side is the handler — and here's the quiet part: you've already built it. It's `ExportService`, the one-method class from the bottom of the splitting, formalized: `run` becomes `__call__`, and the operation it answers for is declared in the type:
+The exporter declares which input it accepts:
 
 ```python
 from pymediate.sync import RequestHandler
 
-class ExportOrdersHandler(RequestHandler[ExportOrders]):
-    def __init__(self, session: Session, storage: Storage) -> None:
-        self._session = session
-        self._storage = storage
+class OrderExporter(RequestHandler[ExportOrders]):
+    def __init__(self, history: OrderHistory, destination: ExportDestination) -> None:
+        self._history = history
+        self._destination = destination
 
     def __call__(self, request: ExportOrders) -> ExportResult:
-        rows = self._session.execute(orders_query(request.customer_id)).all()
-        url = self._storage.write(render(rows, request.fmt))
+        rows = self._history.for_customer(request.customer_id)
+        content = render(rows, request.fmt)
+        url = self._destination.write(content)
         return ExportResult(url=url, rows=len(rows))
 ```
 
-Notice what's *absent*. No `current_app`, no `g`, no mailer it never needed — and no import block full of other features' machinery, because everything it uses is handed in at construction time. That's the circular-import knot from year two, untied as a side effect: nobody reaches for collaborators anymore, so modules stop importing each other's internals.
+Startup builds the exporter as before and gives it to PyMediate:
 
-Before the payoff, a reckoning — because an inventory has been piling up since the splitting, and you have every right to be suspicious of it. Not long ago this feature was one class with familiar methods. Now there's a message *and* a handler per operation: for the fifteen operations of the old god service, thirty small classes where there used to be one. If every call site had to find, import, and construct its own handler, this would be the god service's problem again, chopped fine and redistributed. It isn't, because of the other half of the pattern: no caller ever meets a handler. Every message, from every doorway, goes through the same one object:
+```python title="bootstrap.py"
+from pymediate.sync import Mediator, Services
 
-<SeamFlowDiagram />
+order_exporter = OrderExporter(
+    history=StoredOrderHistory(worker_database),
+    destination=DownloadFiles(storage_client),
+)
 
-That diamond is the *mediator* — the seam made runnable. The caller hands it a message; it finds the one handler registered for that message's type, invokes it, and hands back the typed result. Callers never learn which class answered. They can't, and that's the feature.
-
-Which leaves the wiring, because *something* has to construct those handlers and tell the mediator who answers what. There is such a place — one file, at startup, that builds every handler and assembles the mediator — and it isn't a loose end; it's the destination: the knowledge once smeared across every import block now has a single address, the only file entitled to know everything. How that file stays pleasant as it grows — how handlers get their dependencies *given* to them at scale — is the second essay of this pair, and it deserves a proper telling rather than a gesture here.
-
-Now the payoff, starting with the ticket that broke our engineer. The route stops knowing *how* and shrinks to intent — and not just the export route; every doorway gets the same renovation. Here's the file this essay opened with, all grown up:
-
-```python title="app.py — every route, three lines"
-@app.post("/orders")
-def place_order():
-    result = mediator.send(PlaceOrder(items=request.json["items"]))
-    return jsonify(id=result.order_id), 201
-
-@app.post("/orders/<int:order_id>/refund")
-def refund(order_id: int):
-    mediator.send(Refund(order_id=order_id))
-    return "", 204
-
-@app.post("/orders/export")
-def export_orders():
-    result = mediator.send(ExportOrders(customer_id=g.current_user.id))
-    return jsonify(url=result.url), 202
+services = Services().add(order_exporter)
+mediator = Mediator(services.provider())
 ```
 
-Every route is the same three lines with a different message in the middle: build the intent, send it, shape the reply. Nothing behind `send()` knows Flask exists.
+Now `mediator.send(ExportOrders(...))` is known to return `ExportResult`. PyMediate checks that the exporter accepts the input it claims to accept. Sending an unregistered request produces an error that names the request.
 
-And the worker — which once needed the staircase, and after the class act still needed the assembly manual — now needs neither. It's the same one line, sent from a different doorway. So is the CLI that support asks for next quarter:
+Underneath the package names is the dictionary we already understood: an input goes in, one callable object receives it, and a result comes back.
 
-```python title="worker.py / cli.py — same request, different doorways"
-def handle_message(message):          # the worker: no Flask anywhere
-    mediator.send(ExportOrders(**message.body))
+PyMediate preserves the result type through `send()`, validates the relationship between an input and its handler, and reports missing or duplicate handlers clearly. It also supplies async and sync variants for applications that need them.
 
-@cli.command()
-def export(customer_id: int):         # the CLI: ten minutes, not ten days
-    print(mediator.send(ExportOrders(customer_id=customer_id)).url)
-```
+The set of business operations and their boundaries stays the same. PyMediate's scope is the common entrance, making it a little more pleasant to use and maintain.
 
-Ambient context is gone from the core — who's asking travels *in the message*, so "where does `g.current_user` come from in a worker?" stops being a question. The framework still appears, but only as three lines at each doorway — which is the answer to the migration that felt like starting from scratch. When the logic lives behind the seam, moving to the newer framework is rewriting the doorways, not the building. On the project where our logic was truly welded in, that was the difference between a migration we discussed for two years and one we could have done in a sprint.
+## The trade
 
-Two more strands, briefly. The cross-cutting code that was copy-pasted first through the module and then through the god service — auditing, timing, logging — gets one home that wraps every request:
+The additional structure has a price.
 
-```python
-from pymediate.sync import PipelineBehavior, Request
+Reading a route no longer reveals the exporter's filename; you follow the request type to the class that handles it. Describing operations as data introduces input classes. PyMediate adds its `Request`, `RequestHandler`, and `Mediator` types.
 
-class AuditBehavior(PipelineBehavior[Request]):
-    def __call__(self, request: Request, next):
-        audit_log.record(type(request).__name__)
-        return next()
-```
+Dispatch also takes time. A bare request adds about **a microsecond** to a direct call. [The benchmark](/docs/comparison#what-does-send-cost) is public and reproducible. A database query will dwarf that cost. A tight loop of trivial in-memory work will not.
 
-And remember the tests — the tower of `@patch` decorators, then the seven fakes for a method that used two? A handler holds exactly its own dependencies, so its test is the kind you wrote in the first month of the project:
+The trade begins to make sense when the application has enough operations or doorways that the common input-and-result model is easier to understand than lists of directly supplied objects.
 
-```python
-def test_export_counts_rows():
-    handler = ExportOrdersHandler(fake_session, fake_storage)
-    assert handler(ExportOrders(customer_id=7)).rows == 3
-```
+If direct calls remain clear, keep them. If the dictionary remains small and its missing type information causes no trouble, keep the dictionary. PyMediate is useful when maintaining that plumbing has become work you would rather not own.
 
-No patching, no app-context fixture, no world-building `conftest.py`. The assertions go back to being about what the code did — and of everything the seam buys, this is the piece teams feel first, because they feel it every day.
+## One change at a time
 
-And the tooling tax that made Python abandon this seam for twenty years — it's gone. `ExportOrders` declared its response type up in its class line, so `mediator.send(...)` *returns* `ExportResult` — inferred by mypy, autocompleted by your editor, checked at the exact boundary where the old string-keyed registries went dark. This is the part that had to become true before the old wisdom could feel idiomatic in Python: the seam now costs a dataclass, and it pays you back in types. Every snippet above runs as-is against the released package.
+None of this requires a new project layout or a rewrite.
 
-### So why the package?
+Start with a change the code is resisting today.
 
-Because I can hear the question that survives everything above: *couldn't I just write this myself?* You could — and I mean that without a wink. The dispatcher at the heart of all this is an afternoon of work, and I'm not being modest — it's a dict:
+If one operation cannot move without dragging unrelated code with it, give that operation its own home and plain input. If a provider or database choice keeps reaching into the business rules, let the operation describe the small piece it needs and choose the real object at startup.
 
-```python title="dispatch.py — the whole first version"
-handlers = {
-    ExportOrders: ExportOrdersHandler(session, storage),
-    # ...one line per operation
-}
+Apply the step that answers the pressure in front of you, then stop and see whether the change became easier.
 
-def send(message):
-    return handlers[type(message)](message)
-```
+Over time, the application may reveal a set of focused operations. Direct calls may remain enough. A dictionary may make their callers simpler. PyMediate may make the dictionary easier to trust.
 
-The dict with delusions of grandeur is the *mediator pattern*, catalogued decades before any of us could type. And if this essay ends with you writing your own forty-line version and never installing anything, it succeeded — the messages, the one-home-per-operation handlers, and the un-braided call sites are the point, and the dict delivers all three.
-
-What it doesn't deliver are three things, and they're exactly the three you just watched. `send()` returns `Any`, so the editor and the type checker abandon you at the seam — the precise failure that made Python give up on this pattern for twenty years. A message nobody handles fails as a `KeyError` with no suspects, in the worker, at 2 a.m. And the cross-cutting concerns have no shared home yet, so they creep back into the handlers by copy-paste.
-
-The package is those three gaps, closed — and not much else, which I mean as a compliment to any library. What finally made the closing feel like Python is 3.12's generics syntax: the library's base class is literally `class Request[ResponseT]`, so the line `class ExportOrders(Request[ExportResult])` speaks to two audiences at once. The type checker reads it and knows what `send()` returns at every call site. The *runtime* reads the same line the moment the class is created — so a handler with a malformed signature is refused at import, with its class named in the error, and a message nobody handles is refused with the remedy spelled out: a diagnosis instead of a shrug. Behaviors give the cross-cutting code its one home. None of it is visible at the call site, and that's the discipline — the machinery lives on the far side of the seam it exists to keep.
-
-Closing those gaps properly takes a lot longer than an afternoon — it's the plumbing, it's deliberately boring, and it's the package. The interesting parts — the handlers — are yours.
-
-## What this costs
-
-If I only told you what it buys, this would be marketing, so: the costs, plainly.
-
-Dispatch isn't free — routing through the seam costs on the order of **a microsecond** over the bare call, and a pipeline behavior adds a couple more. [The benchmark](/docs/comparison#what-does-send-cost) is public and reproducible on your own hardware; for code that touches a database or a network it vanishes into the noise, but if you're dispatching millions of trivial in-memory calls on a hot path, no mediator belongs there. There's a vocabulary cost: your team gains three concepts — request, handler, behavior — and reviewers need to learn where things live now. And there's an aesthetic toll I won't pretend away: a dataclass now stands where a function call used to be, and for the first week that will feel like ceremony. The un-braiding is real, but it's invisible on day one; the extra file is visible immediately.
-
-Which is why the advice is the same as it was at the top of this essay: **if your application fits in your head today and will still fit next year, keep the function call.** It's simple *and* easy at that size, and that's the correct combination. The seam is for the codebase on the other trajectory — the one accumulating strands — and its moment is earlier than you think but later than "always": roughly, the day a use case gets its second doorway, or the day a constructor collects its fifth dependency.
-
-## One seam at a time
-
-Here's what I'd actually do differently on those projects, and it's deliberately small. Not a rewrite — rewrites are how staircases reproduce. Pick the one operation your team is most afraid of — everyone knows which one it is — and put a message in front of it. One dataclass, one handler, one route that shrinks to three lines. Nothing else changes; the rest of the codebase never finds out. Then do it again when the next scary change comes, and let the seam spread at exactly the rate it proves itself, one un-braided strand at a time.
-
-There's a second half to this story — how handlers get their dependencies *given* to them at scale, how the application core ends up depending on protocols it owns while Postgres, the message queue, and the web framework become plug-in details you can swap without the domain noticing. That's ports and adapters made cheap by the same seam, it deserves its own essay, and it's the next one I'm writing.
-
-But the first half stands on its own, so I'll end where we started — with the engineer at the bottom of the staircase, deciding whether to give up. What I'd want them to know is the thing that took me too long to learn: **the staircase is a property of the code, not of you.** It was built out of easy steps, by good engineers, and it comes apart the same way it went up — one strand, one seam, one reasonable commit at a time.
-
-Nobody wants to touch that code — until the day touching it is one dataclass. And then, slowly, everyone does.
+The codebase did not become difficult through one bad decision, and it does not become approachable through one pattern. It changes one boundary at a time, until an engineer can pick up a two-day improvement and find that it still takes two days.
 
 ---
 
-*If the pattern is new to you, the [introduction](/docs) is the gentle way in and the [quick start](/docs/getting-started/quick-start) has a working feature in five minutes. If you're wondering what routing a request actually costs, [the numbers are here](/docs/comparison). And if you've lived a version of this story, I'd genuinely like to hear it — the [discussions board](https://github.com/sina-al/pymediate/discussions) is open.*
+*The [introduction](/docs) explains PyMediate's request-and-handler model, and the [quick start](/docs/getting-started/quick-start) builds a complete operation. The [comparison page](/docs/comparison) includes dispatch benchmarks and trade-offs.*
