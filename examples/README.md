@@ -36,15 +36,18 @@ In suggested order:
 | 14 | [050-handler-composition-sync](050-handler-composition-sync/) | The same composition on `pymediate.sync`, where the sub-requests run **sequentially** — diff it against #13. |
 | 15 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
 | 16 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
-| 17 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 18 | [adapters-sync](adapters-sync/) | The sync twin of #17: Flask, FastAPI, and a click CLI over one sync core. |
-| 19 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 17 | [065-validation](065-validation/) | Where validation goes: **shape at the edge** (Pydantic/FastAPI) vs. **invariants in the core** (no Pydantic); collapsed DTO==command vs. a split DTO↦command mapping; a validation behavior. |
+| 18 | [065-validation-sync](065-validation-sync/) | The same placement decision on `pymediate.sync`. |
+| 19 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 20 | [adapters-sync](adapters-sync/) | The sync twin of #19: Flask, FastAPI, and a click CLI over one sync core. |
+| 21 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
-compose handlers through the mediator; 15–16 design requests as value objects; 17–18 make
-the framework-independence argument; 19 plugs it into a DI container. Async and sync
+compose handlers through the mediator; 15–16 design requests as value objects; 17–18 place
+validation at the edge vs. the core; 19–20 make the framework-independence argument; 21
+plugs it into a DI container. Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
 small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
 names for now; they're renumbered later as the
