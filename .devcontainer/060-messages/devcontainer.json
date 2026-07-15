@@ -1,0 +1,19 @@
+{
+    "name": "pymediate example: 060-messages",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    },
+    "postCreateCommand": "cd examples/060-messages && uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/060-messages/.venv/bin/python"
+            }
+        }
+    }
+}
