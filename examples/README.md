@@ -37,12 +37,15 @@ In suggested order:
 | 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
 | 16 | [adapters-sync](adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
 | 17 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 18 | [120-custom-provider](120-custom-provider/) | **Capstone.** `ServiceProvider` is a Protocol: implement it yourself over a hand-rolled, non-PyMediate registry, and the same `mediator.send()` call site works unchanged. |
+| 19 | [120-custom-provider-sync](120-custom-provider-sync/) | The same Protocol and adapter on `pymediate.sync`. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
 design requests as value objects; 15–16 make the framework-independence argument; 17
-plugs it into a DI container. Async and sync
+plugs it into a DI container; 18–19 implement the ServiceProvider Protocol from scratch.
+Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
 small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
 names for now; they're renumbered later as the
