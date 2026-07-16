@@ -107,7 +107,7 @@ through `__init__`, exactly like a handler's does.
 
 - [045-behaviors-vs-decorators-sync](../045-behaviors-vs-decorators-sync/) — the same
   contrast on `pymediate.sync`, no event loop.
-- [with-dependency-injector](../with-dependency-injector/) — when even constructing the
+- [100-dependency-injection](../100-dependency-injection/) — when even constructing the
   behavior by hand gets old, a DI container does it for you.
 - The docs: [pipeline behaviors guide](https://pymediate.sina-al.uk/docs/guide/pipeline-behaviors),
   [dependency injection guide](https://pymediate.sina-al.uk/docs/guide/dependency-injection).

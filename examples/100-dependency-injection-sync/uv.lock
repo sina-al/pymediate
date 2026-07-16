@@ -67,11 +67,11 @@ wheels = [
 
 [[package]]
 name = "pymediate"
-version = "0.3.0"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/59/06/3ba71e4e522a0dc610e77e4589ddf421aaee44fb334c7ef35a9dab31a080/pymediate-0.3.0.tar.gz", hash = "sha256:c3839917fc1267b7ad4ceee3bf47d359c96effc40c91cc4e87bfd46dd1dbb4d2", size = 437880, upload-time = "2026-07-10T21:33:31.415Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/cd/a6ac5f36f6d534dc1593a5c7e374a6c01d53a85a4b05924760116920a94d/pymediate-0.6.0.tar.gz", hash = "sha256:b0768167493ebfd871db58c480f32e614e58c7cec0bd3177d3fa0414e2f39f8e", size = 1244084, upload-time = "2026-07-13T00:47:49.7Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/ac/8f9c901b13345d6beafffcfa4b1728e630d8e90fcac67e80334a05144054/pymediate-0.3.0-py3-none-any.whl", hash = "sha256:b138ad7b1b982ab5c8e8f6647c21587188e69e389c75e3a86e876010ac6a3c16", size = 45761, upload-time = "2026-07-10T21:33:30.153Z" },
+    { url = "https://files.pythonhosted.org/packages/70/10/ef8b89d40b2c15b35801d756ad0afcd00086ca00e5d3a419a4be304212fa/pymediate-0.6.0-py3-none-any.whl", hash = "sha256:126f28572259bbbcce8796561945011b3b91d42c814d6a5a880c3b0ff7412aa7", size = 56444, upload-time = "2026-07-13T00:47:48.35Z" },
 ]
 
 [package.optional-dependencies]
@@ -80,7 +80,7 @@ di = [
 ]
 
 [[package]]
-name = "pymediate-example-with-dependency-injector"
+name = "pymediate-example-dependency-injection-sync"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
@@ -93,7 +93,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pymediate", extras = ["di"], specifier = ">=0.3.0" }]
+requires-dist = [{ name = "pymediate", extras = ["di"], specifier = ">=0.5.0" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.0.0" }]

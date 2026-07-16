@@ -82,8 +82,9 @@ Directory names are kebab-case and content-descriptive. Async is the default and
 **unmarked** (`<name>`); its synchronous mirror is `<name>-sync` and must mirror it
 structurally (same rule as the library: async is the top-level API, sync the mirror — the
 async default leads in reading order). A topic example that isn't part of an async/sync
-pair keeps a plain descriptive name (e.g. `with-dependency-injector`, which happens to be
-built on the sync API but sits off the async/sync axis).
+pair keeps a plain descriptive name and sits off the async/sync axis — rare in this
+curriculum now that every numbered slot ships both twins, but still the rule for one-off
+topic examples that don't warrant a pair.
 
 ## The README — treat it as a landing page
 

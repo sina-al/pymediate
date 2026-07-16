@@ -36,16 +36,17 @@ In suggested order:
 | 14 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
 | 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
 | 16 | [adapters-sync](adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
-| 17 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 17 | [100-dependency-injection](100-dependency-injection/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra — with all three provider lifetimes: `Factory`, `Singleton`, and `ContextLocalSingleton`. |
+| 18 | [100-dependency-injection-sync](100-dependency-injection-sync/) | The same three lifetimes on `pymediate.sync`. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
-design requests as value objects; 15–16 make the framework-independence argument; 17
-plugs it into a DI container. Async and sync
+design requests as value objects; 15–16 make the framework-independence argument; 17–18
+plug into a DI container and show its provider lifetimes. Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
-small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
-names for now; they're renumbered later as the
+small the sync delta is. (`adapters` keeps its original name for now; it's renumbered
+later as the
 [examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
 
 ## The examples contract

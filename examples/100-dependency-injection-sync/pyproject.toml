@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-with-dependency-injector"
+name = "pymediate-example-dependency-injection-sync"
 version = "0.1.0"
-description = "PyMediate's di extra: handlers resolved from a dependency-injector container"
+description = "PyMediate's di extra: Factory, Singleton, and ContextLocalSingleton lifetimes"
 requires-python = ">=3.12"
 dependencies = [
     # The [di] extra pulls in dependency-injector. Loose lower bound per the examples
