@@ -37,12 +37,14 @@ In suggested order:
 | 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
 | 16 | [adapters-sync](adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
 | 17 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 18 | [110-testing](110-testing/) | How do I test handlers without a patch tower? Three layers of test (direct, faked mediator, real mediator) plus the process-global registry gotcha and its constructor-varying fix. |
+| 19 | [110-testing-sync](110-testing-sync/) | The same three layers and the same gotcha on `pymediate.sync`. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
 design requests as value objects; 15–16 make the framework-independence argument; 17
-plugs it into a DI container. Async and sync
+plugs it into a DI container; 18–19 test handlers as plain callables. Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
 small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
 names for now; they're renumbered later as the
