@@ -55,7 +55,7 @@ the same `Singleton` repository.
 
 ## Where next
 
-- [adapters-sync](../adapters-sync/) — a bigger composition-root story: one core, three
-  frameworks.
+- [090-adapters-sync](../090-adapters-sync/) — a bigger composition-root story: one core,
+  three frameworks.
 - The docs: [dependency injection](https://pymediate.sina-al.uk/docs/guide/dependency-injection) ·
   [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start).

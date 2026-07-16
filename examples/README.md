@@ -34,8 +34,8 @@ In suggested order:
 | 12 | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | The same contrast on `pymediate.sync`, no event loop. |
 | 13 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
 | 14 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
-| 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 16 | [adapters-sync](adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
+| 15 | [090-adapters](090-adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 16 | [090-adapters-sync](090-adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
 | 17 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
@@ -44,8 +44,8 @@ requests with pipeline behaviors; 11–12 contrast a behavior with a plain decor
 design requests as value objects; 15–16 make the framework-independence argument; 17
 plugs it into a DI container. Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
-small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
-names for now; they're renumbered later as the
+small the sync delta is. (`with-dependency-injector` keeps its original name for now;
+it's renumbered later as the
 [examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
 
 ## The examples contract

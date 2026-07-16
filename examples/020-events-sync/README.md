@@ -82,7 +82,7 @@ dispatch, and the zero-subscriber no-op are otherwise identical.
 
 - [020-events](../020-events/) — the async original, where the three subscribers run
   concurrently. Diff it against this one.
-- [adapters-sync](../adapters-sync/) — the same core pattern serving Flask, FastAPI, and
-  a CLI at once.
+- [090-adapters-sync](../090-adapters-sync/) — the same core pattern serving Flask,
+  FastAPI, and a CLI at once.
 - The docs: [events guide](https://pymediate.sina-al.uk/docs/guide/events) ·
   [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts).
