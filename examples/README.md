@@ -34,14 +34,17 @@ In suggested order:
 | 12 | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | The same contrast on `pymediate.sync`, no event loop. |
 | 13 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
 | 14 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
-| 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 16 | [adapters-sync](adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
-| 17 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 15 | [075-authorization](075-authorization/) | Authn at the edge, authz in the core: coarse authorization as **selective pipeline behaviors** (`[Authorize]`/`[Authorize(Roles=…)]` analogs), resource authorization as an **imperative in-handler check** after the entity loads. |
+| 16 | [075-authorization-sync](075-authorization-sync/) | The same three-layer split on `pymediate.sync`. |
+| 17 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 18 | [adapters-sync](adapters-sync/) | The sync twin of #17: Flask, FastAPI, and a click CLI over one sync core. |
+| 19 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
-design requests as value objects; 15–16 make the framework-independence argument; 17
+design requests as value objects; 15–16 place authn at the edge and authz in the core; 17–18
+make the framework-independence argument; 19
 plugs it into a DI container. Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
 small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
