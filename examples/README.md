@@ -32,6 +32,8 @@ In suggested order:
 | 10 | [040-pipeline-behaviors-sync](040-pipeline-behaviors-sync/) | The same stack on `pymediate.sync`. |
 | 11 | [045-behaviors-vs-decorators](045-behaviors-vs-decorators/) | Why not just a decorator? The same rate limit as a decorator (dependency bound at import time) vs. a behavior (dependency injected) — the decorator can't cleanly swap it, the behavior can. |
 | 12 | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | The same contrast on `pymediate.sync`, no event loop. |
+| 13 | [065-validation](065-validation/) | Where validation goes: **shape at the edge** (Pydantic/FastAPI) vs. **invariants in the core** (no Pydantic); collapsed DTO==command vs. a split DTO↦command mapping; a validation behavior. |
+| 14 | [065-validation-sync](065-validation-sync/) | The same placement decision on `pymediate.sync`. |
 | 13 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
 | 14 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
 | 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
@@ -41,6 +43,7 @@ In suggested order:
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
+place validation at the edge vs. the core; 15–16 make the framework-independence argument; 17
 design requests as value objects; 15–16 make the framework-independence argument; 17
 plugs it into a DI container. Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
