@@ -77,6 +77,16 @@ The handlers don't know or care which engine backs each store — this example s
 in-memory dicts, and moving to SQLite and DuckDB changed only the two store classes, not a
 line of handler or wiring code.
 
+That last claim — "a query handler never touches `WriteStore`" — is easy to state and easy to
+accidentally violate, since `ReadStore` also has to expose `upsert` for the projectors to
+call. So query handlers don't depend on `ReadStore` at all; they depend on `ReadModel`, a
+`Protocol` with only `find`/`search`/`inventory_report` on it. Projectors depend on the
+separate `ReadModelProjector` protocol (`peek`/`upsert`). `ReadStore` implements both — it's
+one table underneath — but nothing outside `domain.py` ever holds a reference typed as
+`ReadStore`. Give `GetProductHandler` a `ReadModel` and call `.upsert()` on it, and
+`mypy --strict`/basedpyright reject it: that method isn't on the type you were handed. The
+separation isn't a comment asking nicely; the type checker enforces it.
+
 ## The analytical query — and why it's DuckDB
 
 `GetInventoryReport` rolls the catalog up by price tier: for each tier, how many products,

@@ -1,9 +1,10 @@
 """Command handlers write; query handlers read; projectors keep the read side in sync.
 
 Each command handler touches only ``WriteStore`` and publishes an event describing what
-changed. Each query handler touches only ``ReadStore`` — it never reaches into the write
-side, even though it could. That separation is the entire point: swap ``ReadStore`` for a
-denormalized replica or a search index and no query handler's *caller* notices.
+changed. Each query handler depends on ``ReadModel`` — the narrow, read-only slice of
+``ReadStore`` — so it never reaches into the write side, and can't call the projectors'
+``upsert`` either: that method simply isn't on the type it was given. Swap ``ReadStore`` for
+a denormalized replica or a search index and no query handler's *caller* notices.
 """
 
 from dataclasses import replace
@@ -21,7 +22,8 @@ from .domain import (
     ProductId,
     ProductNotFoundError,
     ProductView,
-    ReadStore,
+    ReadModel,
+    ReadModelProjector,
     SearchProducts,
     StockAdjusted,
     StockAdjustedResult,
@@ -78,7 +80,7 @@ class AdjustStockHandler(RequestHandler[AdjustStock]):
 class GetProductHandler(RequestHandler[GetProduct]):
     """Fetches one product's read-side view — richer than anything the write side stores."""
 
-    def __init__(self, store: ReadStore) -> None:
+    def __init__(self, store: ReadModel) -> None:
         self._store = store
 
     async def __call__(self, request: GetProduct) -> ProductView:
@@ -91,7 +93,7 @@ class GetProductHandler(RequestHandler[GetProduct]):
 class SearchProductsHandler(RequestHandler[SearchProducts]):
     """Lists product views, optionally filtered to those in stock."""
 
-    def __init__(self, store: ReadStore) -> None:
+    def __init__(self, store: ReadModel) -> None:
         self._store = store
 
     async def __call__(self, request: SearchProducts) -> list[ProductView]:
@@ -101,7 +103,7 @@ class SearchProductsHandler(RequestHandler[SearchProducts]):
 class InventoryReportHandler(RequestHandler[GetInventoryReport]):
     """Rolls the whole catalog up by price tier — the analytical read DuckDB is built for."""
 
-    def __init__(self, store: ReadStore) -> None:
+    def __init__(self, store: ReadModel) -> None:
         self._store = store
 
     async def __call__(self, request: GetInventoryReport) -> list[TierSummary]:
@@ -114,7 +116,7 @@ class InventoryReportHandler(RequestHandler[GetInventoryReport]):
 class ProductCreatedProjector(EventHandler[ProductCreated]):
     """Builds the first read-side view the moment a product is created."""
 
-    def __init__(self, read_store: ReadStore) -> None:
+    def __init__(self, read_store: ReadModelProjector) -> None:
         self._read_store = read_store
 
     async def __call__(self, event: ProductCreated) -> None:
@@ -132,7 +134,7 @@ class ProductCreatedProjector(EventHandler[ProductCreated]):
 class StockAdjustedProjector(EventHandler[StockAdjusted]):
     """Updates the read-side view's stock (and derived ``in_stock``) after a stock change."""
 
-    def __init__(self, read_store: ReadStore) -> None:
+    def __init__(self, read_store: ReadModelProjector) -> None:
         self._read_store = read_store
 
     async def __call__(self, event: StockAdjusted) -> None:

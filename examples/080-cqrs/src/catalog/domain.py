@@ -23,7 +23,7 @@ changed only these store classes, not a line of handler or wiring code.
 
 import sqlite3
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 import duckdb
 from pymediate import Event, Mediator, Request
@@ -159,6 +159,29 @@ CREATE TABLE products (
 """
 
 
+class ReadModel(Protocol):
+    """The read side as a query handler is allowed to see it: lookups and aggregates only.
+
+    Query handlers depend on this, not on ``ReadStore`` directly — so a query handler
+    literally cannot call ``upsert``. That's not a runtime restriction (``ReadStore`` still
+    has the method); it's what mypy/basedpyright check against the declared parameter type,
+    which is enough to catch it before the code ever runs.
+    """
+
+    def find(self, product_id: int) -> ProductView | None: ...
+    def search(self, *, in_stock_only: bool = False) -> list[ProductView]: ...
+    def inventory_report(self) -> list[TierSummary]: ...
+
+
+class ReadModelProjector(Protocol):
+    """The read side as an event projector is allowed to see it: only what building a
+    projection needs — nothing from ``ReadModel``'s query surface.
+    """
+
+    def peek(self, product_id: int) -> ProductView | None: ...
+    def upsert(self, view: ProductView) -> None: ...
+
+
 class ReadStore:
     """The read side: a denormalized DuckDB table, written only by the event projectors.
 
@@ -166,6 +189,11 @@ class ReadStore:
     two columns across every row (``inventory_report`` below) reads only those columns and
     aggregates them in bulk. That's the shape of an analytical read, and it's why the read
     side is DuckDB and not the SQLite write store. ``benchmark.py`` measures the difference.
+
+    Implements both ``ReadModel`` and ``ReadModelProjector`` — it's one table underneath —
+    but nothing outside this module ever holds a reference typed as ``ReadStore``. Query
+    handlers hold a ``ReadModel``, projectors hold a ``ReadModelProjector``; each sees only
+    its half.
 
     ``reads`` counts calls through the query path (``find``/``search``/``inventory_report``)
     so a test can show the read model changing without ever touching ``WriteStore``.

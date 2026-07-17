@@ -44,7 +44,9 @@ class CreateProductHandler(RequestHandler[CreateProduct]):
 
 Every store, event, command, query, and projector in [`domain.py`](src/catalog/domain.py)
 and [`handlers.py`](src/catalog/handlers.py) is the same shape as the async twin, minus
-`async`/`await`.
+`async`/`await` — including the `ReadModel`/`ReadModelProjector` protocol split that keeps
+query handlers off the projectors' `upsert` at the type-checker level, not just by
+convention. See [080-cqrs](../080-cqrs/) for the full explanation.
 
 ## The analytical query and the benchmark
 
