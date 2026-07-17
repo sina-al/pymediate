@@ -34,7 +34,7 @@ In suggested order:
 | 12 | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | The same contrast on `pymediate.sync`, no event loop. |
 | 13 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
 | 14 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
-| 15 | [080-cqrs](080-cqrs/) | Commands vs. queries as **separate handlers over separate stores** — a normalized write side and a denormalized read side kept in sync via events, scaling independently. |
+| 15 | [080-cqrs](080-cqrs/) | Commands vs. queries as **separate handlers over separate engines** — a SQLite write side (OLTP) and a DuckDB read side (OLAP) kept in sync via events, with a benchmark for the analytical query. |
 | 16 | [080-cqrs-sync](080-cqrs-sync/) | The same command/query split on `pymediate.sync`. |
 | 17 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
 | 18 | [adapters-sync](adapters-sync/) | The sync twin of #17: Flask, FastAPI, and a click CLI over one sync core. |

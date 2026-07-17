@@ -1,16 +1,19 @@
 [project]
 name = "pymediate-example-cqrs-sync"
 version = "0.1.0"
-description = "Commands and queries as separate handlers over separate stores, on pymediate.sync"
+description = "CQRS with a SQLite (OLTP) write store and a DuckDB (OLAP) read store, on pymediate.sync"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the
     # exact release candidate on TestPyPI (scripts/run_examples.py).
     "pymediate>=0.5.0",
+    # The read side runs on DuckDB (columnar/OLAP); the write side uses stdlib sqlite3.
+    "duckdb>=1.0.0",
 ]
 
 [project.scripts]
 catalog = "catalog.app:run"
+catalog-benchmark = "catalog.benchmark:run"
 
 [dependency-groups]
 dev = [

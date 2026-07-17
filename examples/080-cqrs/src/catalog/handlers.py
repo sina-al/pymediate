@@ -13,6 +13,7 @@ from pymediate import EventHandler, RequestHandler
 from .domain import (
     AdjustStock,
     CreateProduct,
+    GetInventoryReport,
     GetProduct,
     LateBoundPublisher,
     Product,
@@ -24,6 +25,7 @@ from .domain import (
     SearchProducts,
     StockAdjusted,
     StockAdjustedResult,
+    TierSummary,
     WriteStore,
     project,
 )
@@ -94,6 +96,16 @@ class SearchProductsHandler(RequestHandler[SearchProducts]):
 
     async def __call__(self, request: SearchProducts) -> list[ProductView]:
         return self._store.search(in_stock_only=request.in_stock_only)
+
+
+class InventoryReportHandler(RequestHandler[GetInventoryReport]):
+    """Rolls the whole catalog up by price tier — the analytical read DuckDB is built for."""
+
+    def __init__(self, store: ReadStore) -> None:
+        self._store = store
+
+    async def __call__(self, request: GetInventoryReport) -> list[TierSummary]:
+        return self._store.inventory_report()
 
 
 # ---- Projectors: the read side's only writers, driven entirely by events ----
