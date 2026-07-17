@@ -36,13 +36,17 @@ In suggested order:
 | 14 | [065-validation-sync](065-validation-sync/) | The same placement decision on `pymediate.sync`. |
 | 13 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
 | 14 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
-| 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 16 | [adapters-sync](adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
-| 17 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 15 | [070-error-handling](070-error-handling/) | Domain errors vs. framework errors: one core behind **two transports**, where the same error becomes a `404` on HTTP and an exit code on the CLI — plus the `raise HTTPException` anti-pattern breaking a non-HTTP caller. |
+| 16 | [070-error-handling-sync](070-error-handling-sync/) | The same two-transport story on `pymediate.sync`. |
+| 17 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 18 | [adapters-sync](adapters-sync/) | The sync twin of #17: Flask, FastAPI, and a click CLI over one sync core. |
+| 19 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
+design requests as value objects; 15–16 place error handling at the edge; 17–18 make the
+framework-independence argument; 19
 place validation at the edge vs. the core; 15–16 make the framework-independence argument; 17
 design requests as value objects; 15–16 make the framework-independence argument; 17
 plugs it into a DI container. Async and sync
