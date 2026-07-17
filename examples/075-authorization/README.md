@@ -18,11 +18,12 @@ uv run pytest
 ```
 
 ```text
-14 passed
+15 passed
 ```
 
-Those fourteen tests drive all three layers independently — each coarse-authz behavior denying
-on its own, the in-handler ownership check, and both edges (HTTP, CLI) mapping the same denial.
+Those fifteen tests drive all three layers independently — each coarse-authz behavior denying
+on its own (and in the right order), the in-handler ownership check, and both edges (HTTP, CLI)
+mapping the same denial.
 
 Try the CLI yourself — identity comes from a `--token` flag instead of a header, but the
 authorization is the *same* code:
@@ -112,7 +113,7 @@ here instead, once the resource is in hand.
 | [`src/vault/authn.py`](src/vault/authn.py) | The only transport-specific code: parsing a token into a `Principal`. |
 | [`src/vault/api.py`](src/vault/api.py) | The HTTP edge: attach the principal, map `AuthorizationError` → 403. |
 | [`src/vault/cli.py`](src/vault/cli.py) | The CLI edge: the same core, a `--token` flag, and exit code 13 for a denial. |
-| [`tests/test_authorization.py`](tests/test_authorization.py) | All three layers, each denying independently: `uv run pytest` → `14 passed`. |
+| [`tests/test_authorization.py`](tests/test_authorization.py) | All three layers, each denying independently: `uv run pytest` → `15 passed`. |
 
 ## Small print
 

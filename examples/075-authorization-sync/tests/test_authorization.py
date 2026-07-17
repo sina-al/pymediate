@@ -54,6 +54,18 @@ def test_authenticated_view_is_allowed(mediator: Mediator) -> None:
 # ---- Layer 2b: coarse authz — role ----
 
 
+def test_authentication_is_enforced_before_the_role_check(
+    mediator: Mediator, audit: list[str]
+) -> None:
+    # ListAllDocuments is role-gated *and* authenticated. Unauthenticated, it must be stopped by
+    # RequireAuthentication (registered outermost) — never reaching RequireRole, whose
+    # `assert principal is not None` trusts exactly that ordering.
+    with pytest.raises(AuthorizationError, match="authentication required"):
+        mediator.send(ListAllDocuments(principal=None))
+
+    assert audit == ["deny:unauthenticated ListAllDocuments"]  # the role behavior never ran
+
+
 def test_wrong_role_is_denied(mediator: Mediator) -> None:
     with pytest.raises(AuthorizationError, match="requires role 'admin'"):
         mediator.send(ListAllDocuments(principal=ALICE))  # alice is only a 'user'
