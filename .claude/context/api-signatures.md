@@ -172,25 +172,21 @@ class HandlerAlreadyRegisteredError(PyMediateError):
 ### `pymediate.providers.dependency_injector`
 
 ```python
-class ContainerLike(Protocol):
-    """Structural type for dependency-injector containers."""
-    ...
-
 class DependencyInjectorServiceProvider:
-    """ServiceProvider backed by a dependency-injector container."""
-    def __init__(self, container: ContainerLike) -> None:
-        """Scan a dependency-injector container and cache its providers by type."""
+    """ServiceProvider backed by a Dependency Injector container."""
+    def __init__(self, container: containers.Container, *, provider_types: Mapping[providers.Provider[Any], type[Any]] | None = None) -> None:
+        """Index services declared by a Dependency Injector container."""
         ...
-    def get(self, service_type: type[Any]) -> Any:
+    def get(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type."""
         ...
     def get_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Get all instances of the type, including subclasses, in registration order."""
+        """Get all instances of the type, including subclasses, in declaration order."""
         ...
-    def has(self, service_type: type) -> bool:
+    def has(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered."""
         ...
-    def get_all_types(self) -> tuple[type, ...]:
+    def get_all_types(self) -> tuple[type[Any], ...]:
         """Get every exact type that has at least one registered instance."""
         ...
 ```

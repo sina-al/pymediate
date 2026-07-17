@@ -72,16 +72,29 @@ Removes all registered services. Existing providers are unaffected — they're i
 ## DependencyInjectorServiceProvider
 
 ```python
+from collections.abc import Mapping
+from typing import Any
+
+from dependency_injector import containers, providers
+
 from pymediate.providers import DependencyInjectorServiceProvider
 
 class DependencyInjectorServiceProvider:
-    def __init__(self, container: ContainerLike) -> None:
-        """Scan a dependency-injector container and cache its providers by type."""
+    def __init__(
+        self,
+        container: containers.Container,
+        *,
+        provider_types: Mapping[providers.Provider[Any], type[Any]] | None = None,
+    ) -> None:
+        """Index services declared by a Dependency Injector container."""
 ```
 
-A `ServiceProvider` backed by a [`dependency-injector`](https://python-dependency-injector.ets-labs.org/) container — requires the `di` extra (`pip install 'pymediate[di]'`). It scans the container and matches providers **by the type they produce**, not by their attribute name, then implements the same four protocol methods.
+A `ServiceProvider` backed by a [`dependency-injector`](https://python-dependency-injector.ets-labs.org/) container — requires the `di` extra (`pip install 'pymediate[di]'`). It indexes declared providers **by their output type**, not by their attribute name, then implements the same four protocol methods. Indexing does not call providers.
 
-`ContainerLike` is a structural protocol matching any object that exposes a `providers` mapping of provider callables. Every dependency-injector container (`DeclarativeContainer`, `DynamicContainer`) satisfies it, so you never implement it yourself — pass your container instance where a `ContainerLike` is expected.
+Pass a real Dependency Injector container — `DeclarativeContainer` and `DynamicContainer` are
+supported. Lookalike objects that merely expose a `providers` mapping are not supported and are
+rejected at construction time. Declared `providers.Container` children are indexed recursively in
+declaration order; injected dependencies are not traversed.
 
 ```python
 from dependency_injector import containers, providers
@@ -95,10 +108,11 @@ class AppContainer(containers.DeclarativeContainer):
 mediator = Mediator(DependencyInjectorServiceProvider(AppContainer()))
 ```
 
-<Callout type="warning">
-  Construct it from an already-built container — never register it as one of that container's own
-  providers (e.g. via `providers.Self()`), which recurses infinitely. See the
-  [dependency injection guide](/docs/guide/dependency-injection).
+<Callout type="info">
+  Class-backed providers and concretely annotated factory functions are inferred without
+  construction. Pass an opaque provider in `provider_types` when its output cannot be inferred.
+  The [dependency injection guide](/docs/guide/dependency-injection) covers nested containers,
+  explicit types, and composing the mediator through `providers.Self()`.
 </Callout>
 
 ## ServiceNotFoundError
