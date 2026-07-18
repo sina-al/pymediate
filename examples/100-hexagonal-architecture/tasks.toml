@@ -1,0 +1,37 @@
+[tool.poe.groups.example]
+heading = "Example journeys"
+
+[tool.poe.groups.example.tasks.demo]
+help = "Run the complete default-profile journey in one process"
+cmd = "python scripts/demo.py"
+
+[tool.poe.groups.quality]
+heading = "Quality"
+
+[tool.poe.groups.quality.tasks.test]
+help = "Run flagship tests with the 100% domain and application coverage gate"
+cmd = "pytest --cov=shop.domain --cov=shop.application --cov-branch --cov-report=term-missing:skip-covered --cov-fail-under=100"
+env = { PYTHONPATH = "../../src" }
+
+[tool.poe.groups.quality.tasks.lint]
+help = "Check all Python sources with Ruff"
+cmd = "ruff check ."
+
+[tool.poe.groups.quality.tasks."format:check"]
+help = "Check Python formatting without changing files"
+cmd = "ruff format --check ."
+
+[tool.poe.groups.quality.tasks.types]
+help = "Type-check the complete example with BasedPyright"
+cmd = "basedpyright"
+
+[tool.poe.groups.quality.tasks.check]
+help = "Run tests, linting, formatting checks, and static type checks"
+sequence = ["test", "lint", "format:check", "types"]
+
+[tool.poe.groups.quality.tasks.format]
+help = "Apply safe Ruff lint fixes, then format all Python sources"
+sequence = [
+    { cmd = "ruff check . --fix" },
+    { cmd = "ruff format ." },
+]

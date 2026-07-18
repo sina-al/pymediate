@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "detachhead.basedpyright",
+    "charliermarsh.ruff",
+    "redhat.vscode-yaml"
+  ],
+  "unwantedRecommendations": [
+    "ms-python.mypy-type-checker",
+    "ms-python.vscode-pylance"
+  ]
+}

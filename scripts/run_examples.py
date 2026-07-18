@@ -32,24 +32,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples"
 STAGING_INDEX_NAME = "release-staging"
-
-INDEX_TEMPLATE = """
-# Appended by scripts/run_examples.py (release pipeline): resolve pymediate — and only
-# pymediate — from the staging index; everything else keeps coming from real PyPI.
-[[tool.uv.index]]
-name = "{name}"
-url = "{url}"
-explicit = true
-
-[tool.uv.sources]
-pymediate = {{ index = "{name}" }}
-"""
+FLAGSHIP_EXAMPLE = "100-hexagonal-architecture"
+FLAGSHIP_PYMEDIATE_SOURCE = {"path": "../..", "editable": True}
+FLAGSHIP_PYMEDIATE_SOURCE_LINE = 'pymediate = { path = "../..", editable = true }\n'
 
 
 @dataclass
@@ -68,14 +60,50 @@ def discover_examples() -> list[Path]:
 def check_contract(pyproject: Path) -> str | None:
     """Return a contract-violation message, or None if the example is runnable."""
     text = pyproject.read_text()
-    if "[tool.uv.sources]" in text or "[[tool.uv.index]]" in text:
+    if "[[tool.uv.index]]" in text:
         return (
-            "defines [tool.uv.sources] or [[tool.uv.index]]; the examples contract "
-            "reserves those for this runner (see examples/README.md)"
+            "defines [[tool.uv.index]]; the examples contract reserves indexes for this runner "
+            "(see examples/README.md)"
+        )
+    sources = tomllib.loads(text).get("tool", {}).get("uv", {}).get("sources", {})
+    invalid_sources = {}
+    for name, source in sources.items():
+        is_flagship_checkout = (
+            pyproject.parent.name == FLAGSHIP_EXAMPLE
+            and name == "pymediate"
+            and source == FLAGSHIP_PYMEDIATE_SOURCE
+            and text.count(FLAGSHIP_PYMEDIATE_SOURCE_LINE) == 1
+        )
+        if not is_flagship_checkout and (name == "pymediate" or source != {"workspace": True}):
+            invalid_sources[name] = source
+    if invalid_sources:
+        return (
+            "defines a non-workspace [tool.uv.sources] entry; only internal "
+            "{ workspace = true } sources and the flagship's exact local pymediate source "
+            "are allowed"
         )
     if "pymediate" not in text:
         return "does not depend on pymediate"
     return None
+
+
+def copy_example_for_release(example: Path, workspace: Path) -> None:
+    """Copy one example and remove the flagship's checkout-only source override."""
+    shutil.copytree(
+        example,
+        workspace,
+        ignore=shutil.ignore_patterns(".venv", "__pycache__", ".pytest_cache"),
+    )
+    if example.name != FLAGSHIP_EXAMPLE:
+        return
+
+    pyproject = workspace / "pyproject.toml"
+    text = pyproject.read_text()
+    if text.count(FLAGSHIP_PYMEDIATE_SOURCE_LINE) != 1:
+        raise RuntimeError(
+            "flagship pymediate source no longer matches the release-runner contract"
+        )
+    pyproject.write_text(text.replace(FLAGSHIP_PYMEDIATE_SOURCE_LINE, ""))
 
 
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -103,20 +131,20 @@ def run_example(
     workspace = workdir / name
     # Exclude transient local state: a copied .venv has broken interpreter symlinks, and a
     # fresh sync in the workspace recreates it anyway.
-    shutil.copytree(
-        example,
-        workspace,
-        ignore=shutil.ignore_patterns(".venv", "__pycache__", ".pytest_cache"),
-    )
+    copy_example_for_release(example, workspace)
 
     if wheel is not None:
         # Wheel mode: `uv add <path>` re-pins pymediate to the local wheel via a path
         # source — no index involvement at all.
         pin_cmd = ["uv", "add", str(wheel.resolve())]
     else:
-        with (workspace / "pyproject.toml").open("a") as fp:
-            fp.write(INDEX_TEMPLATE.format(name=STAGING_INDEX_NAME, url=index_url))
-        pin_cmd = ["uv", "add", f"pymediate=={version}"]
+        pin_cmd = [
+            "uv",
+            "add",
+            "--index",
+            f"{STAGING_INDEX_NAME}={index_url}",
+            f"pymediate=={version}",
+        ]
 
     steps = [
         pin_cmd,

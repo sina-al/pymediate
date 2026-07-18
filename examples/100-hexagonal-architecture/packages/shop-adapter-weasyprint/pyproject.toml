@@ -1,0 +1,17 @@
+[project]
+name = "shop-adapter-weasyprint"
+version = "0.1.0"
+description = "Secondary branded PDF rendering adapter for the example shop"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["shop-ports", "weasyprint>=69.0,<70"]
+
+[tool.uv.sources]
+shop-ports = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11.26,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "shop.adapters.weasyprint"
