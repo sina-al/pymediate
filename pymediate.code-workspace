@@ -57,6 +57,14 @@
       "path": "examples/100-dependency-injection-sync"
     },
     {
+      "name": "examples/110-testing",
+      "path": "examples/110-testing"
+    },
+    {
+      "name": "examples/110-testing-sync",
+      "path": "examples/110-testing-sync"
+    },
+    {
       "name": "examples/100-hexagonal-architecture",
       "path": "examples/100-hexagonal-architecture"
     },

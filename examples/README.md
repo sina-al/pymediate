@@ -47,7 +47,9 @@ In suggested order:
 | 25 | [090-adapters-sync](090-adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
 | 26 | [100-dependency-injection](100-dependency-injection/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra — with all three provider lifetimes: `Factory`, `Singleton`, and `ContextLocalSingleton`. |
 | 27 | [100-dependency-injection-sync](100-dependency-injection-sync/) | The same three lifetimes on `pymediate.sync`. |
-| 28 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
+| 28 | [110-testing](110-testing/) | How do I test handlers without a patch tower? Three layers of test (direct, faked mediator, real mediator) plus the process-global registry gotcha and its constructor-varying fix. |
+| 29 | [110-testing-sync](110-testing-sync/) | The same three layers and the same gotcha on `pymediate.sync`. |
+| 30 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
@@ -56,8 +58,9 @@ compose handlers through the mediator; 15–16 design requests as value objects;
 validation at the edge vs. the core; 19–20 map domain errors across transports; 21–22 place
 authn at the edge and authz in the core; 23 separates commands from queries with a
 transactional outbox and a projection worker; 24–25 make the framework-independence argument;
-26–27 plug into a DI container and show its provider lifetimes; 28 assembles those ideas into a
-deployment-shaped application. Async and sync examples mirror each other deliberately —
+26–27 plug into a DI container and show its provider lifetimes; 28–29 test handlers as plain
+callables; 30 assembles those ideas into a deployment-shaped application. Async and sync
+examples mirror each other deliberately —
 diffing a pair is the fastest way to see how small the sync delta is. The
 [examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) tracks the remaining work.
 
