@@ -1,5 +1,7 @@
 """Rate limiting applied to one handler with a method decorator."""
 
+from __future__ import annotations
+
 import functools
 from collections.abc import Callable
 from dataclasses import dataclass
