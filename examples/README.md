@@ -43,8 +43,8 @@ In suggested order:
 | 21 | [075-authorization](075-authorization/) | Authn at the edge, authz in the core: coarse authorization as **selective pipeline behaviors** (`[Authorize]`/`[Authorize(Roles=…)]` analogs), resource authorization as an **imperative in-handler check** after the entity loads. |
 | 22 | [075-authorization-sync](075-authorization-sync/) | The same three-layer split on `pymediate.sync`. |
 | 23 | [080-cqrs](080-cqrs/) | Commands vs. queries over **separate engines**, kept in sync the correct way — a SQLite write side (OLTP) with a **transactional outbox**, a background **projection worker**, and a DuckDB read model (OLAP), plus a through-the-app benchmark for the analytical query. |
-| 24 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 25 | [adapters-sync](adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
+| 24 | [090-adapters](090-adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 25 | [090-adapters-sync](090-adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
 | 26 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
 | 27 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
 
@@ -57,8 +57,8 @@ authn at the edge and authz in the core; 23 separates commands from queries with
 transactional outbox and a projection worker; 24–25 make the framework-independence
 argument; 26 plugs it into a DI container; 27 assembles those ideas into a deployment-shaped
 application. Async and sync examples mirror each other deliberately — diffing a pair is the
-fastest way to see how small the sync delta is. (`adapters` and `with-dependency-injector` keep
-their original names for now; they're renumbered later as the
+fastest way to see how small the sync delta is. (`with-dependency-injector` keeps its original
+name for now; it's renumbered later as the
 [examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
 
 ## The examples contract

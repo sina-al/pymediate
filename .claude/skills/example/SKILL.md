@@ -72,9 +72,9 @@ classic `httpx`, for HTTP test clients (starlette deprecated httpx there).
   └── tests/
   ```
 
-  Template: `examples/adapters/`. Being a real package is what buys pleasant
+  Template: `examples/090-adapters/`. Being a real package is what buys pleasant
   commands: `uv run taskboard …` via `[project.scripts]`,
-  `uv run uvicorn taskboard.adapters.fastapi_app:app` — never
+  `uv run uvicorn taskboard.adapters.fastapi:app` — never
   `uv run python src/….py` paths in a README. uv installs the project editable on sync,
   which also makes IDE imports resolve.
 
