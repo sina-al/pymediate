@@ -1,11 +1,20 @@
 # ADR 0014: Explicit, provider-independent pipeline behavior ordering
 
-**Status:** Proposed
+**Status:** Rejected (2026-07-18, @sina-al)
 **Date:** 2026-07-18
 **Author:** Claude
 **Reviewers:** @sina-al
 
 Implements the design phase of issue #113.
+
+> **Rejection rationale (2026-07-18):** Sort order is a property of a *specific
+> application* of a set of behaviors, not intrinsic to a behavior itself. A class-level
+> `order` key forces behavior authors — including third parties packaging reusable
+> behaviors — to hard-code an ordering opinion their consumers may disagree with, and
+> the only recourse is subclassing purely to override an integer. The design below is
+> kept as the record of what was considered; the replacement direction (an explicit
+> ordered `behaviors` sequence passed to the mediator at construction, putting order in
+> the composition root where it belongs) will be proposed in a follow-up ADR.
 
 ## Context
 
