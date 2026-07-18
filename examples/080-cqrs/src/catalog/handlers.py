@@ -1,80 +1,69 @@
-"""Command handlers write; query handlers read; projectors keep the read side in sync.
+"""Command handlers write; query handlers read; one event handler nudges the worker.
 
-Each command handler touches only ``WriteStore`` and publishes an event describing what
-changed. Each query handler depends on ``ReadModel`` — the narrow, read-only slice of
-``ReadStore`` — so it never reaches into the write side, and can't call the projectors'
-``upsert`` either: that method simply isn't on the type it was given. Swap ``ReadStore`` for
-a denormalized replica or a search index and no query handler's *caller* notices.
+Each command handler touches only ``WriteStore`` (domain row + outbox row, atomically) and
+then publishes ``OutboxAppended``. Each query handler depends on ``ReadModel`` — the narrow,
+read-only slice of ``ReadStore`` — so it can't advance the checkpoint or apply a batch. The
+one deliberate exception is ``NaiveInventoryReportHandler``, which reads the write store on
+purpose to give the benchmark its baseline.
 """
-
-from dataclasses import replace
 
 from pymediate import EventHandler, RequestHandler
 
 from .domain import (
     AdjustStock,
+    AdjustStockResult,
     CreateProduct,
+    CreateProductResult,
     GetInventoryReport,
+    GetInventoryReportNaive,
     GetProduct,
     LateBoundPublisher,
-    Product,
-    ProductCreated,
-    ProductId,
+    OutboxAppended,
     ProductNotFoundError,
     ProductView,
-    ReadModel,
-    ReadModelProjector,
     SearchProducts,
-    StockAdjusted,
-    StockAdjustedResult,
     TierSummary,
-    WriteStore,
-    project,
 )
+from .projection import ProjectionWorker
+from .read_store import ReadModel
+from .write_store import WriteStore
 
-# ---- Command handlers: write, then announce ----
+# ---- Command handlers: write the outbox transaction, then announce ----
 
 
 class CreateProductHandler(RequestHandler[CreateProduct]):
-    """Creates a product on the write side and announces it. Response: just the new id."""
+    """Creates a product and its outbox event in one transaction, then announces it."""
 
     def __init__(self, store: WriteStore, publisher: LateBoundPublisher) -> None:
         self._store = store
         self._publisher = publisher
 
-    async def __call__(self, request: CreateProduct) -> ProductId:
-        product = self._store.create(request.name, request.price, request.stock)
-        await self._publisher.publish(
-            ProductCreated(
-                product_id=product.product_id,
-                name=product.name,
-                price=product.price,
-                stock=product.stock,
-            )
+    async def __call__(self, request: CreateProduct) -> CreateProductResult:
+        ack = self._store.create(request.name, request.price, request.stock)
+        await self._publisher.publish(OutboxAppended(sequence=ack.outbox_position))
+        return CreateProductResult(
+            product_id=ack.product.product_id, outbox_position=ack.outbox_position
         )
-        return ProductId(product_id=product.product_id)
 
 
 class AdjustStockHandler(RequestHandler[AdjustStock]):
-    """Adjusts a product's stock and announces the result. Response: id and new stock."""
+    """Adjusts stock and its outbox event in one transaction, then announces it."""
 
     def __init__(self, store: WriteStore, publisher: LateBoundPublisher) -> None:
         self._store = store
         self._publisher = publisher
 
-    async def __call__(self, request: AdjustStock) -> StockAdjustedResult:
-        product = self._store.adjust_stock(request.product_id, request.delta)
-        await self._publisher.publish(
-            StockAdjusted(
-                product_id=product.product_id,
-                delta=request.delta,
-                new_stock=product.stock,
-            )
+    async def __call__(self, request: AdjustStock) -> AdjustStockResult:
+        ack = self._store.adjust_stock(request.product_id, request.delta)
+        await self._publisher.publish(OutboxAppended(sequence=ack.outbox_position))
+        return AdjustStockResult(
+            product_id=ack.product.product_id,
+            new_stock=ack.product.stock,
+            outbox_position=ack.outbox_position,
         )
-        return StockAdjustedResult(product_id=product.product_id, new_stock=product.stock)
 
 
-# ---- Query handlers: read, and only read ----
+# ---- Query handlers: read the read model, and only the read model ----
 
 
 class GetProductHandler(RequestHandler[GetProduct]):
@@ -101,7 +90,7 @@ class SearchProductsHandler(RequestHandler[SearchProducts]):
 
 
 class InventoryReportHandler(RequestHandler[GetInventoryReport]):
-    """Rolls the whole catalog up by price tier — the analytical read DuckDB is built for."""
+    """Rolls the catalog up by tier off the DuckDB read model — the analytical read."""
 
     def __init__(self, store: ReadModel) -> None:
         self._store = store
@@ -110,35 +99,34 @@ class InventoryReportHandler(RequestHandler[GetInventoryReport]):
         return self._store.inventory_report()
 
 
-# ---- Projectors: the read side's only writers, driven entirely by events ----
+class NaiveInventoryReportHandler(RequestHandler[GetInventoryReportNaive]):
+    """The benchmark baseline: the same rollup, run straight off the SQLite write store.
+
+    Depends on ``WriteStore`` on purpose. Reaching into the OLTP store for analytics is the
+    anti-pattern the read side exists to avoid — here only so the benchmark can time both.
+    """
+
+    def __init__(self, store: WriteStore) -> None:
+        self._store = store
+
+    async def __call__(self, request: GetInventoryReportNaive) -> list[TierSummary]:
+        return self._store.inventory_report_naive()
 
 
-class ProductCreatedProjector(EventHandler[ProductCreated]):
-    """Builds the first read-side view the moment a product is created."""
-
-    def __init__(self, read_store: ReadModelProjector) -> None:
-        self._read_store = read_store
-
-    async def __call__(self, event: ProductCreated) -> None:
-        view = project(
-            Product(
-                product_id=event.product_id,
-                name=event.name,
-                price=event.price,
-                stock=event.stock,
-            )
-        )
-        self._read_store.upsert(view)
+# ---- The nudge: an event handler that does the minimum, on purpose ----
 
 
-class StockAdjustedProjector(EventHandler[StockAdjusted]):
-    """Updates the read-side view's stock (and derived ``in_stock``) after a stock change."""
+class WakeProjector(EventHandler[OutboxAppended]):
+    """Nudges the projection worker awake — and does nothing else.
 
-    def __init__(self, read_store: ReadModelProjector) -> None:
-        self._read_store = read_store
+    It is tempting to make this handler write to DuckDB directly. Don't: that would put the
+    read-model write back inside the command's ``send`` call and recreate the very failure
+    boundary the outbox removes. Ringing a bell is all a synchronous event handler should do
+    here; the worker does the durable write, outside the request.
+    """
 
-    async def __call__(self, event: StockAdjusted) -> None:
-        existing = self._read_store.peek(event.product_id)
-        assert existing is not None  # ProductCreatedProjector always runs first
-        updated = replace(existing, stock=event.new_stock, in_stock=event.new_stock > 0)
-        self._read_store.upsert(updated)
+    def __init__(self, worker: ProjectionWorker) -> None:
+        self._worker = worker
+
+    async def __call__(self, event: OutboxAppended) -> None:
+        self._worker.wake()

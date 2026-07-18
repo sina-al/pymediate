@@ -1,7 +1,7 @@
 [project]
 name = "pymediate-example-cqrs"
 version = "0.1.0"
-description = "CQRS with a SQLite (OLTP) write store and a DuckDB (OLAP) read store, kept in sync by events"
+description = "CQRS with a SQLite (OLTP) write store, a transactional outbox, and a DuckDB (OLAP) read model kept in sync by a projection worker"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

@@ -5,7 +5,7 @@ description: Separating the command (write) and query (read) sides of a feature 
 
 CQRS (Command Query Responsibility Segregation) separates operations that change state (commands) from operations that read state (queries). PyMediate doesn't enforce CQRS — it's a naming and design convention layered on top of requests and handlers — but the two map onto each other cleanly. See [requests and responses: CQRS](/docs/guide/requests-responses#cqrs-commands-and-queries) for the underlying concepts.
 
-This example separates a product catalog into a write side (commands, backed by a primary store) and a read side (queries, backed by a read-optimized store) — the main reason teams reach for CQRS in the first place.
+This example separates a product catalog into a write side (commands, backed by a transactional **OLTP** store) and a read side (queries, backed by a read-optimized **OLAP** store) — the main reason teams reach for CQRS in the first place. The two stores that follow are kept deliberately tiny so the whole thing runs as one self-contained snippet; the runnable [`080-cqrs` example](https://github.com/sina-al/pymediate/tree/main/examples/080-cqrs) makes them a real SQLite write store and a real DuckDB read model, and keeps them in sync the way you actually should — see [Keeping the read side in sync](#keeping-the-read-side-in-sync) below.
 
 ```python
 import asyncio
@@ -37,7 +37,11 @@ class ProductWriteStore:
         return product
 
 class ProductReadStore:
-    """Simulates a read-optimized replica, kept in sync separately."""
+    """Simulates a read-optimized replica, kept in sync separately.
+
+    Reads straight from the write store here only to stay runnable in one block. In the
+    080-cqrs example this is a separate DuckDB table, fed by a projection worker.
+    """
     def __init__(self, write_store: ProductWriteStore):
         self._write_store = write_store
 
@@ -167,15 +171,41 @@ async def main():
 asyncio.run(main())
 ```
 
+## Keeping the read side in sync
+
+The snippet above lets the read store peek at the write store's data so it stays runnable in
+one block. A real read model is a genuinely separate store, so *something* has to carry each
+write across to it. The tempting shortcut — writing both stores inside the command handler, or
+projecting to the read store in a synchronous event subscriber during `send()` — puts a second
+database's write back inside the command's failure boundary: the write store can commit while
+the read store's update fails, with no retry, and the two drift apart.
+
+The [`080-cqrs` example](https://github.com/sina-al/pymediate/tree/main/examples/080-cqrs) does
+it the canonical way instead:
+
+- the command writes the domain row **and** an event row to a **transactional outbox** in one
+  SQLite transaction — both land or neither does, no dual write;
+- a background **projection worker** reads the outbox in order and applies batches to the DuckDB
+  read model under a **checkpoint**, so a crash can't leave the read model ahead of or behind
+  its recorded position;
+- the command publishes an `OutboxAppended` event purely to *nudge* the worker awake — the
+  durable path is the outbox, and the worker also polls, so a lost nudge only costs latency.
+
+The read side is then eventually consistent, which the example makes explicit: commands return
+an outbox position, and a caller can wait until the read model's checkpoint reaches it. The
+example's `docs/architecture.md` walks through the recovery cases and the real-world analogues
+(Postgres/Turso for the write store, Snowflake/ClickHouse for the read model, Debezium or Kafka
+Connect for the worker).
+
 <Callout type="info">
-  In a real system, `ProductReadStore` would typically be backed by a separate replica or a
-  denormalized read model kept in sync via [events](/docs/guide/events) — a command handler
-  publishes `ProductCreated`, and a subscriber updates the read model. This example keeps
-  everything in one process purely to stay runnable as a self-contained snippet.
+  The mediator itself stays out of all this. It dispatches commands and queries through the same
+  `send()`; the outbox and the worker sit off to the side. That's the point — CQRS lives in
+  which store each handler touches, not in a second dispatch path.
 </Callout>
 
 ## Next steps
 
+- [080-cqrs example](https://github.com/sina-al/pymediate/tree/main/examples/080-cqrs) — the full runnable version: SQLite + DuckDB, the transactional outbox, the projection worker, and a benchmark
 - [Requests and responses: CQRS](/docs/guide/requests-responses#cqrs-commands-and-queries) — the underlying design pattern
 - [Events](/docs/examples/events) — the third CQRS message kind: publish facts, react in subscribers
 - [Pipeline behaviors](/docs/examples/pipeline-behaviors) — apply different behaviors to commands vs. queries (for example, caching only queries)

@@ -1,34 +1,29 @@
-"""Two stores on two engines, and the messages that cross between them.
+"""The messages and value types the whole example is built from — no I/O lives here.
 
-CQRS in PyMediate isn't extra machinery — it's a naming convention over request types, plus
-the discipline of giving the write side and the read side **separate stores that can evolve
-independently**. This example makes that split physical: the two stores run on two different
-database engines, each picked for what its side actually does.
+CQRS in PyMediate is a naming convention over request types, not extra machinery: commands
+and queries both subclass ``Request`` and dispatch through the same ``Mediator.send``. What
+makes it worth doing is giving each side its own store, tuned for what that side does — and
+keeping the read side in sync **correctly**. This module holds only the domain vocabulary:
 
-- ``WriteStore`` is a normalized **SQLite** table — row-oriented storage built for
-  transactional writes (insert a product, get its generated id back, adjust one row's stock).
-  This is the OLTP side.
-- ``ReadStore`` is a denormalized **DuckDB** table — columnar storage built for analytical
-  reads that scan and aggregate many rows. It carries precomputed fields (``in_stock``,
-  ``price_tier``) the write side never stores, and it answers the tier-rollup query
-  (``inventory_report``) that a row store would have to grind through row by row. This is the
-  OLAP side. It's kept in sync only by subscribing to the events the command handlers publish
-  (see ``handlers.py``) — the same fan-out taught in 020-events.
+- the **commands** (``CreateProduct``, ``AdjustStock``) and their minimal responses;
+- the **queries** (``GetProduct``, ``SearchProducts``, ``GetInventoryReport``, and the
+  benchmark-only ``GetInventoryReportNaive``) and the rich views they return;
+- the **value types** (``Product`` for the write side, ``ProductView`` for the read side,
+  ``TierSummary`` for the analytical rollup) and the ``project`` function between them;
+- the **outbox vocabulary** — ``OutboxEvent`` (a row read back off the SQLite outbox) and the
+  two event-type constants — plus ``OutboxAppended``, the one PyMediate ``Event`` this example
+  publishes, used purely to nudge the projection worker awake.
 
-Commands and queries both subclass ``Request``, dispatch through the same ``Mediator.send``,
-and share nothing but that base class. The handlers don't know or care that one store is
-SQLite and the other DuckDB — swapping the dicts of the in-memory version for real engines
-changed only these store classes, not a line of handler or wiring code.
+The stores, the worker, and the handlers live in their own modules; start with the README's
+file tour.
 """
 
-import sqlite3
-from dataclasses import dataclass, field
-from typing import Any, Protocol
+from dataclasses import dataclass
+from typing import Any
 
-import duckdb
 from pymediate import Event, Mediator, Request
 
-# ---- Write-side store: a normalized SQLite table (OLTP) ----
+# ---- Value types: the write-side record, the read-side view, the rollup ----
 
 
 @dataclass
@@ -39,57 +34,6 @@ class Product:
     name: str
     price: float
     stock: int
-
-
-_WRITE_SCHEMA = """
-CREATE TABLE IF NOT EXISTS products (
-    product_id INTEGER PRIMARY KEY,
-    name       TEXT    NOT NULL,
-    price      REAL    NOT NULL,
-    stock      INTEGER NOT NULL
-)
-"""
-
-
-class WriteStore:
-    """The write side: a normalized SQLite table, indexed by id.
-
-    SQLite is a row store — it keeps each product's fields together, which is exactly what a
-    write touches: insert one row, or update one row's stock. The ``product_id`` is generated
-    by the database on insert, the way a primary key usually is.
-    """
-
-    def __init__(self, connection: sqlite3.Connection | None = None) -> None:
-        self._conn = connection if connection is not None else sqlite3.connect(":memory:")
-        self._conn.execute(_WRITE_SCHEMA)
-
-    def create(self, name: str, price: float, stock: int) -> Product:
-        """Insert a new product and return the stored record, id and all."""
-        cursor = self._conn.execute(
-            "INSERT INTO products (name, price, stock) VALUES (?, ?, ?)",
-            (name, price, stock),
-        )
-        self._conn.commit()
-        product_id = cursor.lastrowid
-        assert product_id is not None  # a successful INSERT always yields a rowid
-        return Product(product_id=product_id, name=name, price=price, stock=stock)
-
-    def adjust_stock(self, product_id: int, delta: int) -> Product:
-        """Apply a stock delta to an existing product and return the updated record."""
-        self._conn.execute(
-            "UPDATE products SET stock = stock + ? WHERE product_id = ?",
-            (delta, product_id),
-        )
-        self._conn.commit()
-        row = self._conn.execute(
-            "SELECT product_id, name, price, stock FROM products WHERE product_id = ?",
-            (product_id,),
-        ).fetchone()
-        assert row is not None  # the caller only adjusts stock for a product that exists
-        return Product(product_id=row[0], name=row[1], price=row[2], stock=row[3])
-
-
-# ---- Read-side records: denormalized, precomputed for a reader ----
 
 
 @dataclass
@@ -143,150 +87,44 @@ class ProductNotFoundError(Exception):
         super().__init__(f"product not found: {product_id}")
 
 
-# ---- Read-side store: a denormalized DuckDB table (OLAP) ----
+# ---- Outbox vocabulary: durable events, and the wake-up notification ----
 
-_VIEW_COLUMNS = "product_id, name, price, stock, in_stock, price_tier"
-
-_READ_SCHEMA = """
-CREATE TABLE products (
-    product_id INTEGER PRIMARY KEY,
-    name       VARCHAR,
-    price      DOUBLE,
-    stock      INTEGER,
-    in_stock   BOOLEAN,
-    price_tier VARCHAR
-)
-"""
-
-
-class ReadModel(Protocol):
-    """The read side as a query handler is allowed to see it: lookups and aggregates only.
-
-    Query handlers depend on this, not on ``ReadStore`` directly — so a query handler
-    literally cannot call ``upsert``. That's not a runtime restriction (``ReadStore`` still
-    has the method); it's what mypy/basedpyright check against the declared parameter type,
-    which is enough to catch it before the code ever runs.
-    """
-
-    def find(self, product_id: int) -> ProductView | None: ...
-    def search(self, *, in_stock_only: bool = False) -> list[ProductView]: ...
-    def inventory_report(self) -> list[TierSummary]: ...
-
-
-class ReadModelProjector(Protocol):
-    """The read side as an event projector is allowed to see it: only what building a
-    projection needs — nothing from ``ReadModel``'s query surface.
-    """
-
-    def peek(self, product_id: int) -> ProductView | None: ...
-    def upsert(self, view: ProductView) -> None: ...
-
-
-class ReadStore:
-    """The read side: a denormalized DuckDB table, written only by the event projectors.
-
-    DuckDB is a column store — it keeps each column together, so a query that scans one or
-    two columns across every row (``inventory_report`` below) reads only those columns and
-    aggregates them in bulk. That's the shape of an analytical read, and it's why the read
-    side is DuckDB and not the SQLite write store. ``benchmark.py`` measures the difference.
-
-    Implements both ``ReadModel`` and ``ReadModelProjector`` — it's one table underneath —
-    but nothing outside this module ever holds a reference typed as ``ReadStore``. Query
-    handlers hold a ``ReadModel``, projectors hold a ``ReadModelProjector``; each sees only
-    its half.
-
-    ``reads`` counts calls through the query path (``find``/``search``/``inventory_report``)
-    so a test can show the read model changing without ever touching ``WriteStore``.
-    """
-
-    def __init__(self, connection: duckdb.DuckDBPyConnection | None = None) -> None:
-        self._conn = connection if connection is not None else duckdb.connect()
-        self._conn.execute(_READ_SCHEMA)
-        self.reads = 0
-
-    def upsert(self, view: ProductView) -> None:
-        """Insert or replace the stored view for a product. Called only by the projectors."""
-        self._conn.execute(
-            f"INSERT INTO products ({_VIEW_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?) "
-            "ON CONFLICT (product_id) DO UPDATE SET "
-            "name = excluded.name, price = excluded.price, stock = excluded.stock, "
-            "in_stock = excluded.in_stock, price_tier = excluded.price_tier",
-            (view.product_id, view.name, view.price, view.stock, view.in_stock, view.price_tier),
-        )
-
-    def peek(self, product_id: int) -> ProductView | None:
-        """Look up a view without counting it as a query read. For projector use only."""
-        row = self._conn.execute(
-            f"SELECT {_VIEW_COLUMNS} FROM products WHERE product_id = ?",
-            (product_id,),
-        ).fetchone()
-        return ProductView(*row) if row is not None else None
-
-    def find(self, product_id: int) -> ProductView | None:
-        """Look up a single product view — the query path."""
-        self.reads += 1
-        return self.peek(product_id)
-
-    def search(self, *, in_stock_only: bool = False) -> list[ProductView]:
-        """List product views, optionally filtered to those in stock — the query path."""
-        self.reads += 1
-        sql = f"SELECT {_VIEW_COLUMNS} FROM products"
-        if in_stock_only:
-            sql += " WHERE in_stock"
-        sql += " ORDER BY product_id"
-        return [ProductView(*row) for row in self._conn.execute(sql).fetchall()]
-
-    def inventory_report(self) -> list[TierSummary]:
-        """Roll the whole catalog up by price tier — the analytical query, the OLAP payoff.
-
-        A scan-and-aggregate over every product. On DuckDB's columnar storage it reads only
-        the columns it needs; on a row store the same query walks every row in full. See
-        ``benchmark.py`` for the gap at scale.
-        """
-        self.reads += 1
-        rows = self._conn.execute(
-            "SELECT price_tier, count(*), sum(price * stock), avg(price) "
-            "FROM products GROUP BY price_tier ORDER BY price_tier"
-        ).fetchall()
-        return [
-            TierSummary(
-                price_tier=tier,
-                product_count=count,
-                inventory_value=round(value, 2),
-                avg_price=round(avg, 2),
-            )
-            for tier, count, value, avg in rows
-        ]
-
-
-# ---- Events: how the read side learns what the write side did ----
+PRODUCT_CREATED = "ProductCreated"
+STOCK_ADJUSTED = "StockAdjusted"
 
 
 @dataclass
-class ProductCreated(Event):
-    """Announces a new product; the read-side projector builds its first view from this."""
+class OutboxEvent:
+    """One row read back off the SQLite outbox, ready for the projector to apply.
 
-    product_id: int
-    name: str
-    price: float
-    stock: int
+    The payload carries **absolute resulting state** (``StockAdjusted`` reports the new stock
+    level, not a delta), so re-applying a batch after a crash is idempotent — see the
+    architecture notes in ``docs/architecture.md``.
+    """
+
+    sequence: int
+    event_type: str
+    payload: dict[str, Any]
 
 
 @dataclass
-class StockAdjusted(Event):
-    """Announces a stock change, carrying the resulting stock so the projector needn't ask."""
+class OutboxAppended(Event):
+    """Published after a command commits, to nudge the projection worker awake.
 
-    product_id: int
-    delta: int
-    new_stock: int
+    This is a *latency optimisation only* — the durable record is the outbox row, and the
+    worker also polls. Drop this event entirely and the read side still catches up on the next
+    poll. It carries the new sequence purely so a subscriber could log how far behind it is.
+    """
+
+    sequence: int
 
 
 class LateBoundPublisher:
     """Lets a command handler publish, even though the ``Mediator`` doesn't exist yet.
 
-    ``app.build_mediator`` constructs this first, hands it to the command handlers,
-    builds the ``Mediator`` from that same ``Services`` collection, then calls ``bind`` —
-    closing the loop so publishing reaches the read-model projectors.
+    ``app.build_app`` constructs this first, hands it to the command handlers, builds the
+    ``Mediator`` from that same ``Services`` collection, then calls ``bind`` — closing the loop
+    so publishing reaches the wake-up handler. The same pattern 050-handler-composition uses.
     """
 
     def __init__(self) -> None:
@@ -307,22 +145,24 @@ class LateBoundPublisher:
 
 
 @dataclass
-class ProductId:
-    """A command response carrying only what the caller needs to proceed: the new id."""
+class CreateProductResult:
+    """A command response: the new id, plus the outbox position for read-your-writes."""
 
     product_id: int
+    outbox_position: int
 
 
 @dataclass
-class StockAdjustedResult:
-    """A command response: just enough to confirm the write, not the full read model."""
+class AdjustStockResult:
+    """A command response: enough to confirm the write, plus the outbox position."""
 
     product_id: int
     new_stock: int
+    outbox_position: int
 
 
 @dataclass
-class CreateProduct(Request[ProductId]):
+class CreateProduct(Request[CreateProductResult]):
     """Create a product. The command owns validation; the response is minimal."""
 
     name: str
@@ -331,7 +171,7 @@ class CreateProduct(Request[ProductId]):
 
 
 @dataclass
-class AdjustStock(Request[StockAdjustedResult]):
+class AdjustStock(Request[AdjustStockResult]):
     """Change a product's stock by a delta, positive or negative."""
 
     product_id: int
@@ -342,26 +182,31 @@ class AdjustStock(Request[StockAdjustedResult]):
 
 
 @dataclass
-class BaseQuery(Request[Any]):
-    """Marker base for every read-only request. Binds no dispatch machinery of its own —
-    it exists so the read side is a family, symmetric with the write side's commands.
-    """
-
-
-@dataclass
-class GetProduct(BaseQuery, Request[ProductView]):
+class GetProduct(Request[ProductView]):
     """Fetch one product's read-side view."""
 
     product_id: int
 
 
 @dataclass
-class SearchProducts(BaseQuery, Request[list[ProductView]]):
+class SearchProducts(Request[list[ProductView]]):
     """List product views, optionally restricted to those currently in stock."""
 
-    in_stock_only: bool = field(default=False)
+    in_stock_only: bool = False
 
 
 @dataclass
-class GetInventoryReport(BaseQuery, Request[list[TierSummary]]):
-    """Roll the catalog up by price tier — the analytical query DuckDB is built for."""
+class GetInventoryReport(Request[list[TierSummary]]):
+    """Roll the catalog up by price tier — the analytical query, answered by the DuckDB read
+    model.
+    """
+
+
+@dataclass
+class GetInventoryReportNaive(Request[list[TierSummary]]):
+    """The same rollup, answered the naive way — straight off the SQLite write model.
+
+    It exists only so ``benchmark.py`` can time the identical question against both engines
+    through the mediator. You would not ship this: running analytics on your OLTP store is the
+    very thing a read model exists to avoid.
+    """

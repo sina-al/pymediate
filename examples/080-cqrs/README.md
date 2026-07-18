@@ -2,12 +2,13 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F080-cqrs%2Fdevcontainer.json)
 
-How do you separate reads from writes? In PyMediate, **CQRS is a naming convention over
-request types, not extra machinery** — commands and queries both subclass `Request` and
-dispatch through the same `mediator.send()`. What makes it worth doing is giving each side
-**its own store, tuned for what that side does**. This example makes that concrete: the write
-side is a **SQLite** table (row-oriented, transactional — OLTP), the read side is a **DuckDB**
-table (columnar, built for scan-and-aggregate reads — OLAP), and an event keeps them in sync.
+How do you separate reads from writes — and keep the read side correct? In PyMediate, **CQRS is
+a naming convention over request types, not extra machinery**: commands and queries both
+subclass `Request` and dispatch through the same `mediator.send()`. What makes it worth doing is
+giving each side its own store, tuned for what it does — a **SQLite** write side (row-oriented,
+transactional — OLTP) and a **DuckDB** read side (columnar, built for scan-and-aggregate — OLAP).
+The hard part is syncing them without a fragile dual write. This example does it the canonical
+way: a **transactional outbox** and a **background projection worker**.
 
 ## Run it
 
@@ -18,8 +19,10 @@ uv run catalog
 ```
 
 ```text
-CreateProduct      -> ProductId(product_id=1)
-AdjustStock        -> StockAdjustedResult(product_id=1, new_stock=7)
+CreateProduct      -> CreateProductResult(product_id=1, outbox_position=1)
+AdjustStock        -> AdjustStockResult(product_id=1, new_stock=7, outbox_position=2)
+read model at checkpoint 4, waiting for outbox position 4...
+caught up at checkpoint 4
 GetProduct         -> ProductView(product_id=1, name='Keyboard', price=49.99, stock=7, in_stock=True, price_tier='standard')
 SearchProducts     -> 3 product(s) in stock
 GetInventoryReport ->
@@ -28,72 +31,65 @@ GetInventoryReport ->
     standard count=1 value=349.93 avg=49.99
 ```
 
-`CreateProduct` and `AdjustStock` return just enough to confirm the write. `GetProduct`
-returns a `ProductView` with two fields — `in_stock`, `price_tier` — that don't exist on the
-write side. And `GetInventoryReport` is a query the write side simply can't answer well: a
-roll-up across the whole catalog. That's the split, made visible in one run.
+Commands return only what the caller needs — an id, plus the **outbox position** so a reader can
+tell when its write has landed. Then the demo *waits* for the read model to catch up to that
+position before querying: the read side is eventually consistent, and this makes it explicit
+rather than hiding it. `GetProduct` returns a `ProductView` with two fields — `in_stock`,
+`price_tier` — that don't exist on the write side. And `GetInventoryReport` is the analytical
+roll-up the read side exists for.
 
-## Two stores, two engines
+## The one write that matters: domain row + outbox, atomically
+
+The command never writes two databases. It writes **one** SQLite transaction containing the
+domain row *and* an outbox row describing what changed:
 
 ```python
-class WriteStore:
-    """The write side: a normalized SQLite table — row-oriented, transactional (OLTP)."""
-    def create(self, name: str, price: float, stock: int) -> Product: ...
-    def adjust_stock(self, product_id: int, delta: int) -> Product: ...
-
-class ReadStore:
-    """The read side: a denormalized DuckDB table — columnar, built for aggregates (OLAP)."""
-    def find(self, product_id: int) -> ProductView | None: ...
-    def search(self, *, in_stock_only: bool = False) -> list[ProductView]: ...
-    def inventory_report(self) -> list[TierSummary]: ...
+# write_store.py
+conn.execute("BEGIN IMMEDIATE")
+conn.execute("INSERT INTO products (name, price, stock) VALUES (?, ?, ?)", ...)
+_append_outbox(conn, PRODUCT_CREATED, {...})   # the event to project later
+conn.execute("COMMIT")                          # both rows, or neither
 ```
 
-A write touches one product — insert a row, or bump one row's stock. SQLite is a row store,
-which keeps a product's fields together: exactly the shape of that access. A `ProductView`
-adds `in_stock` and `price_tier` — derived fields a reader wants that the write side has no
-reason to store. And the read side's reason to exist is `inventory_report`, an aggregate that
-scans every row. DuckDB is a column store, so that scan reads only the columns it needs.
-**Two stores, two engines, each picked for what its side actually does.**
+Either both land or neither does — there's no second engine in this write path, so there's no
+dual-write failure mode. The read model is built **afterward**, from the outbox, by a separate
+worker. That decoupling is the whole point: the DuckDB write is no longer inside the command's
+failure boundary. (The naive alternative — writing DuckDB inside the command, or in a
+synchronous event handler during `send()` — is exactly the bug this avoids; see
+[`docs/architecture.md`](docs/architecture.md).)
 
-## Commands write; queries read; an event connects them
+## Commands write; a worker projects; queries read
 
 ```python
 class CreateProductHandler(RequestHandler[CreateProduct]):
-    async def __call__(self, request: CreateProduct) -> ProductId:
-        product = self._store.create(request.name, request.price, request.stock)
-        await self._publisher.publish(ProductCreated(product_id=product.product_id, ...))
-        return ProductId(product_id=product.product_id)   # minimal — just the new id
+    async def __call__(self, request: CreateProduct) -> CreateProductResult:
+        ack = self._store.create(request.name, request.price, request.stock)   # SQLite + outbox
+        await self._publisher.publish(OutboxAppended(sequence=ack.outbox_position))  # just a nudge
+        return CreateProductResult(product_id=ack.product.product_id, outbox_position=ack.outbox_position)
 
-class GetProductHandler(RequestHandler[GetProduct]):
-    async def __call__(self, request: GetProduct) -> ProductView:
-        return self._store.find(request.product_id)        # rich — the full read model
+class WakeProjector(EventHandler[OutboxAppended]):
+    async def __call__(self, event: OutboxAppended) -> None:
+        self._worker.wake()          # ring the bell — nothing more
 ```
 
-A command handler never touches `ReadStore`, and a query handler never touches `WriteStore`
-— each side stays ignorant of the other's storage. The read side (DuckDB) learns what
-happened only by subscribing to the events commands publish (`ProductCreatedProjector`,
-`StockAdjustedProjector`), the same `publish()` fan-out from [020-events](../020-events/).
-The handlers don't know or care which engine backs each store — this example started as two
-in-memory dicts, and moving to SQLite and DuckDB changed only the two store classes, not a
-line of handler or wiring code.
+The command handler doesn't know the worker exists; it just announces `OutboxAppended`. The
+`WakeProjector` event handler translates that to a nudge — and does **only** that. The durable
+path is the outbox itself: the worker (`projection.py`) polls it, applies each batch to DuckDB in
+one transaction, and advances a checkpoint. Drop the nudge entirely and the read side still
+catches up on the next poll. Query handlers, meanwhile, depend on `ReadModel` — the narrow
+read-only slice of the DuckDB store — so a query handler can't advance the checkpoint or apply a
+batch. The type checker enforces that split; it isn't a comment asking nicely.
 
-That last claim — "a query handler never touches `WriteStore`" — is easy to state and easy to
-accidentally violate, since `ReadStore` also has to expose `upsert` for the projectors to
-call. So query handlers don't depend on `ReadStore` at all; they depend on `ReadModel`, a
-`Protocol` with only `find`/`search`/`inventory_report` on it. Projectors depend on the
-separate `ReadModelProjector` protocol (`peek`/`upsert`). `ReadStore` implements both — it's
-one table underneath — but nothing outside `domain.py` ever holds a reference typed as
-`ReadStore`. Give `GetProductHandler` a `ReadModel` and call `.upsert()` on it, and
-`mypy --strict`/basedpyright reject it: that method isn't on the type you were handed. The
-separation isn't a comment asking nicely; the type checker enforces it.
+The full pattern — the checkpoint, crash recovery, idempotent events, eventual consistency, and
+DuckDB's single-writer limitation — is written up in [`docs/architecture.md`](docs/architecture.md).
 
 ## The analytical query — and why it's DuckDB
 
-`GetInventoryReport` rolls the catalog up by price tier: for each tier, how many products,
-their total inventory value, the average price. It's a full-catalog scan-and-aggregate — the
-kind of read the write store would grind through row by row, and the whole reason the read
-side is a column store. `benchmark.py` seeds a large synthetic catalog into both engines and
-times the identical `GROUP BY` on each:
+`GetInventoryReport` rolls the catalog up by price tier: per tier, how many products, their total
+inventory value, the average price. It's a full-catalog scan-and-aggregate — the read the write
+store would grind through row by row, and the whole reason the read side is a column store.
+`benchmark.py` seeds a large synthetic catalog into both engines and times the identical rollup
+**through the mediator** — the naive query against SQLite, the analytical one against DuckDB:
 
 ```bash
 uv run catalog-benchmark            # 1,000,000 products
@@ -102,13 +98,13 @@ uv run catalog-benchmark 5000000    # more rows, a wider gap
 
 ```text
 Seeding 1,000,000 products into SQLite (OLTP) and DuckDB (OLAP)...
-Timing the tier rollup, best of 5 runs...
+Timing the tier rollup through the mediator, best of 5 runs...
 
-  engine            role   query time
-  SQLite (rows)     OLTP      2033.6 ms
-  DuckDB (columns)  OLAP        22.6 ms
+  query                     store             role  query time
+  GetInventoryReportNaive   SQLite (rows)     OLTP    2525.9 ms
+  GetInventoryReport        DuckDB (columns)  OLAP       8.6 ms
 
-  DuckDB is 90x faster on the identical GROUP BY.
+  DuckDB is 294x faster on the identical rollup.
 
   Both return the same rollup, e.g.:
     budget   count=    63,671 value=     16,752,754.05 avg=10.50
@@ -116,9 +112,9 @@ Timing the tier rollup, best of 5 runs...
     standard count=   267,107 value=    400,031,767.19 avg=59.95
 ```
 
-(Exact numbers depend on your machine; the two-orders-of-magnitude gap doesn't.) Same rows,
-same query, same answer — the read store isn't cutting a corner to win, it's the right tool
-for this read. That gap *is* the argument for keeping a separate read side.
+(Exact numbers depend on your machine; the two-orders-of-magnitude gap doesn't.) Same rows, same
+query, same answer — the read store isn't cutting a corner to win, it's the right tool for this
+read. That gap *is* the argument for keeping a separate read side.
 
 ## Wiring: one `Services` collection, one `Mediator`
 
@@ -129,47 +125,45 @@ services.add(AdjustStockHandler(write_store, publisher))
 services.add(GetProductHandler(read_store))
 services.add(SearchProductsHandler(read_store))
 services.add(InventoryReportHandler(read_store))
-services.add(ProductCreatedProjector(read_store))
-services.add(StockAdjustedProjector(read_store))
+services.add(NaiveInventoryReportHandler(write_store))   # the benchmark's OLTP baseline
+services.add(WakeProjector(worker))
 mediator = Mediator(services.provider())
 ```
 
-Commands, queries, and the projectors that connect them all register on the same collection
-and dispatch through the same mediator. There's no second mediator, no parallel dispatch
-path — CQRS lives entirely in which store each handler is allowed to touch.
+Commands, queries, and the wake-up handler all register on the same collection and dispatch
+through the same mediator. There's no second mediator and no parallel dispatch path — CQRS lives
+in which store each handler is allowed to touch, and the outbox worker sits off to the side.
 
 ## The files
 
 | File | What it is |
 | --- | --- |
-| [`src/catalog/domain.py`](src/catalog/domain.py) | **Start here.** The SQLite `WriteStore`, the DuckDB `ReadStore` (with `inventory_report`), the events between them, and the command/query request types. |
-| [`src/catalog/handlers.py`](src/catalog/handlers.py) | The command handlers, the query handlers, and the projectors that keep the read side in sync. |
-| [`src/catalog/app.py`](src/catalog/app.py) | `build_mediator` and the demo. |
-| [`src/catalog/benchmark.py`](src/catalog/benchmark.py) | The OLTP-vs-OLAP micro-benchmark: `uv run catalog-benchmark`. Not a test. |
-| [`tests/test_cqrs.py`](tests/test_cqrs.py) | Proves the split on a handful of rows — minimal command responses, the denormalized view, separate store shapes, event-driven updates, the tier rollup: `uv run pytest` → `8 passed`. |
+| [`src/catalog/domain.py`](src/catalog/domain.py) | **Start here.** The commands, queries, value types, and the outbox vocabulary — no I/O. |
+| [`src/catalog/write_store.py`](src/catalog/write_store.py) | The SQLite write store: the atomic domain-row-plus-outbox transaction. |
+| [`src/catalog/read_store.py`](src/catalog/read_store.py) | The DuckDB read model and its checkpoint, behind `ReadModel` / `ProjectionTarget` protocols. |
+| [`src/catalog/projection.py`](src/catalog/projection.py) | The projector (`drain()`) and the background worker that loops it. |
+| [`src/catalog/handlers.py`](src/catalog/handlers.py) | Command handlers, query handlers, and the `WakeProjector`. |
+| [`src/catalog/app.py`](src/catalog/app.py) | `build_app` and the demo. |
+| [`src/catalog/benchmark.py`](src/catalog/benchmark.py) | The OLTP-vs-OLAP benchmark through the mediator: `uv run catalog-benchmark`. Not a test. |
+| [`tests/test_cqrs.py`](tests/test_cqrs.py) | Proves the split on a handful of rows: `uv run pytest` → `9 passed`. |
+| [`docs/architecture.md`](docs/architecture.md) | The deep dive: outbox, checkpoint, recovery, and real-world analogues. |
 
 ## Small print
 
-- **DuckDB is single-writer and built for analytical reads, not concurrent OLTP writes.**
-  That's fine here: only the projectors write to it, one event at a time, and everything else
-  reads. Don't read this example as "point your write traffic at DuckDB" — the whole point is
-  that the write traffic goes to SQLite.
-- **Feeding an OLAP store one row per event is against its grain.** A real projection is
-  usually batch-loaded or fed by change-data-capture, not upserted a row at a time. This
-  example upserts per-event to stay a runnable, self-contained demo; `benchmark.py` uses
-  DuckDB's bulk `COPY` path, which is how you'd actually load it.
-- **The projection here is in-process and synchronous** — a dict swapped for a DuckDB table
-  in the same call. In production the read side is usually a separate replica or warehouse
-  kept in sync asynchronously. The shape of the split is the same either way.
-- `LateBoundPublisher` solves a wiring order problem: a command handler needs to publish
-  through the `Mediator`, but the `Mediator` doesn't exist until *after* the handlers are
-  registered. It's bound to the real mediator once construction finishes — the same pattern
-  [050-handler-composition](../050-handler-composition/) uses.
+- **This is an illustrative, single-process demo** using a local SQLite file and a local DuckDB
+  file. The design transfers; the engines and the in-process worker are stand-ins.
+  [`docs/architecture.md`](docs/architecture.md) maps each one to its production analogue
+  (Postgres/Turso, Snowflake/ClickHouse, Debezium/Kafka Connect).
+- **DuckDB is single-writer and built for analytical reads, not concurrent OLTP writes.** Here
+  only the projection worker writes it, one batch at a time, and everything else reads. Don't
+  read this as "point write traffic at DuckDB" — write traffic goes to SQLite.
+- **The read side is eventually consistent.** A command commits and returns before the worker has
+  projected it. Commands hand back an `outbox_position`; a caller that needs read-your-writes
+  waits until the read model's checkpoint passes it.
 
 ## Where next
 
-- [080-cqrs-sync](../080-cqrs-sync/) — the same command/query split on `pymediate.sync`.
-- [020-events](../020-events/) — the `publish()` fan-out this example's projectors build on.
-- [040-pipeline-behaviors](../040-pipeline-behaviors/) — a `PipelineBehavior[Query]` that
-  caches reads, if you want to add caching on top of this split.
+- [020-events](../020-events/) — the `publish()` fan-out the wake-up nudge is built on.
+- [040-pipeline-behaviors](../040-pipeline-behaviors/) — a `PipelineBehavior[Query]` that caches
+  reads, if you want to add caching on top of this split.
 - The docs: [CQRS example](https://pymediate.sina-al.uk/docs/examples/cqrs).
