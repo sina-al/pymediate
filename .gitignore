@@ -23,6 +23,7 @@ dmypy.json
 
 # Environments
 .env
+!examples/100-hexagonal-architecture/.env
 .venv/
 venv/
 

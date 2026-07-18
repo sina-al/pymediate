@@ -32,22 +32,34 @@ In suggested order:
 | 10 | [040-pipeline-behaviors-sync](040-pipeline-behaviors-sync/) | The same stack on `pymediate.sync`. |
 | 11 | [045-behaviors-vs-decorators](045-behaviors-vs-decorators/) | Why not just a decorator? The same rate limit as a decorator (dependency bound at import time) vs. a behavior (dependency injected) — the decorator can't cleanly swap it, the behavior can. |
 | 12 | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | The same contrast on `pymediate.sync`, no event loop. |
-| 13 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
-| 14 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
-| 15 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 16 | [adapters-sync](adapters-sync/) | The sync twin of #15: Flask, FastAPI, and a click CLI over one sync core. |
-| 17 | [100-dependency-injection](100-dependency-injection/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra — with all three provider lifetimes: `Factory`, `Singleton`, and `ContextLocalSingleton`. |
-| 18 | [100-dependency-injection-sync](100-dependency-injection-sync/) | The same three lifetimes on `pymediate.sync`. |
+| 13 | [050-handler-composition](050-handler-composition/) | A handler that orchestrates others **through the mediator** — two concurrent `send`s (`asyncio.gather`) and a `publish` — while owning one operation and holding none of the other handlers. |
+| 14 | [050-handler-composition-sync](050-handler-composition-sync/) | The same composition on `pymediate.sync`; the sub-requests run sequentially, without `gather`. |
+| 15 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
+| 16 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
+| 17 | [065-validation](065-validation/) | Where validation goes: **shape at the edge** (Pydantic/FastAPI) vs. **invariants in the core** (no Pydantic); collapsed DTO==command vs. a split DTO↦command mapping; a validation behavior. |
+| 18 | [065-validation-sync](065-validation-sync/) | The same placement decision on `pymediate.sync`. |
+| 19 | [070-error-handling](070-error-handling/) | Domain errors vs. framework errors: one core behind **two transports**, where the same error becomes a `404` on HTTP and an exit code on the CLI — plus the `raise HTTPException` anti-pattern breaking a non-HTTP caller. |
+| 20 | [070-error-handling-sync](070-error-handling-sync/) | The same two-transport story on `pymediate.sync`. |
+| 21 | [075-authorization](075-authorization/) | Authn at the edge, authz in the core: coarse authorization as **selective pipeline behaviors** (`[Authorize]`/`[Authorize(Roles=…)]` analogs), resource authorization as an **imperative in-handler check** after the entity loads. |
+| 22 | [075-authorization-sync](075-authorization-sync/) | The same three-layer split on `pymediate.sync`. |
+| 23 | [080-cqrs](080-cqrs/) | Commands vs. queries over **separate engines**, kept in sync the correct way — a SQLite write side (OLTP) with a **transactional outbox**, a background **projection worker**, and a DuckDB read model (OLAP), plus a through-the-app benchmark for the analytical query. |
+| 24 | [090-adapters](090-adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 25 | [090-adapters-sync](090-adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
+| 26 | [100-dependency-injection](100-dependency-injection/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra — with all three provider lifetimes: `Factory`, `Singleton`, and `ContextLocalSingleton`. |
+| 27 | [100-dependency-injection-sync](100-dependency-injection-sync/) | The same three lifetimes on `pymediate.sync`. |
+| 28 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
-design requests as value objects; 15–16 make the framework-independence argument; 17–18
-plug into a DI container and show its provider lifetimes. Async and sync
-examples mirror each other deliberately — diffing a pair is the fastest way to see how
-small the sync delta is. (`adapters` keeps its original name for now; it's renumbered
-later as the
-[examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
+compose handlers through the mediator; 15–16 design requests as value objects; 17–18 place
+validation at the edge vs. the core; 19–20 map domain errors across transports; 21–22 place
+authn at the edge and authz in the core; 23 separates commands from queries with a
+transactional outbox and a projection worker; 24–25 make the framework-independence argument;
+26–27 plug into a DI container and show its provider lifetimes; 28 assembles those ideas into a
+deployment-shaped application. Async and sync examples mirror each other deliberately —
+diffing a pair is the fastest way to see how small the sync delta is. The
+[examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) tracks the remaining work.
 
 ## The examples contract
 
@@ -56,17 +68,21 @@ and run all of them with no per-example wiring (`release.yml`'s examples stage, 
 `scripts/run_examples.py`):
 
 1. **Standalone uv project**: a `pyproject.toml` at the example's root, with a committed
-   `uv.lock`. Not a member of any workspace.
+   `uv.lock`. It may itself be a self-contained multi-package workspace, but must never join
+   the repository root or another example's workspace.
 2. **Depends on pymediate with a loose lower bound** (e.g. `pymediate>=0.5`) so the release
    runner can re-pin it to the release candidate without a conflict. Extras are fine
    (e.g. `pymediate[di]>=0.5`): `uv add` preserves them when re-pinning, in both wheel
-   and version mode — verified when `with-dependency-injector` was added.
+   and version mode — verified by the `100-dependency-injection` examples.
 3. **Tests included, `uv run pytest` exits 0**: pytest lives in the default (`dev`)
    dependency group, so `uv sync && uv run pytest` is the whole contract. Every example is
    also a test of the library.
-4. **No `[tool.uv.sources]` or `[[tool.uv.index]]` sections**: the release runner appends
-   its own (pinning pymediate to the staging index) and will refuse an example that already
-   defines them.
+4. **No `[[tool.uv.index]]` or arbitrary checked-in `pymediate` source**: the release runner owns
+   those while pinning a candidate. A multi-package example may use `[tool.uv.sources]` entries for
+   its own `{ workspace = true }` members. The flagship is the sole exception: it uses the exact
+   repo-relative editable source `{ path = "../..", editable = true }` because it exercises current
+   nested-container DI behavior. The runner validates that exact exception, removes it from the
+   temporary copy, and then applies the candidate pin. Every other source is refused.
 5. **A README** explaining what the example showcases.
 
 Beyond the contract, examples in this repo are held to a deliberate quality bar —
@@ -94,5 +110,6 @@ the design decision):
 4. **After the PyPI publish** — `--version X.Y.Z` mode against `pypi.org`: a smoke test
    of the exact artifact users install, gating the GitHub Release.
 
-Either way each example is copied to a temp directory first — your checkout is never
-modified.
+Either way each example is copied to a temp directory first — your checkout is never modified. For
+the flagship, the checkout-only source override is removed from that copy before the same wheel or
+index re-pinning used by every other example.

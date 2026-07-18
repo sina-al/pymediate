@@ -72,9 +72,9 @@ classic `httpx`, for HTTP test clients (starlette deprecated httpx there).
   └── tests/
   ```
 
-  Template: `examples/adapters/`. Being a real package is what buys pleasant
+  Template: `examples/090-adapters/`. Being a real package is what buys pleasant
   commands: `uv run taskboard …` via `[project.scripts]`,
-  `uv run uvicorn taskboard.adapters.fastapi_app:app` — never
+  `uv run uvicorn taskboard.adapters.fastapi:app` — never
   `uv run python src/….py` paths in a README. uv installs the project editable on sync,
   which also makes IDE imports resolve.
 
@@ -141,8 +141,8 @@ venv. Copy an existing one and adjust the three obvious fields. README badge:
 
 `examples/README.md` opens with the gallery. Add/update the new example's card: name
 (linked), one-sentence hook, "start here"-ordering position. Keep the recommended reading
-order coherent: basic → basic-sync → events → with-dependency-injector →
-adapters → adapters-sync → (new ones slotted deliberately, not appended blindly).
+order coherent: basic → basic-sync → events → adapters → adapters-sync →
+dependency-injection → dependency-injection-sync → (new ones slotted deliberately).
 
 ## Verification bar (all of it, every time)
 

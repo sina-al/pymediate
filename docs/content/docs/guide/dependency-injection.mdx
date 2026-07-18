@@ -13,7 +13,7 @@ See [installation](/docs/getting-started/installation) for other package manager
 
 ## Basic setup
 
-`DependencyInjectorServiceProvider` wraps a `dependency-injector` container and implements PyMediate's `ServiceProvider` [protocol](https://docs.python.org/3/library/typing.html#typing.Protocol), so it drops in wherever `Services.provider()` would go. It resolves handlers by their concrete type using type inspection — provider names in the container are irrelevant:
+`DependencyInjectorServiceProvider` wraps a `dependency-injector` container and implements PyMediate's `ServiceProvider` [protocol](https://docs.python.org/3/library/typing.html#typing.Protocol), so it drops in wherever `Services.provider()` would go. It indexes handlers by their declared output type — provider names in the container are irrelevant, and providers are not called during indexing:
 
 ```python
 from dependency_injector import containers, providers
@@ -35,12 +35,54 @@ mediator = Mediator(provider)
 response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
 ```
 
-<Callout type="warning" title="Build the provider outside the container">
-  Construct `DependencyInjectorServiceProvider` from a container you've already built — never
-  declare it as one of that container's own providers (for example via `providers.Self()`). Doing
-  so makes the container resolve itself while still scanning itself, which recurses until Python's
-  recursion limit is hit.
-</Callout>
+## Modular containers
+
+Child [`providers.Container`](https://python-dependency-injector.ets-labs.org/examples/application-multiple-containers.html) providers are discovered recursively. Their providers appear at the child's position in the root declaration order, which keeps pipeline behavior ordering predictable:
+
+```python
+class OrdersContainer(containers.DeclarativeContainer):
+    database = providers.Dependency()
+    create_order = providers.Factory(CreateOrderHandler, database=database)
+
+class ApplicationContainer(containers.DeclarativeContainer):
+    database = providers.Singleton(PostgresDatabase)
+    logging = providers.Factory(LoggingBehavior)
+    orders = providers.Container(OrdersContainer, database=database)
+```
+
+Only declared child containers are descended into. Dependencies injected into a factory are not independently traversed and registered.
+
+## Compose the mediator in the container
+
+Provider indexing does not construct services, so Dependency Injector's documented [`providers.Self()`](https://python-dependency-injector.ets-labs.org/providers/inject_self.html) pattern is safe:
+
+```python
+class ApplicationContainer(containers.DeclarativeContainer):
+    __self__ = providers.Self()
+
+    create_user = providers.Factory(CreateUserHandler)
+    services = providers.Singleton(DependencyInjectorServiceProvider, __self__)
+    mediator = providers.Singleton(Mediator, services=services)
+
+mediator = ApplicationContainer().mediator()
+```
+
+Constructing the mediator outside the container remains equally valid.
+
+## Opaque factories
+
+Class-backed providers are inferred directly. A function-backed provider needs a concrete return annotation:
+
+```python
+def build_handler(database: Database) -> CreateUserHandler:
+    return CreateUserHandler(database)
+
+create_user = providers.Factory(build_handler, database=database)
+```
+
+A provider whose output type cannot be determined this way — an unannotated factory, a `Selector`, a `Resource` — is rejected at construction time with a `TypeError` naming the provider, rather than being called to discover its type.
+
+The provider graph and inferred types are indexed once. Rebuild the service provider after adding providers or applying an override that changes a provider's output type. Same-type overrides continue to work.
 
 ## Factory vs. Singleton providers
 

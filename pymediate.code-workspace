@@ -1,0 +1,220 @@
+{
+  "folders": [
+    {
+      "name": "examples/005-why-a-mediator",
+      "path": "examples/005-why-a-mediator"
+    },
+    {
+      "name": "examples/005-why-a-mediator-sync",
+      "path": "examples/005-why-a-mediator-sync"
+    },
+    {
+      "name": "examples/010-basic",
+      "path": "examples/010-basic"
+    },
+    {
+      "name": "examples/010-basic-sync",
+      "path": "examples/010-basic-sync"
+    },
+    {
+      "name": "examples/020-events",
+      "path": "examples/020-events"
+    },
+    {
+      "name": "examples/020-events-sync",
+      "path": "examples/020-events-sync"
+    },
+    {
+      "name": "examples/030-streaming",
+      "path": "examples/030-streaming"
+    },
+    {
+      "name": "examples/030-streaming-sync",
+      "path": "examples/030-streaming-sync"
+    },
+    {
+      "name": "examples/040-pipeline-behaviors",
+      "path": "examples/040-pipeline-behaviors"
+    },
+    {
+      "name": "examples/040-pipeline-behaviors-sync",
+      "path": "examples/040-pipeline-behaviors-sync"
+    },
+    {
+      "name": "examples/090-adapters",
+      "path": "examples/090-adapters"
+    },
+    {
+      "name": "examples/090-adapters-sync",
+      "path": "examples/090-adapters-sync"
+    },
+    {
+      "name": "examples/100-dependency-injection",
+      "path": "examples/100-dependency-injection"
+    },
+    {
+      "name": "examples/100-dependency-injection-sync",
+      "path": "examples/100-dependency-injection-sync"
+    },
+    {
+      "name": "examples/100-hexagonal-architecture",
+      "path": "examples/100-hexagonal-architecture"
+    },
+    {
+      "name": "src",
+      "path": "src"
+    },
+    {
+      "name": "tests",
+      "path": "tests"
+    },
+    {
+      "name": "scripts",
+      "path": "scripts"
+    },
+    {
+      "name": "docs",
+      "path": "docs"
+    },
+    {
+      "name": "root",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "[python]": {
+      "editor.defaultFormatter": "charliermarsh.ruff",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit",
+        "source.organizeImports": "explicit"
+      }
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder:root}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [],
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.exclude": [
+      "**/tests/typing/snippets/errors/**",
+      "**/__pycache__",
+      "**/.venv",
+      "**/.mypy_cache",
+      "**/.pytest_cache",
+      "**/.ruff_cache",
+      "**/build",
+      "**/dist",
+      "**/htmlcov",
+      "**/site"
+    ],
+    "mypy-type-checker.ignorePatterns": [
+      "**/tests/typing/snippets/errors/**"
+    ],
+    "ruff.enable": true,
+    "git.openRepositoryInParentFolders": "always",
+    "workbench.editor.labelFormat": "medium",
+    "explorer.compactFolders": false,
+    "files.associations": {
+      "*.toml": "toml",
+      ".coveragerc": "ini",
+      "*.ini": "ini"
+    },
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.mypy_cache": true,
+      "**/.pytest_cache": true,
+      "**/.ruff_cache": true,
+      "**/.coverage": true
+    },
+    "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/.venv/**": true,
+      "**/node_modules/**": true,
+      "**/__pycache__/**": true,
+      "**/.mypy_cache/**": true,
+      "**/.pytest_cache/**": true,
+      "**/.ruff_cache/**": true,
+      "**/build/**": true,
+      "**/dist/**": true,
+      "**/htmlcov/**": true,
+      "**/site/**": true
+    },
+    "search.exclude": {
+      "**/.venv": true,
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/.mypy_cache": true,
+      "**/.pytest_cache": true,
+      "**/.ruff_cache": true,
+      "**/build": true,
+      "**/dist": true,
+      "**/htmlcov": true,
+      "**/site": true,
+      "**/uv.lock": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "littlefoxteam.vscode-python-test-adapter",
+      "hbenl.vscode-test-explorer",
+      "charliermarsh.ruff",
+      "ms-python.mypy-type-checker",
+      "tamasfe.even-better-toml",
+      "eamodio.gitlens",
+      "usernamehw.errorlens"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Example: Sync selected folder",
+        "type": "shell",
+        "command": "uv sync",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Example: Test selected folder",
+        "type": "shell",
+        "command": "uv run pytest",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": "test",
+        "problemMatcher": []
+      },
+      {
+        "label": "Example: Lint selected folder",
+        "type": "shell",
+        "command": "uv run ruff check .",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": "build",
+        "problemMatcher": []
+      },
+      {
+        "label": "Repository: Run all checks",
+        "type": "shell",
+        "command": "uv run poe check:all",
+        "options": {
+          "cwd": "${workspaceFolder:root}"
+        },
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": []
+      }
+    ]
+  }
+}

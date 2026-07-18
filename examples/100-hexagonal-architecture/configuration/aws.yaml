@@ -1,0 +1,69 @@
+# Complete AWS configuration: PostgreSQL, S3-compatible storage, and SQS.
+providers:
+  telemetry:
+    impl: shop.bindings.opentelemetry.configure_opentelemetry
+    lifetime: resource
+  database:
+    impl: shop.adapters.postgres.PostgresDbGateway
+    lifetime: resource
+    arguments:
+      dsn: { env: SHOP_POSTGRES_URL }
+  unit:
+    impl: shop.adapters.postgres.PostgresUnitOfWork
+    lifetime: factory
+    arguments:
+      database: { $ref: database }
+  catalogue:
+    impl: shop.adapters.ephemeral.catalogue.EphemeralCatalogue
+  storage:
+    impl: shop.adapters.aws.storage.S3Storage
+    lifetime: resource
+    arguments:
+      bucket: { env: SHOP_S3_BUCKET, default: shop-exports }
+      endpoint_url: { env: SHOP_S3_ENDPOINT, default: null }
+  broker:
+    impl: shop.adapters.aws.queue.SqsMessageBroker
+    lifetime: resource
+    arguments:
+      queue_url: { env: SHOP_SQS_QUEUE_URL }
+      region_name: { env: SHOP_AWS_REGION, default: eu-west-2 }
+      endpoint_url: { env: SHOP_SQS_ENDPOINT, default: null }
+      visibility_seconds: 120
+      wait_seconds: 20
+  clock:
+    impl: shop.adapters.common.clock.SystemClock
+  inventory:
+    impl: shop.adapters.ephemeral.inventory.EphemeralInventory
+  payments:
+    impl: shop.adapters.ephemeral.payments.EphemeralPayments
+  mailer:
+    impl: shop.adapters.ephemeral.mailer.ConsoleMailer
+  rates:
+    impl: shop.adapters.common.rates.FixedExchangeRates
+  renderer:
+    impl: shop.adapters.weasyprint.renderer.WeasyPrintDocumentRenderer
+
+bindings:
+  application:
+    providers:
+      database: database
+      unit: unit
+      catalogue: catalogue
+      storage: storage
+      clock: clock
+      inventory: inventory
+      payments: payments
+      mailer: mailer
+      rates: rates
+      renderer: renderer
+    resources: [telemetry]
+  relay:
+    providers:
+      outbox: database
+      publisher: broker
+    resources: [telemetry]
+  consumer:
+    providers:
+      queue: broker
+      inbox: database
+    resources: [telemetry]

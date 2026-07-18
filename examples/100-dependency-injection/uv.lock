@@ -94,7 +94,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pymediate", extras = ["di"], specifier = ">=0.5.0" }]
+requires-dist = [{ name = "pymediate", extras = ["di"], specifier = ">=0.6.0" }]
 
 [package.metadata.requires-dev]
 dev = [

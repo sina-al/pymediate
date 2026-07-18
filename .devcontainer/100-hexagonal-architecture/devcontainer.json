@@ -1,0 +1,27 @@
+{
+    "name": "pymediate example: hexagonal architecture",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".",
+        "args": {
+            "PYTHON_VERSION": "3.12"
+        }
+    },
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    },
+    "postCreateCommand": "cd examples/100-hexagonal-architecture && uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "detachhead.basedpyright",
+                "charliermarsh.ruff",
+                "redhat.vscode-yaml"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/100-hexagonal-architecture/.venv/bin/python"
+            }
+        }
+    }
+}
