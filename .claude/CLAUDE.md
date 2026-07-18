@@ -215,11 +215,13 @@ behaviors) — read both before assuming either alone reflects the current desig
 ## Issue tracking & the project board
 
 Planning lives in GitHub Issues on `sina-al/pymediate`, mirrored onto the user-level
-GitHub Project board **#2 "pymediate"** (<https://github.com/users/sina-al/projects/2>).
+GitHub Project board **#2 "pymediate"** (<https://github.com/users/sina-al/projects/2>)
+by the Project's own auto-add workflow — nothing in this repo does board plumbing.
 **All issue filing goes through the `edict` skill** — it owns the interview flow, the
-issue template, labels, titles, and the board plumbing (project/field/option IDs).
-Requests like "file an issue", "add this to the roadmap", "track this", or "put it on
-the board" all mean invoking that skill, even for one-liners.
+issue template, labels, titles, and the draft-label review gate (issues are filed with a
+`draft` label and revised in place until the maintainer approves). Requests like "file an
+issue", "add this to the roadmap", "track this", or "put it on the board" all mean
+invoking that skill, even for one-liners.
 
 ## Versioning
 
