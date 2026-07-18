@@ -50,8 +50,10 @@ the same `Singleton` repository.
 
 - This example depends on `pymediate[di]`, which pulls in `dependency-injector`. The
   integration lives in `pymediate.providers` — the core package never imports it.
-- `DependencyInjectorServiceProvider` scans the container once, at construction. Build it
-  from a finished container, not from a provider inside that same container.
+- `DependencyInjectorServiceProvider` indexes declared output types without constructing
+  providers. It also follows nested `providers.Container` declarations in order.
+- The mediator may be built outside the container, as here, or composed inside it with
+  Dependency Injector's `providers.Self()` pattern.
 
 ## Where next
 

@@ -368,13 +368,12 @@ async def test_async_di_factory_behavior_fresh_instances() -> None:
     response2 = await mediator.send(AsyncCounterRequest(value=2))
     response3 = await mediator.send(AsyncCounterRequest(value=3))
 
-    # Should have created 4 instances (1 from scan + 3 from sends)
-    assert AsyncCountingBehavior.instance_counter == 4
+    # Discovery does not construct and discard a factory instance.
+    assert AsyncCountingBehavior.instance_counter == 3
 
-    # Instance IDs: first is from scan (not used), then 2,3,4 from actual sends
-    assert "AsyncCounting(inst=2,exec=1)" in response1.execution_log
-    assert "AsyncCounting(inst=3,exec=1)" in response2.execution_log
-    assert "AsyncCounting(inst=4,exec=1)" in response3.execution_log
+    assert "AsyncCounting(inst=1,exec=1)" in response1.execution_log
+    assert "AsyncCounting(inst=2,exec=1)" in response2.execution_log
+    assert "AsyncCounting(inst=3,exec=1)" in response3.execution_log
 
 
 # ============================================================================
@@ -416,6 +415,23 @@ async def test_async_di_concurrent_requests() -> None:
 @pytest.mark.asyncio
 async def test_async_di_concurrent_requests_with_io() -> None:
     """Test concurrent requests with I/O-bound async behaviors."""
+    active = 0
+    peak_active = 0
+    all_started = asyncio.Event()
+
+    class OverlapBehavior(PipelineBehavior[AsyncCounterRequest]):
+        async def __call__(self, request: AsyncCounterRequest, next: Any) -> AsyncCounterResponse:
+            nonlocal active, peak_active
+            active += 1
+            peak_active = max(peak_active, active)
+            if active == 5:
+                all_started.set()
+            try:
+                await asyncio.wait_for(all_started.wait(), timeout=1)
+                response: AsyncCounterResponse = await next()
+                return response
+            finally:
+                active -= 1
 
     class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
@@ -423,7 +439,7 @@ async def test_async_di_concurrent_requests_with_io() -> None:
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
-        async_io = providers.Factory(AsyncIOBehavior)
+        overlap = providers.Factory(OverlapBehavior)
         increment = providers.Factory(AsyncIncrementBehavior, amount=1)
         handler = providers.Factory(AsyncCounterHandler)
 
@@ -431,20 +447,11 @@ async def test_async_di_concurrent_requests_with_io() -> None:
     provider = DependencyInjectorServiceProvider(container)
     mediator = Mediator(provider)
 
-    # Send concurrent requests and measure time
-    import time
-
-    start = time.time()
     requests = [AsyncCounterRequest(value=i) for i in range(5)]
     responses = await asyncio.gather(*[mediator.send(req) for req in requests])
-    duration = time.time() - start
 
-    # All should complete
     assert len(responses) == 5
-
-    # Should complete faster than sequential (5 * 0.02s = 0.1s)
-    # With concurrency should be closer to 0.02s
-    assert duration < 0.05  # Allow some overhead
+    assert peak_active == 5
 
 
 @pytest.mark.asyncio
