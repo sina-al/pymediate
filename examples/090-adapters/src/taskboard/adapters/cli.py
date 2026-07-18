@@ -1,4 +1,4 @@
-"""asyncclick adapter: a command-line interface whose commands await the async core.
+"""asyncclick adapter: a CLI whose commands await the async core.
 
 asyncclick is click's async fork, so this file is
 `examples/090-adapters-sync/src/taskboard/adapters/cli.py` with ``async def`` commands

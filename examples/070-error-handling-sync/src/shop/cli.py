@@ -1,6 +1,6 @@
-"""Map shop domain errors to command-line exit codes.
+"""Map shop domain errors to CLI exit codes.
 
-The command-line interface has no HTTP response, so it maps ``ProductNotFoundError`` to exit
+The CLI has no HTTP response, so it maps ``ProductNotFoundError`` to exit
 code 3 instead of status 404. The core is shared by both interfaces.
 
 ``send_as_cli`` is separated so tests can call the mapping directly. An HTTP-specific exception
@@ -24,7 +24,7 @@ def send_as_cli(mediator: Mediator, request: Request[object]) -> int:
     """Dispatch a request and translate domain errors into process exit codes.
 
     It catches ``ProductNotFoundError`` and ``OutOfStockError``, which are domain errors.
-    Other exceptions, including ``HTTPException``, propagate because the command-line mapping
+    Other exceptions, including ``HTTPException``, propagate because the CLI mapping
     has no rule for them.
     """
     try:

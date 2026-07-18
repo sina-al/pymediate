@@ -1,12 +1,11 @@
 # Shop Azure adapter
 
 `shop-adapter-azure` provides Azure Blob Storage and Azure Service Bus implementations of the same
-contracts used by the local and Amazon Web Services (AWS) profiles. The Shop can move from S3 and
-Simple Queue Service (SQS) to these services
-without modifying its application handlers.
+contracts used by the local and AWS profiles. The Shop can move from S3 and SQS to these
+services without modifying its application handlers.
 
-The package depends on `shop-ports` and the Azure Python software development kits (SDKs). It does
-not import the application, bindings, FastAPI, command-line adapter, or worker implementation.
+The package depends on `shop-ports` and the Azure Python SDKs. It does not import the application,
+bindings, FastAPI, CLI adapter, or worker implementation.
 
 ## Modules
 

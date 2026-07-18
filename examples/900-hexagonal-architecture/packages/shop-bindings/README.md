@@ -7,7 +7,7 @@ The package contains no business rules and implements no application port. Its j
 concrete implementations, supply them to an executable role, and own their runtime lifecycle.
 
 This example uses a data-driven composition root to demonstrate deployments that mix several hosts
-with local, Amazon Web Services (AWS), and Azure infrastructure. That amount of indirection is not
+with local, AWS, and Azure infrastructure. That amount of indirection is not
 a starting requirement for a PyMediate application. A Python function with container overrides is
 often sufficient when an
 application has only one or two deployment shapes.
@@ -22,10 +22,10 @@ The package has required dependencies on the application, common stateless imple
 the document renderer used by every profile. Optional extras install coherent infrastructure sets:
 
 - `default` installs SQLite and process-local implementations;
-- `aws` installs PostgreSQL, S3-compatible storage, Amazon Simple Queue Service (SQS), and
+- `aws` installs PostgreSQL, S3-compatible storage, Amazon SQS, and
   process-local implementations for services not represented by those AWS services;
 - `azure` installs PostgreSQL, Blob Storage/Service Bus, and the same process-local support services;
-- `observability` installs the OpenTelemetry software development kit (SDK) and OpenTelemetry
+- `observability` installs the OpenTelemetry SDK and OpenTelemetry
   Protocol (OTLP) gRPC exporters.
 
 Host dependencies remain separate at the workspace root. An OpenAPI image therefore need not

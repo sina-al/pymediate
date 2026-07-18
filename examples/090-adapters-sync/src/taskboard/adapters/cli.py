@@ -1,4 +1,4 @@
-"""Click adapter: a command-line interface over the same core.
+"""Click adapter: a CLI over the same core.
 
 The group chains, so one invocation can run a whole session against one in-memory
 store: ``python cli.py add "Buy milk" add "Ship it" complete 1 list``.

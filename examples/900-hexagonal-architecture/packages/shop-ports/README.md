@@ -50,7 +50,7 @@ implements both on one transaction-bound connection.
 The messaging modules have separate responsibilities:
 
 - `integration.py` validates the versioned `IntegrationMessage` envelope and its strict
-  JavaScript Object Notation (JSON) codec;
+  JSON codec;
 - `outbox.py` persists messages with trace context and leases committed work to a relay;
 - `broker.py` publishes and consumes locked broker deliveries;
 - `inbox.py` claims message identities and records completed processing.

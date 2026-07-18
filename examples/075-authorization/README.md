@@ -7,7 +7,7 @@ exists only to provide deterministic input. Do not use it to authenticate real r
 production adapter must verify a signed token, session, or other credential before constructing
 a trusted `Principal`.
 
-This example separates authentication from two forms of authorization. The HTTP and command-line
+This example separates authentication from two forms of authorization. The HTTP and CLI
 adapters turn a credential into a principal. Pipeline behaviors enforce request-level policies.
 The edit handler checks access to a document after loading that document.
 
@@ -24,7 +24,7 @@ uv run pytest
 15 passed
 ```
 
-The command-line adapter uses the same mediator and core:
+The CLI adapter uses the same mediator and core:
 
 ```console
 $ uv run vault --token "alice;user;mfa" edit 1 updated
@@ -110,14 +110,14 @@ policy can be tested and replaced independently.
 The core distinguishes a missing principal from an authenticated principal that lacks access.
 The HTTP adapter maps those outcomes according to HTTP semantics:
 
-| Core result | HTTP result | Command-line result |
+| Core result | HTTP result | CLI result |
 | --- | --- | --- |
 | `AuthenticationRequiredError` | 401 with `WWW-Authenticate: Bearer` | exit code 13 |
 | `AuthorizationError` | 403 | exit code 13 |
 | `DocumentNotFoundError` | 404 | exit code 3 |
 
 `AuthenticationRequiredError` and `AuthorizationError` share an `AccessError` base class. FastAPI
-maps each specific error separately. The command-line interface maps their shared base class to
+maps each specific error separately. The CLI maps their shared base class to
 one access-denied exit code.
 
 ## Read the code
@@ -127,7 +127,7 @@ one access-denied exit code.
 | [`src/vault/authn.py`](src/vault/authn.py) | The unsigned parser and the credential-verification warning. |
 | [`src/vault/core.py`](src/vault/core.py) | Start here for principals, marker types, behaviors, and resource authorization. |
 | [`src/vault/api.py`](src/vault/api.py) | Principal attachment and the HTTP 401, 403, and 404 mappings. |
-| [`src/vault/cli.py`](src/vault/cli.py) | The same core exposed through command-line exit codes. |
+| [`src/vault/cli.py`](src/vault/cli.py) | The same core exposed through CLI exit codes. |
 | [`tests/test_authorization.py`](tests/test_authorization.py) | Behavior selection, ownership checks, and boundary mappings. |
 
 ## Details

@@ -113,7 +113,7 @@ choice depends on where the rule can be maintained and reused.
 ## Where next
 
 - [070-error-handling](../070-error-handling/) maps domain errors for both HTTP and a
-  command-line interface.
+  CLI.
 - [065-validation-sync](../065-validation-sync/) shows the same boundary with
   `pymediate.sync`.
 - Read the [requests and responses guide](https://pymediate.sina-al.uk/docs/guide/requests-responses).

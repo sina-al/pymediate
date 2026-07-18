@@ -1,4 +1,4 @@
-"""Convert demo credentials from HTTP or the command line into a principal.
+"""Convert demo credentials from HTTP or the CLI into a principal.
 
 The token format, ``"id;role1,role2;claim1,claim2"``, is unsigned and accepts caller-provided
 roles and claims. It is only deterministic input for this example. Production authentication
@@ -33,5 +33,5 @@ def from_http(headers: Mapping[str, str]) -> Principal | None:
 
 
 def from_cli(token: str | None) -> Principal | None:
-    """Read the demo token from a command-line ``--token`` flag."""
+    """Read the demo token from a CLI ``--token`` flag."""
     return parse_token(token)

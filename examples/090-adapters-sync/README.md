@@ -3,7 +3,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F090-adapters-sync%2Fdevcontainer.json)
 
 This example exposes one task-board application through Flask, FastAPI, and a click
-command-line interface (CLI). Each adapter translates its input into a request, sends that
+CLI. Each adapter translates its input into a request, sends that
 request through the mediator, and translates the result. The application layer does not import
 any of the three adapter frameworks.
 
@@ -64,7 +64,7 @@ In suggested reading order:
 | [`src/taskboard/messages.py`](src/taskboard/messages.py) | The requests: `AddTask`, `CompleteTask`, `ListOpenTasks`. |
 | [`src/taskboard/handlers.py`](src/taskboard/handlers.py) | One handler per request — the framework-free application logic. |
 | [`src/taskboard/wiring.py`](src/taskboard/wiring.py) | `build_mediator` — the one place that assembles domain, messages, and handlers. |
-| [`src/taskboard/adapters/cli.py`](src/taskboard/adapters/cli.py) | The command-line adapter: click commands create and send requests. |
+| [`src/taskboard/adapters/cli.py`](src/taskboard/adapters/cli.py) | The CLI adapter: click commands create and send requests. |
 | [`src/taskboard/adapters/flask.py`](src/taskboard/adapters/flask.py) | Flask routes → requests; JSON in and out. |
 | [`src/taskboard/adapters/fastapi.py`](src/taskboard/adapters/fastapi.py) | The same routes on FastAPI; the domain's `Task` dataclass doubles as the response model. |
 | [`tests/`](tests/) | One suite per adapter — together they cover the application three times over. |

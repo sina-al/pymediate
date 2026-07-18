@@ -1,4 +1,4 @@
-"""Tests for HTTP and command-line mappings of domain errors."""
+"""Tests for HTTP and CLI mappings of domain errors."""
 
 import pytest
 from fastapi import HTTPException
@@ -53,11 +53,11 @@ def test_cli_valid_requests_return_exit_0() -> None:
     assert main(["order", "1", "2"]) == EXIT_OK
 
 
-# ---- An HTTP-specific exception has no command-line mapping ----
+# ---- An HTTP-specific exception has no CLI mapping ----
 
 
 def test_leaked_http_exception_escapes_the_cli() -> None:
-    # The command-line mapping handles domain errors, not HTTP-specific exceptions.
+    # The CLI mapping handles domain errors, not HTTP-specific exceptions.
     leaky = build_leaky_mediator()
 
     with pytest.raises(HTTPException):

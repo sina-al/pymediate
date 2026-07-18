@@ -10,8 +10,7 @@ boundary, implementation separation, and substitution mechanism the application 
 
 ## OpenTelemetry already separates API from implementation
 
-OpenTelemetry defines distinct roles for its application programming interface (API), software
-development kit (SDK), protocol, and Collector. Its
+OpenTelemetry defines distinct roles for its API, SDK, protocol, and Collector. Its
 [component model](https://opentelemetry.io/docs/concepts/components/) describes the split:
 
 | Part | Responsibility | Shop location |
@@ -158,8 +157,8 @@ database, cloud services, and internal adapters. The caller selects
 an endpoint and depends on the network contract, not those internal providers. The abstraction has
 moved to the network edge; it has not disappeared.
 
-This can be cleaner than copying every generated method and message into a Python protocol and a
-second set of data-transfer objects. It remains an explicit coupling: the application accepts the proto's
+This can be cleaner than copying every generated method and message into a Python protocol and
+a second set of DTOs. It remains an explicit coupling: the application accepts the proto's
 versioning rules and gRPC's deadlines, status codes, and failure model.
 
 A local gateway remains worthwhile when the application needs to:

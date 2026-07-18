@@ -5,7 +5,7 @@ example. The same objects are used when an operation starts in FastAPI, Typer, a
 or a direct mediator call.
 
 The package has no project or framework dependencies. It does not import PyMediate, Dependency
-Injector, Pydantic, a database driver, or a cloud client library. Other Shop packages may depend on the
+Injector, Pydantic, a database driver, or a cloud SDK. Other Shop packages may depend on the
 domain; the domain does not depend on them.
 
 ## Contents
@@ -35,7 +35,7 @@ exists is determined atomically by persistence and expressed with a customer dom
 
 `entities.invoices` and `entities.statements` define validated records for generated documents.
 Statement periods and supported currencies (`GBP`, `EUR`, and `USD`) are domain values so direct
-mediator calls receive the same validation as HTTP and command-line callers.
+mediator calls receive the same validation as HTTP and CLI callers.
 
 ## Errors
 
@@ -56,7 +56,7 @@ terminal colour.
 
 `shop.domain.events` contains versioned facts such as `OrderPlacedEvent`,
 `CustomerAccountOpenedEvent`, and `InvoiceCreatedEvent`. An event owns its stable business name,
-schema version, typed aggregate reference, and JavaScript Object Notation (JSON)-compatible
+schema version, typed aggregate reference, and JSON-compatible
 payload. Application handlers append
 these events to the audit journal in the same transaction as the corresponding state change.
 

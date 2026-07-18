@@ -1,1 +1,1 @@
-"""Command-line inbound adapter."""
+"""CLI inbound adapter."""

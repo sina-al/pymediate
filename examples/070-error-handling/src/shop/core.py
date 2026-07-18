@@ -2,7 +2,7 @@
 
 The handlers report domain failures such as a missing product or insufficient stock. They do
 not contain HTTP statuses, process exit codes, or imports from FastAPI and ``argparse``. The HTTP
-and command-line boundaries therefore map the same errors to different results.
+and CLI boundaries therefore map the same errors to different results.
 
 The errors share a hierarchy under ``ShopError``. A boundary can map the base class or assign a
 different result to each subclass.
