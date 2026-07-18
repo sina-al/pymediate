@@ -1,6 +1,6 @@
 # ADR 0015: Mediator-owned pipeline behavior order
 
-**Status:** Proposed
+**Status:** Accepted (2026-07-18, @sina-al)
 **Date:** 2026-07-18
 **Author:** Claude
 **Context:** Supersedes the rejected ADR 0014 for issue #113
@@ -70,7 +70,11 @@ Resolution mechanics, identical for every `ServiceProvider` implementation:
   `PipelineBehavior` subclass of the correct sync/async variant, and resolvable —
   `provider.has(cls)` for the built-in provider's exact-type registration, or an
   equivalent existence check for a custom provider. A duplicate class in the list, or an
-  unregistered one, raises immediately, naming the offending entry.
+  unregistered one, raises immediately, naming the offending entry — this is a hard
+  requirement, not a should: `Mediator(services=provider, behaviors=[Auth])` where
+  `Auth` was never registered with `provider` must fail at `Mediator(...)` itself,
+  never lazily at first `send()`. Deferring it to dispatch would resurrect the same
+  late-failure mode ADR 0014's dispatch-time option was rejected for.
 - **Per dispatch**, `_resolve_behaviors` walks `behaviors` in order, calls
   `should_apply(request)` on each (unchanged - selection stays dynamic, per ADR 0003),
   and resolves the applicable ones via `provider.get(cls)` - so DI lifetimes are
@@ -201,10 +205,15 @@ instance*, not the class, keeping `get_all()`-based discovery.
 
 ## Decision
 
-Option A: an explicit, ordered `behaviors: Sequence[type[PipelineBehavior]] | None`
+Option A: an explicit, ordered `behaviors: Sequence[type[PipelineBehavior]] | None = None`
 keyword-only parameter on `MediatorMixin.__init__` (shared by both async and sync
-mediators). When omitted, defaults to `None` — see Open Questions for what `None` means
-during the deprecation window versus the design's steady state.
+mediators). Omitted or `None` means **an empty pipeline** — no behaviors run, regardless
+of what is registered with the provider. There is no fallback to `get_all()`-based
+registration order at any point, not even transiently: a fallback would resurrect, for
+the single most common call site (an app that hasn't added `behaviors=` yet), the exact
+silent-misordering failure this redesign exists to remove. A vanished pipeline fails
+loudly and immediately (an auth check that stops running breaks a test); a silently
+reordered one does not.
 
 Rationale:
 
@@ -278,13 +287,6 @@ Breaking change, shipped in a **minor** release (ZeroVer):
 
 ## Open Questions
 
-- **What does `behaviors=None` (or omitted) mean?** Two candidates: (a) an empty
-  pipeline - no behaviors run regardless of what's registered, forcing every mediator to
-  opt in explicitly; (b) a deprecation-window fallback to today's
-  `get_all()`-registration-order behavior, removed in a subsequent release. Lean:
-  (a) - consistent with "the list is the manifest," and avoids a mediator whose behavior
-  set silently depends on unrelated code registering something with the same provider.
-  Needs @sina-al's call given it affects migration friction.
 - **Should there be a lint-level affordance for "registered but never listed"
   behaviors** (a common mistake this design newly permits) - e.g. an opt-in debug check,
   or nothing beyond documentation? Lean: nothing built-in initially; revisit if it proves
