@@ -1,319 +1,157 @@
 ---
-title: Requests and responses
-description: Requests and responses as framework-independent messages, and how they enable hexagonal architecture and CQRS.
+title: Designing requests and responses
+description: Define request inputs and typed responses without coupling them to an entry-point framework.
 ---
 
-Requests and responses are the messages that flow through a PyMediate application. They describe *what* should happen and *what came back* — and they know nothing about HTTP, CLIs, message queues, or any other delivery mechanism.
+A request describes one operation and declares the type returned by `Mediator.send()`. A response is an ordinary Python type produced by that operation's handler.
+
+## Define the response before the request
+
+Python evaluates base classes when it defines a class, so the response type must already exist when the request refers to it:
 
 ```python
-# "Create a user" in your domain — no Flask, no FastAPI, no HTTP
-@dataclass
-class CreateUserRequest(Request[UserCreated]):
-    username: str
-    email: str
-    password: str
+from dataclasses import dataclass
+from pymediate import Request
 
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-    created_at: datetime
-```
-
-## Framework independence
-
-Traditional web code mixes business logic with delivery concerns:
-
-```python
-# Business logic coupled to Flask
-@app.route('/users', methods=['POST'])
-def create_user():
-    data = request.get_json()
-    if not data['username']:                          # validation mixed with HTTP
-        return jsonify({'error': 'Username required'}), 400
-    user_id = database.insert_user(data['username'], data['email'])  # DB mixed with HTTP
-    return jsonify({'user_id': user_id}), 201         # response formation mixed with logic
-```
-
-That logic can't be reused from a CLI, can't be tested without HTTP mocking, and can't move to another framework without a rewrite.
-
-With PyMediate, the business logic lives in a handler that could run anywhere:
-
-```python
-class CreateUserHandler(RequestHandler[CreateUserRequest]):
-    def __init__(self, user_repository: UserRepository):
-        self.user_repository = user_repository
-
-    async def __call__(self, request: CreateUserRequest) -> UserCreated:
-        if not request.username:
-            raise ValidationError("Username required")
-
-        user = await self.user_repository.create(
-            username=request.username,
-            email=request.email,
-            password=hash_password(request.password),
-        )
-        return UserCreated(user_id=user.id, username=user.username, created_at=user.created_at)
-```
-
-Every delivery mechanism becomes a thin adapter that translates its input into a request and sends it:
-
-<Tabs items={['FastAPI', 'Flask', 'CLI', 'AWS Lambda']}>
-  <Tab value="FastAPI">
-    ```python
-    from fastapi import FastAPI, HTTPException
-    from pydantic import BaseModel
-
-    app = FastAPI()
-
-    class CreateUserDTO(BaseModel):
-        username: str
-        email: str
-        password: str
-
-    @app.post("/users")
-    async def create_user_endpoint(dto: CreateUserDTO):
-        domain_request = CreateUserRequest(
-            username=dto.username, email=dto.email, password=dto.password
-        )
-        try:
-            result = await mediator.send(domain_request)
-            return {"user_id": result.user_id, "username": result.username}
-        except ValidationError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-    ```
-  </Tab>
-  <Tab value="Flask">
-    ```python
-    import asyncio
-    from flask import Flask, request, jsonify
-
-    app = Flask(__name__)
-
-    @app.route('/users', methods=['POST'])
-    def create_user_endpoint():
-        data = request.get_json()
-        domain_request = CreateUserRequest(
-            username=data['username'], email=data['email'], password=data['password']
-        )
-        try:
-            result = asyncio.run(mediator.send(domain_request))
-            return jsonify({'user_id': result.user_id, 'username': result.username}), 201
-        except ValidationError as e:
-            return jsonify({'error': str(e)}), 400
-    ```
-  </Tab>
-  <Tab value="CLI">
-    ```python
-    import asyncio
-    import click
-
-    @click.command()
-    @click.option('--username', prompt=True)
-    @click.option('--email', prompt=True)
-    @click.password_option()
-    def create_user(username: str, email: str, password: str):
-        domain_request = CreateUserRequest(username=username, email=email, password=password)
-        try:
-            result = asyncio.run(mediator.send(domain_request))
-            click.echo(f"User created: {result.username} (ID: {result.user_id})")
-        except ValidationError as e:
-            click.echo(f"Error: {e}", err=True)
-    ```
-  </Tab>
-  <Tab value="AWS Lambda">
-    ```python
-    import asyncio
-    import json
-
-    def lambda_handler(event, context):
-        body = json.loads(event['body'])
-        domain_request = CreateUserRequest(
-            username=body['username'], email=body['email'], password=body['password']
-        )
-        try:
-            result = asyncio.run(mediator.send(domain_request))
-            return {'statusCode': 201, 'body': json.dumps({'user_id': result.user_id})}
-        except ValidationError as e:
-            return {'statusCode': 400, 'body': json.dumps({'error': str(e)})}
-    ```
-  </Tab>
-</Tabs>
-
-The handler, its validation rules, and its error handling never change between adapters. This is [hexagonal architecture](<https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)>) (ports and adapters):
-
-- **Core (domain)** — requests, handlers, business logic
-- **Port** — the `Mediator` interface
-- **Adapters** — routes, endpoints, commands, functions, consumers
-
-## CQRS: commands and queries
-
-[CQRS](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs) separates operations that change state from operations that read it. With PyMediate this is a naming convention over request types, not extra machinery.
-
-**Commands** change state and return minimal data:
-
-```python
-@dataclass
-class CreateUserCommand(Request[UserCreated]):
-    username: str
-    email: str
-    password: str
-
-@dataclass
-class DeleteUserCommand(Request[UserDeleted]):
-    user_id: int
-```
-
-**Queries** read state and return rich data:
-
-```python
-@dataclass
-class GetUserQuery(Request[UserDetails]):
-    user_id: int
-
-@dataclass
-class SearchUsersQuery(Request[UserList]):
-    search_term: str
-    page: int = 1
-    page_size: int = 20
-```
-
-Because each side has its own handlers, reads and writes can be optimized — or scaled — independently:
-
-```python
-class CreateUserHandler(RequestHandler[CreateUserCommand]):
-    def __init__(self, write_db: WriteDatabase):
-        self.write_db = write_db
-
-class GetUserHandler(RequestHandler[GetUserQuery]):
-    def __init__(self, read_db: ReadDatabase):
-        self.read_db = read_db
-```
-
-Alongside commands and queries, CQRS architectures usually name a third message kind: **events** — facts announced after a command succeeds (`UserCreated`, `OrderPlaced`), consumed by any number of subscribers. PyMediate models these directly with `Event` and `mediator.publish()`; see the [events guide](/docs/guide/events).
-
-See the [CQRS example](/docs/examples/cqrs) for a complete feature.
-
-## Request design patterns
-
-### Immutable value objects
-
-Freeze requests so they can't be mutated mid-flight:
-
-```python
 @dataclass(frozen=True)
-class TransferMoneyRequest(Request[TransferCompleted]):
-    from_account: str
-    to_account: str
-    amount: Decimal
-```
+class OrderReceipt:
+    order_id: int
+    summary: str
 
-### Validation at construction
-
-`__post_init__` catches invalid requests before they ever reach a handler:
-
-```python
-@dataclass
-class CreateOrderRequest(Request[OrderCreated]):
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
     customer_id: int
-    items: list[OrderItem]
-    discount_code: str | None = None
-
-    def __post_init__(self):
-        if not self.items:
-            raise ValueError("Order must have at least one item")
-        if len(self.items) > 100:
-            raise ValueError("Order cannot exceed 100 items")
+    item: str
+    quantity: int
 ```
 
-### Composition with nested value objects
+`PlaceOrder(Request[OrderReceipt])` means that sending `PlaceOrder` returns an `OrderReceipt`. PyMediate reads the type relationship from the base class; it does not inspect the dataclass fields for routing.
+
+Responses do not inherit from a PyMediate class. They can be dataclasses, named tuples, scalar values, collections, or another type appropriate to the operation.
+
+## Name the operation
+
+Use a request name that describes the work being requested:
+
+- `PlaceOrder`
+- `CancelOrder`
+- `GetOrder`
+- `ExportOrders`
+
+Use a response name that describes the returned value:
+
+- `OrderReceipt`
+- `CancellationResult`
+- `OrderDetails`
+- `ExportResult`
+
+Suffixes such as `Request` and `Response` are optional. Choose one convention within an application and apply it consistently.
+
+## Keep transport types at the entry point
+
+A request can be constructed by HTTP, a command-line interface, a scheduled job, or another in-process caller. Keeping framework types out of the request lets those entry points share it:
 
 ```python
 @dataclass(frozen=True)
-class Address:
-    street: str
-    city: str
-    postal_code: str
-    country: str
-
-@dataclass(frozen=True)
-class CreateOrderRequest(Request[OrderCreated]):
+class PlaceOrder(Request[OrderReceipt]):
     customer_id: int
-    items: list[OrderItem]
-    shipping_address: Address
-    billing_address: Address
+    item: str
+    quantity: int
 ```
 
-## Response design patterns
-
-### Rich responses
-
-Return everything the caller plausibly needs, so they don't have to issue a follow-up query:
+An HTTP route can translate its input before dispatch:
 
 ```python
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-    email: str
-    created_at: datetime
-    activation_token: str
-    profile_url: str
+request = PlaceOrder(
+    customer_id=current_user.id,
+    item=body.item,
+    quantity=body.quantity,
+)
+receipt = await mediator.send(request)
 ```
 
-### Explicit result objects
+A command-line command can construct the same request from parsed arguments. Each entry point remains responsible for converting its input and response formats.
 
-When failure is a normal outcome rather than an exception, model it in the response:
+This separation can support hexagonal architecture, but PyMediate does not require that architecture or choose the application's boundaries.
+
+## Validate values at an appropriate boundary
+
+A dataclass can reject invalid values in `__post_init__`:
 
 ```python
-@dataclass
-class PaymentResult:
-    success: bool
-    transaction_id: str | None
-    error_code: str | None
-    retry_allowed: bool
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+    def __post_init__(self) -> None:
+        if self.quantity < 1:
+            raise ValueError("quantity must be at least 1")
 ```
 
-### Pagination
+This is useful for rules that must hold for every instance, regardless of caller. Validation that depends on stored state or another service belongs in the handler or a dependency used by it.
+
+Web frameworks may perform their own input validation before constructing the request. The [error-handling guide](/docs/guide/error-handling) shows how to keep framework responses at the entry point.
+
+## Prefer immutable message values when practical
+
+`@dataclass(frozen=True)` prevents field reassignment after construction. It does not make mutable field values immutable, and it produces a usable hash only when all compared fields are hashable.
+
+For collection fields, an immutable value such as a tuple usually matches a frozen request:
 
 ```python
-@dataclass
-class PaginatedUsers:
-    users: list[UserSummary]
-    total_count: int
-    page: int
-    has_next: bool
-
-@dataclass
-class ListUsersQuery(Request[PaginatedUsers]):
-    page: int = 1
-    page_size: int = 20
-    sort_by: str = "created_at"
+@dataclass(frozen=True)
+class PlaceBulkOrder(Request[OrderReceipt]):
+    customer_id: int
+    items: tuple[str, ...]
 ```
 
-## Testing without frameworks
+If a mutable field is required, use `field(default_factory=...)` rather than a shared list or dictionary default. See Python's [dataclasses documentation](https://docs.python.org/3/library/dataclasses.html) for field, inheritance, equality, and hashing behavior.
 
-Because requests are framework-free, testing the business logic requires no HTTP mocking at all:
+## Choose a response boundary deliberately
+
+Returning an explicit response type can prevent internal entity fields from becoming part of every entry point's output by accident:
 
 ```python
-def test_create_user():
-    fake_repo = InMemoryUserRepository()
-    handler = CreateUserHandler(fake_repo)
-
-    result = handler(CreateUserRequest(username="alice", email="alice@example.com", password="secret123"))
-
-    assert result.username == "alice"
-    assert fake_repo.count() == 1
+@dataclass(frozen=True)
+class OrderSummary:
+    order_id: int
+    accepted_items: int
+    total_pence: int
 ```
 
-## Best practices
+Returning a domain object directly can also be reasonable when callers are trusted in-process code and that object is the intended contract. The mediator does not impose either choice.
 
-- **Keep requests simple.** They're data carriers — no business logic, no side effects in constructors.
-- **Type every field.** `username: str`, not `**kwargs`. The type checker is doing the wiring here.
-- **Organize by feature.** Group requests and handlers by business capability (`orders/`, `users/`, `payments/`), not by kind.
+Avoid putting HTTP status codes, framework response objects, or serialization methods on a response solely for one entry point. Translate those details where the response crosses that boundary.
 
-## See also
+## Commands and queries are optional conventions
 
-- [Handlers](/docs/guide/handlers) — implementing the business logic side
-- [Dataclasses with PyMediate](/docs/guide/dataclasses) — patterns for request/response dataclasses
-- [Testing](/docs/advanced/testing) — testing strategies in depth
+[CQRS](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs) distinguishes operations that change state from operations that read state. PyMediate does not enforce CQRS; applications that use it can express both sides as requests:
+
+```python
+@dataclass(frozen=True)
+class PlaceOrderCommand(Request[OrderReceipt]):
+    customer_id: int
+    items: tuple[str, ...]
+
+@dataclass(frozen=True)
+class GetOrderQuery(Request[OrderDetails]):
+    order_id: int
+```
+
+The `Command` and `Query` suffixes communicate the application's convention. They have no special behavior in PyMediate.
+
+The runnable [`130-cqrs` example](https://github.com/sina-al/pymediate/tree/main/examples/130-cqrs) uses separate write and read stores with an outbox-backed projection worker.
+
+## Durable messages need a separate contract
+
+PyMediate requests are in-process Python objects. If a request will cross a queue or process boundary, the application must define serialization, schema versioning, compatibility, delivery, and idempotency rules for that boundary.
+
+A worker may decode a durable message into a PyMediate request after delivery. PyMediate itself does not serialize or deliver the message.
+
+## Continue
+
+- Implement the operation in a [request handler](/docs/guide/handlers).
+- Translate requests and responses in [FastAPI](/docs/guide/fastapi).
+- Test message validation and handlers with the [testing guide](/docs/guide/testing).

@@ -1,75 +1,54 @@
-"""PyMediate - A type-safe mediator pattern implementation for Python.
+"""Typed request dispatch, streaming, and event publication for Python 3.12+.
 
-PyMediate is a modern implementation of the Mediator Pattern that provides
-type-safe request routing with automatic response type inference. It's designed
-for Python 3.12+ and integrates seamlessly with dataclasses and dependency
-injection frameworks.
+The top-level package provides the asynchronous API. Synchronous
+``RequestHandler``, ``EventHandler``, ``StreamRequestHandler``, ``Mediator``, and
+``PipelineBehavior`` variants live in ``pymediate.sync``; message types,
+services, and errors are shared between the two namespaces.
 
-Key Features:
-    - Type-safe: Full runtime validation with mypy support
-    - Async-first: The top-level API is async; sync variants live in pymediate.sync
-    - DI ready: Built-in dependency-injector integration
-    - Well tested: 95%+ coverage enforced in CI
+Requests declare their response type with ``Request[ResponseT]``. A matching
+``RequestHandler[RequestT]`` supplies that response, and ``Mediator.send()``
+preserves the relationship for static type checkers. PyMediate validates handler
+annotations when Python defines the handler class. It does not inspect each value
+returned at dispatch time.
 
-Quick Example:
+Examples:
     ```python
     import asyncio
     from dataclasses import dataclass
+
     from pymediate import Mediator, Request, RequestHandler, Services
 
-    @dataclass
-    class UserCreated:
-        user_id: int
-        username: str
+    @dataclass(frozen=True)
+    class OrderReceipt:
+        order_id: int
+        summary: str
 
-    @dataclass
-    class CreateUser(Request[UserCreated]):
-        username: str
-        email: str
+    @dataclass(frozen=True)
+    class PlaceOrder(Request[OrderReceipt]):
+        customer_id: int
+        item: str
+        quantity: int
 
-    class CreateUserHandler(RequestHandler[CreateUser]):
-        async def __call__(self, req: CreateUser) -> UserCreated:
-            return UserCreated(user_id=1, username=req.username)
+    class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+        async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+            return OrderReceipt(
+                order_id=42,
+                summary=f"{request.quantity} × {request.item}",
+            )
 
-    async def main():
-        services = Services()
-        services.add(CreateUserHandler())
-        provider = services.provider()
-        mediator = Mediator(provider)
+    async def main() -> None:
+        services = Services().add(PlaceOrderHandler())
+        mediator = Mediator(services=services.provider())
 
-        response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
-        print(f"User {response.username} created with ID {response.user_id}")
+        receipt = await mediator.send(
+            PlaceOrder(customer_id=7, item="tea", quantity=2),
+        )
+        print(receipt.order_id)
 
     asyncio.run(main())
     ```
 
-Main Components:
-    - Request: Base class for all requests
-    - RequestHandler: Base class for asynchronous handlers
-    - Mediator: Routes requests to handlers and publishes events (async version)
-    - Event: Base class for events published to zero or more handlers
-    - EventHandler: Base class for asynchronous event handlers
-    - ServiceProvider: Protocol for resolving service instances
-    - Services: Builder for registering services
-
-Sync Support:
-    For synchronous operations, use the sync variants from pymediate.sync -
-    the same API with plain `def` handlers and a blocking `send()`:
-    ```python
-    from pymediate.sync import Mediator, RequestHandler, Services
-
-    class SyncHandler(RequestHandler[CreateUser]):
-        def __call__(self, req: CreateUser) -> UserCreated:
-            return UserCreated(user_id=1, username=req.username)
-
-    services = Services()
-    services.add(SyncHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
-    response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-    ```
-
-For more information, see the documentation at https://pymediate.sina-al.uk
+Documentation: https://pymediate.sina-al.uk
 """
 
 from importlib.metadata import PackageNotFoundError, version

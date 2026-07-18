@@ -1,37 +1,40 @@
 """Synchronous API for PyMediate.
 
-This package is the sync mirror of the async top-level API: the same names,
-with plain `def` handlers and a blocking `send()`/`publish()`. Shared names
-(`Request`, `Event`, `Services`, `ServiceProvider`, and every error) are
-re-exported here as the identical top-level objects, so sync code needs one
-import line.
+This package mirrors the asynchronous top-level API with synchronous handlers,
+pipeline behaviors, and mediator methods. Shared message, service, and error
+types are re-exported as the same objects in both namespaces.
 
-Example:
+Examples:
     ```python
     from dataclasses import dataclass
     from pymediate.sync import Mediator, Request, RequestHandler, Services
 
-    @dataclass
-    class MyResponse:
-        value: str
+    @dataclass(frozen=True)
+    class OrderReceipt:
+        order_id: int
+        summary: str
 
-    @dataclass
-    class MyRequest(Request[MyResponse]):
-        data: str
+    @dataclass(frozen=True)
+    class PlaceOrder(Request[OrderReceipt]):
+        customer_id: int
+        item: str
+        quantity: int
 
-    class MyHandler(RequestHandler[MyRequest]):
-        def __call__(self, request: MyRequest) -> MyResponse:
-            return MyResponse(value=request.data.upper())
+    class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+        def __call__(self, request: PlaceOrder) -> OrderReceipt:
+            return OrderReceipt(
+                order_id=42,
+                summary=f"{request.quantity} × {request.item}",
+            )
 
-    services = Services()
-    services.add(MyHandler())
-    mediator = Mediator(services.provider())
-    response = mediator.send(MyRequest(data="test"))
+    services = Services().add(PlaceOrderHandler())
+    mediator = Mediator(services=services.provider())
+    receipt = mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
     ```
 
 Note:
-    Handlers and Mediators from this package are sync-only. For asynchronous
-    operations, use `from pymediate import RequestHandler, Mediator` instead.
+    Handler, mediator, and pipeline variants in this package are synchronous.
+    Import their asynchronous variants from ``pymediate``.
 """
 
 from ..errors import (

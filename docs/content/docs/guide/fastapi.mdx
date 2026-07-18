@@ -1,0 +1,158 @@
+---
+title: FastAPI integration
+description: Inject a mediator into FastAPI routes and translate between HTTP models and application requests.
+---
+
+FastAPI can provide a PyMediate `Mediator` through its normal dependency system. PyMediate
+does not add a FastAPI-specific adapter.
+
+## A complete application
+
+The route below validates an HTTP body with Pydantic, maps it to `PlaceOrder`, sends the
+request, and maps the `OrderReceipt` back to JSON:
+
+```python
+from dataclasses import dataclass
+from typing import Annotated
+
+from fastapi import Depends, FastAPI
+from fastapi import Request as HttpRequest
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from pymediate import Mediator, Request, RequestHandler, Services
+
+
+class ProductNotFoundError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    def __init__(self, prices: dict[str, int]) -> None:
+        self._prices = prices
+
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        if request.item not in self._prices:
+            raise ProductNotFoundError(request.item)
+        total_pence = self._prices[request.item] * request.quantity
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item} (£{total_pence / 100:.2f})",
+        )
+
+
+services = Services()
+services.add(PlaceOrderHandler(prices={"tea": 450, "coffee": 700}))
+mediator = Mediator(services.provider())
+
+
+def get_mediator() -> Mediator:
+    return mediator
+
+
+MediatorDependency = Annotated[Mediator, Depends(get_mediator)]
+
+
+class PlaceOrderBody(BaseModel):
+    customer_id: int = Field(gt=0)
+    item: str
+    quantity: int = Field(gt=0)
+
+
+app = FastAPI(title="Shop")
+
+
+@app.exception_handler(ProductNotFoundError)
+async def product_not_found(
+    _request: HttpRequest, error: ProductNotFoundError
+) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"error": str(error)})
+
+
+@app.post("/orders", status_code=201)
+async def place_order(
+    body: PlaceOrderBody, mediator: MediatorDependency
+) -> dict[str, object]:
+    receipt = await mediator.send(
+        PlaceOrder(
+            customer_id=body.customer_id,
+            item=body.item,
+            quantity=body.quantity,
+        ),
+    )
+    return {
+        "order_id": receipt.order_id,
+        "summary": receipt.summary,
+    }
+```
+
+Save the file as `app.py`, install FastAPI and an ASGI server, then run it:
+
+```bash
+pip install fastapi uvicorn
+```
+
+```bash
+uvicorn app:app --reload
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/orders \
+  -H 'content-type: application/json' \
+  -d '{"customer_id":7,"item":"tea","quantity":2}'
+```
+
+## Keep transport and application responsibilities separate
+
+FastAPI and Pydantic handle the HTTP boundary: parsing JSON, validating its shape, and choosing
+status codes. The request and handler describe the application operation without importing
+HTTP types.
+
+The compact example keeps both parts in one file. In a larger application, place the request,
+response, handler, and domain exceptions in an application module. The FastAPI module can
+then map Pydantic models to requests and domain exceptions to HTTP responses.
+
+`ProductNotFoundError` is an application error, so the HTTP layer decides that it maps to 404.
+Errors such as `HandlerNotFoundError`, `ServiceNotFoundError`, and
+`InvalidHandlerSignatureError` indicate configuration or declaration problems. Let the
+application's normal 500 handling and logging report those rather than presenting them as
+client input errors.
+
+## Choose a mediator lifetime
+
+The example creates one mediator and returns it from `get_mediator()`. This is suitable when
+the service provider and its handler dependencies can be shared by concurrent requests.
+Handlers that keep mutable state, database sessions, or other request-scoped resources need a
+lifetime appropriate to those dependencies. FastAPI's dependency scopes or lifespan context
+can construct and close those resources.
+
+Add every service before calling `Services.provider()` because the provider is a snapshot. A
+dependency-injection container can replace `Services` when the application already uses one;
+see [dependency injection](/docs/guide/dependency-injection).
+
+## Synchronous routes
+
+A plain `def` FastAPI route can use `pymediate.sync.Mediator`. FastAPI runs ordinary route
+functions in a thread pool. The request type must have a synchronous handler, and a process
+cannot also define an asynchronous handler for that same request type. See
+[async and sync](/docs/guide/async-sync) before mixing both APIs in one application.
+
+## Continue
+
+- [Error handling](/docs/guide/error-handling) covers application and PyMediate exceptions.
+- [Requests and responses](/docs/guide/requests-responses) covers transport-independent
+  request design.
+- [Streaming](/docs/guide/streaming) explains the async iterator returned by `stream()`.

@@ -1,0 +1,138 @@
+---
+title: Async and sync
+description: Choose between PyMediate's asynchronous and synchronous APIs and keep their handlers separate.
+---
+
+PyMediate provides an asynchronous API in `pymediate` and a synchronous API in
+`pymediate.sync`. Choose the API that matches the libraries and entry points around a
+handler.
+
+## Compare the APIs
+
+| Part | Asynchronous | Synchronous |
+| --- | --- | --- |
+| Import | `pymediate` | `pymediate.sync` |
+| Request handler | `async def __call__` | `def __call__` |
+| Send | `await mediator.send(request)` | `mediator.send(request)` |
+| Stream result | `AsyncIterator[T]` | `Iterator[T]` |
+| Publish | Handlers run concurrently | Handlers run sequentially |
+
+The two namespaces share `Request`, `StreamRequest`, `Event`, `Services`,
+`ServiceProvider`, and the exception classes. They define separate versions of
+`RequestHandler`, `EventHandler`, `StreamRequestHandler`, `Mediator`, `PipelineBehavior`,
+and `Next`.
+
+## Use the asynchronous API for asynchronous dependencies
+
+Use `pymediate` when handlers call an asynchronous database driver, HTTP client, or other
+awaitable API:
+
+```python
+import asyncio
+from dataclasses import dataclass
+
+from pymediate import Mediator, Request, RequestHandler, Services
+
+
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        await asyncio.sleep(0)  # Stand-in for asynchronous I/O.
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
+
+
+async def main() -> None:
+    services = Services().add(PlaceOrderHandler())
+    mediator = Mediator(services.provider())
+
+    tea, coffee = await asyncio.gather(
+        mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2)),
+        mediator.send(PlaceOrder(customer_id=8, item="coffee", quantity=1)),
+    )
+    print(tea.order_id, coffee.order_id)
+
+
+asyncio.run(main())
+```
+
+Separate `send()` calls can run concurrently when their work is independent. The mediator
+does not add transaction coordination between them. Asynchronous code also provides
+concurrency rather than CPU parallelism; CPU-intensive work still needs a thread, process,
+or external worker where appropriate.
+
+## Use the synchronous API for blocking dependencies
+
+Use `pymediate.sync` when the surrounding code and handler dependencies are synchronous:
+
+```python
+from dataclasses import dataclass
+
+from pymediate.sync import Mediator, Request, RequestHandler, Services
+
+
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
+
+
+services = Services().add(PlaceOrderHandler())
+mediator = Mediator(services.provider())
+receipt = mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
+print(receipt.order_id)
+```
+
+Do not call a blocking database or network client directly from an asynchronous handler;
+that blocks the event loop. Use the client's asynchronous API, run the blocking call in an
+appropriate thread, or keep the operation on the synchronous API.
+
+## Keep the handler types separate
+
+PyMediate validates the handler form when Python defines the class. The asynchronous
+`RequestHandler` requires `async def`; the synchronous version requires `def`. Stream
+handlers similarly require an async generator or a synchronous generator.
+
+A process can use both APIs, but their handler registries are shared. Request and stream handler
+classes register by exact request type, so a process cannot define asynchronous and synchronous
+handlers for the same request or stream request type.
+
+Event subscriptions are also shared. Several handlers may subscribe to one event, but every
+handler for that exact event type must use the same API: all asynchronous or all synchronous. Each
+mediator assumes that the registered subscribers match its own execution model. Use distinct
+message types when both forms must coexist, or place them in separate processes.
+
+## Continue
+
+- [FastAPI integration](/docs/guide/fastapi) shows an asynchronous HTTP entry point.
+- [Events](/docs/guide/events) explains concurrent and sequential event delivery.
+- [Streaming](/docs/guide/streaming) covers asynchronous and synchronous iterator forms.

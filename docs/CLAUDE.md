@@ -23,8 +23,10 @@ steps and the poe tasks in sync.
 MDX under `docs/content/`:
 
 - `docs/` — the site's Docs section. Sidebar order lives in `meta.json`:
-  getting-started → guide → advanced → api → examples → comparison. New pages must be
-  added to `meta.json` or they won't appear in the sidebar.
+  getting-started → guide → api → comparison. The introduction teaches the core request flow;
+  guides cover user tasks; the API section is reference material. Runnable projects are maintained
+  in the repository's `examples/` curriculum rather than repeated as a separate site section. New
+  pages must be added to `meta.json` or they won't appear in the sidebar.
 - `docs/api/*.mdx` — the API reference, **hand-written** to mirror the source docstrings
   in `src/pymediate/`. A change to a public docstring or signature needs the matching
   page updated, and vice versa. Sync and async pages mirror each other the same way the
@@ -40,8 +42,11 @@ checked by `docs:check`.
 
 ## Conventions
 
-- **Every code example must actually run** — same bar as docstrings (the project CLAUDE.md,
-  "Docstrings"): verify in a scratch shell before committing.
+- **Every runnable or standalone code example must actually run** — same bar as docstrings (the
+  project CLAUDE.md, "Docstrings"): verify it in a scratch shell before committing. A focused
+  fragment may rely on definitions shown earlier on the page or application-specific symbols that
+  the surrounding text identifies. Add `(excerpt)` to its title when those omissions are not clear
+  from the immediate context.
 - The site brand is the "midnight-signal" token system (light: violet primary on
   near-white; dark: cyan primary on near-black indigo; cyan→violet gradient used
   sparingly). Reuse existing tokens/components rather than introducing new colors.

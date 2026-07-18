@@ -1,7 +1,7 @@
 [project]
 name = "pymediate"
 dynamic = ["version"]
-description = "A type-safe mediator pattern implementation for Python 3.12+"
+description = "Typed in-process request dispatch for Python 3.12+"
 readme = "README.md"
 authors = [
     { name = "sina-al", email = "27771210+sina-al@users.noreply.github.com" },
@@ -10,7 +10,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = []
-keywords = ["mediator", "cqrs", "dependency-injection", "type-safe", "request-dispatch"]
+keywords = ["mediator", "cqrs", "dependency-injection", "typing", "request-dispatch"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -26,7 +26,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/sina-al/pymediate"
-Documentation = "https://sina-al.github.io/pymediate/"
+Documentation = "https://pymediate.sina-al.uk/"
 Repository = "https://github.com/sina-al/pymediate"
 Issues = "https://github.com/sina-al/pymediate/issues"
 Changelog = "https://github.com/sina-al/pymediate/releases"

@@ -1,196 +1,110 @@
 ---
 title: Quick start
-description: Define a request, write a handler, and send it through a mediator — a working feature in five minutes.
+description: Define and send a typed PlaceOrder request in one runnable Python file.
 ---
 
-This page builds a complete user-creation feature: a request and response, a handler, and a mediator to connect them.
+This tutorial builds one complete request flow: `PlaceOrder` goes into a mediator, `PlaceOrderHandler` handles it, and an `OrderReceipt` comes back.
 
-## The complete picture
+You need Python 3.12 or later and an [installed copy of PyMediate](/docs/getting-started/installation).
 
-A full, runnable feature in one file:
+## Create the program
+
+Save the following code as `app.py`:
 
 ```python
 import asyncio
 from dataclasses import dataclass
-from pymediate import Request, RequestHandler, Mediator, Services
 
-# 1. Define the response
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-    email: str
+from pymediate import Mediator, Request, RequestHandler, Services
 
-# 2. Define the request
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
 
-# 3. Write the handler
-class CreateUserHandler(RequestHandler[CreateUser]):
-    def __init__(self):
-        self.next_id = 1
-        self.users = {}
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
 
-    async def __call__(self, request: CreateUser) -> UserCreated:
-        user_id = self.next_id
-        self.next_id += 1
-        self.users[user_id] = {"username": request.username, "email": request.email}
-        return UserCreated(user_id=user_id, username=request.username, email=request.email)
 
-# 4. Set up the mediator
-services = Services()
-services.add(CreateUserHandler())
-mediator = Mediator(services.provider())
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
 
-# 5. Send a request
-async def main():
-    response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
-    print(f"Created user {response.username} with ID {response.user_id}")
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
+
+
+async def main() -> None:
+    services = Services().add(PlaceOrderHandler())
+    mediator = Mediator(services.provider())
+
+    receipt = await mediator.send(
+        PlaceOrder(customer_id=7, item="tea", quantity=2),
+    )
+    print(f"Order {receipt.order_id}: {receipt.summary}")
+
 
 asyncio.run(main())
-# Output: Created user alice with ID 1
 ```
 
-The rest of this page walks through the five numbered pieces.
+The fixed order ID keeps this first example focused on dispatch. A real handler can receive a database or another dependency through its constructor.
 
-## Step by step
+## Run it
 
-<Steps>
-<Step>
-
-### Define the response
-
-The response is what your handler returns — a plain dataclass, with no PyMediate types involved:
-
-```python
-from dataclasses import dataclass
-
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-    email: str
+```bash
+python app.py
 ```
 
-</Step>
-<Step>
+The program prints:
 
-### Define the request
-
-Inheriting from `Request[UserCreated]` links the request to its response type:
-
-```python
-from pymediate import Request
-
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
+```text
+Order 42: 2 × tea
 ```
 
-<Callout type="info" title="Why Request[T] inheritance?">
-  The type parameter tells PyMediate — and mypy — what response this request produces. That single
-  declaration drives type inference everywhere: the handler's return type and the result of
-  `mediator.send()` both follow from it.
-</Callout>
+## Read the declarations
 
-</Step>
-<Step>
+The three class declarations describe the complete type relationship:
 
-### Write the handler
+1. `OrderReceipt` is an ordinary dataclass. PyMediate does not require a response base class.
+2. `PlaceOrder(Request[OrderReceipt])` declares that sending `PlaceOrder` returns an `OrderReceipt`.
+3. `PlaceOrderHandler(RequestHandler[PlaceOrder])` declares that the handler accepts `PlaceOrder`.
 
-A handler subclasses `RequestHandler[CreateUser]` and implements `__call__`. The type parameter is how PyMediate knows which requests it handles — no naming conventions, no registration strings:
+The [introduction's type guide](/docs#how-to-read-the-types) shows these relationships visually.
 
-```python
-from pymediate import RequestHandler
+## Follow the dispatch
 
-class CreateUserHandler(RequestHandler[CreateUser]):
-    def __init__(self):
-        self.next_id = 1
-        self.users = {}
-
-    async def __call__(self, request: CreateUser) -> UserCreated:
-        user_id = self.next_id
-        self.next_id += 1
-        self.users[user_id] = {"username": request.username, "email": request.email}
-        return UserCreated(user_id=user_id, username=request.username, email=request.email)
-```
-
-</Step>
-<Step>
-
-### Set up the mediator
-
-Register your handler in a `Services` collection, build an immutable provider from it, and hand that to the mediator:
+These two lines create the mediator:
 
 ```python
-from pymediate import Mediator, Services
-
-services = Services()
-services.add(CreateUserHandler())
-
+services = Services().add(PlaceOrderHandler())
 mediator = Mediator(services.provider())
 ```
 
-</Step>
-<Step>
+`Services` contains the handler instance. Calling `provider()` creates the read-only `ServiceProvider` that the mediator uses for resolution.
 
-### Send a request
+Sending the request then follows four steps:
 
-```python
-async def main():
-    request = CreateUser(username="alice", email="alice@example.com")
-    response = await mediator.send(request)
+1. `send()` receives a `PlaceOrder` instance.
+2. The mediator finds the handler type registered for the exact `PlaceOrder` class.
+3. The service provider returns the `PlaceOrderHandler` instance.
+4. The mediator awaits the handler and returns its `OrderReceipt`.
 
-    print(f"Created user {response.username} with ID {response.user_id}")
+Because `PlaceOrder` inherits from `Request[OrderReceipt]`, a type checker infers `receipt` as `OrderReceipt`. PyMediate separately validates the handler's parameter and return annotations when Python defines `PlaceOrderHandler`.
 
-asyncio.run(main())
-# Output: Created user alice with ID 1
-```
+## Use the synchronous API
 
-`response` is typed as `UserCreated`. Your editor autocompletes its fields, and mypy verifies every use.
+The top-level package is asynchronous. For synchronous code, import `Mediator`, `RequestHandler`, and `Services` from `pymediate.sync`, define the handler with `def`, and call `mediator.send()` without `await`.
 
-</Step>
-</Steps>
+The [async and sync guide](/docs/guide/async-sync) contains complete asynchronous and
+synchronous programs.
 
-## Type safety in action
+## Continue
 
-PyMediate validates handler signatures when the class is *defined*, so a wiring mistake fails at import time:
-
-```python
-class WrongHandler(RequestHandler[CreateUser]):
-    async def __call__(self, request: CreateUser) -> str:  # wrong return type
-        return "oops"
-
-# TypeError: WrongHandler.__call__ must return UserCreated, got str
-```
-
-## Sync support
-
-Not running an event loop? The sync API in `pymediate.sync` is a structural mirror of the async one — same classes, same flow, with plain `def` handlers and a blocking `send()`:
-
-```python
-from pymediate.sync import RequestHandler, Mediator, Services
-
-class CreateUserHandler(RequestHandler[CreateUser]):
-    def __call__(self, request: CreateUser) -> UserCreated:
-        database.save_user(request.username, request.email)
-        return UserCreated(user_id=1, username=request.username, email=request.email)
-
-services = Services()
-services.add(CreateUserHandler())
-mediator = Mediator(services.provider())
-
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-```
-
-See the [basic example](/docs/examples/basic) for complete programs on both sides.
-
-## Next steps
-
-- Learn the [core concepts](/docs/getting-started/concepts) behind requests, handlers, and the mediator.
-- Notify many handlers at once with [events](/docs/guide/events) — `publish()` is `send()`'s one-to-many counterpart.
-- Add cross-cutting logic with [pipeline behaviors](/docs/guide/pipeline-behaviors).
-- Wire handlers through a container with [dependency injection](/docs/guide/dependency-injection).
+- Read the [core concepts](/docs/getting-started/concepts) for events, streaming, pipeline behaviors, and service providers.
+- Add dependencies and test handlers directly with the [handlers guide](/docs/guide/handlers).
+- Look up exact constraints in the [`RequestHandler` reference](/docs/api/request-handler).

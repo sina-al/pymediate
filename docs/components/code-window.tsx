@@ -24,7 +24,7 @@ export async function CodeWindow({
         <pre
           {...props}
           className={cn(
-            'shiki overflow-x-auto p-4 text-[13px] leading-relaxed',
+            'shiki max-w-full overflow-x-auto p-4 text-[13px] leading-relaxed',
             'bg-(--shiki-light-bg) dark:bg-(--shiki-dark-bg)',
           )}
         />
@@ -35,7 +35,7 @@ export async function CodeWindow({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-xl border border-fd-border shadow-lg shadow-black/5 dark:shadow-black/30',
+        'min-w-0 max-w-full overflow-hidden rounded-xl border border-fd-border shadow-lg shadow-black/5 dark:shadow-black/30',
         className,
       )}
     >

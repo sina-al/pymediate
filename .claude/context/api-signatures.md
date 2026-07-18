@@ -16,7 +16,7 @@ Signatures-only blueprint of pymediate's public API. Full docstrings, guides, an
 
 ```python
 class Request:
-    """Base request class with generic response type parameter."""
+    """Base class for a request that produces one typed response."""
     ...
 ```
 
@@ -121,7 +121,7 @@ class Services:
 
 ```python
 class PyMediateError(Exception):
-    """Base exception for all PyMediate errors."""
+    """Base exception for PyMediate validation, registration, and dispatch errors."""
     def __init__(self, message: str, docs_path: str | None = None):
         """Initialize the error with a message and optional docs link."""
         ...
@@ -139,7 +139,7 @@ class InvalidHandlerSignatureError(PyMediateError):
         ...
 
 class InvalidRequestTypeError(PyMediateError):
-    """Raised when a request doesn't properly inherit from Request[ResponseType]."""
+    """Raised when a request handler's type parameter has no declared response type."""
     def __init__(self, request_type: type):
         """Initialize invalid request type error."""
         ...
@@ -151,19 +151,19 @@ class InvalidEventTypeError(PyMediateError):
         ...
 
 class InvalidStreamRequestTypeError(PyMediateError):
-    """Raised when a stream handler's type parameter doesn't inherit from StreamRequest."""
+    """Raised when a stream handler's type parameter has no declared chunk type."""
     def __init__(self, stream_request_type: type):
-        """Initialize the error for a type parameter that isn't a StreamRequest subclass."""
+        """Initialize the error for a type with no StreamRequest chunk declaration."""
         ...
 
 class ResponseTypeMismatchError(PyMediateError):
-    """Raised when a handler returns the wrong response type."""
+    """Raised when a request handler's return annotation names the wrong response type."""
     def __init__(self, handler_type: type, expected_type: type, actual_type: type):
         """Initialize response type mismatch error."""
         ...
 
 class HandlerAlreadyRegisteredError(PyMediateError):
-    """Raised when attempting to register a second handler for a request type."""
+    """Raised when a second request or stream handler targets one request type."""
     def __init__(self, request_type: type, existing_handler: type, new_handler: type, existing_location: str | None = None):
         """Initialize handler already registered error."""
         ...

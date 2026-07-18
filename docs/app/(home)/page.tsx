@@ -1,14 +1,5 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  Feather,
-  FlaskConical,
-  Layers,
-  Plug,
-  ShieldCheck,
-  Workflow,
-  Zap,
-} from 'lucide-react';
+import { ArrowRight, Layers, Plug, Send, ShieldCheck, Workflow, Zap } from 'lucide-react';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { CodeWindow } from '@/components/code-window';
 import { DispatchFlow } from '@/components/dispatch-flow';
@@ -16,184 +7,205 @@ import { InstallCmd } from '@/components/install-cmd';
 import { LogoMark } from '@/components/logo';
 import { gitConfig, pypiUrl } from '@/lib/shared';
 
+const asyncExample = `import asyncio
+from dataclasses import dataclass
+from typing import override
+
+from pymediate import Mediator, Request, RequestHandler, Services
+
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    @override
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
+
+async def main() -> None:
+    services = Services()
+    services.add(PlaceOrderHandler())
+
+    mediator = Mediator(services.provider())
+    request = PlaceOrder(customer_id=7, item="tea", quantity=2)
+    receipt = await mediator.send(request)
+
+    print(receipt.summary)
+
+asyncio.run(main())`;
+
 const syncExample = `from dataclasses import dataclass
-from pymediate.sync import Request, RequestHandler, Mediator, Services
+from typing import override
 
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
+from pymediate.sync import Mediator, Request, RequestHandler, Services
 
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
 
-class CreateUserHandler(RequestHandler[CreateUser]):
-    def __call__(self, request: CreateUser) -> UserCreated:
-        return UserCreated(user_id=1, username=request.username)
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    @override
+    def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
 
 services = Services()
-services.add(CreateUserHandler())
+services.add(PlaceOrderHandler())
+
 mediator = Mediator(services.provider())
+request = PlaceOrder(customer_id=7, item="tea", quantity=2)
+receipt = mediator.send(request)
 
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-# response is UserCreated — inferred from the request, checked by mypy`;
+print(receipt.summary)`;
 
-const asyncExample = `from dataclasses import dataclass
-from pymediate import Request, RequestHandler, Mediator, Services
+const behaviorExample = `from typing import override
 
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
+from pymediate import Mediator, Next, PipelineBehavior, Services
 
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
+from shop import OrderReceipt, PlaceOrder, PlaceOrderHandler
 
-class CreateUserHandler(RequestHandler[CreateUser]):
-    async def __call__(self, request: CreateUser) -> UserCreated:
-        user_id = await user_repository.save(request.username, request.email)
-        return UserCreated(user_id=user_id, username=request.username)
 
-mediator = Mediator(Services().add(CreateUserHandler()).provider())
+class ValidatePlaceOrder(PipelineBehavior[PlaceOrder]):
+    @override
+    async def __call__(
+        self,
+        request: PlaceOrder,
+        next: Next[OrderReceipt],
+    ) -> OrderReceipt:
+        if request.quantity < 1:
+            raise ValueError("quantity must be at least 1")
 
-response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))`;
-
-const pipelineExample = `from collections.abc import Awaitable, Callable
-from typing import Any
-from pymediate import PipelineBehavior, Request
-
-class LoggingBehavior(PipelineBehavior[Request]):
-    """Applies to every request — before and after its handler runs."""
-
-    async def __call__(self, request: Request, next: Callable[[], Awaitable[Any]]) -> Any:
-        print(f"handling {type(request).__name__}")
-        response = await next()
-        print(f"returning {type(response).__name__}")
-        return response
-
-class AuditCreateUser(PipelineBehavior[CreateUser]):
-    """Selective: only wraps CreateUser requests."""
-
-    async def __call__(self, request: CreateUser, next: Callable[[], Awaitable[Any]]) -> Any:
-        audit_log.record(request.email)
         return await next()
 
-services.add(LoggingBehavior())
-services.add(AuditCreateUser())`;
 
-const eventsExample = `from dataclasses import dataclass
-from pymediate import Event, EventHandler
+services = Services()
+services.add(ValidatePlaceOrder())
+services.add(PlaceOrderHandler())
 
-@dataclass
-class UserCreated(Event):
-    user_id: int
-    username: str
+mediator = Mediator(services.provider())
+receipt = await mediator.send(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+)`;
 
-class SendWelcomeEmail(EventHandler[UserCreated]):
-    async def __call__(self, event: UserCreated) -> None:
-        await mailer.send_welcome(event.username)
+const eventExample = `from dataclasses import dataclass
+from typing import override
 
-class RecordSignup(EventHandler[UserCreated]):
-    async def __call__(self, event: UserCreated) -> None:
-        analytics.record("signup", user_id=event.user_id)
+from pymediate import Event, EventHandler, Mediator, Services
 
-await mediator.publish(UserCreated(user_id=1, username="alice"))
-# every subscriber runs — the publisher never knows who's listening`;
+
+@dataclass(frozen=True)
+class OrderPlaced(Event):
+    order_id: int
+    item: str
+
+
+class RecordOrder(EventHandler[OrderPlaced]):
+    @override
+    async def __call__(self, event: OrderPlaced) -> None:
+        print(f"recorded order {event.order_id}")
+
+
+services = Services()
+services.add(RecordOrder())
+
+mediator = Mediator(services.provider())
+await mediator.publish(
+    OrderPlaced(order_id=42, item="tea"),
+)`;
 
 const features = [
   {
     icon: ShieldCheck,
-    title: 'Typed end to end',
-    body: 'send() returns exactly what the request declares — response types are inferred from Request[T], validated by mypy --strict, no casts.',
+    title: 'Declared response types',
+    body: 'A Request[T] declaration gives send() its return type. Type checkers and editors preserve that relationship at each call site.',
   },
   {
-    icon: Feather,
-    title: 'Zero dependencies',
-    body: 'The core is pure Python 3.12+ using PEP 695 generics. One optional extra when you want a DI container, nothing else.',
+    icon: Zap,
+    title: 'Checked handler annotations',
+    body: 'PyMediate checks request-handler parameter and return annotations when Python defines the handler class.',
   },
   {
     icon: Workflow,
-    title: 'Async-first, sync mirror',
-    body: 'The top-level API is async; pymediate.sync mirrors it structurally — same classes, same semantics, no event loop required.',
+    title: 'Asynchronous and synchronous APIs',
+    body: 'The top-level package is asynchronous. pymediate.sync provides the corresponding blocking mediator and handler classes.',
+  },
+  {
+    icon: Send,
+    title: 'Requests, streams, and events',
+    body: 'send() returns one response, stream() yields typed chunks, and publish() delivers an event to zero or more subscribers.',
   },
   {
     icon: Layers,
     title: 'Pipeline behaviors',
-    body: 'Wrap every handler — or just some — with logging, validation, caching, or transactions, without touching handler code.',
-  },
-  {
-    icon: Zap,
-    title: 'Fails at definition time',
-    body: 'Every handler signature — request or event — is validated when the class is defined, so wiring mistakes surface at import, not in production.',
+    body: 'Behaviors wrap send() with shared processing such as logging, validation, caching, or transaction management.',
   },
   {
     icon: Plug,
-    title: 'DI, your way',
-    body: 'Use the built-in Services registry, or put a dependency-injector container behind the ServiceProvider protocol.',
-  },
-];
-
-const reasons = [
-  {
-    title: 'Decouple callers from handlers',
-    body: 'The code that sends CreateUser never imports the code that handles it. Features stay independent, and new handlers slot in without changing existing code.',
-  },
-  {
-    title: 'CQRS by construction',
-    body: 'Commands and queries are just request types, and domain events fan out through publish(). Separating writes from reads becomes a naming convention, not framework machinery.',
-  },
-  {
-    title: 'Trivially testable',
-    body: 'Handlers are plain callables — call them directly in tests. Consumers depend only on the mediator, so faking it is one line.',
+    title: 'Built-in or custom service providers',
+    body: 'Use the built-in Services collection or another ServiceProvider implementation. The core package has no required dependencies.',
   },
 ];
 
 export default function HomePage() {
   return (
-    <main className="flex-1">
-      {/* hero */}
+    <main className="min-w-0 flex-1">
       <section className="relative overflow-hidden">
         <div aria-hidden className="pm-hero-glow absolute inset-0" />
         <div aria-hidden className="pm-grid-bg absolute inset-0" />
         <div className="relative mx-auto flex max-w-5xl flex-col items-center px-6 pt-24 pb-16 text-center">
           <p className="pm-fade-up mb-6 inline-flex items-center gap-2 rounded-full border border-fd-border bg-fd-card/60 px-3.5 py-1 text-xs text-fd-muted-foreground backdrop-blur">
-            Python 3.12+ <span aria-hidden>·</span> PEP 695 generics <span aria-hidden>·</span> MIT
+            Python 3.12+ <span aria-hidden>·</span> async and sync <span aria-hidden>·</span> MIT
           </p>
           <h1
             className="pm-fade-up max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-6xl"
             style={{ animationDelay: '60ms' }}
           >
-            Type-safe <span className="pm-gradient-text">request dispatch</span> for modern Python
+            A typed <span className="pm-gradient-text">mediator</span> for Python
           </h1>
           <p
             className="pm-fade-up mt-6 max-w-2xl text-pretty text-base text-fd-muted-foreground sm:text-lg"
             style={{ animationDelay: '120ms' }}
           >
-            PyMediate decouples the code that asks from the code that does — without the usual
-            price. Response types stay inferred, your editor keeps autocompleting, and wiring
-            mistakes surface at import, not in production.
+            PyMediate routes in-process requests to handlers. Each request declares its response
+            type, so static type checkers and editors infer what{' '}
+            <code className="font-mono text-[0.9em]">send()</code> returns.
           </p>
           <div
             className="pm-fade-up mt-8 flex flex-col items-center gap-5"
             style={{ animationDelay: '180ms' }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/docs/getting-started/quick-start"
+                href="/docs"
                 className="inline-flex items-center gap-1.5 rounded-full bg-fd-primary px-5 py-2.5 text-sm font-medium text-fd-primary-foreground transition-opacity hover:opacity-90"
               >
-                Get started
+                Read the introduction
                 <ArrowRight aria-hidden className="size-4" />
               </Link>
               <Link
-                href="/docs"
+                href="/docs/getting-started/quick-start"
                 className="inline-flex items-center rounded-full border border-fd-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-fd-accent"
               >
-                Documentation
+                Quick start
               </Link>
             </div>
             <InstallCmd />
@@ -205,63 +217,58 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* code showcase */}
       <section className="mx-auto max-w-5xl px-6 py-20">
-        <div className="grid items-start gap-10 lg:grid-cols-[1fr_1.4fr]">
-          <div className="lg:sticky lg:top-24">
-            <h2 className="text-3xl font-semibold tracking-tight">
-              One <code className="pm-gradient-text font-mono text-[0.9em]">send()</code>, fully
-              inferred
-            </h2>
-            <p className="mt-4 text-fd-muted-foreground">
-              Declare the response type once, on the request. From there the mediator, the handler
-              signature, and every call site agree — and <code className="font-mono text-[0.9em]">mypy</code>{' '}
-              enforces it. The async API is a structural mirror: switch the import, add{' '}
-              <code className="font-mono text-[0.9em]">await</code>, done. And when something{' '}
-              <em>happened</em> rather than something is wanted,{' '}
-              <code className="font-mono text-[0.9em]">publish()</code> fans an event out to every
-              subscriber.
-            </p>
-            <Link
-              href="/docs/getting-started/concepts"
-              className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary hover:underline"
-            >
-              Learn the core concepts
-              <ArrowRight aria-hidden className="size-4" />
-            </Link>
-          </div>
-          <Tabs items={['Async', 'Sync', 'Pipeline', 'Events']}>
-            <Tab value="Async">
-              <CodeWindow code={asyncExample} title="app.py" className="not-prose" />
+        <div className="max-w-2xl">
+          <h2 className="text-3xl font-semibold tracking-tight">
+            One request, one handler, one response type
+          </h2>
+          <p className="mt-4 text-fd-muted-foreground">
+            <code className="font-mono text-[0.9em]">PlaceOrder</code> declares that it returns an{' '}
+            <code className="font-mono text-[0.9em]">OrderReceipt</code>. The handler accepts that
+            request, and the mediator dispatches it. The Behavior and Event tabs are focused
+            excerpts built on the same shop domain.
+          </p>
+          <Link
+            href="/docs#how-to-read-the-types"
+            className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary hover:underline"
+          >
+            See how to read the types
+            <ArrowRight aria-hidden className="size-4" />
+          </Link>
+        </div>
+        <div className="mt-10 min-w-0 max-w-full">
+          <Tabs className="min-w-0 max-w-full" items={['Async', 'Sync', 'Behavior', 'Event']}>
+            <Tab value="Async" className="min-w-0 max-w-full">
+              <CodeWindow code={asyncExample} title="async_request.py" className="not-prose" />
             </Tab>
-            <Tab value="Sync">
-              <CodeWindow code={syncExample} title="app.py" className="not-prose" />
+            <Tab value="Sync" className="min-w-0 max-w-full">
+              <CodeWindow code={syncExample} title="sync_request.py" className="not-prose" />
             </Tab>
-            <Tab value="Pipeline">
-              <CodeWindow code={pipelineExample} title="behaviors.py" className="not-prose" />
+            <Tab value="Behavior" className="min-w-0 max-w-full">
+              <CodeWindow code={behaviorExample} title="behavior.py · excerpt" className="not-prose" />
             </Tab>
-            <Tab value="Events">
-              <CodeWindow code={eventsExample} title="events.py" className="not-prose" />
+            <Tab value="Event" className="min-w-0 max-w-full">
+              <CodeWindow code={eventExample} title="event.py · excerpt" className="not-prose" />
             </Tab>
           </Tabs>
         </div>
       </section>
 
-      {/* features */}
       <section className="border-t border-fd-border bg-fd-card/40">
         <div className="mx-auto max-w-5xl px-6 py-20">
           <h2 className="text-center text-3xl font-semibold tracking-tight">
-            Small surface, sharp edges filed off
+            What the package provides
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-fd-muted-foreground">
-            A handful of concepts — requests, handlers, events, behaviors, one mediator — designed
-            to stay out of your way.
+            Start with a request and its handler. Use streams for results over time, events for
+            notifications, behaviors for shared processing, and a service provider to resolve the
+            registered instances.
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
               <div
                 key={feature.title}
-                className="rounded-xl border border-fd-border bg-fd-background/60 p-5 transition-colors hover:border-fd-primary/30"
+                className="rounded-xl border border-fd-border bg-fd-background/60 p-5"
               >
                 <feature.icon aria-hidden className="size-5 text-fd-primary" />
                 <h3 className="mt-3 font-medium">{feature.title}</h3>
@@ -271,42 +278,48 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+          <div className="mt-8 text-center">
+            <Link
+              href="/docs/getting-started/concepts"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary hover:underline"
+            >
+              Read the core concepts
+              <ArrowRight aria-hidden className="size-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* why mediator */}
       <section className="mx-auto max-w-5xl px-6 py-20">
-        <div className="flex items-center gap-3">
-          <FlaskConical aria-hidden className="size-5 text-fd-primary" />
-          <h2 className="text-3xl font-semibold tracking-tight">Why a mediator?</h2>
-        </div>
-        <p className="mt-4 max-w-2xl text-fd-muted-foreground">
-          Every direct call couples two features a little more, and the knot only tightens as the
-          codebase grows. Put one mediator between them and the coupling stops accumulating:
-        </p>
-        <div className="mt-10 grid gap-8 md:grid-cols-3">
-          {reasons.map((reason, i) => (
-            <div key={reason.title}>
-              <span aria-hidden className="pm-gradient-text font-mono text-sm font-semibold">
-                0{i + 1}
-              </span>
-              <h3 className="mt-2 font-medium">{reason.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-fd-muted-foreground">{reason.body}</p>
-            </div>
-          ))}
+        <div className="max-w-2xl">
+          <h2 className="text-3xl font-semibold tracking-tight">
+            Nobody wants to touch that code
+          </h2>
+          <p className="mt-4 text-fd-muted-foreground">
+            Direct calls are often the clearest design. A mediator becomes relevant when repeated
+            handler lookup and shared processing spread across callers. The article follows that
+            progression, including the cases where direct calls or a small dictionary remain
+            sufficient.
+          </p>
+          <Link
+            href="/articles/nobody-wants-to-touch-that-code"
+            className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary hover:underline"
+          >
+            Read the article
+            <ArrowRight aria-hidden className="size-4" />
+          </Link>
         </div>
       </section>
 
-      {/* CTA */}
       <section className="mx-auto max-w-5xl px-6 pb-24">
         <div className="pm-gradient-border rounded-2xl p-10 text-center sm:p-14">
-          <LogoMark size={36} className="mx-auto" />
+          <LogoMark accessibleLabel="PyMediate" size={36} className="mx-auto" />
           <h2 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
-            Ship your first handler in five minutes
+            Build the first request flow
           </h2>
           <p className="mx-auto mt-3 max-w-md text-fd-muted-foreground">
-            Install the package, define a request, write a handler — the quick start walks you
-            through the rest.
+            The quick start defines <code className="font-mono text-[0.9em]">PlaceOrder</code>,
+            runs its handler through a mediator, and prints the returned receipt.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -317,7 +330,7 @@ export default function HomePage() {
               <ArrowRight aria-hidden className="size-4" />
             </Link>
             <Link
-              href="/docs/api/request"
+              href="/docs/api"
               className="inline-flex items-center rounded-full border border-fd-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-fd-accent"
             >
               API reference
@@ -326,7 +339,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* footer */}
       <footer className="border-t border-fd-border">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-fd-muted-foreground sm:flex-row">
           <span className="inline-flex items-center gap-2">

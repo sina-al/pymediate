@@ -101,4 +101,4 @@ construction-time errors.
 - [065-validation-sync](../065-validation-sync/) separates request-body validation from business
   rules with `pymediate.sync`.
 - [060-messages](../060-messages/) shows the asynchronous handlers.
-- Read the [dataclasses guide](https://pymediate.sina-al.uk/docs/guide/dataclasses).
+- Read the [requests and responses guide](https://pymediate.sina-al.uk/docs/guide/requests-responses).

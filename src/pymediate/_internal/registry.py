@@ -7,7 +7,7 @@ automatically via __init_subclass__ hooks in Request and RequestHandler classes.
 Warning:
     This module is internal to PyMediate. Package consumers should not access
     these registries directly. Package developers should use the provided API
-    functions for type-safe, thread-safe registry operations.
+    functions for registry operations that need locking.
 
 Thread Safety:
     Writes and multi-key reads (snapshots, clears) are protected by locks.

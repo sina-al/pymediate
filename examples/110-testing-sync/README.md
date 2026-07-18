@@ -119,4 +119,4 @@ subscribers.
 - [110-testing](../110-testing/) — use the same test boundaries with the asynchronous API.
 - [100-dependency-injection-sync](../100-dependency-injection-sync/) — review constructor
   injection and mediator wiring.
-- Read the [testing guide](https://pymediate.sina-al.uk/docs/advanced/testing).
+- Read the [testing guide](https://pymediate.sina-al.uk/docs/guide/testing).

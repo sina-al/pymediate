@@ -36,7 +36,9 @@ class EventHandlerBaseMixin[EventT]:
         defined. It extracts the event type from EventHandler[EventType],
         validates the __call__ signature (exact event annotation, None return),
         and appends the handler to the event's registration list - any number of
-        handlers may register for the same event type.
+        handlers may register for the same event type. The registry is shared by
+        the synchronous and asynchronous handler bases; callers must keep every
+        handler for one exact event type in the same execution model.
 
         Args:
             **kwargs: Additional keyword arguments passed to parent __init_subclass__.

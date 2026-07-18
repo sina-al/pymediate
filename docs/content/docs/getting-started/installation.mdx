@@ -3,13 +3,14 @@ title: Installation
 description: Requirements and install options for PyMediate on Python 3.12+.
 ---
 
-PyMediate is published on [PyPI](https://pypi.org/project/pymediate/) and installs with any Python package manager.
+PyMediate is published on [PyPI](https://pypi.org/project/pymediate/) and can be installed with a
+Python package manager.
 
 ## Requirements
 
 - Python **3.12 or higher** — PyMediate uses [PEP 695](https://peps.python.org/pep-0695/) type parameter syntax.
-- No required dependencies. The core is pure Python.
-- Optionally, `dependency-injector>=4.41.0` for DI container integration (installed via the `di` extra).
+- The core package has no required dependencies.
+- The optional `di` extra installs `dependency-injector>=4.41.0` for container integration.
 
 ## Install the core package
 
@@ -57,7 +58,7 @@ The `di` extra adds the [`dependency-injector`](https://python-dependency-inject
   `DependencyInjectorServiceProvider` only imports successfully when `dependency-injector` is
   installed. Without the `di` extra, `from pymediate.providers import
   DependencyInjectorServiceProvider` raises `ModuleNotFoundError`. See
-  [troubleshooting](/docs/advanced/troubleshooting#dependencyinjectorserviceprovider-not-available)
+  [troubleshooting](/docs/guide/troubleshooting#installation-problems)
   if you hit this.
 </Callout>
 
@@ -69,21 +70,7 @@ import pymediate
 print(pymediate.__version__)
 ```
 
-## Development install
+## Continue
 
-To contribute to PyMediate or run its test suite:
-
-```bash
-git clone https://github.com/sina-al/pymediate.git
-cd pymediate
-
-# Install with all extras and dev dependencies using uv
-uv sync --all-extras
-
-# Or in editable mode with pip
-pip install -e '.[di,dev]'
-```
-
-## Next steps
-
-Head to the [quick start](/docs/getting-started/quick-start) to send your first request.
+Build and send a complete `PlaceOrder` request in the
+[quick start](/docs/getting-started/quick-start).

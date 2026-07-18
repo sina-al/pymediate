@@ -13,22 +13,23 @@ class Event:
     exact type - zero, one, or many - and returns nothing. Inherit from `Event`
     to make a class publishable via `Mediator.publish()`.
 
-    Events carry no response type parameter: publishing is fire-and-notify, so
-    there is nothing to infer and handlers must be annotated to return `None`.
+    Events carry no response type parameter, and handlers must be annotated to
+    return ``None``. ``publish()`` completes after the subscribed handlers finish.
 
-    This class works seamlessly with dataclasses, regular classes, and any
-    Python class structure.
+    Event subclasses can be dataclasses or regular classes.
 
     Examples:
         Defining and publishing an event:
             ```python
             import asyncio
             from dataclasses import dataclass
+
             from pymediate import Event, EventHandler, Mediator, Services
 
-            @dataclass
+            @dataclass(frozen=True)
             class OrderPlaced(Event):
                 order_id: int
+                item: str
 
             class SendConfirmation(EventHandler[OrderPlaced]):
                 async def __call__(self, event: OrderPlaced) -> None:
@@ -39,7 +40,7 @@ class Event:
                 services.add(SendConfirmation())
                 mediator = Mediator(services.provider())
 
-                await mediator.publish(OrderPlaced(order_id=42))
+                await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 
             asyncio.run(main())
             ```
@@ -48,15 +49,11 @@ class Event:
         Publishing dispatches on the exact class of the event instance - a
         handler subscribed to a base event class does not receive derived
         events. This mirrors how requests dispatch to handlers. The same
-        `Event` base works on both sides of the library: subscribe async
-        handlers (`pymediate.EventHandler`) or sync ones
-        (`pymediate.sync.EventHandler`) to it.
+        ``Event`` base and process-wide subscription registry are shared by the
+        asynchronous and synchronous APIs. For one exact event type, define all
+        handlers with ``pymediate.EventHandler`` or all with
+        ``pymediate.sync.EventHandler``; do not mix the forms.
 
-    See Also:
-        - EventHandler: Base class for async handlers that subscribe to an event.
-        - Mediator.publish: Publishes an event to all its handlers.
-        - Request: The one-handler, typed-response counterpart.
-        - pymediate.sync.EventHandler: Sync event handler variant.
     """
 
 
@@ -65,8 +62,7 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
 
     Event handlers contain the logic that reacts to a published event. Unlike
     request handlers, any number of event handlers may subscribe to the same
-    event type - `Mediator.publish()` runs all of them concurrently via
-    `asyncio.gather` (tasks are created in registration order).
+    event type. ``Mediator.publish()`` runs them concurrently.
 
     The handler performs class-definition-time validation via __init_subclass__
     to ensure:
@@ -76,8 +72,8 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
       (not a base class or union)
     - The __call__ return annotation is None - event handlers produce no response
 
-    This validation happens at class definition time (import time), catching
-    errors early in the development cycle rather than at runtime.
+    Validation runs when Python executes the handler's class body, usually
+    during import and before the handler is instantiated.
 
     Type Parameters:
         EventT: The type of event this handler subscribes to. Must inherit
@@ -89,11 +85,13 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
             ```python
             import asyncio
             from dataclasses import dataclass
+
             from pymediate import Event, EventHandler, Mediator, Services
 
-            @dataclass
+            @dataclass(frozen=True)
             class OrderPlaced(Event):
                 order_id: int
+                item: str
 
             class SendConfirmation(EventHandler[OrderPlaced]):
                 async def __call__(self, event: OrderPlaced) -> None:
@@ -108,7 +106,7 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
                 services.add(SendConfirmation()).add(UpdateAnalytics())
                 mediator = Mediator(services.provider())
 
-                await mediator.publish(OrderPlaced(order_id=42))
+                await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 
             asyncio.run(main())
             ```
@@ -116,20 +114,17 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
     Note:
         Handlers for the same event run concurrently, so they must not rely on
         each other's effects or mutate shared state without synchronization.
-        For synchronous event handlers, use `pymediate.sync.EventHandler`
-        instead. Validation occurs at class definition time: if your __call__
-        signature doesn't match expectations, you'll get a clear error message
-        when the module is imported, not when the event is published.
+        For synchronous event handlers, use ``pymediate.sync.EventHandler``
+        instead. The two forms share one subscription registry, so every handler
+        for an exact event type must use the same form. If the ``__call__``
+        signature does not meet this contract, validation raises while Python
+        defines the class, usually during import.
 
     Raises:
         InvalidHandlerSignatureError: If the __call__ signature is invalid or
             not async, including a return annotation other than None.
         InvalidEventTypeError: If the event type doesn't inherit from Event.
 
-    See Also:
-        - Event: Base event class.
-        - Mediator.publish: Publishes an event to all its handlers.
-        - pymediate.sync.EventHandler: Sync event handler variant.
     """
 
     _is_async = True  # Mark this as an asynchronous event handler

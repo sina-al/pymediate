@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: `%s | ${appName}`,
   },
   description:
-    'A type-safe mediator for Python 3.12+. Route typed requests to handlers with zero dependencies, first-class async, pipeline behaviors, and full mypy support.',
+    'PyMediate routes typed in-process requests to handlers on Python 3.12+. It provides async and sync dispatch, streaming, events, and pipeline behaviors.',
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {
