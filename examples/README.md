@@ -46,6 +46,7 @@ In suggested order:
 | 24 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
 | 25 | [adapters-sync](adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
 | 26 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 27 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
@@ -54,10 +55,10 @@ compose handlers through the mediator; 15–16 design requests as value objects;
 validation at the edge vs. the core; 19–20 map domain errors across transports; 21–22 place
 authn at the edge and authz in the core; 23 separates commands from queries with a
 transactional outbox and a projection worker; 24–25 make the framework-independence
-argument; 26 plugs it into a DI container. Async and sync
-examples mirror each other deliberately — diffing a pair is the fastest way to see how
-small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
-names for now; they're renumbered later as the
+argument; 26 plugs it into a DI container; 27 assembles those ideas into a deployment-shaped
+application. Async and sync examples mirror each other deliberately — diffing a pair is the
+fastest way to see how small the sync delta is. (`adapters` and `with-dependency-injector` keep
+their original names for now; they're renumbered later as the
 [examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
 
 ## The examples contract
@@ -67,7 +68,8 @@ and run all of them with no per-example wiring (`release.yml`'s examples stage, 
 `scripts/run_examples.py`):
 
 1. **Standalone uv project**: a `pyproject.toml` at the example's root, with a committed
-   `uv.lock`. Not a member of any workspace.
+   `uv.lock`. It may itself be a self-contained multi-package workspace, but must never join
+   the repository root or another example's workspace.
 2. **Depends on pymediate with a loose lower bound** (e.g. `pymediate>=0.5`) so the release
    runner can re-pin it to the release candidate without a conflict. Extras are fine
    (e.g. `pymediate[di]>=0.5`): `uv add` preserves them when re-pinning, in both wheel
@@ -75,9 +77,12 @@ and run all of them with no per-example wiring (`release.yml`'s examples stage, 
 3. **Tests included, `uv run pytest` exits 0**: pytest lives in the default (`dev`)
    dependency group, so `uv sync && uv run pytest` is the whole contract. Every example is
    also a test of the library.
-4. **No `[tool.uv.sources]` or `[[tool.uv.index]]` sections**: the release runner appends
-   its own (pinning pymediate to the staging index) and will refuse an example that already
-   defines them.
+4. **No `[[tool.uv.index]]` or arbitrary checked-in `pymediate` source**: the release runner owns
+   those while pinning a candidate. A multi-package example may use `[tool.uv.sources]` entries for
+   its own `{ workspace = true }` members. The flagship is the sole exception: it uses the exact
+   repo-relative editable source `{ path = "../..", editable = true }` because it exercises current
+   nested-container DI behavior. The runner validates that exact exception, removes it from the
+   temporary copy, and then applies the candidate pin. Every other source is refused.
 5. **A README** explaining what the example showcases.
 
 Beyond the contract, examples in this repo are held to a deliberate quality bar —
@@ -105,5 +110,6 @@ the design decision):
 4. **After the PyPI publish** — `--version X.Y.Z` mode against `pypi.org`: a smoke test
    of the exact artifact users install, gating the GitHub Release.
 
-Either way each example is copied to a temp directory first — your checkout is never
-modified.
+Either way each example is copied to a temp directory first — your checkout is never modified. For
+the flagship, the checkout-only source override is removed from that copy before the same wheel or
+index re-pinning used by every other example.
