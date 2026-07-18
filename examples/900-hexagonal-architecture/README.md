@@ -269,7 +269,7 @@ future durable refund workflow; it is not part of the runnable application.
 
 ## Where next
 
-- Read [*Nobody wants to touch that code*](https://pymediate.sina-al.uk/articles/nobody-wants-to-touch-that-code)
+- Read [*Using a mediator to reduce change coupling*](https://pymediate.sina-al.uk/articles/using-a-mediator-to-reduce-change-coupling)
   for the design progression that led to this Shop domain.
 - Revisit the focused [examples index](../README.md) when one boundary needs a shorter reference.
 - Use the package and topic guides linked above for background processing, audit history, testing,

@@ -131,6 +131,6 @@ In suggested reading order:
   request, one handler, and one `send()` call.
 - [005-why-a-mediator](../005-why-a-mediator/) — this orientation on the asynchronous API.
 - The essay this example makes runnable:
-  [*Nobody wants to touch that code*](https://pymediate.sina-al.uk/articles/nobody-wants-to-touch-that-code).
+  [*Using a mediator to reduce change coupling*](https://pymediate.sina-al.uk/articles/using-a-mediator-to-reduce-change-coupling).
 - The docs: [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) ·
   [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start).

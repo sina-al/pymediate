@@ -133,7 +133,7 @@ PyMediate provides in-process dispatch. It does not provide a task queue, choose
 require CQRS or hexagonal architecture. Direct calls are often clearer when callers can depend on
 their collaborators without repeated wiring, and a small hand-written dispatcher can be enough.
 
-The article [*Nobody wants to touch that code*](https://pymediate.sina-al.uk/articles/nobody-wants-to-touch-that-code)
+The article [*Using a mediator to reduce change coupling*](https://pymediate.sina-al.uk/articles/using-a-mediator-to-reduce-change-coupling)
 develops the case for a mediator and covers the added indirection, registration, and runtime cost.
 The [comparison](https://pymediate.sina-al.uk/docs/comparison) documents the current feature set,
 dated dispatch benchmarks, and a runnable benchmark script.

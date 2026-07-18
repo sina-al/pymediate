@@ -293,7 +293,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-5xl px-6 py-20">
         <div className="max-w-2xl">
           <h2 className="text-3xl font-semibold tracking-tight">
-            Nobody wants to touch that code
+            Using a mediator to reduce change coupling
           </h2>
           <p className="mt-4 text-fd-muted-foreground">
             Direct calls are often the clearest design. A mediator becomes relevant when repeated
@@ -302,7 +302,7 @@ export default function HomePage() {
             sufficient.
           </p>
           <Link
-            href="/articles/nobody-wants-to-touch-that-code"
+            href="/articles/using-a-mediator-to-reduce-change-coupling"
             className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-fd-primary hover:underline"
           >
             Read the article

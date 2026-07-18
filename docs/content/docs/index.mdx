@@ -78,7 +78,7 @@ The top-level `pymediate` package is asynchronous. `pymediate.sync` provides the
 
 PyMediate provides in-process dispatch, type propagation at call sites, and class-definition-time validation of handler annotations. It does not provide a task queue, choose how your application stores data, or require CQRS or hexagonal architecture.
 
-Direct calls are often clearer when callers can depend on their collaborators without repeated wiring. A small hand-written dispatcher can also be enough. [Nobody wants to touch that code](/articles/nobody-wants-to-touch-that-code) develops the architectural case for a mediator and describes the trade-offs.
+Direct calls are often clearer when callers can depend on their collaborators without repeated wiring. A small hand-written dispatcher can also be enough. [Using a mediator to reduce change coupling](/articles/using-a-mediator-to-reduce-change-coupling) develops the architectural case for a mediator and describes the trade-offs.
 
 ## Where to begin
 
@@ -96,7 +96,7 @@ Direct calls are often clearer when callers can depend on their collaborators wi
   <Card
     title="Understand the design trade-offs"
     description="Follow the path from direct calls to a mediator and decide whether it fits."
-    href="/articles/nobody-wants-to-touch-that-code"
+    href="/articles/using-a-mediator-to-reduce-change-coupling"
   />
   <Card
     title="Look up the API"
