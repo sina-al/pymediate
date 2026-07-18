@@ -82,8 +82,9 @@ Infer types without resolving providers:
 - `Object`, `List`, and `Dict` have intrinsic runtime types;
 - function-backed factories, singletons, and callables use a concrete return annotation;
 - composition-only `Configuration`, `Dependency`, `DependenciesContainer`, and `Self` providers
-  are skipped unless explicitly declared;
-- opaque providers require a `provider_types` entry keyed by the real provider object;
+  are skipped;
+- opaque providers (unannotated factories, `Selector`, `Resource`) are rejected with a
+  `TypeError` naming the provider;
 - coroutine providers are rejected because the `ServiceProvider` resolution boundary is
   synchronous for both the sync and async mediators.
 
@@ -97,7 +98,7 @@ Pros:
 
 Cons:
 
-- An unannotated function factory needs one explicit type declaration.
+- An unannotated function factory must gain a concrete return annotation or be class-backed.
 - The indexed type graph is a snapshot; type-changing overrides require rebuilding the service
   provider.
 - Runtime-checkable data protocols can still require instance resolution because `issubclass()`
@@ -126,7 +127,10 @@ Use a concrete `dependency_injector.containers.Container` and ordered recursive 
   gate with `--ignoreexternal`; do not weaken the public runtime contract to accommodate them.
 - Descend only through declared `providers.Container` children and preserve mapping order.
 - Never invoke providers to build the index.
-- Accept `provider_types: Mapping[providers.Provider[Any], type[Any]]` for opaque providers.
+- Reject opaque providers at construction time. An explicit
+  `provider_types: Mapping[providers.Provider[Any], type[Any]]` escape hatch was considered
+  and prototyped, but is deferred — the constructor takes only the container until a concrete
+  need for explicit declarations emerges.
 - Support service-provider and mediator providers in the same root container through
   `providers.Self()`.
 - Continue delegating actual resolution to the original provider so Factory, Singleton, context
@@ -147,7 +151,8 @@ Use a concrete `dependency_injector.containers.Container` and ordered recursive 
 
 - Arbitrary `ContainerLike` objects are no longer accepted.
 - Previously invisible providers inside child containers become visible in declaration order.
-- Unannotated or dynamically selected service factories need an explicit type.
+- Unannotated or dynamically selected service factories (`Selector`, `Resource`) are not
+  supported until the deferred explicit-type declaration ships.
 - A provider override that changes the produced type is not reflected until the service provider
   is rebuilt.
 
@@ -155,7 +160,6 @@ Use a concrete `dependency_injector.containers.Container` and ordered recursive 
 
 - Replace container lookalikes with a `DeclarativeContainer` or `DynamicContainer`.
 - Remove manual flattening used only to expose providers from child containers.
-- Add concrete return annotations to function factories, or pass their provider objects in
-  `provider_types`.
+- Add concrete return annotations to function factories, or back them with a class.
 - Applications may move mediator construction into the root container with `providers.Self()`;
   external construction remains supported.

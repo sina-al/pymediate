@@ -174,7 +174,7 @@ class HandlerAlreadyRegisteredError(PyMediateError):
 ```python
 class DependencyInjectorServiceProvider:
     """ServiceProvider backed by a Dependency Injector container."""
-    def __init__(self, container: containers.Container, *, provider_types: Mapping[providers.Provider[Any], type[Any]] | None = None) -> None:
+    def __init__(self, container: containers.Container) -> None:
         """Index services declared by a Dependency Injector container."""
         ...
     def get(self, service_type: type[ServiceT]) -> ServiceT:

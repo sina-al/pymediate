@@ -80,15 +80,7 @@ def build_handler(database: Database) -> CreateUserHandler:
 create_user = providers.Factory(build_handler, database=database)
 ```
 
-If a third-party or dynamic factory cannot be annotated, declare its output type without calling it:
-
-```python
-container = ApplicationContainer()
-services = DependencyInjectorServiceProvider(
-    container,
-    provider_types={container.create_user: CreateUserHandler},
-)
-```
+A provider whose output type cannot be determined this way — an unannotated factory, a `Selector`, a `Resource` — is rejected at construction time with a `TypeError` naming the provider, rather than being called to discover its type.
 
 The provider graph and inferred types are indexed once. Rebuild the service provider after adding providers or applying an override that changes a provider's output type. Same-type overrides continue to work.
 

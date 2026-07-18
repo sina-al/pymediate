@@ -26,37 +26,26 @@ class DependencyInjectorServiceProvider:
     Indexes services from the container without resolving them, then delegates each
     service resolution to its original Dependency Injector provider. Class-backed
     factories and singletons, object providers, and factories with concrete return
-    annotations are discovered automatically. Use ``provider_types`` for a provider
-    whose output type cannot be determined statically.
+    annotations are discovered automatically.
 
     Child ``providers.Container`` providers are indexed recursively in declaration
     order. Other provider dependencies are not traversed, so providers reachable only
     through injection are not accidentally exposed as PyMediate services.
 
     Examples:
-        Basic container:
-            ```python
-            from dependency_injector import containers, providers
-            from pymediate import Mediator
-            from pymediate.providers import DependencyInjectorServiceProvider
+        ```python
+        from dependency_injector import containers, providers
+        from pymediate import Mediator
+        from pymediate.providers import DependencyInjectorServiceProvider
 
-            class AppContainer(containers.DeclarativeContainer):
-                database = providers.Singleton(Database)
-                create_user = providers.Factory(CreateUserHandler, database=database)
+        class AppContainer(containers.DeclarativeContainer):
+            database = providers.Singleton(Database)
+            create_user = providers.Factory(CreateUserHandler, database=database)
 
-            container = AppContainer()
-            services = DependencyInjectorServiceProvider(container)
-            mediator = Mediator(services)
-            ```
-
-        Opaque factory with an explicit service type:
-            ```python
-            container = AppContainer()
-            services = DependencyInjectorServiceProvider(
-                container,
-                provider_types={container.create_user: CreateUserHandler},
-            )
-            ```
+        container = AppContainer()
+        services = DependencyInjectorServiceProvider(container)
+        mediator = Mediator(services)
+        ```
 
     Note:
         The provider graph and inferred types are a construction-time snapshot.
@@ -70,54 +59,26 @@ class DependencyInjectorServiceProvider:
         - Services: A DI-container-free alternative for manual service registration.
     """
 
-    def __init__(
-        self,
-        container: containers.Container,
-        *,
-        provider_types: Mapping[providers.Provider[Any], type[Any]] | None = None,
-    ) -> None:
+    def __init__(self, container: containers.Container) -> None:
         """Index services declared by a Dependency Injector container.
 
         Args:
             container: A ``DeclarativeContainer`` or ``DynamicContainer`` instance.
-            provider_types: Explicit output types for opaque providers, keyed by the
-                provider object exposed by the container.
 
         Raises:
-            TypeError: If ``container`` is not a Dependency Injector container, an
-                explicit type is invalid, or a service provider's output type cannot
-                be determined without resolving it.
-            ValueError: If an explicit provider is not declared by the container or
-                one of its nested containers, or nested containers form a cycle.
+            TypeError: If ``container`` is not a Dependency Injector container, or a
+                service provider's output type cannot be determined without
+                resolving it.
+            ValueError: If nested containers form a cycle.
         """
         if not isinstance(container, containers.Container):
             raise TypeError("container must be a dependency_injector.containers.Container")
 
         self._container = container
-        self._provider_types = dict(provider_types or {})
-        self._validate_provider_types()
-        self._used_explicit_providers: set[_Provider] = set()
         self._type_providers: dict[type[Any], list[_Registration]] = {}
         self._registration_order: list[_Registration] = []
 
         self._scan_container(container, path="", active_containers=set())
-        self._validate_explicit_providers_used()
-
-    def _validate_provider_types(self) -> None:
-        for provider, service_type in self._provider_types.items():
-            if not isinstance(provider, providers.Provider):
-                raise TypeError("provider_types keys must be dependency-injector providers")
-            if service_type is Any or not isinstance(service_type, type):
-                raise TypeError("provider_types values must be concrete runtime types")
-
-    def _validate_explicit_providers_used(self) -> None:
-        unused = self._provider_types.keys() - self._used_explicit_providers
-        if unused:
-            rendered = ", ".join(repr(provider) for provider in unused)
-            raise ValueError(
-                "provider_types contains providers that are not declared by the container "
-                f"or its nested containers: {rendered}"
-            )
 
     def _scan_container(
         self,
@@ -160,14 +121,6 @@ class DependencyInjectorServiceProvider:
         effective: _Provider,
         path: str,
     ) -> type[Any] | None:
-        explicit = self._provider_types.get(provider)
-        if explicit is None:
-            explicit = self._provider_types.get(effective)
-        if explicit is not None:
-            self._used_explicit_providers.add(provider)
-            self._used_explicit_providers.add(effective)
-            return explicit
-
         if isinstance(
             provider,
             (
@@ -225,11 +178,7 @@ class DependencyInjectorServiceProvider:
                 f"provider '{registration.path}' resolved asynchronously; PyMediate "
                 "service providers must construct services synchronously"
             )
-        try:
-            matches_declared_type = isinstance(instance, registration.service_type)
-        except TypeError:
-            matches_declared_type = True
-        if not matches_declared_type:
+        if not isinstance(instance, registration.service_type):
             raise TypeError(
                 f"provider '{registration.path}' produced {type(instance).__name__}, not its "
                 f"indexed service type {registration.service_type.__name__}; rebuild the "
@@ -340,6 +289,5 @@ def _callable_return_type(provided: Callable[..., Any] | None) -> type[Any] | No
 def _opaque_provider_message(path: str) -> str:
     return (
         f"cannot determine the service type for provider '{path}' without resolving it; "
-        "use a class-backed provider, add a concrete return annotation, or pass "
-        "provider_types={container.provider: ServiceType}"
+        "use a class-backed provider or add a concrete return annotation"
     )

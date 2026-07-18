@@ -98,8 +98,8 @@ def test_annotated_factory_is_indexed_without_being_resolved() -> None:
     assert constructed == 1
 
 
-def test_opaque_factory_requires_an_explicit_service_type() -> None:
-    """An unannotated factory fails without being called and can be declared explicitly."""
+def test_opaque_factory_is_rejected_without_being_called() -> None:
+    """An unannotated factory fails clearly instead of being resolved to learn its type."""
     constructed = 0
 
     def build_service() -> Any:
@@ -110,21 +110,10 @@ def test_opaque_factory_requires_an_explicit_service_type() -> None:
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Factory(build_service)
 
-    container = RootContainer()
-
     with pytest.raises(TypeError, match="cannot determine.*provider 'service'"):
-        DependencyInjectorServiceProvider(container)
+        DependencyInjectorServiceProvider(RootContainer())
 
     assert constructed == 0
-
-    services = DependencyInjectorServiceProvider(
-        container,
-        provider_types={container.service: FirstService},
-    )
-
-    assert constructed == 0
-    assert isinstance(services.get(FirstService), FirstService)
-    assert constructed == 1
 
 
 def test_bound_child_dependencies_are_not_registered_as_services() -> None:
@@ -170,8 +159,8 @@ def test_object_and_collection_providers_have_intrinsic_types() -> None:
     assert services.get(dict) == {"answer": 42}
 
 
-def test_opaque_selector_can_be_declared_explicitly() -> None:
-    """Dynamic provider kinds fail clearly unless their output type is declared."""
+def test_opaque_selector_is_rejected() -> None:
+    """Dynamic provider kinds fail clearly instead of being resolved to learn their type."""
 
     class RootContainer(containers.DeclarativeContainer):
         selected = providers.Selector(
@@ -179,45 +168,8 @@ def test_opaque_selector_can_be_declared_explicitly() -> None:
             first=providers.Factory(FirstService),
         )
 
-    container = RootContainer()
-
     with pytest.raises(TypeError, match="cannot determine.*provider 'selected'"):
-        DependencyInjectorServiceProvider(container)
-
-    services = DependencyInjectorServiceProvider(
-        container,
-        provider_types={container.selected: FirstService},
-    )
-
-    assert isinstance(services.get(FirstService), FirstService)
-
-
-def test_provider_types_must_reference_declared_providers_and_runtime_types() -> None:
-    """Explicit declarations reject invalid keys, values, and unrelated providers."""
-
-    class RootContainer(containers.DeclarativeContainer):
-        service = providers.Factory(FirstService)
-
-    container = RootContainer()
-    unrelated = providers.Factory(SecondService)
-
-    with pytest.raises(TypeError, match="keys must be dependency-injector providers"):
-        DependencyInjectorServiceProvider(
-            container,
-            provider_types=cast(Any, {"service": FirstService}),
-        )
-
-    with pytest.raises(TypeError, match="values must be concrete runtime types"):
-        DependencyInjectorServiceProvider(
-            container,
-            provider_types=cast(Any, {container.service: "FirstService"}),
-        )
-
-    with pytest.raises(ValueError, match="not declared by the container"):
-        DependencyInjectorServiceProvider(
-            container,
-            provider_types={unrelated: SecondService},
-        )
+        DependencyInjectorServiceProvider(RootContainer())
 
 
 def test_type_changing_override_is_seen_after_rebuilding_the_index() -> None:
@@ -289,8 +241,8 @@ async def test_coroutine_result_is_closed_when_resolution_is_rejected() -> None:
     assert cast(Any, coroutine).cr_frame is None
 
 
-def test_resource_provider_requires_an_explicit_type_without_initializing() -> None:
-    """Resource output is explicit and starts only when the service is resolved."""
+def test_resource_provider_is_rejected_without_initializing() -> None:
+    """A resource provider fails clearly and is never started during indexing."""
     constructed = 0
 
     def build_service() -> FirstService:
@@ -301,21 +253,10 @@ def test_resource_provider_requires_an_explicit_type_without_initializing() -> N
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Resource(build_service)
 
-    container = RootContainer()
-
     with pytest.raises(TypeError, match="cannot determine.*provider 'service'"):
-        DependencyInjectorServiceProvider(container)
+        DependencyInjectorServiceProvider(RootContainer())
 
     assert constructed == 0
-
-    services = DependencyInjectorServiceProvider(
-        container,
-        provider_types={container.service: FirstService},
-    )
-
-    assert isinstance(services.get(FirstService), FirstService)
-    assert constructed == 1
-    container.shutdown_resources()
 
 
 def test_nested_container_cycle_is_reported_with_its_path() -> None:
@@ -333,30 +274,6 @@ def test_nested_container_cycle_is_reported_with_its_path() -> None:
 
     with pytest.raises(ValueError, match="container cycle at 'child.root'"):
         DependencyInjectorServiceProvider(root)
-
-
-def test_non_runtime_protocol_explicit_type_cannot_be_runtime_validated() -> None:
-    """An explicit non-runtime Protocol remains usable for exact resolution."""
-
-    class Port(Protocol):
-        def call(self) -> str: ...
-
-    class Implementation:
-        def call(self) -> str:
-            return "called"
-
-    class RootContainer(containers.DeclarativeContainer):
-        implementation = providers.Factory(Implementation)
-
-    container = RootContainer()
-    services = DependencyInjectorServiceProvider(
-        container,
-        provider_types={container.implementation: Port},
-    )
-
-    service = services.get(cast("type[Any]", Port))
-
-    assert service.call() == "called"
 
 
 def test_runtime_checkable_data_protocol_uses_instance_matching() -> None:
