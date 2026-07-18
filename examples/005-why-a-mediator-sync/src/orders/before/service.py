@@ -1,12 +1,8 @@
-"""The order feature as one class — the shape most teams reach for first.
+"""The order feature implemented as one service class.
 
-Every operation the application performs is a method here, and every collaborator any
-operation could need is handed in once, at construction. It reads well; a new hire
-understands it in a sitting. This is not a strawman — it's a competent, ordinary design,
-the kind a good reviewer approves without comment.
-
-It also degrades in four specific ways as it grows, and `tests/test_before.py` pins down
-each one by *running* it. The `after/` package answers them one at a time.
+Every operation is a typed method. The class also exposes an optional string-based
+`dispatch` method for dynamic callers. That method demonstrates properties of string
+routing; those properties do not apply to callers that use the typed methods directly.
 
 This is the synchronous mirror of `examples/005-why-a-mediator/`.
 """
@@ -37,9 +33,8 @@ class OrderService:
         inventory: InventoryService,
         audit: AuditLog,
     ) -> None:
-        # Every collaborator any method might touch is handed in here — so anyone who
-        # wants to construct an OrderService must supply all five, even to reach a method
-        # that uses one of them. (Pain #4.)
+        # Construction requires every collaborator, including for callers that use a
+        # method with fewer dependencies.
         self._store = store
         self._payments = payments
         self._mailer = mailer
@@ -47,7 +42,7 @@ class OrderService:
         self._audit = audit
 
     def place_order(self, customer_id: int, items: list[str]) -> Order:
-        self._audit.record("place_order")  # cross-cutting concern, copy 1 of 3 (Pain #3)
+        self._audit.record("place_order")  # repeated audit call, 1 of 3
         self._inventory.reserve(items)
         order = self._store.save(customer_id, items)
         self._payments.charge(order.order_id, PRICE * len(items))
@@ -61,9 +56,7 @@ class OrderService:
         return order
 
     def refund(self, order_id: int, amount: int) -> Order:
-        # Added six months after the rest — and the `self._audit.record(...)` line that
-        # opens every other method never made it in. Nothing catches the omission; the
-        # audit trail just quietly stops recording refunds. (Pain #3, felt.)
+        # This method omits the audit call repeated by the other operations.
         order = self._store.get(order_id)
         self._payments.refund(order_id, amount)
         order.status = "refunded"
@@ -75,14 +68,11 @@ class OrderService:
         return ExportResult(url=f"/exports/{customer_id}.{fmt}", rows=len(rows))
 
     def dispatch(self, action: str, payload: dict[str, Any]) -> Any:
-        """Route an action name to a method — the string-keyed seam a god service grows.
+        """Route an action string to a method.
 
-        A web route, a worker, and a CLI all want to reach these operations without each
-        importing the class, so a `dispatch(name, payload)` front door appears. Note the
-        two costs baked into its signature. `action` is a bare `str`, so a mistyped name
-        is invisible until it runs (Pain #1). And the branches return different types, so
-        the only return type that fits is `Any` — which switches the type checker off at
-        exactly the call site that most wants it (Pain #2).
+        This optional dynamic entry point accepts any `str`, so a misspelled action fails
+        at runtime. Its branches return different types, so its return annotation is `Any`.
+        The typed methods above retain their specific parameter and return types.
         """
         if action == "place_order":
             return self.place_order(payload["customer_id"], payload["items"])

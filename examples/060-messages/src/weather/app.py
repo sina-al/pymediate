@@ -1,4 +1,4 @@
-"""Wire the mediator and run a short demo of the three message-design payoffs."""
+"""Run demonstrations of deliberate request-data design."""
 
 import asyncio
 
@@ -35,21 +35,21 @@ def build_mediator(
 
 
 async def main() -> None:
-    """Show frozen-as-cache-key, secret hiding, and validation-at-construction."""
+    """Show equality, generated representations, and construction-time validation."""
     journal: list[str] = []
     mediator = build_mediator(journal=journal)
 
-    # 1. A frozen request doubles as its own cache key — and normalization means two
-    #    differently-typed spellings of the same city collapse to one entry.
+    # 1. The string fields are hashable. Normalization makes two differently capitalized
+    #    instances compare equal, so they address one cache entry.
     await mediator.send(GetForecast("london"))
     await mediator.send(GetForecast("  LONDON "))
     same = GetForecast("london") == GetForecast("LONDON")
     print(f"GetForecast('london') == GetForecast('LONDON'): {same}")
     print(f"Handler journal: {journal}  # miss, then hit")
 
-    # 2. A secret field stays out of logs: repr omits the api_key entirely.
+    # 2. repr=False omits the API key from the generated dataclass representation.
     reading = SubmitReading(station_id="st-1", celsius=21.5, api_key="sk-do-not-log-me")
-    print(f"Logging the request prints: {reading!r}")
+    print(f"Generated repr: {reading!r}")
     await mediator.send(reading)
 
     # 3. Bad data fails at construction — the request never reaches a handler.

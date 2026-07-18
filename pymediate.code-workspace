@@ -41,6 +41,54 @@
       "path": "examples/040-pipeline-behaviors-sync"
     },
     {
+      "name": "examples/045-behaviors-vs-decorators",
+      "path": "examples/045-behaviors-vs-decorators"
+    },
+    {
+      "name": "examples/045-behaviors-vs-decorators-sync",
+      "path": "examples/045-behaviors-vs-decorators-sync"
+    },
+    {
+      "name": "examples/050-handler-composition",
+      "path": "examples/050-handler-composition"
+    },
+    {
+      "name": "examples/050-handler-composition-sync",
+      "path": "examples/050-handler-composition-sync"
+    },
+    {
+      "name": "examples/060-messages",
+      "path": "examples/060-messages"
+    },
+    {
+      "name": "examples/060-messages-sync",
+      "path": "examples/060-messages-sync"
+    },
+    {
+      "name": "examples/065-validation",
+      "path": "examples/065-validation"
+    },
+    {
+      "name": "examples/065-validation-sync",
+      "path": "examples/065-validation-sync"
+    },
+    {
+      "name": "examples/070-error-handling",
+      "path": "examples/070-error-handling"
+    },
+    {
+      "name": "examples/070-error-handling-sync",
+      "path": "examples/070-error-handling-sync"
+    },
+    {
+      "name": "examples/075-authorization",
+      "path": "examples/075-authorization"
+    },
+    {
+      "name": "examples/075-authorization-sync",
+      "path": "examples/075-authorization-sync"
+    },
+    {
       "name": "examples/090-adapters",
       "path": "examples/090-adapters"
     },
@@ -65,8 +113,12 @@
       "path": "examples/110-testing-sync"
     },
     {
-      "name": "examples/100-hexagonal-architecture",
-      "path": "examples/100-hexagonal-architecture"
+      "name": "examples/130-cqrs",
+      "path": "examples/130-cqrs"
+    },
+    {
+      "name": "examples/900-hexagonal-architecture",
+      "path": "examples/900-hexagonal-architecture"
     },
     {
       "name": "src",

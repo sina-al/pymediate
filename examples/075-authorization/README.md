@@ -2,17 +2,20 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F075-authorization%2Fdevcontainer.json)
 
-Where does authentication end and authorization begin — the adapter layer, or the core? This
-example draws the line in three places, grounded in the ASP.NET Core model: **authentication is
-a transport concern** (an adapter parses a credential into an identity), **coarse authorization
-is a selective pipeline behavior** in the core (logged in? right role? MFA for a mutation?), and
-**resource authorization is an imperative check inside the handler**, run after the entity
-loads — a pre-dispatch behavior can't see a document that doesn't exist yet.
+The token parser in this example is unsigned and accepts caller-supplied roles and claims. It
+exists only to provide deterministic input. Do not use it to authenticate real requests. A
+production adapter must verify a signed token, session, or other credential before constructing
+a trusted `Principal`.
 
-## Run it
+This example separates authentication from two forms of authorization. The HTTP and command-line
+adapters turn a credential into a principal. Pipeline behaviors enforce request-level policies.
+The edit handler checks access to a document after loading that document.
+
+## Run
+
+From this directory:
 
 ```bash
-cd examples/075-authorization
 uv sync
 uv run pytest
 ```
@@ -21,115 +24,125 @@ uv run pytest
 15 passed
 ```
 
-Those fifteen tests drive all three layers independently — each coarse-authz behavior denying
-on its own (and in the right order), the in-handler ownership check, and both edges (HTTP, CLI)
-mapping the same denial.
-
-Try the CLI yourself — identity comes from a `--token` flag instead of a header, but the
-authorization is the *same* code:
+The command-line adapter uses the same mediator and core:
 
 ```console
+$ uv run vault --token "alice;user;mfa" edit 1 updated
+Document(doc_id=1, owner_id='alice', body='updated')
+$ echo $?
+0
+
 $ uv run vault view 1
-denied: authentication required          # no --token: RequireAuthentication denies it, exit 13
-
-$ uv run vault --token "bob;user;mfa" edit 1 "hacked"
-denied: bob may not edit document 1      # bob is authenticated, but doesn't own doc 1, exit 13
-
-$ uv run vault --token "alice;user;mfa" edit 1 "updated notes"
-Document(doc_id=1, owner_id='alice', body='updated notes')                        # exit 0
+denied: authentication required
+$ echo $?
+13
 ```
 
-## Layer 1 — authentication is an adapter concern
+The role and claim values in the first command are not verified; they are demo input only.
+
+## Establish identity at the boundary
+
+Authentication establishes who the caller is. The adapter reads a credential, verifies it in a
+production system, and supplies a `Principal` to the request. The core does not import FastAPI or
+read command-line arguments.
 
 ```python
-# authn.py
-def from_http(headers: Mapping[str, str]) -> Principal | None:
-    header = headers.get("Authorization", "")
-    if not header.startswith("Bearer "):
-        return None
-    return parse_token(header.removeprefix("Bearer "))
-
-# api.py
 @app.get("/documents/{doc_id}")
 async def view(doc_id: int, http_request: HTTPRequest) -> Document:
     principal = from_http(http_request.headers)
     return await mediator.send(ViewDocument(doc_id=doc_id, principal=principal))
 ```
 
-Parsing a credential is the *only* transport-specific auth code in the whole example. The
-`Principal` it produces travels in the request as a plain field — there's no ambient
-`HttpContext` the core reaches into. `cli.py` builds the same `Principal` from a `--token` flag.
+`from_http` only parses the unsigned demo token. Replacing it with a credential verifier should
+still leave the request and handler independent of HTTP.
 
-## Layer 2 — coarse authorization is a selective behavior
+## Apply request-level policies
+
+The request hierarchy describes which policies apply:
+
+- Every `AuthenticatedRequest` requires a principal.
+- Every `RequiresRole` request requires the role declared by its concrete request type.
+- A `MutatingCommand` also requires a multifactor authentication (MFA) claim.
+
+The three behaviors use those types to select requests. `RequireMfa.should_apply` narrows its
+broader type match to commands that change state.
 
 ```python
-@dataclass
-class AuthenticatedRequest(Request[Any]):        # the [Authorize] analog
-    principal: Principal | None = field(default=None, kw_only=True)
-
 class RequireAuthentication(PipelineBehavior[AuthenticatedRequest]):
     async def __call__(self, request, next):
         if request.principal is None:
-            raise AuthorizationError("authentication required")
+            raise AuthenticationRequiredError("authentication required")
         return await next()
-```
 
-Wearing `AuthenticatedRequest` is like wearing `[Authorize]` — the type parameter *is* the
-routing. `RequiresRole` narrows it further (the `[Authorize(Roles=…)]` analog), and
-`RequireMfa` uses `should_apply` to gate only mutating commands at runtime — a read and a write
-of the same base type are treated differently, which a static attribute can't express:
-
-```python
 class RequireMfa(PipelineBehavior[AuthenticatedRequest]):
     @classmethod
     def should_apply(cls, request: Request[Any]) -> bool:
-        return isinstance(request, MutatingCommand)   # only EditDocument, not ViewDocument
+        return isinstance(request, MutatingCommand)
 ```
 
-## Layer 3 — resource authorization is imperative, inside the handler
+Registration order matters. Authentication is registered outermost, so the role and MFA
+behaviors can rely on a principal being present.
+
+## Authorize a loaded resource
+
+Request-level policies can decide whether a principal may attempt a type of operation. Editing a
+specific document also depends on the loaded document's owner.
 
 ```python
-class EditDocumentHandler(RequestHandler[EditDocument]):
-    async def __call__(self, request: EditDocument) -> Document:
-        document = self._store.get(request.doc_id)
-        if document is None:
-            raise DocumentNotFoundError(request.doc_id)
-        principal = request.principal
-        if not self._authorizer.can_edit(principal, document):
-            raise AuthorizationError(f"{principal.id} may not edit document {document.doc_id}")
-        ...
+document = self._store.get(request.doc_id)
+if document is None:
+    raise DocumentNotFoundError(request.doc_id)
+principal = request.principal
+assert principal is not None
+if not self._authorizer.can_edit(principal, document):
+    raise AuthorizationError(
+        f"{principal.id} may not edit document {document.doc_id}"
+    )
 ```
 
-"May Bob edit *this* document?" depends on the document's owner — data that doesn't exist until
-this handler loads it. A behavior runs *before* dispatch, so it structurally cannot make this
-check; the `DocumentAuthorizer` (the `IAuthorizationService` analog) is injected and called
-here instead, once the resource is in hand.
+This check is in the handler because the handler already has the document. A behavior could
+perform the same policy if it loaded or received the resource, but loading it separately would
+duplicate or relocate the lookup. `DocumentAuthorizer` remains a separate dependency so the
+policy can be tested and replaced independently.
 
-## The files
+## Map denials at each boundary
 
-| File | What it is |
+The core distinguishes a missing principal from an authenticated principal that lacks access.
+The HTTP adapter maps those outcomes according to HTTP semantics:
+
+| Core result | HTTP result | Command-line result |
+| --- | --- | --- |
+| `AuthenticationRequiredError` | 401 with `WWW-Authenticate: Bearer` | exit code 13 |
+| `AuthorizationError` | 403 | exit code 13 |
+| `DocumentNotFoundError` | 404 | exit code 3 |
+
+`AuthenticationRequiredError` and `AuthorizationError` share an `AccessError` base class. FastAPI
+maps each specific error separately. The command-line interface maps their shared base class to
+one access-denied exit code.
+
+## Read the code
+
+| File | What to read |
 | --- | --- |
-| [`src/vault/core.py`](src/vault/core.py) | **Start here.** The marker bases, the three coarse-authz behaviors, and the resource-authz handler. |
-| [`src/vault/authn.py`](src/vault/authn.py) | The only transport-specific code: parsing a token into a `Principal`. |
-| [`src/vault/api.py`](src/vault/api.py) | The HTTP edge: attach the principal, map `AuthorizationError` → 403. |
-| [`src/vault/cli.py`](src/vault/cli.py) | The CLI edge: the same core, a `--token` flag, and exit code 13 for a denial. |
-| [`tests/test_authorization.py`](tests/test_authorization.py) | All three layers, each denying independently: `uv run pytest` → `15 passed`. |
+| [`src/vault/authn.py`](src/vault/authn.py) | The unsigned parser and the credential-verification warning. |
+| [`src/vault/core.py`](src/vault/core.py) | Start here for principals, marker types, behaviors, and resource authorization. |
+| [`src/vault/api.py`](src/vault/api.py) | Principal attachment and the HTTP 401, 403, and 404 mappings. |
+| [`src/vault/cli.py`](src/vault/cli.py) | The same core exposed through command-line exit codes. |
+| [`tests/test_authorization.py`](tests/test_authorization.py) | Behavior selection, ownership checks, and boundary mappings. |
 
-## Small print
+## Details
 
-- **One revelation, three layers.** How to *design* the request itself is
-  [060-messages](../060-messages/); where to place *validation* (a related but different
-  question) is [065-validation](../065-validation/). This example is only about the
-  authn/authz split.
-- Both a missing document and a denial could plausibly be "not found" from an attacker's
-  perspective (hiding whether a resource exists at all). This example keeps them distinct —
-  `DocumentNotFoundError` → 404, `AuthorizationError` → 403 — for clarity; a security-sensitive
-  system might deliberately collapse them.
+Internal callers must also supply a principal established by a trusted mechanism. Constructing a
+`Principal` directly does not verify an identity; it only carries identity data through the core.
+
+Some systems return 404 instead of 403 to avoid revealing whether a protected resource exists.
+This example keeps missing documents and authorization denials distinct so each mapping remains
+visible.
 
 ## Where next
 
-- [075-authorization-sync](../075-authorization-sync/) — the same three layers on
+- [090-adapters](../090-adapters/) serves one application core through several framework
+  adapters.
+- [075-authorization-sync](../075-authorization-sync/) implements the same policies with
   `pymediate.sync`.
-- [070-error-handling](../070-error-handling/) — the edge-vs-core split for errors in general,
-  one layer down from authorization specifically.
-- The docs: [dependency injection guide](https://pymediate.sina-al.uk/docs/guide/dependency-injection).
+- Read the [pipeline behaviors guide](https://pymediate.sina-al.uk/docs/guide/pipeline-behaviors).

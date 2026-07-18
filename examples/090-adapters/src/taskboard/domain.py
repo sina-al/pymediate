@@ -1,8 +1,8 @@
 """The domain: a task, its store, and the one error it can raise.
 
-Nothing here knows about a request, a handler, or a mediator — those live in
-``messages.py`` and ``handlers.py``. This module is deliberately the smallest possible
-slice: the record an adapter eventually serializes, and the store a handler mutates.
+Nothing here imports a request, handler, or mediator; those are defined in ``messages.py`` and
+``handlers.py``. This module contains the record serialized by adapters and the store mutated
+by handlers.
 """
 
 from dataclasses import dataclass, field

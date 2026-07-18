@@ -1,0 +1,21 @@
+{
+    "name": "pymediate example: 130-cqrs",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    },
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/130-cqrs",
+    "postCreateCommand": "uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
+            }
+        }
+    }
+}

@@ -1,15 +1,13 @@
-"""The pipeline: four cross-cutting concerns, each with exactly one home.
+"""Four behaviors for logging, authorization, caching, and a transaction boundary.
 
-This is the whole point of the example. Logging, authorization, caching, and
-transactions are concerns that would otherwise be copy-pasted into every handler.
-Here each lives in one ``PipelineBehavior``, and **its type parameter decides which
-requests it wraps** — no registration list, no ``if isinstance`` ladder in a handler:
+Each behavior's type parameter selects the requests it wraps:
 
 - ``LoggingBehavior(PipelineBehavior[Request])`` — *universal*: wraps every request.
 - ``AuthorizationBehavior(PipelineBehavior[Command])`` — *selective*: only commands.
 - ``CachingBehavior(PipelineBehavior[Query])`` — *selective*, and it *short-circuits*:
   on a cache hit it returns without calling ``next()``, so the handler never runs.
-- ``TransactionBehavior(PipelineBehavior[Command])`` — *selective*: only commands.
+- ``TransactionBehavior(PipelineBehavior[Command])`` — *selective*: traces where a real
+  transaction manager would wrap commands.
 
 Registration order (see ``app.build_mediator``) is execution order: the first behavior
 registered is the outermost wrapper. Every behavior appends to a shared ``trace`` list so
@@ -21,7 +19,7 @@ from typing import Any
 
 from pymediate import PipelineBehavior, Request
 
-from .domain import AccessDeniedError, Command, FakeCache, Principal, Query, TaskStore
+from .domain import AccessDeniedError, Command, FakeCache, Principal, Query
 
 
 class LoggingBehavior(PipelineBehavior[Request]):
@@ -59,7 +57,7 @@ class AuthorizationBehavior(PipelineBehavior[Command]):
         name = type(request).__name__
         if not self._principal.can_write:
             raise AccessDeniedError(f"{self._principal.name} may not run {name}")
-        self._trace.append(f"authz {name}")
+        self._trace.append(f"authorization {name}")
         return await next()
 
 
@@ -96,24 +94,21 @@ class CachingBehavior(PipelineBehavior[Query]):
 
 
 class TransactionBehavior(PipelineBehavior[Command]):
-    """Run each command inside a transaction. Selective — commands only, innermost.
+    """Trace the boundary where a transaction manager would wrap each command.
 
-    Registered last, so it sits closest to the handler: it opens the transaction just
-    before the handler runs and commits just after, or rolls back if the handler raises.
-    The ``begin``/``commit``/``rollback`` markers stand in for ``async with
-    session.begin()`` against a real database.
+    This example does not implement transaction state or rollback. The trace records entry,
+    successful exit, or an error around the handler.
     """
 
-    def __init__(self, store: TaskStore, trace: list[str]) -> None:
-        self._store = store
+    def __init__(self, trace: list[str]) -> None:
         self._trace = trace
 
     async def __call__(self, request: Command, next: Callable[[], Awaitable[Any]]) -> Any:
-        self._trace.append("tx:begin")
+        self._trace.append("transaction:enter")
         try:
             response = await next()
         except Exception:
-            self._trace.append("tx:rollback")
+            self._trace.append("transaction:error")
             raise
-        self._trace.append("tx:commit")
+        self._trace.append("transaction:exit")
         return response

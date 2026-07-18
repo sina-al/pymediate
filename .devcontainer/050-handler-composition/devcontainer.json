@@ -1,18 +1,20 @@
 {
     "name": "pymediate example: 050-handler-composition",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/050-handler-composition",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/050-handler-composition && uv sync",
+    "postCreateCommand": "uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
+                "ms-python.vscode-pylance",
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/050-handler-composition/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
             }
         }
     }

@@ -2,17 +2,19 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F110-testing%2Fdevcontainer.json)
 
-How do you test handlers without a patch tower? In PyMediate a handler is `__init__`
-plus `__call__` — a plain callable with injected dependencies — so most tests never
-need a mediator, a web framework, or a database at all. This example shows three
-layers of test, cheapest first, and the one sharp edge: the handler registry is
-**process-global**, so two tests can't each define their own version of the same
-handler class.
+PyMediate handlers receive dependencies in `__init__` and handle requests in `__call__`.
+Most handler tests can therefore construct and call a handler directly. Use a real mediator
+only when the test needs to verify registration and composition.
 
-## Run it
+This example covers three test boundaries and one registration rule that affects test design.
+It assumes the constructor injection and mediator wiring used in
+[100-dependency-injection](../100-dependency-injection/).
+
+## Run
+
+Run these commands from `examples/110-testing`:
 
 ```bash
-cd examples/110-testing
 uv sync
 uv run pytest
 ```
@@ -21,38 +23,39 @@ uv run pytest
 10 passed
 ```
 
-## The money shot: a handler is just a callable
+## Direct handler test
+
+Construct the handler with the dependency needed by the test, then call it:
 
 ```python
 async def test_get_user_handler_returns_the_stored_user() -> None:
     repository = UserRepository()
     repository.create(username="alice", email="alice@example.com")
-    handler = GetUserHandler(repository)          # construct it directly
+    handler = GetUserHandler(repository)
 
-    user = await handler(GetUser(user_id=1))      # call it directly — no mediator
+    user = await handler(GetUser(user_id=1))
 
     assert user.username == "alice"
 ```
 
-No `Services`, no `Mediator`, no `pytest` plugin beyond `pytest-asyncio` for the
-`await`. `GetUserHandler` takes a `UserRepository` in its constructor and returns a
-`User` from `__call__` — testing it is testing any other Python object.
+This test does not need `Services` or `Mediator`. `pytest-asyncio` supplies the event-loop
+support required by the asynchronous call.
 
-## Three layers, cheapest first
+## Three test boundaries
 
-1. **Direct handler tests** ([`test_handlers.py`](test_handlers.py)) — construct with a
-   fake dependency, call, assert. The fastest and most common test in the suite.
-2. **Faking the mediator** ([`test_composition.py`](test_composition.py)) — for a
-   handler that itself dispatches (`RegisterUserHandler` sends `SendWelcomeEmail`
-   through an injected `Sender`), swap in a `FakeSender` that records what it was
-   asked to send. Still no real mediator, no second handler wired up.
-3. **Through a real `Mediator`** ([`test_integration.py`](test_integration.py)) — reserve
-   this for what layers 1–2 structurally can't check: that the pieces are wired
-   together correctly. It costs a container and two collaborating handlers to answer
-   one question the cheaper layers each answer more cheaply on their own.
+1. **Call a handler directly.** Use this for a handler's return value, errors, and direct
+   dependency interactions. See [`test_handlers.py`](test_handlers.py).
+2. **Replace the injected sender.** `RegisterUserHandler` dispatches
+   `SendWelcomeEmail` through a narrow `Sender` protocol. A recording implementation verifies
+   that request without configuring another handler. See
+   [`test_composition.py`](test_composition.py).
+3. **Send through a configured mediator.** Use this to verify that request types, handler
+   instances, and collaborating handlers are registered together. See
+   [`test_integration.py`](test_integration.py).
+
+The second boundary looks like this:
 
 ```python
-# Layer 2: fake the sender, not the whole mediator
 async def test_register_user_dispatches_a_welcome_email() -> None:
     sender = FakeSender()
     handler = RegisterUserHandler(sender, UserRepository())
@@ -62,61 +65,58 @@ async def test_register_user_dispatches_a_welcome_email() -> None:
     assert isinstance(sender.sent[0], SendWelcomeEmail)
 ```
 
-## The sharp edge: the registry is process-global
+`RegisterUserHandler` depends on the `Sender` protocol instead of the concrete `Mediator`.
+Production wiring can supply a mediator-backed sender, while this test supplies a recording
+implementation.
 
-Every `RequestHandler[RequestT]` subclass registers itself against its request type
-the moment the class body executes — in **one registry shared by the whole process**,
-not per test. Define a second handler for a request type that already has one, and it
-raises `HandlerAlreadyRegisteredError`, right at the `class` statement:
+## Read the code
+
+| File | What to read |
+| --- | --- |
+| [`app.py`](app.py) | **Start here.** Compare the leaf handlers, the composing handler's `Sender` dependency, and `build_mediator`. |
+| [`test_handlers.py`](test_handlers.py) | Call handlers directly with controlled dependencies. |
+| [`test_composition.py`](test_composition.py) | Replace the injected sender and inspect the request it records. |
+| [`test_integration.py`](test_integration.py) | Send through a configured mediator to verify registration and composition. |
+| [`test_registry_gotcha.py`](test_registry_gotcha.py) | Verify process-global registration and constructor-based variation. |
+
+## Details
+
+### Handler registration is process-global
+
+A `RequestHandler[RequestType]` subclass registers for its request type when Python executes
+the class body. That registry is shared by the process, not created for each test or each
+`Services` instance. Defining another handler class for the same request type raises
+`HandlerAlreadyRegisteredError` at the class statement:
 
 ```python
 def test_redefining_the_handler_class_raises() -> None:
     with pytest.raises(HandlerAlreadyRegisteredError, match="Greet"):
 
-        class AnotherGreetHandler(RequestHandler[Greet]):   # Greet already has GreetHandler
+        class AnotherGreetHandler(RequestHandler[Greet]):
             async def __call__(self, request: Greet) -> GreetResponse:
                 return GreetResponse(message=f"Bonjour, {request.name}!")
 ```
 
-**The fix: vary the constructor, not the class.**
+Define the handler class once. If tests need different behavior, pass dependencies or
+configuration to separate instances:
 
 ```python
 formal = GreetHandler(greeting="Good day")
 casual = GreetHandler(greeting="Hey")
-
-assert (await formal(Greet(name="Alice"))).message == "Good day, Alice!"
-assert (await casual(Greet(name="Bob"))).message == "Hey, Bob!"
 ```
 
-Two tests wanting two different behaviors construct two instances of one class,
-instead of each defining their own `RequestHandler[Greet]`. See
-[`test_registry_gotcha.py`](test_registry_gotcha.py) for the full pair.
-
-## The files
-
-| File | What it is |
-| --- | --- |
-| [`app.py`](app.py) | **Start here.** The application under test: `GetUserHandler` (a leaf), `RegisterUserHandler` (composes through a `Sender`), `GreetHandler` (constructor-configurable). |
-| [`test_handlers.py`](test_handlers.py) | Layer 1: direct handler tests, no mediator. |
-| [`test_composition.py`](test_composition.py) | Layer 2: `FakeSender` stands in for the mediator. |
-| [`test_integration.py`](test_integration.py) | Layer 3: a real `Mediator`, both handlers wired together. |
-| [`test_registry_gotcha.py`](test_registry_gotcha.py) | The pitfall and the fix, demonstrated: `uv run pytest` → `10 passed` across all four files. |
-
-## Small print
-
-- `event` handlers live in the same process-global registry with the *opposite*
-  failure mode: any number may subscribe to one event, so there's no
-  duplicate-registration error — subscriptions from every test file just accumulate.
-  The fix is the same discipline: vary through constructors, not by redefining classes.
-- Prefer a fake or in-memory implementation over a mock where practical — `FakeMailer`
-  and `FakeSender` here exercise more real behavior for about the same test code.
-- `RegisterUserHandler` depends on `Sender` (a narrow `Protocol`), not the concrete
-  `Mediator` — that's what makes it fakeable in layer 2 without a real mediator.
+Event handlers have a related rule: several handler classes may subscribe to one event, so
+test-local subclasses accumulate as subscriptions instead of raising a duplicate-registration
+error. Define event-handler classes once and inject recordings or configuration into their
+instances. If several classes are registered for the same event, all of them remain
+subscribers.
 
 ## Where next
 
-- [110-testing-sync](../110-testing-sync/) — the same three layers and the same
-  gotcha on `pymediate.sync`.
-- [050-handler-composition](../050-handler-composition/) — where `Sender` and
-  `LateBoundSender` come from: a handler that dispatches sub-requests concurrently.
-- The docs: [testing guide](https://pymediate.sina-al.uk/docs/advanced/testing).
+- [130-cqrs](../130-cqrs/) — separate command and query models and project writes into a
+  read store. This example uses the asynchronous API.
+- [110-testing-sync](../110-testing-sync/) — use the same test boundaries with
+  `pymediate.sync`.
+- [100-dependency-injection](../100-dependency-injection/) — review constructor injection and
+  mediator wiring.
+- Read the [testing guide](https://pymediate.sina-al.uk/docs/advanced/testing).

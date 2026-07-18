@@ -1,5 +1,5 @@
 [project]
-name = "pymediate-example-dependency-injection"
+name = "pymediate-example-100-dependency-injection"
 version = "0.1.0"
 description = "PyMediate's di extra: Factory, Singleton, and ContextLocalSingleton lifetimes"
 requires-python = ">=3.12"

@@ -1,9 +1,4 @@
-"""Tests for the validation-placement example.
-
-The three claims per endpoint: a bad *shape* is rejected at the edge (Pydantic → 422), a
-valid shape with a broken *invariant* is rejected in the core (→ 422), and the happy path
-works. Plus: the core drags in no Pydantic.
-"""
+"""Tests for schema validation, business rules, and request-to-command mapping."""
 
 import subprocess
 import sys
@@ -22,25 +17,25 @@ async def client() -> AsyncIterator[httpx2.AsyncClient]:
         yield client
 
 
-# ---- Collapsed case: /subscriptions (DTO == command) ----
+# ---- Direct field mapping: /subscriptions ----
 
 
-async def test_subscribe_happy_path(client: httpx2.AsyncClient) -> None:
+async def test_subscribe_accepts_valid_input(client: httpx2.AsyncClient) -> None:
     response = await client.post("/subscriptions", json={"email": "a@b.com", "plan": "pro"})
 
     assert response.status_code == 201
     assert response.json() == {"email": "a@b.com", "plan": "pro"}
 
 
-async def test_subscribe_bad_shape_rejected_at_edge(client: httpx2.AsyncClient) -> None:
-    # 'email' is missing entirely: Pydantic rejects the shape before the core is reached.
+async def test_subscribe_schema_error_is_rejected_at_boundary(client: httpx2.AsyncClient) -> None:
+    # 'email' is missing: Pydantic rejects the body schema before the core is reached.
     response = await client.post("/subscriptions", json={"plan": "pro"})
 
     assert response.status_code == 422  # FastAPI/Pydantic validation error
 
 
-async def test_subscribe_broken_invariant_rejected_in_core(client: httpx2.AsyncClient) -> None:
-    # Valid shape (both strings), but 'gold' is not a plan we sell — an invariant the core
+async def test_subscribe_business_rule_is_rejected_in_core(client: httpx2.AsyncClient) -> None:
+    # The body matches the schema, but 'gold' is not a supported plan — a rule the core
     # owns. The command's __post_init__ raises ValidationError, mapped to 422.
     response = await client.post("/subscriptions", json={"email": "a@b.com", "plan": "gold"})
 
@@ -48,10 +43,10 @@ async def test_subscribe_broken_invariant_rejected_in_core(client: httpx2.AsyncC
     assert "plan must be one of" in response.json()["errors"][0]
 
 
-# ---- Split case: /orders (DTO mapped into a differently-shaped command) ----
+# ---- Structural transformation: /orders ----
 
 
-async def test_place_order_happy_path(client: httpx2.AsyncClient) -> None:
+async def test_place_order_accepts_valid_input(client: httpx2.AsyncClient) -> None:
     response = await client.post(
         "/orders",
         json={"customer_email": "a@b.com", "items": [{"sku": "WIDGET", "quantity": 2}]},
@@ -63,8 +58,10 @@ async def test_place_order_happy_path(client: httpx2.AsyncClient) -> None:
     assert body["lines"] == [{"sku": "WIDGET", "quantity": 2}]
 
 
-async def test_place_order_bad_shape_rejected_at_edge(client: httpx2.AsyncClient) -> None:
-    # 'quantity' should be an int; a string is the wrong shape → edge 422.
+async def test_place_order_schema_error_is_rejected_at_boundary(
+    client: httpx2.AsyncClient,
+) -> None:
+    # 'quantity' should be an integer; a non-numeric string fails schema validation.
     response = await client.post(
         "/orders",
         json={"customer_email": "a@b.com", "items": [{"sku": "WIDGET", "quantity": "lots"}]},
@@ -73,8 +70,8 @@ async def test_place_order_bad_shape_rejected_at_edge(client: httpx2.AsyncClient
     assert response.status_code == 422
 
 
-async def test_place_order_broken_invariant_rejected_in_core(client: httpx2.AsyncClient) -> None:
-    # Valid shape (empty list is a valid list), but "at least one line" is a business rule
+async def test_place_order_business_rule_is_rejected_in_core(client: httpx2.AsyncClient) -> None:
+    # An empty list matches the schema, but "at least one line" is a business rule
     # enforced by ValidationBehavior in the core → 422.
     response = await client.post("/orders", json={"customer_email": "a@b.com", "items": []})
 
@@ -92,12 +89,11 @@ async def test_place_order_quantity_ceiling_is_a_core_rule(client: httpx2.AsyncC
     assert "quantity must be <= 100" in " ".join(response.json()["errors"])
 
 
-# ---- The core owes nothing to the edge ----
+# ---- The core has no HTTP validation dependency ----
 
 
 def test_core_imports_no_pydantic() -> None:
-    # Import only the core in a fresh interpreter and prove Pydantic never loaded. Keeping
-    # the wire library out of the core is the whole point of the split case.
+    # Import only the core in a fresh interpreter and confirm Pydantic never loaded.
     code = "import shop.core, sys; sys.exit(1 if 'pydantic' in sys.modules else 0)"
     result = subprocess.run([sys.executable, "-c", code], capture_output=True)
     assert result.returncode == 0, "shop.core must not import pydantic"

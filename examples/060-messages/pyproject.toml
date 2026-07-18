@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-messages"
+name = "pymediate-example-060-messages"
 version = "0.1.0"
-description = "Requests as immutable, self-validating value objects (frozen, slots, repr, __post_init__)"
+description = "Deliberate request-data design with dataclass equality, repr, and validation"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

@@ -1,26 +1,30 @@
-"""Layer 3: an end-to-end-ish test through a real Mediator.
+"""Boundary 3: verify request routing through a configured ``Mediator``.
 
-Reserve this layer for what layers 1 and 2 structurally can't check: that the pieces
-are wired together correctly — ``RegisterUser`` really is routed to
-``RegisterUserHandler``, which really does reach a real ``SendWelcomeEmailHandler``
-through the mediator, not a fake standing in for it. Contrast the cost: this test
-needs a container and two collaborating handlers built just to answer one question
-that `test_handlers.py` and `test_composition.py` each answer more cheaply on their own.
+These tests check the registration between ``RegisterUserHandler`` and
+``SendWelcomeEmailHandler`` in addition to each handler's behavior.
 """
 
 from app import GetUser, RegisterUser, build_mediator
-from test_handlers import FakeMailer
+
+
+class RecordingMailer:
+    """Record messages instead of sending them."""
+
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, str, str]] = []
+
+    async def send(self, to: str, subject: str, body: str) -> None:
+        self.sent.append((to, subject, body))
 
 
 async def test_register_user_reaches_the_real_welcome_email_handler() -> None:
-    mailer = FakeMailer()
+    mailer = RecordingMailer()
     mediator = build_mediator(mailer=mailer)
 
     user = await mediator.send(RegisterUser(username="alice", email="alice@example.com"))
 
-    # Nothing here reaches into SendWelcomeEmailHandler directly — this is the mediator
-    # actually routing RegisterUser -> RegisterUserHandler -> SendWelcomeEmail ->
-    # SendWelcomeEmailHandler, exactly as build_mediator wired it.
+    # This checks the route configured by build_mediator:
+    # RegisterUser -> RegisterUserHandler -> SendWelcomeEmail -> SendWelcomeEmailHandler.
     assert mailer.sent == [("alice@example.com", "Welcome!", f"Welcome, user {user.user_id}!")]
 
 

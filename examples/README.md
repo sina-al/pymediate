@@ -1,118 +1,134 @@
 # Examples
 
-Every directory here is a small, complete application built on
-[PyMediate](https://github.com/sina-al/pymediate) — self-contained, tested, and runnable
-in about a minute. You don't need to have read the documentation first: each README
-starts from zero.
+These standalone projects form a learning path from the first typed request to a complete
+multi-package application. Each project has its own dependencies, tests, editor settings,
+and README.
+
+Read `005-why-a-mediator` if you are deciding whether request handlers fit your application.
+Start with `010-basic` to write one complete request-and-handler round trip.
+
+## Run an example
+
+From the repository root:
 
 ```bash
-cd examples/005-why-a-mediator   # or any other example
+cd examples/005-why-a-mediator
 uv sync
 uv run pytest
 ```
 
-Prefer zero setup? Every example README has an **Open in GitHub Codespaces** badge that
-launches it in a browser IDE, dependencies already installed.
+```text
+8 passed
+```
 
-## The examples
+Each example README shows its other commands and expected output. It also links to a GitHub
+Codespace configured for that project.
 
-In suggested order:
+## Choose a track
 
-| # | Example | What it shows |
-| --- | --- | --- |
-| 1 | [005-why-a-mediator](005-why-a-mediator/) | **Start here.** Why not just one big service? The same orders feature as a god class — shown failing four concrete ways — then as pymediate handlers, each failure gone. |
-| 2 | [005-why-a-mediator-sync](005-why-a-mediator-sync/) | The same before→after contrast on `pymediate.sync`, no event loop. |
-| 3 | [010-basic](010-basic/) | The whole `send()` loop in one file: a typed request, one `async def` handler, `await mediator.send()`, a typed response — zero casts. |
-| 4 | [010-basic-sync](010-basic-sync/) | The same `send()` round-trip without the event loop, on `pymediate.sync`. |
-| 5 | [020-events](020-events/) | `await mediator.publish()` fans one event out to many independent subscribers, delivered **concurrently** — plus a zero-subscriber no-op. |
-| 6 | [020-events-sync](020-events-sync/) | The same fan-out on `pymediate.sync`, delivered **sequentially** — diff it against #5. |
-| 7 | [030-streaming](030-streaming/) | `mediator.stream()`: one request answered by a lazy feed of typed chunks (`AsyncIterator`) — resolved eagerly, iterated lazily. |
-| 8 | [030-streaming-sync](030-streaming-sync/) | The same lazy stream on `pymediate.sync` (`Iterator`). |
-| 9 | [040-pipeline-behaviors](040-pipeline-behaviors/) | Cross-cutting concerns (logging, auth, caching, transactions) as one ordered `PipelineBehavior` stack, routed by the type parameter; a cache hit short-circuits the handler. |
-| 10 | [040-pipeline-behaviors-sync](040-pipeline-behaviors-sync/) | The same stack on `pymediate.sync`. |
-| 11 | [045-behaviors-vs-decorators](045-behaviors-vs-decorators/) | Why not just a decorator? The same rate limit as a decorator (dependency bound at import time) vs. a behavior (dependency injected) — the decorator can't cleanly swap it, the behavior can. |
-| 12 | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | The same contrast on `pymediate.sync`, no event loop. |
-| 13 | [050-handler-composition](050-handler-composition/) | A handler that orchestrates others **through the mediator** — two concurrent `send`s (`asyncio.gather`) and a `publish` — while owning one operation and holding none of the other handlers. |
-| 14 | [050-handler-composition-sync](050-handler-composition-sync/) | The same composition on `pymediate.sync`; the sub-requests run sequentially, without `gather`. |
-| 15 | [060-messages](060-messages/) | Requests as immutable **value objects**: a `frozen` request that doubles as its own cache key, a secret hidden from logs, and `__post_init__` validation that rejects bad data at construction. |
-| 16 | [060-messages-sync](060-messages-sync/) | The same message design on `pymediate.sync`. |
-| 17 | [065-validation](065-validation/) | Where validation goes: **shape at the edge** (Pydantic/FastAPI) vs. **invariants in the core** (no Pydantic); collapsed DTO==command vs. a split DTO↦command mapping; a validation behavior. |
-| 18 | [065-validation-sync](065-validation-sync/) | The same placement decision on `pymediate.sync`. |
-| 19 | [070-error-handling](070-error-handling/) | Domain errors vs. framework errors: one core behind **two transports**, where the same error becomes a `404` on HTTP and an exit code on the CLI — plus the `raise HTTPException` anti-pattern breaking a non-HTTP caller. |
-| 20 | [070-error-handling-sync](070-error-handling-sync/) | The same two-transport story on `pymediate.sync`. |
-| 21 | [075-authorization](075-authorization/) | Authn at the edge, authz in the core: coarse authorization as **selective pipeline behaviors** (`[Authorize]`/`[Authorize(Roles=…)]` analogs), resource authorization as an **imperative in-handler check** after the entity loads. |
-| 22 | [075-authorization-sync](075-authorization-sync/) | The same three-layer split on `pymediate.sync`. |
-| 23 | [080-cqrs](080-cqrs/) | Commands vs. queries over **separate engines**, kept in sync the correct way — a SQLite write side (OLTP) with a **transactional outbox**, a background **projection worker**, and a DuckDB read model (OLAP), plus a through-the-app benchmark for the analytical query. |
-| 24 | [090-adapters](090-adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 25 | [090-adapters-sync](090-adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
-| 26 | [100-dependency-injection](100-dependency-injection/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra — with all three provider lifetimes: `Factory`, `Singleton`, and `ContextLocalSingleton`. |
-| 27 | [100-dependency-injection-sync](100-dependency-injection-sync/) | The same three lifetimes on `pymediate.sync`. |
-| 28 | [110-testing](110-testing/) | How do I test handlers without a patch tower? Three layers of test (direct, faked mediator, real mediator) plus the process-global registry gotcha and its constructor-varying fix. |
-| 29 | [110-testing-sync](110-testing-sync/) | The same three layers and the same gotcha on `pymediate.sync`. |
-| 30 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
+The unmarked directory is asynchronous and uses the top-level `pymediate` API. A directory
+ending in `-sync` teaches the same topic with `pymediate.sync`. Read one track in numeric
+order; use the other column when you need to compare the APIs.
 
-1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
-`publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
-requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
-compose handlers through the mediator; 15–16 design requests as value objects; 17–18 place
-validation at the edge vs. the core; 19–20 map domain errors across transports; 21–22 place
-authn at the edge and authz in the core; 23 separates commands from queries with a
-transactional outbox and a projection worker; 24–25 make the framework-independence argument;
-26–27 plug into a DI container and show its provider lifetimes; 28–29 test handlers as plain
-callables; 30 assembles those ideas into a deployment-shaped application. Async and sync
-examples mirror each other deliberately —
-diffing a pair is the fastest way to see how small the sync delta is. The
-[examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) tracks the remaining work.
+The three-digit prefix is the curriculum position. Gaps allow new prerequisite topics to be
+inserted without renaming every later example. Position `900` is reserved for the complete
+application at the end.
+
+## Curriculum
+
+### Orientation and dispatch
+
+| Position | Topic | Async | Sync | What you learn |
+| --- | --- | --- | --- | --- |
+| 005 | Why use a mediator? | [005-why-a-mediator](005-why-a-mediator/) | [005-why-a-mediator-sync](005-why-a-mediator-sync/) | Compare a multi-operation service with per-request handlers, including the trade-offs of adding a generic dispatch entry point. |
+| 010 | Requests and responses | [010-basic](010-basic/) | [010-basic-sync](010-basic-sync/) | Define a typed request, register one handler, and call `send()`. This is the first implementation lesson. |
+| 020 | Events | [020-events](020-events/) | [020-events-sync](020-events-sync/) | Publish one event to several handlers; async delivery is concurrent and sync delivery is sequential. |
+| 030 | Streaming | [030-streaming](030-streaming/) | [030-streaming-sync](030-streaming-sync/) | Return typed chunks lazily with `stream()` and stop production when the consumer stops. |
+
+### Composition and message design
+
+| Position | Topic | Async | Sync | What you learn |
+| --- | --- | --- | --- | --- |
+| 040 | Pipeline behaviors | [040-pipeline-behaviors](040-pipeline-behaviors/) | [040-pipeline-behaviors-sync](040-pipeline-behaviors-sync/) | Select requests by type, order behaviors, and short-circuit the handler when appropriate. |
+| 045 | Behaviors and decorators | [045-behaviors-vs-decorators](045-behaviors-vs-decorators/) | [045-behaviors-vs-decorators-sync](045-behaviors-vs-decorators-sync/) | Compare a method decorator with a behavior and decide whether a concern belongs on one handler or in mediator wiring. |
+| 050 | Handler composition | [050-handler-composition](050-handler-composition/) | [050-handler-composition-sync](050-handler-composition-sync/) | Dispatch sub-requests from a handler, publish the result, and account for partial effects when concurrent work fails. |
+| 060 | Request data | [060-messages](060-messages/) | [060-messages-sync](060-messages-sync/) | Use dataclass equality, hashing, validation, and `repr=False` deliberately in request types. |
+
+### Application boundaries
+
+| Position | Topic | Async | Sync | What you learn |
+| --- | --- | --- | --- | --- |
+| 065 | Validation | [065-validation](065-validation/) | [065-validation-sync](065-validation-sync/) | Validate transport shape at the edge and business rules in the core; compare direct and transformed mappings. |
+| 070 | Error handling | [070-error-handling](070-error-handling/) | [070-error-handling-sync](070-error-handling-sync/) | Raise transport-independent errors in handlers and translate them separately for HTTP and command-line callers. |
+| 075 | Identity and authorization | [075-authorization](075-authorization/) | [075-authorization-sync](075-authorization-sync/) | Extract identity at the edge, apply request-level authorization in behaviors, and check resource access after loading data. |
+| 090 | Framework adapters | [090-adapters](090-adapters/) | [090-adapters-sync](090-adapters-sync/) | Serve one application through multiple web and command-line frameworks without importing them into the core. |
+
+### Wiring and testing
+
+| Position | Topic | Async | Sync | What you learn |
+| --- | --- | --- | --- | --- |
+| 100 | Dependency injection | [100-dependency-injection](100-dependency-injection/) | [100-dependency-injection-sync](100-dependency-injection-sync/) | Resolve handlers and behaviors from `dependency-injector` and compare its provider lifetimes. |
+| 110 | Testing | [110-testing](110-testing/) | [110-testing-sync](110-testing-sync/) | Test handlers directly, replace an injected sender, and reserve a real mediator for wiring tests. |
+
+### Projected data
+
+| Position | Topic | Async | Sync | What you learn |
+| --- | --- | --- | --- | --- |
+| 130 | Command and query separation | [130-cqrs](130-cqrs/) | — | Separate write decisions from a projected read model, commit outbox records with writes, and account for eventual consistency. |
+
+### Complete application
+
+| Position | Topic | Example | What you learn |
+| --- | --- | --- | --- |
+| 900 | Hexagonal architecture | [900-hexagonal-architecture](900-hexagonal-architecture/) | Apply the earlier boundaries in a uv workspace with HTTP, command-line, and worker entry points plus replaceable local, AWS-compatible, and Azure-compatible infrastructure. |
 
 ## The examples contract
 
-Every example must satisfy this contract — it's what lets the release pipeline discover
-and run all of them with no per-example wiring (`release.yml`'s examples stage, via
-`scripts/run_examples.py`):
+The release pipeline discovers every direct child matching `examples/*/pyproject.toml` and
+runs it without project-specific workflow configuration. Each discovered project must meet
+these requirements:
 
-1. **Standalone uv project**: a `pyproject.toml` at the example's root, with a committed
-   `uv.lock`. It may itself be a self-contained multi-package workspace, but must never join
-   the repository root or another example's workspace.
-2. **Depends on pymediate with a loose lower bound** (e.g. `pymediate>=0.5`) so the release
-   runner can re-pin it to the release candidate without a conflict. Extras are fine
-   (e.g. `pymediate[di]>=0.5`): `uv add` preserves them when re-pinning, in both wheel
-   and version mode — verified by the `100-dependency-injection` examples.
-3. **Tests included, `uv run pytest` exits 0**: pytest lives in the default (`dev`)
-   dependency group, so `uv sync && uv run pytest` is the whole contract. Every example is
-   also a test of the library.
-4. **No `[[tool.uv.index]]` or arbitrary checked-in `pymediate` source**: the release runner owns
-   those while pinning a candidate. A multi-package example may use `[tool.uv.sources]` entries for
-   its own `{ workspace = true }` members. The flagship is the sole exception: it uses the exact
-   repo-relative editable source `{ path = "../..", editable = true }` because it exercises current
-   nested-container DI behavior. The runner validates that exact exception, removes it from the
-   temporary copy, and then applies the candidate pin. Every other source is refused.
-5. **A README** explaining what the example showcases.
+1. **It is a standalone uv project.** Its root contains `pyproject.toml`, `uv.lock`, and
+   `README.md`. A multi-package example may define its own uv workspace, but no example may
+   join the repository workspace or another example's workspace.
+2. **It declares PyMediate directly with a loose lower bound.** A dependency such as
+   `pymediate>=0.6.0` or `pymediate[di]>=0.6.0` lets the release runner replace the selected
+   version without conflicting with an upper bound. Set the lower bound to the earliest known
+   release whose API the example uses. This compatibility claim is maintainer-reviewed; the
+   static contract check validates the requirement form, not every historical release.
+3. **Its tests run after the default sync.** Pytest belongs to the `dev` dependency group,
+   and `uv sync && uv run pytest` exits with status 0.
+4. **The release runner controls PyMediate resolution.** The project contains no
+   `[[tool.uv.index]]`. `[tool.uv.sources]` may refer to packages inside the same example
+   with `{ workspace = true }`. `900-hexagonal-architecture` has the only PyMediate source
+   exception: an exact repository-relative editable source used for checkout development.
+   The runner validates and removes that entry in its temporary copy before applying a
+   wheel or index pin.
+5. **The project is isolated.** It does not import another example or rely on another
+   example's environment, files, or registered handlers.
 
-Beyond the contract, examples in this repo are held to a deliberate quality bar —
-structure, README shape, IDE config, devcontainer, and verification are all specified in
-`.claude/skills/example/SKILL.md`. Use that skill when adding or changing an example.
+Repository quality requirements extend this release contract. Every example also has a
+three-digit curriculum name, a Codespaces configuration, standard Ruff and type-checker
+settings, a clear README, and a matching entry in `pymediate.code-workspace`. The maintained
+checklist is in [the `example` skill](../.claude/skills/example/SKILL.md). Run
+`uv run poe examples:test --check-repository` to check its mechanical requirements.
 
-## How releases use these
+## How CI and releases use the examples
 
-The examples are the release pipeline's proxy downstream users: they consume pymediate
-from an index like any real project, so they can verify what the library's own test suite
-can't — the built, published artifact. Releases run every example **four times** via
-`scripts/run_examples.py` (see `OPERATIONS.md` for the full rationale, and ADR 0007 for
-the design decision):
+The library test suite runs against the source tree. The examples run as downstream projects,
+so they also check the built package and package-index installation path. Relevant pull
+requests to `main` run both static checks and the complete gallery against a wheel.
 
-1. **On the release PR** — `--wheel` mode: the required "Examples" check builds a wheel
-   from the cut and runs each example against it, so API breakage surfaces before the
-   merge (no tag, no burned version). Reproduce locally with
-   `uv build && python3 scripts/run_examples.py --wheel dist/pymediate-*.whl`.
-2. **In `release.yml`, before publishing anywhere** — `--wheel` mode again, against the
-   release-versioned artifact and freshly resolved dependencies, so drift since the PR
-   check fails before a version number burns.
-3. **After the TestPyPI publish** — `--version X.Y.Z` mode: each example is re-pinned to
-   the candidate on the TestPyPI index (only pymediate resolves there — its dependencies
-   still come from real PyPI) and must pass before the PyPI gate is offered.
-4. **After the PyPI publish** — `--version X.Y.Z` mode against `pypi.org`: a smoke test
-   of the exact artifact users install, gating the GitHub Release.
+| Stage | Runner mode | What it verifies |
+| --- | --- | --- |
+| Main pull request | both check targets, then `--wheel` | The release contract and repository structure are valid, and the reviewed source builds a wheel that every example can use. |
+| Release pull request | `--wheel` | The reviewed source builds a wheel that every example can use before the release is merged. |
+| Before TestPyPI | `--wheel` | The release-versioned artifact still works with dependencies resolved at release time. |
+| After TestPyPI | `--version` with the TestPyPI index | The candidate can be resolved and installed from TestPyPI. |
+| After PyPI | `--version` with the PyPI index | The published artifact users install passes the same examples before the GitHub Release is created. |
 
-Either way each example is copied to a temp directory first — your checkout is never modified. For
-the flagship, the checkout-only source override is removed from that copy before the same wheel or
-index re-pinning used by every other example.
+The runner copies each project to a temporary directory, applies the selected PyMediate pin,
+and runs its tests. It never rewrites the checked-out example. See
+[`OPERATIONS.md`](../OPERATIONS.md) and
+[ADR 0007](../docs/adr/0007-examples-as-release-verification.md) for the release ordering and
+design rationale.

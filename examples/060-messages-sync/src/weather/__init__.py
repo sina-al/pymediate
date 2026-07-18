@@ -1,1 +1,1 @@
-"""Requests designed as immutable, self-validating value objects."""
+"""Dataclass choices for request equality, representation, and validation."""

@@ -1,10 +1,6 @@
-"""The handlers — and the one that composes the others.
+"""Handlers for the synchronous order-composition example.
 
-``PlaceOrderHandler`` is the whole point of this example. It owns exactly one operation
-(placing an order), yet placing an order *requires* reserving stock, charging a card, and
-announcing the result. It does none of those itself and holds none of the other handlers.
-It reaches them through the mediator: two ``send`` calls for the sub-requests and one
-``publish`` for the announcement.
+``PlaceOrderHandler`` dispatches two subrequests and publishes one event through a ``Sender``.
 
 This is the synchronous mirror of ``050-handler-composition``. The difference is here: with
 no event loop, the two sub-requests run **one after another** rather than concurrently. The
@@ -76,10 +72,9 @@ class ChargePaymentHandler(RequestHandler[ChargePayment]):
 class PlaceOrderHandler(RequestHandler[PlaceOrder]):
     """Place an order by dispatching sub-requests — never by holding the other handlers.
 
-    The revelation: a command has one owner, but it can orchestrate others *through the
-    mediator*. This handler depends only on a ``Sender`` (the dispatch interface), so it can
-    be constructed before the mediator it will dispatch into — see ``app.build_mediator``
-    for how that cycle is closed. In the sync API the sub-requests run sequentially.
+    The handler depends on a ``Sender`` rather than concrete handler classes. See
+    ``app.build_mediator`` for the late binding used during construction. In the synchronous
+    API the subrequests run sequentially.
     """
 
     def __init__(self, sender: Sender, journal: list[str]) -> None:
@@ -94,8 +89,8 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
         reservation = self._sender.send(ReserveStock(request.sku, request.quantity))
         receipt = self._sender.send(ChargePayment(request.customer_id, request.amount_cents))
         order = Order(next(self._next_id), reservation, receipt)
-        # Announce the fact and move on. Subscribers react on their own; this handler
-        # neither knows who listens nor waits on their work.
+        # The handler does not know which subscribers run. publish calls all of them before
+        # returning.
         self._sender.publish(OrderPlaced(order.order_id, request.customer_id))
         self._journal.append("place:done")
         return order

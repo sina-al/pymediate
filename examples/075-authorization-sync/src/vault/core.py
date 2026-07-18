@@ -1,22 +1,11 @@
-"""The core: identity travels in the request, and authorization lives in two of the three layers.
+"""Authorization policies over a trusted principal carried by each request.
 
-The revelation this example teaches: **authentication is a transport concern, authorization is
-a domain concern — and the entity-dependent slice of authorization belongs in the handler, not
-the pipeline.** This module holds the two authorization layers that are domain code:
+Selective behaviors enforce authentication, role, and multifactor-authentication requirements
+before a handler runs. ``EditDocumentHandler`` checks document ownership after loading the
+document, keeping the decision beside the resource and avoiding another store lookup.
 
-- **Coarse authorization** — "is this principal allowed to *attempt* this at all?" (logged in?
-  right role? MFA for a mutation?) — is a set of **selective pipeline behaviors**, keyed by
-  marker base classes. This is the ``[Authorize]`` / ``[Authorize(Roles=…)]`` analog.
-- **Resource authorization** — "may this principal edit *this specific document*?" — is an
-  **imperative check inside the handler**, run *after* the entity loads. A pre-dispatch
-  behavior can't do it: the document isn't loaded yet when a behavior runs.
-
-Identity rides in the request as a ``principal`` field; there is no ambient ``HttpContext``.
-The adapter (``authn.py`` + ``api.py`` / ``cli.py``) parses a credential and attaches it — that
-is the *only* transport-specific auth code, and it's the third layer.
-
-This is the synchronous mirror of ``075-authorization``. The placement rule is identical; only
-the API import and the absence of ``async``/``await`` change.
+The boundary adapter is responsible for verifying credentials before it constructs a ``Principal``.
+The unsigned parser in ``authn.py`` is demonstration input, not a security boundary.
 """
 
 from dataclasses import dataclass, field, replace
@@ -36,15 +25,23 @@ from pymediate.sync import (
 
 @dataclass(frozen=True)
 class Principal:
-    """An authenticated caller. Built by the adapter from a credential, carried in the request."""
+    """Caller identity data supplied by a boundary adapter."""
 
     id: str
     roles: frozenset[str] = frozenset()
     claims: frozenset[str] = frozenset()
 
 
-class AuthorizationError(Exception):
-    """A domain denial. The adapter maps it to a transport (HTTP 403, a CLI exit code)."""
+class AccessError(Exception):
+    """Base class for authentication and authorization denials."""
+
+
+class AuthorizationError(AccessError):
+    """An authenticated principal is not allowed to perform an operation."""
+
+
+class AuthenticationRequiredError(AccessError):
+    """No authenticated principal was supplied for a protected request."""
 
 
 class DocumentNotFoundError(Exception):
@@ -67,12 +64,12 @@ class Document:
     body: str
 
 
-# ---- Marker bases: wearing one is like wearing an [Authorize] attribute ----
+# ---- Marker bases used to select authorization behaviors ----
 
 
 @dataclass
 class AuthenticatedRequest(Request[Any]):
-    """Marker: this request requires a logged-in principal. The ``[Authorize]`` analog.
+    """Mark a request as requiring an authenticated principal.
 
     ``principal`` defaults to ``None`` so the adapter can attach it by keyword; the
     ``RequireAuthentication`` behavior rejects the request when it's still ``None``.
@@ -83,7 +80,7 @@ class AuthenticatedRequest(Request[Any]):
 
 @dataclass
 class RequiresRole(AuthenticatedRequest):
-    """Marker: requires a specific role. The ``[Authorize(Roles=…)]`` analog.
+    """Mark a request as requiring a specific role.
 
     The role is a class-level fact of the request *type*, so a subclass sets it once.
     """
@@ -92,7 +89,7 @@ class RequiresRole(AuthenticatedRequest):
 
 
 class MutatingCommand:
-    """Marker mixin: a request that changes state. ``RequireMfa`` gates these at runtime."""
+    """Mark a request as changing state."""
 
 
 # ---- Requests ----
@@ -107,28 +104,29 @@ class ViewDocument(AuthenticatedRequest, Request[Document]):
 
 @dataclass
 class ListAllDocuments(RequiresRole, Request[list[Document]]):
-    """List every document. Admins only — coarse authorization by role."""
+    """List every document after requiring the admin role."""
 
     required_role: ClassVar[str] = "admin"
 
 
 @dataclass
 class EditDocument(AuthenticatedRequest, MutatingCommand, Request[Document]):
-    """Edit a document's body. Authenticated + MFA to attempt; owner (or admin) to succeed."""
+    """Edit a document after authentication, multifactor authentication, and ownership checks."""
 
     doc_id: int
     new_body: str
 
 
-# ---- Coarse authorization: selective behaviors keyed by the marker bases ----
+# ---- Request-level authorization selected by marker bases ----
 
 
 class RequireAuthentication(PipelineBehavior[AuthenticatedRequest]):
-    """Reject any ``AuthenticatedRequest`` with no principal. The ``RequireAuthorization`` analog.
+    """Reject an ``AuthenticatedRequest`` that has no principal.
 
-    Registered outermost, so the role and MFA behaviors below can assume a principal exists.
+    Registered outermost, so the role and multifactor-authentication behaviors below can assume
+    a principal exists.
     The injected ``audit`` list records every denial — a behavior can take constructor
-    dependencies just like a handler.
+    dependencies in the same way as a handler.
     """
 
     def __init__(self, audit: list[str]) -> None:
@@ -137,12 +135,12 @@ class RequireAuthentication(PipelineBehavior[AuthenticatedRequest]):
     def __call__(self, request: AuthenticatedRequest, next: Next[Any]) -> Any:
         if request.principal is None:
             self._audit.append(f"deny:unauthenticated {type(request).__name__}")
-            raise AuthorizationError("authentication required")
+            raise AuthenticationRequiredError("authentication required")
         return next()
 
 
 class RequireRole(PipelineBehavior[RequiresRole]):
-    """Reject a ``RequiresRole`` request lacking the role. The ``[Authorize(Roles=…)]`` analog."""
+    """Reject a ``RequiresRole`` request when the principal lacks its role."""
 
     def __init__(self, audit: list[str]) -> None:
         self._audit = audit
@@ -158,11 +156,10 @@ class RequireRole(PipelineBehavior[RequiresRole]):
 
 
 class RequireMfa(PipelineBehavior[AuthenticatedRequest]):
-    """Require an ``mfa`` claim — but only for mutating commands, decided at runtime.
+    """Require a multifactor-authentication claim for mutating commands.
 
     The type parameter is the broad ``AuthenticatedRequest``; ``should_apply`` narrows it to
-    just the mutating commands. That runtime gate is something a static ``[Authorize]``
-    attribute can't express — a read and a write of the same base type are treated differently.
+    mutating commands. The predicate centralizes that selection rule.
     """
 
     def __init__(self, audit: list[str]) -> None:
@@ -178,7 +175,7 @@ class RequireMfa(PipelineBehavior[AuthenticatedRequest]):
         assert principal is not None
         if "mfa" not in principal.claims:
             self._audit.append(f"deny:mfa {principal.id}")
-            raise AuthorizationError("MFA required for this action")
+            raise AuthorizationError("multifactor authentication required for this action")
         return next()
 
 
@@ -186,7 +183,7 @@ class RequireMfa(PipelineBehavior[AuthenticatedRequest]):
 
 
 class DocumentAuthorizer:
-    """The ``IAuthorizationService`` analog: decides access to a *loaded* resource."""
+    """Decide whether a principal may change a loaded document."""
 
     def can_edit(self, principal: Principal, document: Document) -> bool:
         """Only the owner (or an admin) may edit a document."""
@@ -197,7 +194,7 @@ class DocumentAuthorizer:
 
 
 class DocumentStore:
-    """A stand-in for a real document database."""
+    """Store documents in memory for the example."""
 
     def __init__(self, documents: dict[int, Document]) -> None:
         self._documents = documents
@@ -213,7 +210,7 @@ class DocumentStore:
 
 
 class ViewDocumentHandler(RequestHandler[ViewDocument]):
-    """Return a document. Coarse authz (authenticated) already passed in the pipeline."""
+    """Return a document after the authentication behavior has run."""
 
     def __init__(self, store: DocumentStore) -> None:
         self._store = store
@@ -236,12 +233,11 @@ class ListAllDocumentsHandler(RequestHandler[ListAllDocuments]):
 
 
 class EditDocumentHandler(RequestHandler[EditDocument]):
-    """Edit a document — with the resource-authorization check that *must* live here.
+    """Edit a document after checking access to the loaded resource.
 
-    Authentication and MFA already passed in the pipeline. Ownership is different: it depends
-    on the document, which doesn't exist until this handler loads it. So the check is
-    imperative, right after the load, using the injected authorizer — the one authorization
-    that a pre-dispatch behavior structurally cannot perform.
+    Authentication and multifactor authentication have already passed in the pipeline. This
+    handler loads the document once, then passes that instance to the injected authorizer. A
+    behavior could load the same document, but that would duplicate or relocate the lookup.
     """
 
     def __init__(self, store: DocumentStore, authorizer: DocumentAuthorizer) -> None:
@@ -262,7 +258,7 @@ class EditDocumentHandler(RequestHandler[EditDocument]):
 
 
 def default_store() -> DocumentStore:
-    """A small store: doc 1 owned by alice, doc 2 owned by bob."""
+    """Return an in-memory store with documents owned by Alice and Bob."""
     return DocumentStore(
         {
             1: Document(doc_id=1, owner_id="alice", body="alice's notes"),
@@ -275,7 +271,7 @@ def build_mediator(
     store: DocumentStore | None = None,
     audit: list[str] | None = None,
 ) -> Mediator:
-    """Wire the three coarse-authz behaviors and the handlers into a mediator."""
+    """Register the three request-level authorization behaviors and handlers."""
     store = store if store is not None else default_store()
     audit = audit if audit is not None else []
     authorizer = DocumentAuthorizer()

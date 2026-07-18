@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-authorization"
+name = "pymediate-example-075-authorization"
 version = "0.1.0"
-description = "Three-layer auth: authn at the edge, coarse authz in a behavior, resource authz in the handler"
+description = "Authentication at the boundary and request/resource authorization in the core"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

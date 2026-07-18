@@ -1,12 +1,12 @@
 [project]
-name = "pymediate-example-pipeline-behaviors"
+name = "pymediate-example-040-pipeline-behaviors"
 version = "0.1.0"
-description = "Cross-cutting concerns as an ordered PipelineBehavior stack, routed by the type parameter"
+description = "Apply ordered pipeline behaviors to selected asynchronous request types"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the
     # exact release candidate on TestPyPI (scripts/run_examples.py).
-    "pymediate>=0.5.0",
+    "pymediate>=0.6.0",
 ]
 
 [project.scripts]

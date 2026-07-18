@@ -2,17 +2,23 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F100-dependency-injection%2Fdevcontainer.json)
 
-How do my handlers get their dependencies at scale — one repository shared everywhere,
-a fresh helper every dispatch, or something in between? PyMediate's optional **`di`
-extra** hands that off to a real [dependency-injector](https://python-dependency-injector.ets-labs.org/)
-container, resolved **by type, not by provider name**, and this example shows all three
-lifetimes side by side: **Factory** (rebuilt per dispatch), **Singleton** (app-wide), and
-**`ContextLocalSingleton`** (one instance per logical scope — a request, in a real app).
+This example connects PyMediate to a
+[`dependency-injector`](https://python-dependency-injector.ets-labs.org/) container through the
+optional `pymediate[di]` extra. It demonstrates three provider lifetimes:
 
-## Run it
+- `Factory`: create an instance each time the provider resolves it;
+- `Singleton`: share one instance for the life of the container; and
+- `ContextLocalSingleton`: share one instance in the current `contextvars` context until the
+  provider is reset.
+
+It assumes the application wiring introduced in [090-adapters](../090-adapters/) and replaces
+manual service registration with a container-backed service provider.
+
+## Run
+
+Run these commands from `examples/100-dependency-injection`:
 
 ```bash
-cd examples/100-dependency-injection
 uv sync
 uv run python app.py
 ```
@@ -24,41 +30,48 @@ Registered: User(user_id=2, username='bob')
 Unit of work: ['begin', "registered 'bob'", 'commit']
 ```
 
-Two registrations, two separate scopes — bob's unit of work carries no trace of alice's.
+The repository retains both users because it is a `Singleton`. The unit-of-work log is reset
+between the two operations, so Bob's log does not contain Alice's entry.
 
-## Three lifetimes, one container
+## Configure the container
 
 ```python
 class AppContainer(containers.DeclarativeContainer):
-    repository = providers.Singleton(UserRepository)           # one instance, app-wide
-    unit_of_work = providers.ContextLocalSingleton(UnitOfWork)  # one instance per scope
+    repository = providers.Singleton(UserRepository)
+    unit_of_work = providers.ContextLocalSingleton(UnitOfWork)
 
-    transaction_behavior = providers.Factory(TransactionLoggingBehavior, unit_of_work=unit_of_work)
-    register_user_handler = providers.Factory(                  # fresh instance per dispatch
-        RegisterUserHandler, repository=repository, unit_of_work=unit_of_work
+    transaction_behavior = providers.Factory(
+        TransactionLoggingBehavior,
+        unit_of_work=unit_of_work,
+    )
+    register_user_handler = providers.Factory(
+        RegisterUserHandler,
+        repository=repository,
+        unit_of_work=unit_of_work,
     )
 
-mediator = Mediator(DependencyInjectorServiceProvider(AppContainer()))
-user = await mediator.send(RegisterUser(username="alice"))   # typed: user is a User
+
+container = AppContainer()
+mediator = Mediator(DependencyInjectorServiceProvider(container))
+user = await mediator.send(RegisterUser(username="alice"))
 ```
 
-PyMediate never sees the wiring — only the finished container, resolved by the concrete
-type of each handler and behavior. Provider names (`register_user_handler`, …) are for
-humans; `DependencyInjectorServiceProvider` matches by type.
+`DependencyInjectorServiceProvider` scans the completed container and indexes providers by the
+concrete type they produce. The provider attribute names are not used for handler lookup.
 
-## The scoped lifetime: `ContextLocalSingleton`
+The `Factory` providers create new handler and behavior instances when the mediator resolves
+them. Those instances still receive the same singleton repository.
 
-`repository` is a `Singleton` — every request shares the exact same `UserRepository`.
-`unit_of_work` is different: it's a `ContextLocalSingleton`, scoped to one logical unit
-of work via `contextvars`. Both `RegisterUserHandler` and `TransactionLoggingBehavior`
-ask the container for `unit_of_work` independently — within one dispatch, they get the
-**same** instance, so their writes interleave:
+## Define and end a context-local scope
+
+The handler and pipeline behavior independently resolve `unit_of_work`. Within one context,
+the container returns the same instance, so their entries appear in order:
 
 ```python
 class TransactionLoggingBehavior(PipelineBehavior[Request]):
     async def __call__(self, request, next):
         self._unit_of_work.record("begin")
-        response = await next()          # RegisterUserHandler records here, same instance
+        response = await next()
         self._unit_of_work.record("commit")
         return response
 ```
@@ -67,31 +80,42 @@ class TransactionLoggingBehavior(PipelineBehavior[Request]):
 ['begin', "registered 'alice'", 'commit']
 ```
 
-Calling `container.unit_of_work.reset()` — what a real ASGI/WSGI adapter does once per
-incoming request — clears the cached instance, so the *next* dispatch gets a fresh
-`UnitOfWork` with no memory of the last one. That's the scope boundary, made explicit.
+`ContextLocalSingleton` does not create or end web-request scopes automatically. The adapter
+or middleware that owns the request boundary must reset the provider, including when dispatch
+raises:
 
-## The files
+```python
+try:
+    response = await mediator.send(request)
+finally:
+    container.unit_of_work.reset()
+```
 
-| File | What it is |
+Without that reset, later dispatches in the same context reuse the previous unit of work.
+
+## Read the code
+
+| File | What to read |
 | --- | --- |
-| [`app.py`](app.py) | **Start here.** A small user directory: requests, handlers, the unit of work, and the container. |
-| [`test_app.py`](test_app.py) | Dispatch plus all three lifetimes, as tests: `uv run pytest` → `7 passed`. |
+| [`app.py`](app.py) | **Start here.** Follow the providers in `AppContainer`, then `build_mediator` and the context-local reset in `main`. |
+| [`test_app.py`](test_app.py) | See how the tests distinguish factory, singleton, and context-local provider behavior. |
 
-## Small print
+Run the tests with `uv run pytest`; the expected result is `7 passed`.
 
-- This example depends on `pymediate[di]`, which pulls in `dependency-injector`. The
-  integration lives in `pymediate.providers` — the core package never imports it.
-- `DependencyInjectorServiceProvider` scans the container once, at construction. Build it
-  from a finished container, not from a provider inside that same container.
-- `GetUserHandler` never touches `unit_of_work` — it's read-only, and a unit of work only
-  matters for the write it doesn't need to make.
+## Details
+
+- `pymediate[di]` installs `dependency-injector`. The optional integration is implemented in
+  `pymediate.providers`; the core package does not import it.
+- Construct `DependencyInjectorServiceProvider` after all required providers have been added to
+  the container.
+- `GetUserHandler` only reads the repository, so it does not receive a unit of work.
 
 ## Where next
 
-- [100-dependency-injection-sync](../100-dependency-injection-sync/) — the same three
-  lifetimes on `pymediate.sync`.
-- [120-custom-provider](../120-custom-provider/) — `ServiceProvider` is a Protocol; wire
-  in your own container instead of `dependency-injector`.
-- The docs: [dependency injection](https://pymediate.sina-al.uk/docs/guide/dependency-injection) ·
-  [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start).
+- [110-testing](../110-testing/) — test handlers and mediator composition at separate
+  boundaries.
+- [100-dependency-injection-sync](../100-dependency-injection-sync/) — use the same container
+  with `pymediate.sync`.
+- [090-adapters](../090-adapters/) — review the application wiring that this example moves
+  into a container.
+- Read the [dependency-injection guide](https://pymediate.sina-al.uk/docs/guide/dependency-injection).

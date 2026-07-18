@@ -1,8 +1,8 @@
-"""Handlers — kept deliberately thin, because the lesson is in the messages.
+"""Handlers that use the equality and representation choices in the requests.
 
-``GetForecastHandler`` is the payoff for ``frozen=True``: it caches responses in a plain
-dict keyed by the *request object itself*. That only works because the request is hashable,
-which frozen made it. Two equal requests (after normalization) hit the same entry.
+``GetForecastHandler`` caches responses in a dictionary keyed by ``GetForecast``. Its fields
+are hashable, and ``frozen=True`` allows the generated dataclass hash. Two normalized request
+instances that compare equal address the same entry.
 """
 
 from pymediate.sync import RequestHandler
@@ -44,7 +44,7 @@ class GetForecastHandler(RequestHandler[GetForecast]):
 
 
 class SubmitReadingHandler(RequestHandler[SubmitReading]):
-    """Store a station reading. Thin on purpose — the message carried the interesting parts."""
+    """Store a validated station reading."""
 
     def __init__(self, readings: list[tuple[str, float]], journal: list[str]) -> None:
         self._readings = readings

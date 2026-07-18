@@ -1,5 +1,5 @@
 [project]
-name = "pymediate-example-error-handling-sync"
+name = "pymediate-example-070-error-handling-sync"
 version = "0.1.0"
 description = "Domain errors vs. framework errors on pymediate.sync: one core, two transports"
 requires-python = ">=3.12"

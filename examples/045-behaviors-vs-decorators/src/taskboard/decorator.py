@@ -1,58 +1,49 @@
-"""The decorator approach — and exactly where it runs out of road.
-
-`rate_limited` is a plain function decorator wrapping `AddTaskHandler.__call__`. It needs a
-`RateLimiter` to call through to, but a decorator applied at class-body evaluation time has
-no parameter through which to *receive* one — its only option is to reach for something
-already importable, which means a module-level instance bound once, at import time, and
-shared by every call `AddTaskHandler` ever makes.
-
-That's fine until you want a different limiter: a fake for a test, a generous one for a
-bulk-import tool. There's no constructor argument for it — see
-`tests/test_decorator_friction.py` for what swapping it actually takes.
-"""
+"""Rate limiting applied to one handler with a method decorator."""
 
 import functools
 from collections.abc import Callable
 from dataclasses import dataclass
 from types import CoroutineType
-from typing import Any
+from typing import Any, cast
 
 from pymediate import Request, RequestHandler
 
 from .domain import Task, TaskStore
-from .limiter import FixedWindowLimiter, RateLimiter
+from .limiter import RateLimiter
 
 
 @dataclass
 class AddTask(Request[Task]):
-    """Add a task with the given title; responds with the created Task."""
+    """Add a task and return it."""
 
     title: str
 
 
-# Bound once, at import time. Every call through @rate_limited shares this exact instance —
-# there is no parameter through which a caller can hand it a different one.
-_limiter: RateLimiter = FixedWindowLimiter(limit=2)
-
-
 def rate_limited[**P, T](
-    func: Callable[P, "CoroutineType[Any, Any, T]"],
-) -> Callable[P, "CoroutineType[Any, Any, T]"]:
-    """Check the module-level `_limiter` before calling through to `func`."""
+    func: Callable[P, CoroutineType[Any, Any, T]],
+) -> Callable[P, CoroutineType[Any, Any, T]]:
+    """Check the limiter injected into the handler before calling the method."""
 
     @functools.wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        _limiter.check("AddTask")
+        handler = cast("AddTaskHandler", args[0])
+        handler.limiter.check("AddTask")
         return await func(*args, **kwargs)
 
     return wrapper
 
 
 class AddTaskHandler(RequestHandler[AddTask]):
-    """Rate-limited via `@rate_limited` — bound to the module's `_limiter`, not injected."""
+    """Add tasks, with rate limiting attached directly to ``__call__``."""
 
-    def __init__(self, store: TaskStore) -> None:
+    def __init__(self, store: TaskStore, limiter: RateLimiter) -> None:
         self._store = store
+        self._limiter = limiter
+
+    @property
+    def limiter(self) -> RateLimiter:
+        """Return the limiter used by the decorator."""
+        return self._limiter
 
     @rate_limited
     async def __call__(self, request: AddTask) -> Task:

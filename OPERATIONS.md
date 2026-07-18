@@ -125,20 +125,26 @@ silently emptying the changelog rather than failing.
 
 ### Examples as release verification
 
-Every `examples/<name>/` is a standalone uv project that depends on pymediate from PyPI
-like any downstream user (see `examples/README.md` for the contract). That's the intent,
-not an accident: the examples are the release pipeline's **proxy downstream users** — the
-only consumers of the package the pipeline can observe before real ones exist. The library's
-own test suite runs against the source tree inside the repo's environment; only the examples
-exercise what a release actually changes — the built artifact, resolved from an index, into
-a fresh environment, driving the public API the way the docs tell people to. The design
-rationale (why standalone uv projects, why outside the library's lint/type/coverage scopes,
+Every `examples/<name>/` is a standalone uv project that declares PyMediate as a normal
+dependency (see `examples/README.md` for the contract). The complete architecture example has
+one checkout-only editable source; release runs remove it and re-pin every project to the
+selected wheel or index version. The examples are the release pipeline's **proxy downstream
+users** — the only consumers of the package the pipeline can observe before real ones exist.
+The library's own test suite runs against the source tree inside the repo's environment; only
+the examples exercise what a release actually changes — the built artifact, resolved from an
+index, into a fresh environment, driving the public API the way the docs tell people to. The
+design rationale (why standalone uv projects, why outside the library's lint/type/coverage scopes,
 why the loose `>=` bound, why four gates rather than one) is recorded in
 [ADR 0007](docs/adr/0007-examples-as-release-verification.md).
 
-They gate a release **four times**, via the two modes of `scripts/run_examples.py` — each
-gate answers a different question, and each is placed at the cheapest point where its
-failure can be caught:
+The runner has four targets: `--check-contract`, `--check-repository`, `--wheel`, and
+`--version`. Pull requests to `main` that change the library, an example, or the runner use
+both check targets and wheel mode. The Checks workflow validates the release contract and
+repository structure, builds the current wheel, and runs every example against it before the
+change enters `main`.
+
+The release process then uses the wheel and version targets at four gates. Each gate answers
+a different question and is placed at the earliest stage that can answer it:
 
 1. **On the release PR** (required "Examples" check, wheel mode): every example runs
    against a wheel built from the cut itself. *Does this code break downstream users?*

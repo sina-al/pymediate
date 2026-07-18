@@ -1,11 +1,8 @@
-"""Value objects, messages, fake collaborators, and the sender seam.
+"""Value objects, messages, local service doubles, and the sender interface.
 
-Everything here is plumbing for the one idea in ``handlers.PlaceOrderHandler``: a handler
-that needs other operations done doesn't *hold* the other handlers — it dispatches
-requests through the mediator. To do that it needs something it can call ``send`` and
-``publish`` on, but the mediator doesn't exist yet when the handler is constructed (the
-mediator is built *from* the handlers). ``Sender`` and ``LateBoundSender`` below break that
-cycle cleanly; ``app.build_mediator`` shows the two-line wiring.
+``PlaceOrderHandler`` dispatches requests through the mediator instead of holding the other
+handlers. The mediator does not exist until its handlers have been registered, so a
+``LateBoundSender`` is registered first and bound after mediator construction.
 
 This is the synchronous mirror of ``050-handler-composition``. The one visible difference
 is in ``handlers.py``: with no event loop, the sub-requests run one after another.
@@ -81,7 +78,7 @@ class ChargePayment(Request[Receipt]):
 
 @dataclass
 class OrderPlaced(Event):
-    """Announces a completed order. Subscribers react; the order handler doesn't wait on them."""
+    """Announce a completed order to subscribers before publication returns."""
 
     order_id: int
     customer_id: str
@@ -117,7 +114,7 @@ class PaymentGateway:
     declined: set[str] = field(default_factory=set)
 
 
-# ---- The sender seam: what the composing handler depends on instead of the Mediator ----
+# ---- The sender interface used by the composing handler ----
 
 
 class Sender(Protocol):
@@ -140,10 +137,8 @@ class Sender(Protocol):
 class LateBoundSender:
     """A ``Sender`` you register before the mediator exists, then ``bind`` once it does.
 
-    This is the whole trick for breaking the construction cycle. The composing handler
-    depends on this object, so it can go into the same ``Services`` the mediator is built
-    from. Immediately after constructing the mediator you call ``bind`` to close the loop.
-    Every dispatch simply forwards to the bound mediator.
+    The composing handler can be registered with this object before the mediator exists.
+    Calling ``bind`` after mediator construction supplies the final dispatch target.
     """
 
     def __init__(self) -> None:

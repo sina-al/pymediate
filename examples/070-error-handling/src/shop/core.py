@@ -1,13 +1,11 @@
-"""The domain core: handlers raise plain domain errors and nothing else.
+"""Domain handlers that raise errors without choosing an external response format.
 
-The one rule this example teaches lives here: a handler describes *what went wrong in the
-domain* — this product doesn't exist, that item is out of stock — and never how a transport
-should report it. No HTTP status, no exit code, no import of FastAPI or argparse. That's
-what lets the identical core run behind the web edge (``api.py``) and the CLI (``cli.py``),
-each mapping the same error its own way.
+The handlers report domain failures such as a missing product or insufficient stock. They do
+not contain HTTP statuses, process exit codes, or imports from FastAPI and ``argparse``. The HTTP
+and command-line boundaries therefore map the same errors to different results.
 
-The errors form a small hierarchy under ``ShopError`` so an edge can catch broadly (map the
-whole hierarchy at once) or narrowly (a distinct status per error type).
+The errors share a hierarchy under ``ShopError``. A boundary can map the base class or assign a
+different result to each subclass.
 """
 
 from dataclasses import dataclass
@@ -79,11 +77,11 @@ class PlaceOrder(Request[Order]):
     quantity: int
 
 
-# ---- A fake catalog and the handlers over it ----
+# ---- An in-memory catalog and its handlers ----
 
 
 class Catalog:
-    """A stand-in for a real product database."""
+    """Store products in memory for the example."""
 
     def __init__(self, products: dict[int, Product]) -> None:
         self._products = products
@@ -94,7 +92,7 @@ class Catalog:
 
 
 class GetProductHandler(RequestHandler[GetProduct]):
-    """Look up a product. Raises a *domain* error when it's missing — not a 404."""
+    """Look up a product and raise a domain error when it is missing."""
 
     def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
@@ -107,7 +105,7 @@ class GetProductHandler(RequestHandler[GetProduct]):
 
 
 class PlaceOrderHandler(RequestHandler[PlaceOrder]):
-    """Place an order, raising a domain error the edge maps to whatever a transport needs."""
+    """Place an order or raise a transport-independent domain error."""
 
     def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
@@ -122,7 +120,7 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 
 
 def default_catalog() -> Catalog:
-    """A small catalog used by both edges and the tests."""
+    """An in-memory catalog used by both boundaries and the tests."""
     return Catalog(
         {
             1: Product(product_id=1, name="Widget", stock=5),
@@ -132,7 +130,7 @@ def default_catalog() -> Catalog:
 
 
 def build_mediator(catalog: Catalog | None = None) -> Mediator:
-    """Wire the handlers over a catalog into a mediator. No transport in sight."""
+    """Wire the handlers over a catalog into a mediator without transport dependencies."""
     catalog = catalog if catalog is not None else default_catalog()
     services = Services()
     services.add(GetProductHandler(catalog))

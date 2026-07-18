@@ -1,13 +1,10 @@
-"""The application under test: deliberately small, since the tests are the point.
+"""The user-directory application exercised by the adjacent tests.
 
-A tiny user directory: ``GetUserHandler`` is a leaf (no dependencies that dispatch
-anything), ``RegisterUserHandler`` composes — it creates a user, then dispatches a
-``SendWelcomeEmail`` request through an injected sender — and ``GreetHandler`` exists
-only to carry a constructor argument for the registry-gotcha tests.
+``GetUserHandler`` does not dispatch other requests. ``RegisterUserHandler`` creates a user
+and dispatches ``SendWelcomeEmail`` through an injected sender. ``GreetHandler`` accepts
+constructor configuration used by the registration tests.
 
-Nothing here imports pytest, a mediator fake, or a web framework. That's what the four
-test files next to this one are demonstrating: a handler is a plain callable with
-injected dependencies, so testing it is testing any other Python object.
+This module does not import pytest, a recording test implementation, or a web framework.
 """
 
 import sys
@@ -60,7 +57,7 @@ class Mailer(Protocol):
 
 
 class ConsoleMailer:
-    """The default ``Mailer``: prints instead of sending. Good enough for a demo."""
+    """A ``Mailer`` implementation that writes messages to standard error."""
 
     def send(self, to: str, subject: str, body: str) -> None:
         """Print the email instead of sending it."""
@@ -78,7 +75,7 @@ class GetUser(Request[User]):
 
 
 class GetUserHandler(RequestHandler[GetUser]):
-    """Looks up existing users. The simplest possible handler to test."""
+    """Look up existing users."""
 
     def __init__(self, repository: UserRepository) -> None:
         self._repository = repository
@@ -140,8 +137,8 @@ class RegisterUser(Request[User]):
 class RegisterUserHandler(RequestHandler[RegisterUser]):
     """Creates a user, then dispatches ``SendWelcomeEmail`` through the injected sender.
 
-    This is the handler ``test_composition.py`` fakes the mediator for: testing it
-    doesn't require wiring up ``SendWelcomeEmailHandler`` or a real mailer at all.
+    ``test_composition.py`` replaces the injected sender, so that test does not configure
+    ``SendWelcomeEmailHandler`` or a mailer.
     """
 
     def __init__(self, sender: Sender, repository: UserRepository) -> None:
@@ -159,7 +156,7 @@ class LateBoundSender:
 
     ``RegisterUserHandler`` depends on ``Sender``, so this can go into the same
     ``Services`` the mediator is built from. Immediately after constructing the
-    mediator, ``build_mediator`` calls ``bind`` to close the loop.
+        mediator, ``build_mediator`` calls ``bind`` to attach it.
     """
 
     def __init__(self) -> None:
@@ -176,7 +173,7 @@ class LateBoundSender:
         return self._mediator.send(request)
 
 
-# ---- A handler whose behavior varies by constructor — the registry-gotcha fix ----
+# ---- A handler whose behavior varies by constructor ----
 
 
 @dataclass
@@ -198,7 +195,7 @@ class GreetHandler(RequestHandler[Greet]):
 
     Two tests wanting two different greetings construct two instances of *this* class
     with different arguments — they never define a second ``RequestHandler[Greet]``.
-    See ``test_registry_gotcha.py``.
+    See the process-global registration tests in ``test_registry_gotcha.py``.
     """
 
     def __init__(self, greeting: str = "Hello") -> None:

@@ -1,12 +1,8 @@
-"""The orders domain: the data and collaborators the two packages share.
+"""The orders data and collaborators shared by both implementations.
 
-`before/` (one god service) and `after/` (one handler per operation) solve the *identical*
-task over these same types. Keeping the domain in one place is deliberate: the only thing
-that differs between the two packages is their *structure* — never the problem they solve.
-
-The collaborators here are in-memory fakes standing in for real infrastructure (a database,
-a payment provider, an email service, a warehouse, an audit sink). They are intentionally
-dull; the lesson is about how the operations are *wired*, not what they do.
+`before/` uses one `OrderService` and `after/` uses one request handler per operation.
+Both implementations operate on the same types. The collaborators are in-memory substitutes
+for a database, payment provider, email service, warehouse, and audit log.
 """
 
 from dataclasses import dataclass, field

@@ -1,9 +1,6 @@
-"""Tests for the handler-composition example.
+"""Tests for asynchronous handler composition and its failure effects."""
 
-The claims under test: (1) placing an order dispatches the two sub-requests and publishes
-the event — no handler references another; (2) the two independent sub-requests overlap
-(concurrency); (3) a failing sub-request propagates and the order is never announced.
-"""
+import asyncio
 
 import pytest
 from pymediate import Mediator
@@ -14,6 +11,7 @@ from orders.domain import (
     PaymentDeclinedError,
     PaymentGateway,
     PlaceOrder,
+    Receipt,
     Warehouse,
 )
 
@@ -61,7 +59,7 @@ async def test_independent_sub_requests_overlap(mediator: Mediator, journal: lis
 
 
 async def test_out_of_stock_propagates_and_nothing_is_announced(
-    mediator: Mediator, journal: list[str]
+    mediator: Mediator, gateway: PaymentGateway, journal: list[str]
 ) -> None:
     with pytest.raises(OutOfStockError):
         await mediator.send(PlaceOrder("cust-1", sku="WIDGET", quantity=99, amount_cents=500))
@@ -69,6 +67,9 @@ async def test_out_of_stock_propagates_and_nothing_is_announced(
     # A sub-request's failure surfaces from send(PlaceOrder); the order is never announced.
     assert "place:done" not in journal
     assert not any(entry.startswith("email:sent") for entry in journal)
+    # The payment ran concurrently and may complete even though the reservation failed.
+    await asyncio.sleep(0)
+    assert gateway.charged == [Receipt(customer_id="cust-1", amount_cents=500)]
 
 
 async def test_declined_payment_propagates(warehouse: Warehouse, journal: list[str]) -> None:
@@ -79,3 +80,5 @@ async def test_declined_payment_propagates(warehouse: Warehouse, journal: list[s
         await mediator.send(PlaceOrder("cust-broke", sku="WIDGET", quantity=1, amount_cents=500))
 
     assert "place:done" not in journal
+    # The reservation completed before the payment failure was observed; no rollback is implied.
+    assert warehouse.stock["WIDGET"] == 9

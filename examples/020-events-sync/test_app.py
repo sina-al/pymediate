@@ -16,9 +16,7 @@ def mediator(dashboard: Dashboard) -> Mediator:
     return build_mediator(dashboard)
 
 
-def test_publish_fans_out_to_all_three_subscribers(
-    mediator: Mediator, dashboard: Dashboard
-) -> None:
+def test_publish_runs_all_three_handlers(mediator: Mediator, dashboard: Dashboard) -> None:
     mediator.publish(TaskCompleted(task_id=1, title="Ship it"))
 
     done = [line for line in dashboard.feed if "done" in line]
@@ -35,7 +33,7 @@ def test_delivery_is_sequential(mediator: Mediator, dashboard: Dashboard) -> Non
     # in registration order. Concurrent delivery would put all starteds first.
     assert dashboard.feed == [
         "notify  started",
-        "notify  done    (queued: Nice work! Ship it is done.)",
+        "notify  done    (queued task completion for Ship it)",
         "stats   started",
         "stats   done    (completions now 1)",
         "audit   started",

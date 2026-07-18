@@ -1,8 +1,7 @@
-"""Layer 1: handlers tested directly, as plain callables. No mediator in sight.
+"""Boundary 1: construct handlers with test dependencies and call them directly.
 
-This is the fastest and most common test in the suite: construct the handler with a
-fake dependency, call it, assert on the response. A handler is `__init__` plus
-`__call__` — nothing about testing it needs PyMediate at all.
+These tests check handler results and direct dependency interactions without configuring a
+mediator.
 """
 
 import pytest
@@ -18,7 +17,7 @@ from app import (
 
 
 class FakeMailer:
-    """A fake mail service — records what it was asked to send, sends nothing."""
+    """Record messages instead of sending them."""
 
     def __init__(self) -> None:
         self.sent: list[tuple[str, str, str]] = []

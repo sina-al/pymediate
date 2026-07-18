@@ -1,5 +1,5 @@
 [project]
-name = "pymediate-example-handler-composition"
+name = "pymediate-example-050-handler-composition"
 version = "0.1.0"
 description = "A handler that composes others through the mediator, with parallel sub-requests"
 requires-python = ">=3.12"

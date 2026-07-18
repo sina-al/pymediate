@@ -1,12 +1,11 @@
-"""A user directory wired with a dependency-injector container — PyMediate's `di` extra.
+"""A user directory wired with PyMediate's ``dependency-injector`` integration.
 
 Demonstrates the optional integration in ``pymediate.providers`` (shown here on the
 sync API; the provider is loop-agnostic and works identically with async handlers and
 the top-level ``pymediate`` mediator): declare handlers and their dependencies in a
 ``DeclarativeContainer``, wrap the container in ``DependencyInjectorServiceProvider``,
-and hand that to ``Mediator`` — the container takes over the wiring that ``Services``
-does by hand in the basic examples. Requires the ``di`` extra:
-``pip install pymediate[di]``.
+and hand that to ``Mediator``. The ``pymediate[di]`` dependency declared by this example
+installs the optional integration.
 
 Three provider lifetimes appear, each resolved by type rather than by name:
 
@@ -15,10 +14,9 @@ Three provider lifetimes appear, each resolved by type rather than by name:
   handler object.
 - **Singleton** (``repository``) — one instance for the life of the container, shared by
   every handler that's built afterward.
-- **``ContextLocalSingleton``** (``unit_of_work``) — one instance per logical scope (a
-  request, in a real app), via ``contextvars``. Both the handler and the behavior
-  resolve the *same* ``UnitOfWork`` within one dispatch; call ``.reset()`` on the
-  provider and the next dispatch gets a fresh one.
+- **``ContextLocalSingleton``** (``unit_of_work``) — one instance in the current
+  ``contextvars`` context until the provider is reset. Both the handler and behavior resolve
+  the same ``UnitOfWork`` before that reset.
 """
 
 from dataclasses import dataclass, field
@@ -38,7 +36,7 @@ class User:
 
 @dataclass
 class UserRepository:
-    """In-memory storage (a stand-in for a real database). A Singleton: one for the app."""
+    """In-memory storage. A Singleton provides one repository for the application."""
 
     users: dict[int, User] = field(default_factory=dict)
     next_id: int = 1
@@ -48,9 +46,9 @@ class UserRepository:
 class UnitOfWork:
     """A per-request transaction log. A ``ContextLocalSingleton``: one per logical scope.
 
-    A real unit of work would open a database transaction here and commit/roll it back
-    when the request ends; this one just records what happened, so a test can observe
-    which operations shared a scope.
+    A database-backed unit of work would open a transaction and commit or roll it back at the
+    request boundary. This implementation records operations so tests can observe which
+    components shared a scope.
     """
 
     entries: list[str] = field(default_factory=list)
@@ -158,7 +156,8 @@ def main() -> None:
     print(f"Registered: {alice}")
     print(f"Unit of work: {container.unit_of_work().entries}")
 
-    container.unit_of_work.reset()  # a real ASGI/WSGI adapter does this once per request
+    # Request middleware must reset this provider in a finally block at each scope boundary.
+    container.unit_of_work.reset()
 
     bob = mediator.send(RegisterUser(username="bob"))
     print(f"Registered: {bob}")

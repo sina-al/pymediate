@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-testing-sync"
+name = "pymediate-example-110-testing-sync"
 version = "0.1.0"
-description = "Handlers are plain callables, on pymediate.sync: three layers of test, and the global-registry gotcha"
+description = "Synchronous handlers: three test boundaries and process-global registration"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

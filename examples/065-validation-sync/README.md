@@ -2,15 +2,15 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F065-validation-sync%2Fdevcontainer.json)
 
-The synchronous mirror of [065-validation](../065-validation/), on `pymediate.sync`. Same
-answer to "where does validation go?" — **shape at the edge** (Pydantic, FastAPI) and
-**invariants in the core** (no Pydantic) — with plain `def` endpoints and a synchronous
-mediator. The placement decision doesn't change with async; only the mechanics do.
+This example separates request-body schema validation from business rules. FastAPI and
+Pydantic validate incoming HTTP data; transport-independent commands enforce rules that must
+also hold for callers outside HTTP.
 
-## Run it
+## Run
+
+From this directory:
 
 ```bash
-cd examples/065-validation-sync
 uv sync
 uv run pytest
 ```
@@ -19,29 +19,37 @@ uv run pytest
 8 passed
 ```
 
-Those eight tests drive two endpoints and prove, for each, that a bad **shape** is rejected
-at the edge, a valid shape with a broken **invariant** is rejected in the core, and the happy
-path works — plus that the core imports no Pydantic.
+The tests exercise two synchronous endpoints. Each endpoint rejects invalid input schemas,
+rejects a business-rule violation, and accepts valid input. A separate test confirms that the
+core does not import Pydantic.
 
-## The rule: shape at the edge, invariants in the core
+## Validate schemas at the HTTP boundary
 
-**Edge (shape).** A Pydantic model rejects malformed JSON with an automatic 422:
+Pydantic checks the parsed JSON object for required fields and field types. FastAPI returns
+HTTP 422 before constructing a command when that check fails.
 
 ```python
-class SubscribeBody(BaseModel):          # api.py — the edge
+class SubscribeBody(BaseModel):
     email: str
     plan: str = "free"
 
 @app.post("/subscriptions", status_code=201)
 def subscribe(body: SubscribeBody) -> Subscription:
-    return mediator.send(Subscribe(email=body.email, plan=body.plan))
+    command = Subscribe(email=body.email, plan=body.plan)
+    return mediator.send(command)
 ```
 
-**Core (invariant).** The command owns what its data *means*, and imports no web framework:
+Syntactically malformed JSON is a different failure: the HTTP framework rejects it before a
+Pydantic body model can be created.
+
+## Enforce business rules in the core
+
+The core knows which plans the shop sells. That rule applies whether a command came from HTTP,
+a command-line tool, or another process.
 
 ```python
 @dataclass
-class Subscribe(Request[Subscription]):  # core.py — no Pydantic, no FastAPI
+class Subscribe(Request[Subscription]):
     email: str
     plan: str = "free"
 
@@ -52,35 +60,59 @@ class Subscribe(Request[Subscription]):  # core.py — no Pydantic, no FastAPI
         if self.plan not in KNOWN_PLANS:
             errors.append(f"plan must be one of {KNOWN_PLANS}, got {self.plan!r}")
         if errors:
-            raise ValidationError(errors)     # the edge maps this to 422
+            raise ValidationError(errors)
 ```
 
-`"plan": "gold"` is a valid *string* — the edge lets it through. The *core* knows we don't
-sell a "gold" plan, and rejects it. (Only the API import and `async`/`await` differ from the
-async twin.)
+`"gold"` satisfies the request-body field type because it is a string. The core rejects it
+because the shop supports only `"free"` and `"pro"`. The HTTP exception handler maps the
+domain `ValidationError` to 422.
 
-## Collapsed vs. split: choosing one type or two
+## Map body models to commands
 
-- **Collapsed** — when the wire shape equals the domain shape, map field-for-field:
-  `SubscribeBody` → `Subscribe` is a trivial pass-through.
-- **Split** — when the wire shape *isn't* the domain shape, keep two types and translate at
-  the edge. `OrderBody` (nested `customer_email` + `items`) is mapped into `PlaceOrder`
-  (`customer` + a tuple of `OrderLine`), so the core never imports Pydantic.
+The boundary always creates a command, even when the fields match. `SubscribeBody` and
+`Subscribe` are distinct types with a direct field mapping.
 
-The rule: **collapse when wire shape == domain shape; split the moment they diverge.**
-Richer invariants (like the order rules) live in a `ValidationBehavior` that runs before the
-handler and raises the same domain `ValidationError`.
+`OrderBody` needs a structural transformation: it uses `customer_email` and a list of nested
+items, while `PlaceOrder` uses `customer` and a tuple of `OrderLine` values.
 
-## The files
+```python
+command = PlaceOrder(
+    customer=body.customer_email,
+    lines=tuple(
+        OrderLine(sku=item.sku, quantity=item.quantity)
+        for item in body.items
+    ),
+)
+return mediator.send(command)
+```
 
-| File | What it is |
+Name the mapping for what it does: direct field copying when structures match, and a
+transformation when they do not.
+
+## Read the code
+
+| File | What to read |
 | --- | --- |
-| [`src/shop/core.py`](src/shop/core.py) | **Start here.** Commands, invariants (`__post_init__` and a `ValidationBehavior`), handlers — no Pydantic, no FastAPI. |
-| [`src/shop/api.py`](src/shop/api.py) | The edge: Pydantic DTOs, the collapsed and split mappings, `ValidationError` → 422. |
-| [`tests/test_validation.py`](tests/test_validation.py) | Edge-vs-core rejection for both endpoints, and a check that the core imports no Pydantic: `uv run pytest` → `8 passed`. |
+| [`src/shop/api.py`](src/shop/api.py) | Start here for body models, both mappings, and HTTP error conversion. |
+| [`src/shop/core.py`](src/shop/core.py) | Commands, business rules, validation behavior, and handlers. |
+| [`tests/test_validation.py`](tests/test_validation.py) | Schema failures, business-rule failures, mappings, and valid requests. |
+
+## Details
+
+This example contains three related mechanisms:
+
+1. Pydantic validates the request-body schema at the HTTP boundary.
+2. The endpoint maps the body model to a command.
+3. The core enforces business rules, either in `__post_init__` or in a
+   `ValidationBehavior` selected for the command type.
+
+`Subscribe` uses `__post_init__` for rules intrinsic to its data. `PlaceOrder` uses a behavior
+to run a registered validator during mediator dispatch. Both raise the same domain error; the
+choice depends on where the rule can be maintained and reused.
 
 ## Where next
 
-- [065-validation](../065-validation/) — the async original.
-- [070-error-handling](../070-error-handling/) — domain errors vs. framework errors.
-- The docs: [requests & responses](https://pymediate.sina-al.uk/docs/guide/requests-responses).
+- [070-error-handling-sync](../070-error-handling-sync/) maps domain errors for both HTTP and a
+  synchronous command-line interface.
+- [065-validation](../065-validation/) shows the asynchronous endpoints.
+- Read the [requests and responses guide](https://pymediate.sina-al.uk/docs/guide/requests-responses).

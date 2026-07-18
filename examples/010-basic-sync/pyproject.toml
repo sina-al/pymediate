@@ -1,7 +1,7 @@
 [project]
 name = "pymediate-example-010-basic-sync"
 version = "0.1.0"
-description = "Synchronous PyMediate example: the send() round trip — a typed request, one handler, a typed response"
+description = "Send one typed request to one synchronous handler and receive a typed response"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

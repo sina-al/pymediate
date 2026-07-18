@@ -53,7 +53,7 @@ def build_mediator(
     services.add(PlaceOrderHandler(sender, journal))  # depends on the sender, not the mediator
 
     mediator = Mediator(services.provider())
-    sender.bind(mediator)  # close the loop: the sender now forwards into this mediator
+    sender.bind(mediator)  # subsequent sender calls now forward to this mediator
     return mediator
 
 

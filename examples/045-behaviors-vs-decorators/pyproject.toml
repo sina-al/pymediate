@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-behaviors-vs-decorators"
+name = "pymediate-example-045-behaviors-vs-decorators"
 version = "0.1.0"
-description = "Why a decorator falls short once a cross-cutting concern needs a swappable dependency"
+description = "A fair comparison of a method decorator and a pipeline behavior"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

@@ -1,50 +1,46 @@
-"""Run both versions back to back — the decorator hits a wall, the behavior doesn't.
-
-`uv run taskboard` runs this. Read it top to bottom: the decorator version's quota can't
-be raised without reaching into module state (that friction is proven in
-`tests/test_decorator_friction.py`); the behavior version's quota is just a constructor
-argument, swapped between two mediators with nothing else different.
-"""
+"""Run the decorator and behavior versions with strict and permissive limiters."""
 
 import asyncio
 
 from taskboard import behavior, decorator
 from taskboard.domain import TaskStore
-from taskboard.limiter import AlwaysAllow, FixedWindowLimiter, RateLimitExceededError
+from taskboard.limiter import AlwaysAllow, CallCountLimiter, RateLimitExceededError
 
 
 async def main() -> None:
-    """Run the decorator version to its limit, then the behavior version, twice."""
-    print("== decorator version: quota bound at import time ==")
-    handler = decorator.AddTaskHandler(TaskStore())
-    await handler(decorator.AddTask(title="write the report"))
-    await handler(decorator.AddTask(title="review the report"))
+    """Show where each approach is configured and when it runs."""
+    print("== decorator: limiter injected into each handler ==")
+    decorated = decorator.AddTaskHandler(TaskStore(), CallCountLimiter(limit=2))
+    await decorated(decorator.AddTask(title="one"))
+    await decorated(decorator.AddTask(title="two"))
     try:
-        await handler(decorator.AddTask(title="one more"))
+        await decorated(decorator.AddTask(title="three"))
     except RateLimitExceededError as exc:
-        print(f"blocked: {exc}")
-    print("(no constructor argument raises this quota — only patching decorator._limiter)")
+        print(f"blocked on a direct call: {exc}")
 
-    print()
-    print("== behavior version: same quota, passed in ==")
-    mediator = behavior.build_mediator(limiter=FixedWindowLimiter(limit=2))
-    await mediator.send(behavior.AddTask(title="write the report"))
-    await mediator.send(behavior.AddTask(title="review the report"))
-    try:
-        await mediator.send(behavior.AddTask(title="one more"))
-    except RateLimitExceededError as exc:
-        print(f"blocked: {exc}")
-
-    print()
-    print("== behavior version, swapped for a bulk import — nothing else changes ==")
-    bulk_mediator = behavior.build_mediator(limiter=AlwaysAllow())
+    permissive_decorated = decorator.AddTaskHandler(TaskStore(), AlwaysAllow())
     for i in range(5):
-        await bulk_mediator.send(behavior.AddTask(title=f"bulk-{i}"))
-    print("added 5 tasks: a different limiter argument, same handler, same behavior class")
+        await permissive_decorated(decorator.AddTask(title=f"bulk-{i}"))
+    print("a second handler accepted 5 tasks with its own limiter")
+
+    print()
+    print("== behavior: limiter configured when the mediator is built ==")
+    mediated = behavior.build_mediator(limiter=CallCountLimiter(limit=2))
+    await mediated.send(behavior.AddTask(title="one"))
+    await mediated.send(behavior.AddTask(title="two"))
+    try:
+        await mediated.send(behavior.AddTask(title="three"))
+    except RateLimitExceededError as exc:
+        print(f"blocked during mediator dispatch: {exc}")
+
+    permissive_mediator = behavior.build_mediator(limiter=AlwaysAllow())
+    for i in range(5):
+        await permissive_mediator.send(behavior.AddTask(title=f"bulk-{i}"))
+    print("a second mediator accepted 5 tasks with its configured behavior")
 
 
 def run() -> None:
-    """Console-script entry point (`uv run taskboard`)."""
+    """Run the console demonstration."""
     asyncio.run(main())
 
 

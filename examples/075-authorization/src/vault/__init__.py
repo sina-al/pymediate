@@ -1,1 +1,1 @@
-"""Three-layer auth: authn at the edge, coarse authz in a behavior, resource authz in-handler."""
+"""Authentication at the boundary and authorization in behaviors and handlers."""

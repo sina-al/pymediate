@@ -241,7 +241,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pymediate-example-validation"
+name = "pymediate-example-065-validation"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

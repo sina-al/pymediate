@@ -1,7 +1,7 @@
-"""Handlers: exactly one per request type, all coroutines.
+"""Handlers: one coroutine handler per request type.
 
-This is the file that's actually framework-free — no adapter, however different its
-framework, ever needs to change a line here to be delivered.
+This module contains the framework-independent application logic. Adapters call these
+handlers through the mediator rather than importing framework concerns here.
 """
 
 import asyncio

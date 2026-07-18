@@ -1,10 +1,9 @@
 """The whole ``send()`` loop in one file, on PyMediate's async (top-level) API.
 
-You have a request. You want a typed response back. This is the entire round trip:
-declare a request typed by its response (``Request[Task]``), write one handler, register
-it in ``Services``, then ``await mediator.send(...)``. The response type you name once on
-the request flows all the way to the call site — no casts, no stringly-typed routing. The
-synchronous mirror of this example is 010-basic-sync, built on ``pymediate.sync``.
+Declare a request with its response type (``Request[Task]``), write a handler with a checked
+return annotation, register it in ``Services``, then call ``await mediator.send(...)``.
+The request base determines the call-site return type. The synchronous mirror is
+010-basic-sync, built on ``pymediate.sync``.
 """
 
 import asyncio
@@ -70,10 +69,8 @@ async def main() -> None:
     mediator = build_mediator()
 
     task = await mediator.send(AddTask(title="Buy groceries"))
-    # `task` is inferred as Task — the response type named once on
-    # AddTask(Request[Task]) reaches this line with zero casts. `reveal_type(task)`
-    # reports "Task", and attribute access is fully typed (task.task_id is an int).
-    assert isinstance(task, Task)
+    # `task` is inferred as Task from AddTask(Request[Task]). The handler's separate
+    # `-> Task` annotation checks its implementation.
     print(f"Created: {task}")
     print(f"Assigned id: {task.task_id}")
 

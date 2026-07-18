@@ -1,22 +1,11 @@
-"""The behavior approach — the same rate limit, injected instead of imported.
+"""Rate limiting configured as a pipeline behavior for ``AddTask`` requests."""
 
-`RateLimitBehavior` receives its `RateLimiter` through the constructor, same as any other
-collaborator. Swapping it for a test, or for a bulk-import tool that shouldn't be
-throttled, is just constructing the behavior with a different argument — no module state,
-no private attribute reached into, nothing to remember to put back afterward.
-
-This is the synchronous mirror of `examples/045-behaviors-vs-decorators/behavior.py` —
-same structure, plain `next()` instead of `await next()`.
-"""
-
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
 
-from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate.sync import Mediator, Next, PipelineBehavior, Request, RequestHandler, Services
 
 from .domain import Task, TaskStore
-from .limiter import FixedWindowLimiter, RateLimiter
+from .limiter import CallCountLimiter, RateLimiter
 
 
 @dataclass
@@ -39,13 +28,13 @@ class AddTaskHandler(RequestHandler[AddTask]):
         return task
 
 
-class RateLimitBehavior(PipelineBehavior[Request]):
-    """Check the injected limiter before letting a request reach its handler."""
+class RateLimitBehavior(PipelineBehavior[AddTask]):
+    """Check the configured limiter before an ``AddTask`` reaches its handler."""
 
     def __init__(self, limiter: RateLimiter) -> None:
         self._limiter = limiter
 
-    def __call__(self, request: Request[Any], next: Callable[[], Any]) -> Any:
+    def __call__(self, request: AddTask, next: Next[Task]) -> Task:
         self._limiter.check(type(request).__name__)
         return next()
 
@@ -57,15 +46,14 @@ def build_mediator(
 
     Args:
         store: Task storage; a fresh empty store when omitted.
-        limiter: The rate limiter the behavior checks against; a `FixedWindowLimiter` with
-            a quota of 2 when omitted. Pass `AlwaysAllow()`, or any other `RateLimiter`, to
-            swap it — no other change required.
+        limiter: The rate limiter the behavior checks. Defaults to a
+            `CallCountLimiter` with a quota of 2.
 
     Returns:
         A mediator wired with `RateLimitBehavior` and `AddTaskHandler`.
     """
     store = store if store is not None else TaskStore()
-    limiter = limiter if limiter is not None else FixedWindowLimiter(limit=2)
+    limiter = limiter if limiter is not None else CallCountLimiter(limit=2)
 
     services = Services()
     services.add(RateLimitBehavior(limiter))

@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-authorization-sync"
+name = "pymediate-example-075-authorization-sync"
 version = "0.1.0"
-description = "Three-layer auth on pymediate.sync: authn at the edge, coarse authz in a behavior, resource authz in the handler"
+description = "Synchronous authentication and request/resource authorization"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

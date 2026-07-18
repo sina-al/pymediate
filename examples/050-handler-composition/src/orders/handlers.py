@@ -1,11 +1,10 @@
-"""The handlers — and the one that composes the others.
+"""Handlers for the order-composition example.
 
-``PlaceOrderHandler`` is the whole point of this example. It owns exactly one operation
-(placing an order), yet placing an order *requires* reserving stock, charging a card, and
-announcing the result. It does none of those itself and holds none of the other handlers.
-It reaches them through the mediator: two ``send`` calls for the sub-requests and one
-``publish`` for the announcement. Because reserving stock and charging a card don't depend
-on each other, it runs them at the same time with ``asyncio.gather``.
+``PlaceOrderHandler`` dispatches two subrequests and publishes one event through a ``Sender``.
+The demo starts the reservation and payment concurrently to make scheduling visible. These
+operations still belong to one business process: if either fails, the other may already have
+changed state. Production code must choose suitable ordering, idempotency, transactions, or
+compensation.
 
 Every handler appends to a shared ``journal`` so the ordering — including the overlap of
 the two concurrent sub-requests — is visible in the demo and asserted in the tests.
@@ -76,10 +75,8 @@ class ChargePaymentHandler(RequestHandler[ChargePayment]):
 class PlaceOrderHandler(RequestHandler[PlaceOrder]):
     """Place an order by dispatching sub-requests — never by holding the other handlers.
 
-    The revelation: a command has one owner, but it can orchestrate others *through the
-    mediator*, including in parallel. This handler depends only on a ``Sender`` (the
-    dispatch interface), so it can be constructed before the mediator it will dispatch
-    into — see ``app.build_mediator`` for how that cycle is closed.
+    The handler depends on a ``Sender`` rather than concrete handler classes. See
+    ``app.build_mediator`` for the late binding used during construction.
     """
 
     def __init__(self, sender: Sender, journal: list[str]) -> None:
@@ -89,15 +86,14 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 
     async def __call__(self, request: PlaceOrder) -> Order:
         self._journal.append("place:start")
-        # Reserving stock and charging the card are independent — run them concurrently.
-        # gather awaits both and returns their results in argument order.
+        # Start both operations concurrently. This does not make their side effects atomic.
+        # gather returns successful results in argument order.
         reservation, receipt = await asyncio.gather(
             self._sender.send(ReserveStock(request.sku, request.quantity)),
             self._sender.send(ChargePayment(request.customer_id, request.amount_cents)),
         )
         order = Order(next(self._next_id), reservation, receipt)
-        # Announce the fact and move on. Subscribers react on their own; this handler
-        # neither knows who listens nor waits on their work.
+        # The handler does not know which subscribers run. publish still waits for all of them.
         await self._sender.publish(OrderPlaced(order.order_id, request.customer_id))
         self._journal.append("place:done")
         return order
