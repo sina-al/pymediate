@@ -1,4 +1,4 @@
-"""Tests for the with-dependency-injector example — the `uv run pytest` entrypoint."""
+"""Tests for the 100-dependency-injection-sync example — the `uv run pytest` entrypoint."""
 
 import pytest
 from pymediate.providers import DependencyInjectorServiceProvider
@@ -66,3 +66,31 @@ def test_factory_handlers_share_the_singleton(container: AppContainer) -> None:
     # ...but each one wraps the same Singleton repository.
     assert first._repository is second._repository
     assert isinstance(first._repository, UserRepository)
+
+
+def test_context_local_singleton_is_shared_within_one_dispatch(
+    container: AppContainer, mediator: Mediator
+) -> None:
+    # TransactionLoggingBehavior and RegisterUserHandler each resolve `unit_of_work`
+    # separately, but within one dispatch (no scope boundary crossed) the
+    # ContextLocalSingleton hands both the same instance, so their writes interleave.
+    mediator.send(RegisterUser(username="dave"))
+
+    assert container.unit_of_work().entries == ["begin", "registered 'dave'", "commit"]
+
+
+def test_context_local_singleton_is_not_shared_across_scopes(
+    container: AppContainer, mediator: Mediator
+) -> None:
+    mediator.send(RegisterUser(username="erin"))
+    first_scope = container.unit_of_work()
+
+    container.unit_of_work.reset()  # simulate moving to the next request
+
+    mediator.send(RegisterUser(username="frank"))
+    second_scope = container.unit_of_work()
+
+    assert first_scope is not second_scope
+    assert "registered 'erin'" in first_scope.entries
+    assert "registered 'erin'" not in second_scope.entries
+    assert "registered 'frank'" in second_scope.entries

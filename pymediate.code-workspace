@@ -41,16 +41,20 @@
       "path": "examples/040-pipeline-behaviors-sync"
     },
     {
-      "name": "examples/with-dependency-injector",
-      "path": "examples/with-dependency-injector"
+      "name": "examples/090-adapters",
+      "path": "examples/090-adapters"
     },
     {
-      "name": "examples/adapters",
-      "path": "examples/adapters"
+      "name": "examples/090-adapters-sync",
+      "path": "examples/090-adapters-sync"
     },
     {
-      "name": "examples/adapters-sync",
-      "path": "examples/adapters-sync"
+      "name": "examples/100-dependency-injection",
+      "path": "examples/100-dependency-injection"
+    },
+    {
+      "name": "examples/100-dependency-injection-sync",
+      "path": "examples/100-dependency-injection-sync"
     },
     {
       "name": "examples/100-hexagonal-architecture",

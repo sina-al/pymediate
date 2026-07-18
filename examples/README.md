@@ -45,8 +45,9 @@ In suggested order:
 | 23 | [080-cqrs](080-cqrs/) | Commands vs. queries over **separate engines**, kept in sync the correct way — a SQLite write side (OLTP) with a **transactional outbox**, a background **projection worker**, and a DuckDB read model (OLAP), plus a through-the-app benchmark for the analytical query. |
 | 24 | [090-adapters](090-adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
 | 25 | [090-adapters-sync](090-adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
-| 26 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
-| 27 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
+| 26 | [100-dependency-injection](100-dependency-injection/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra — with all three provider lifetimes: `Factory`, `Singleton`, and `ContextLocalSingleton`. |
+| 27 | [100-dependency-injection-sync](100-dependency-injection-sync/) | The same three lifetimes on `pymediate.sync`. |
+| 28 | [100-hexagonal-architecture](100-hexagonal-architecture/) | **Finale.** The article's shop as a uv multi-package application: feature-oriented handlers, typed ports, FastAPI/CLI/worker entry points, transactional messaging, and replaceable local, AWS-compatible, or Azure-compatible infrastructure. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
@@ -54,12 +55,11 @@ requests with pipeline behaviors; 11–12 contrast a behavior with a plain decor
 compose handlers through the mediator; 15–16 design requests as value objects; 17–18 place
 validation at the edge vs. the core; 19–20 map domain errors across transports; 21–22 place
 authn at the edge and authz in the core; 23 separates commands from queries with a
-transactional outbox and a projection worker; 24–25 make the framework-independence
-argument; 26 plugs it into a DI container; 27 assembles those ideas into a deployment-shaped
-application. Async and sync examples mirror each other deliberately — diffing a pair is the
-fastest way to see how small the sync delta is. (`with-dependency-injector` keeps its original
-name for now; it's renumbered later as the
-[examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) proceeds.)
+transactional outbox and a projection worker; 24–25 make the framework-independence argument;
+26–27 plug into a DI container and show its provider lifetimes; 28 assembles those ideas into a
+deployment-shaped application. Async and sync examples mirror each other deliberately —
+diffing a pair is the fastest way to see how small the sync delta is. The
+[examples-curriculum epic](https://github.com/sina-al/pymediate/issues/74) tracks the remaining work.
 
 ## The examples contract
 
@@ -73,7 +73,7 @@ and run all of them with no per-example wiring (`release.yml`'s examples stage, 
 2. **Depends on pymediate with a loose lower bound** (e.g. `pymediate>=0.5`) so the release
    runner can re-pin it to the release candidate without a conflict. Extras are fine
    (e.g. `pymediate[di]>=0.5`): `uv add` preserves them when re-pinning, in both wheel
-   and version mode — verified when `with-dependency-injector` was added.
+   and version mode — verified by the `100-dependency-injection` examples.
 3. **Tests included, `uv run pytest` exits 0**: pytest lives in the default (`dev`)
    dependency group, so `uv sync && uv run pytest` is the whole contract. Every example is
    also a test of the library.
