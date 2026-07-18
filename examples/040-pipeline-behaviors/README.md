@@ -111,12 +111,12 @@ def should_apply(cls, request):
   Redis client or database session drops in behind the same calls without touching a
   behavior.
 - This example assumes you've met `send()` already — if not, start with
-  [basic](../basic/), then come back.
+  [010-basic](../010-basic/), then come back.
 
 ## Where next
 
 - [040-pipeline-behaviors-sync](../040-pipeline-behaviors-sync/) — the same stack on
   `pymediate.sync`, no event loop.
-- [events](../events/) — the mediator's other half: `publish()` fans one event out to many
+- [020-events](../020-events/) — the mediator's other half: `publish()` fans one event out to many
   handlers.
 - The docs: [pipeline behaviors guide](https://pymediate.sina-al.uk/docs/guide/pipeline-behaviors).

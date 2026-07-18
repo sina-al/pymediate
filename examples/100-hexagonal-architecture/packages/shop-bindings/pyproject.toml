@@ -1,0 +1,49 @@
+[project]
+name = "shop-bindings"
+version = "0.1.0"
+description = "Composition root for the Shop application"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dependency-injector>=4.49.1",
+    "opentelemetry-api>=1.36.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.10.0",
+    "pyyaml>=6.0.2",
+    "shop-application",
+    "shop-adapter-common",
+    "shop-adapter-weasyprint",
+]
+
+[project.optional-dependencies]
+default = ["shop-adapter-ephemeral"]
+aws = [
+    "shop-adapter-aws",
+    "shop-adapter-ephemeral",
+    "shop-adapter-postgres",
+]
+azure = [
+    "shop-adapter-azure",
+    "shop-adapter-ephemeral",
+    "shop-adapter-postgres",
+]
+observability = [
+    "opentelemetry-exporter-otlp-proto-grpc>=1.43.0",
+    "opentelemetry-sdk>=1.43.0",
+]
+
+[tool.uv.sources]
+shop-adapter-common = { workspace = true }
+shop-adapter-weasyprint = { workspace = true }
+shop-adapter-aws = { workspace = true }
+shop-adapter-azure = { workspace = true }
+shop-adapter-ephemeral = { workspace = true }
+shop-adapter-postgres = { workspace = true }
+shop-application = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.11.26,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "shop.bindings"

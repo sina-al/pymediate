@@ -102,6 +102,6 @@ the fastest way to see it.
 
 - [020-events-sync](../020-events-sync/) — the same fan-out on `pymediate.sync`, where
   delivery is sequential. Diff it against this one.
-- [basic](../basic/) — the `send` side of the mediator: typed requests, one handler each.
+- [010-basic](../010-basic/) — the `send` side of the mediator: typed requests, one handler each.
 - The docs: [events guide](https://pymediate.sina-al.uk/docs/guide/events) ·
   [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts).
