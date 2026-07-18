@@ -9,37 +9,40 @@ from pymediate import StreamRequest
 class StreamRequest[ChunkT]: ...
 ```
 
-Base class for requests answered by a **stream** of typed chunks rather than a single response. Where `Request[ResponseT]` is answered by one response and `Event` is published to zero-or-more handlers, a `StreamRequest[ChunkT]` is answered by exactly one handler that *yields* a stream of `ChunkT` values, consumed lazily via [`mediator.stream()`](/docs/api/mediator#stream). Typical uses: LLM/token streaming, paginated reads, large exports.
+`StreamRequest` is the base class for messages dispatched with
+[`Mediator.stream()`](/docs/api/mediator#stream). Its type parameter declares the type of each
+yielded item.
 
-The chunk type is extracted and registered automatically when the subclass is defined (via `__init_subclass__`) — at import time, with no per-request overhead. It powers element-type inference at every `mediator.stream()` call site.
-
-`StreamRequest` is deliberately **separate from `Request`**: `stream()` accepts only `StreamRequest` and `send()` accepts only `Request`, so calling the wrong one is a static type error.
-
-## Type parameters
-
-| Parameter | Description |
+| Type parameter | Meaning |
 | --- | --- |
-| `ChunkT` | The type of each item the handler yields for this request |
+| `ChunkT` | The type of each item yielded by the stream handler |
 
-## Usage
+The generic declaration supplies element-type inference at the `stream()` call site. Separately,
+PyMediate records the chunk type when Python defines the request class so it can validate the stream
+handler's annotations.
+
+`StreamRequest` is separate from [`Request`](/docs/api/request): use `stream()` for the former and
+`send()` for the latter. The same `StreamRequest` class is re-exported from `pymediate` and
+`pymediate.sync`.
+
+## Example
 
 ```python
 from dataclasses import dataclass
+
 from pymediate import StreamRequest
 
-@dataclass
-class StreamCompletion(StreamRequest[str]):
-    prompt: str
+
+@dataclass(frozen=True)
+class ExportOrders(StreamRequest[bytes]):
+    customer_id: int
 ```
 
-<Callout type="warning" title="Always parameterize">
-  `class MyStream(StreamRequest):` without a type argument type-checks but loses element-type
-  inference, and a handler for it raises `InvalidStreamRequestTypeError` at import — a
-  `StreamRequest` with no chunk type can't be streamed. Always write `StreamRequest[ChunkType]`.
-</Callout>
+Define stream-request subclasses with a type argument. A bare subclass has no recorded chunk type
+and cannot be paired with a valid `StreamRequestHandler`.
 
 ## See also
 
-- [StreamRequestHandler](/docs/api/stream-request-handler) — the handler that yields the stream
-- [Mediator.stream()](/docs/api/mediator#stream) — routes a stream request to its handler
-- [Request](/docs/api/request) — the one-handler, single-response counterpart
+- [StreamRequestHandler](/docs/api/stream-request-handler) — yields the chunks
+- [Mediator.stream()](/docs/api/mediator#stream) — dispatches a stream request
+- [Streaming](/docs/guide/streaming) — consumption and cleanup

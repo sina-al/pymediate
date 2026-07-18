@@ -18,6 +18,7 @@
  * Cool near-white canvas, violet primary.
  */
 :root {
+  --color-pm-cyan: #0e7490;
   --color-fd-background: hsl(240 40% 99%);
   --color-fd-foreground: hsl(240 25% 9%);
   --color-fd-muted: hsl(240 22% 95.5%);
@@ -41,6 +42,7 @@
  * Near-black canvas with a hint of blue, electric cyan primary.
  */
 .dark {
+  --color-pm-cyan: #22d3ee;
   --color-fd-background: hsl(240 27% 4.5%);
   --color-fd-foreground: hsl(240 15% 92%);
   --color-fd-muted: hsl(240 20% 10%);
@@ -91,6 +93,15 @@ html > body[data-scroll-locked] {
         color-mix(in oklab, var(--color-pm-violet) 55%, transparent))
       border-box;
   border: 1px solid transparent;
+}
+
+.pm-type-reader-active {
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--color-fd-primary) 13%, transparent);
+  box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--color-fd-primary) 70%, transparent);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 /* soft radial glow behind hero content */
@@ -176,5 +187,26 @@ html > body[data-scroll-locked] {
   }
   .pm-flow-motion {
     display: none;
+  }
+  .pm-type-reader-controls {
+    display: none;
+  }
+  .pm-type-reader-active {
+    background: transparent;
+    box-shadow: none;
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .pm-gradient-text {
+    background: none;
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+  .pm-type-reader-active {
+    background: Highlight;
+    color: HighlightText;
+    box-shadow: none;
   }
 }

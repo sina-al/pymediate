@@ -32,7 +32,7 @@ this repository.
 | Duplicate registration | Silently overwrites the original handler, or silently ignores the new one; none raise. |
 | Sync API | Almost all async-only; synchronous codebases must adopt an event loop. |
 | Event publishing (one event, many handlers) | Five of six have it; every implementation is type-erased or async-only. PyMediate gap closed in 0.3.0 (issue #10, typed `Event`/`EventHandler[E]`). |
-| Streaming responses | One of six offers it (the largest library), untyped. PyMediate gap → issue #12. |
+| Streaming responses | One of six offers it, untyped. PyMediate gap closed in 0.6.0 (issue #12): typed `StreamRequest[ChunkT]` / `StreamRequestHandler[R]`, with lazy `Iterator[ChunkT]` and `AsyncIterator[ChunkT]` results. |
 | Runtime dependencies | Varies; several require a serialization framework or a dependency-injection container to participate at all. |
 
 ## Per-library profiles
@@ -58,9 +58,9 @@ docs row and the matching aggregate finding above must be updated.
 | Issue | Capability | Comparison row today |
 | --- | --- | --- |
 | #10 | Event publishing (`mediator.publish`) | Shipped in 0.3.0 (closed 2026-07-10); row describes typed `Event`/`EventHandler[E]`, sync sequential / async concurrent delivery, `ExceptionGroup` aggregation |
-| #12 | Streaming handlers (`mediator.stream`) | "Not yet — planned in issue #12" |
+| #12 | Streaming handlers (`mediator.stream`) | Shipped in 0.6.0 (closed 2026-07-12); row describes typed, lazy sync and async streams, each served by exactly one handler |
 | #11 | Scoped registries | No row yet; add one if it ships and alternatives were surveyed for it |
-| #13 | contrib module of zero-dependency behaviors | No row yet |
+| #13 | contrib module of zero-dependency behaviors | Closed after ADR 0009 rejected the package; no comparison row |
 | #14 | Function-based handlers (may be rejected) | No row yet |
 
 ## Published benchmark results
@@ -68,11 +68,11 @@ docs row and the matching aggregate finding above must be updated.
 Quoted on the comparison page; replace only with numbers from a fresh local run of
 `uv run poe benchmark` (full defaults), never by editing figures in place.
 
-- **Last run:** 2026-07-11, pymediate 0.3.0 (resolved from PyPI via
-  `uv run --no-project scripts/benchmark.py -f markdown`, full defaults), Python 3.13.0
-  (CPython), 2020 Intel MacBook Pro, macOS 15.7. Medians of five samples of 100,000
-  calls. First run to include the `publish()` scenarios (added to the script alongside
-  this refresh): each publish scenario uses one subscriber and its **own** direct-call
+- **Last run:** 2026-07-18, pymediate 0.6.0 (resolved from PyPI via
+  `uv run --no-project --with 'pymediate==0.6.0' scripts/benchmark.py --format markdown`,
+  full defaults), Python 3.13.0 (CPython), 2020 Intel MacBook Pro, macOS 15.7.4.
+  Medians of five samples of 100,000 calls. Each publish scenario uses one subscriber
+  and its **own** direct-call
   baseline — the event handler returns `None`, so comparing it against the request
   handler's baseline (which constructs a dataclass) would be apples to oranges. The
   async publish figure is dominated by `asyncio.gather` task scheduling (the price of
@@ -82,17 +82,20 @@ Quoted on the comparison page; replace only with numbers from a fresh local run 
 
 | Scenario | Median per call | Relative to direct call |
 | --- | ---: | ---: |
-| Sync: `handler(request)` — direct call | 0.34 µs | Baseline |
-| Sync: `mediator.send(request)` | 0.87 µs | 2.6x |
-| Sync: `send()` plus one pipeline behavior | 1.8 µs | 5.4x |
-| Sync: `handler(event)` — direct call | 0.12 µs | Baseline |
-| Sync: `mediator.publish(event)` — one subscriber | 0.52 µs | 4.3x |
-| Async: `await handler(request)` — direct call | 0.45 µs | Baseline |
-| Async: `await mediator.send(request)` | 1.0 µs | 2.3x |
-| Async: `await handler(event)` — direct call | 0.22 µs | Baseline |
-| Async: `await mediator.publish(event)` — one subscriber | 91 µs | 415x |
+| Sync: `handler(request)` — direct call | 0.98 µs | Baseline |
+| Sync: `mediator.send(request)` | 3.1 µs | 3.2x |
+| Sync: `send()` plus one pipeline behavior | 3.6 µs | 3.7x |
+| Sync: `handler(event)` — direct call | 0.25 µs | Baseline |
+| Sync: `mediator.publish(event)` — one subscriber | 1.1 µs | 4.5x |
+| Async: `await handler(request)` — direct call | 0.92 µs | Baseline |
+| Async: `await mediator.send(request)` | 2.3 µs | 2.5x |
+| Async: `await handler(event)` — direct call | 0.85 µs | Baseline |
+| Async: `await mediator.publish(event)` — one subscriber | 247 µs | 290x |
 
-  (The 2026-07-09 run on 0.2.0 quoted: sync direct 0.65 µs, send 1.6 µs / 2.4x,
+  (The 2026-07-11 run on 0.3.0 quoted: sync direct 0.34 µs, send 0.87 µs / 2.6x,
+  send+behavior 1.8 µs / 5.4x, async direct 0.45 µs, async send 1.0 µs / 2.3x,
+  sync publish 0.52 µs / 4.3x, and async publish 91 µs / 415x. The 2026-07-09
+  run on 0.2.0 quoted: sync direct 0.65 µs, send 1.6 µs / 2.4x,
   send+behavior 3.7 µs / 5.7x, async direct 0.88 µs, async send 2.6 µs / 2.9x —
   superseded, kept for trend context. That run reflected the ADR 0003 dispatch
   optimizations, which also made overhead independent of registered-service count.)

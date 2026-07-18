@@ -1,4 +1,16 @@
 {
   "title": "API Reference",
-  "pages": ["request", "request-handler", "mediator", "stream-request", "stream-request-handler", "event", "event-handler", "pipeline", "service-provider", "errors"]
+  "pages": [
+    "index",
+    "request",
+    "request-handler",
+    "mediator",
+    "stream-request",
+    "stream-request-handler",
+    "event",
+    "event-handler",
+    "pipeline",
+    "service-provider",
+    "errors"
+  ]
 }

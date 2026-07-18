@@ -82,8 +82,8 @@ def test_async_handler_rejects_wrong_return_type() -> None:
     class ReqWithCorrectResponse(Request[CorrectResponse]):
         pass
 
-    # This should raise ResponseTypeMismatchError
-    with pytest.raises(ResponseTypeMismatchError):
+    # This should raise ResponseTypeMismatchError and show the async form.
+    with pytest.raises(ResponseTypeMismatchError, match="async def __call__"):
 
         class BadHandler(RequestHandler[ReqWithCorrectResponse]):
             async def __call__(self, request: ReqWithCorrectResponse) -> WrongResponse:

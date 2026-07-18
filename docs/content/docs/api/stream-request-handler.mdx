@@ -1,116 +1,106 @@
 ---
 title: StreamRequestHandler
-description: API reference for the async and sync StreamRequestHandler base classes.
+description: API reference for the asynchronous and synchronous StreamRequestHandler classes.
 ---
 
-Stream handlers process a [`StreamRequest`](/docs/api/stream-request) by **yielding** a stream of chunks. They declare only the request type — the chunk type is inferred from that request's `StreamRequest[ChunkT]` definition. The `__call__` must be a **generator** (it uses `yield`).
+`StreamRequestHandler` defines the generator that handles one
+[`StreamRequest`](/docs/api/stream-request) type. The request's `StreamRequest[ChunkT]`
+declaration supplies the required iterator element type.
 
 <Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
-    from abc import abstractmethod
+    from abc import ABC, abstractmethod
     from collections.abc import AsyncIterator
-    from pymediate import StreamRequestHandler
+    from typing import Any
 
-    class StreamRequestHandler[StreamReqT: StreamRequest](ABC):
+    from pymediate import StreamRequest, StreamRequestHandler
+
+    class StreamRequestHandler[StreamReqT: StreamRequest[Any]](ABC):
         @abstractmethod
-        def __call__(self, request: StreamReqT) -> AsyncIterator[Any]:
-            """Handle the request and yield a stream of chunks asynchronously."""
+        def __call__(self, request: StreamReqT) -> AsyncIterator[Any]: ...
     ```
   </Tab>
   <Tab value="Sync">
     ```python
-    from abc import abstractmethod
+    from abc import ABC, abstractmethod
     from collections.abc import Iterator
-    from pymediate.sync import StreamRequestHandler
+    from typing import Any
 
-    class StreamRequestHandler[StreamReqT: StreamRequest](ABC):
+    from pymediate.sync import StreamRequest, StreamRequestHandler
+
+    class StreamRequestHandler[StreamReqT: StreamRequest[Any]](ABC):
         @abstractmethod
-        def __call__(self, request: StreamReqT) -> Iterator[Any]:
-            """Handle the request and yield a stream of chunks."""
+        def __call__(self, request: StreamReqT) -> Iterator[Any]: ...
     ```
   </Tab>
 </Tabs>
 
-## Type parameters
+The asynchronous abstract signature is a regular `def` returning `AsyncIterator[Any]`. A concrete
+asynchronous handler implements it as an async generator: `async def` containing `yield`.
 
-| Parameter | Description |
+| Type parameter | Meaning |
 | --- | --- |
-| `StreamReqT` | The stream request type this handler processes (bound to `StreamRequest`) |
+| `StreamReqT` | The exact `StreamRequest` subclass handled by this class |
 
 ## Definition-time validation
 
-`StreamRequestHandler` validates every subclass via `__init_subclass__` the moment the class is defined — at import time, not dispatch time. It checks that:
+When Python defines a stream-handler subclass, PyMediate checks that:
 
-- `__call__` exists and is a **generator** — an async generator for the async class, a plain generator for `pymediate.sync.StreamRequestHandler` (a plain `def`/`async def` that merely *returns* an iterator is rejected; use `yield`)
-- the `__call__` parameter annotation is *exactly* the declared request type — a base class or union is rejected, because dispatch is keyed by the exact request class (see [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract))
-- the `__call__` return annotation is `AsyncIterator[ChunkT]` (async) or `Iterator[ChunkT]` (sync), where `ChunkT` is the request's declared chunk type
+- `StreamReqT` is a parameterized `StreamRequest` subclass;
+- the subclass defines an async generator for `pymediate.StreamRequestHandler`, or a plain
+  generator for `pymediate.sync.StreamRequestHandler`;
+- the generator has exactly one parameter besides `self`, annotated with the exact
+  `StreamReqT` class; and
+- its return annotation is `AsyncIterator[ChunkT]` or `Iterator[ChunkT]`, matching the chunk type
+  declared by the request.
 
-| Raises | When |
-| --- | --- |
-| `InvalidHandlerSignatureError` | `__call__` isn't a correctly typed generator (not a generator, wrong return annotation, non-exact request annotation) |
-| `InvalidStreamRequestTypeError` | The type parameter isn't a `StreamRequest` subclass |
-| `HandlerAlreadyRegisteredError` | A handler is already registered for this stream request type |
+A function that returns an iterator without using `yield` does not satisfy this contract.
+Validation can raise `InvalidStreamRequestTypeError`, `InvalidHandlerSignatureError`, or
+`HandlerAlreadyRegisteredError`. The process-wide handler registry permits one stream-handler
+class for each stream-request type.
 
-Because the type parameter is bound to `StreamRequest`, mypy and basedpyright flag a bad type argument statically too — the runtime `InvalidStreamRequestTypeError` is the backstop for unchecked code.
-
-## Usage
+## Example
 
 <Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
     from collections.abc import AsyncIterator
-    from dataclasses import dataclass
-    from pymediate import StreamRequest, StreamRequestHandler
 
-    @dataclass
-    class StreamCompletion(StreamRequest[str]):
-        prompt: str
+    from pymediate import StreamRequestHandler
 
-    class CompletionHandler(StreamRequestHandler[StreamCompletion]):
-        async def __call__(self, request: StreamCompletion) -> AsyncIterator[str]:
-            for token in request.prompt.split():
-                yield token
+    class ExportOrdersHandler(StreamRequestHandler[ExportOrders]):
+        async def __call__(self, request: ExportOrders) -> AsyncIterator[bytes]:
+            yield b"order_id,total_pence\n"
+            yield b"42,2500\n"
     ```
   </Tab>
   <Tab value="Sync">
     ```python
     from collections.abc import Iterator
-    from dataclasses import dataclass
-    from pymediate.sync import StreamRequest, StreamRequestHandler
 
-    @dataclass
-    class StreamCompletion(StreamRequest[str]):
-        prompt: str
+    from pymediate.sync import StreamRequestHandler
 
-    class CompletionHandler(StreamRequestHandler[StreamCompletion]):
-        def __call__(self, request: StreamCompletion) -> Iterator[str]:
-            yield from request.prompt.split()
+    class ExportOrdersHandler(StreamRequestHandler[ExportOrders]):
+        def __call__(self, request: ExportOrders) -> Iterator[bytes]:
+            yield b"order_id,total_pence\n"
+            yield b"42,2500\n"
     ```
   </Tab>
 </Tabs>
 
-Delegating to an existing async stream stays a one-liner:
+Pipeline behaviors wrap `send()` only; they do not wrap `stream()`.
 
-```python
-class CompletionHandler(StreamRequestHandler[StreamCompletion]):
-    def __init__(self, client: LLMClient):
-        self.client = client
+## Introspection methods
 
-    async def __call__(self, request: StreamCompletion) -> AsyncIterator[str]:
-        async for token in self.client.stream(request.prompt):
-            yield token
-```
-
-<Callout type="info" title="One handler per stream request type">
-  Like request handlers, stream handlers are one-per-request-type, process-wide. Defining a
-  second handler for a stream request that already has one raises
-  `HandlerAlreadyRegisteredError`. Pipeline behaviors wrap `send()` only — they do not run on
-  `stream()`.
-</Callout>
+| Method | Result |
+| --- | --- |
+| `get_stream_request_type()` | The declared stream-request class, or `None` on an unparameterized base |
+| `get_chunk_type()` | The recorded chunk type, or `None` when none is recorded |
 
 ## See also
 
-- [StreamRequest](/docs/api/stream-request) — the stream request base class
-- [Mediator.stream()](/docs/api/mediator#stream) — routes stream requests to handlers
-- [RequestHandler](/docs/api/request-handler) — the single-response counterpart
+- [StreamRequest](/docs/api/stream-request) — declares the chunk type
+- [Mediator.stream()](/docs/api/mediator#stream) — resolves and invokes the handler
+- [Streaming](/docs/guide/streaming) — lazy iteration and errors
+- [Errors](/docs/api/errors) — validation and dispatch errors

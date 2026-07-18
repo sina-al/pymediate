@@ -1,123 +1,157 @@
 ---
-title: Service provider
-description: API reference for the ServiceProvider protocol, the Services collection, and the dependency-injector integration.
+title: ServiceProvider and Services
+description: API reference for service resolution and the optional Dependency Injector adapter.
 ---
 
-Service resolution in PyMediate has two halves: `Services`, a mutable collection for registering instances, and `ServiceProvider`, the read-only protocol the mediator resolves from. Because `ServiceProvider` is a [protocol](https://docs.python.org/3/library/typing.html#typing.Protocol), any conforming implementation works — including the optional `dependency-injector` integration.
+The mediator obtains handlers and pipeline behaviors from a `ServiceProvider`. PyMediate includes
+`Services` for registering existing instances and an optional adapter for Dependency Injector.
 
 ## ServiceProvider (protocol)
+
+`ServiceProvider` is a structural protocol. It is read-only and describes five operations:
+
+```python
+from collections.abc import Sequence
+from typing import Protocol, TypeVar
+
+ServiceT = TypeVar("ServiceT")
+
+class ServiceProvider(Protocol):
+    def get(self, service_type: type[ServiceT]) -> ServiceT: ...
+    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]: ...
+    def has(self, service_type: type) -> bool: ...
+    def get_all_types(self) -> tuple[type, ...]: ...
+    def __len__(self) -> int: ...
+```
+
+| Operation | Contract |
+| --- | --- |
+| `get(service_type)` | Return the first instance registered with that exact type; raise `ServiceNotFoundError` if absent |
+| `get_all(service_type)` | Return every matching instance, including subclasses, in registration order; return an empty sequence if absent |
+| `has(service_type)` | Test for an exact registered type |
+| `get_all_types()` | Return every exact type with at least one registration |
+| `len(provider)` | Return the total number of registered instances, counting duplicates |
+
+The mediator accepts custom implementations of this protocol through its `services` constructor
+parameter.
+
+## `Services`
 
 ```python
 from pymediate import ServiceProvider
 
-class ServiceProvider(Protocol):
-    def get(self, service_type: type[ServiceT]) -> ServiceT:
-        """Get the first registered instance of the exact type."""
-
-    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
-        """Get all instances of the type, including subclasses."""
-
-    def has(self, service_type: type) -> bool:
-        """Check whether any instance of the exact type is registered."""
-
-    def get_all_types(self) -> tuple[type, ...]:
-        """Get every exact type that has at least one registered instance."""
-```
-
-| Method | Returns | Raises |
-| --- | --- | --- |
-| `get(service_type)` | First registered instance of the exact type | `ServiceNotFoundError` if none registered |
-| `get_all(service_type)` | All instances of the type **including subclasses**, in registration order | — |
-| `has(service_type)` | `True` if any instance of the exact type is registered | — |
-| `get_all_types()` | Every exact type with at least one registered instance | — |
-
-## Services
-
-```python
-from pymediate import Services
-
 class Services:
+    def __init__(self) -> None: ...
     def add(self, instance: object) -> Services: ...
     def provider(self) -> ServiceProvider: ...
     def clear(self) -> None: ...
+    def __len__(self) -> int: ...
 ```
+
+`Services` is a mutable setup-time collection; it is not itself a `ServiceProvider`.
 
 ### `add(instance)`
 
-Registers a service instance by its concrete type (`type(instance)`). Multiple instances of the same type — including the same instance twice — are all kept and returned in registration order by `get_all()`.
+`add()` registers an instance under its concrete type and returns the collection, so registrations
+can be chained. Passing `None` raises `ValueError`. Repeated types and repeated instances are kept;
+each registration contributes one to `len(services)`.
 
-| | |
-| --- | --- |
-| **Args** | `instance` — the service instance to register; cannot be `None` |
-| **Returns** | `self`, so calls chain: `services.add(a).add(b)` |
-| **Raises** | `ValueError` if `instance` is `None` |
+```python
+from pymediate import Mediator, Services
+
+services = Services().add(PlaceOrderHandler())
+mediator = Mediator(services=services.provider())
+```
 
 ### `provider()`
 
-Builds an immutable `ServiceProvider` **snapshot** of the currently registered services. Later `add()`/`clear()` calls don't affect providers already created:
+`provider()` returns an immutable snapshot of the collection. Later calls to `add()` or `clear()`
+do not change an existing provider. Call `provider()` again to create a new snapshot.
 
-```python
-services = Services()
-services.add(MyService())
-provider = services.provider()
-
-services.add(AnotherService())
-provider.has(AnotherService)  # False — registered after the snapshot
-```
+The built-in provider implements `get_all()` with `isinstance()` and returns matches in overall
+registration order, even when several concrete types match the requested base class.
 
 ### `clear()`
 
-Removes all registered services. Existing providers are unaffected — they're immutable snapshots.
+`clear()` removes all registrations from the mutable collection. Existing provider snapshots are
+unchanged.
 
-## DependencyInjectorServiceProvider
+## `DependencyInjectorServiceProvider`
 
 ```python
+from collections.abc import Sequence
+from typing import Any
+
 from dependency_injector import containers
 
-from pymediate.providers import DependencyInjectorServiceProvider
-
 class DependencyInjectorServiceProvider:
-    def __init__(self, container: containers.Container) -> None:
-        """Index services declared by a Dependency Injector container."""
+    def __init__(self, container: containers.Container) -> None: ...
+    def get[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
+    def get_all(self, service_type: type[Any]) -> Sequence[Any]: ...
+    def has(self, service_type: type[Any]) -> bool: ...
+    def get_all_types(self) -> tuple[type[Any], ...]: ...
+    def __len__(self) -> int: ...
 ```
 
-A `ServiceProvider` backed by a [`dependency-injector`](https://python-dependency-injector.ets-labs.org/) container — requires the `di` extra (`pip install 'pymediate[di]'`). It indexes declared providers **by their output type**, not by their attribute name, then implements the same four protocol methods. Indexing does not call providers.
+Install the `di` extra to use the adapter:
 
-Pass a real Dependency Injector container — `DeclarativeContainer` and `DynamicContainer` are
-supported. Lookalike objects that merely expose a `providers` mapping are not supported and are
-rejected at construction time. Declared `providers.Container` children are indexed recursively in
-declaration order; injected dependencies are not traversed.
+```bash
+pip install 'pymediate[di]'
+```
 
 ```python
 from dependency_injector import containers, providers
+
 from pymediate import Mediator
 from pymediate.providers import DependencyInjectorServiceProvider
 
-class AppContainer(containers.DeclarativeContainer):
-    database = providers.Singleton(Database)
-    create_user = providers.Factory(CreateUserHandler, database=database)
 
-mediator = Mediator(DependencyInjectorServiceProvider(AppContainer()))
+class AppContainer(containers.DeclarativeContainer):
+    place_order_handler = providers.Factory(PlaceOrderHandler)
+
+
+container = AppContainer()
+services = DependencyInjectorServiceProvider(container)
+mediator = Mediator(services=services)
 ```
 
-<Callout type="info">
-  Class-backed providers and concretely annotated factory functions are inferred without
-  construction. A provider whose output type cannot be inferred is rejected at construction
-  time — back it with a class or add a concrete return annotation. The
-  [dependency injection guide](/docs/guide/dependency-injection) covers nested containers
-  and composing the mediator through `providers.Self()`.
-</Callout>
+The adapter indexes declared providers without resolving them, then delegates each resolution to
+the original Dependency Injector provider. It implements the five `ServiceProvider` operations;
+`len(services)` is the number of indexed providers.
 
-## ServiceNotFoundError
+It can infer service types from class-backed factories and singletons, object providers, list and
+dictionary providers, and callables with a concrete return annotation. Nested
+`providers.Container` declarations are scanned recursively in declaration order. Providers used
+only as injected dependencies are not separately indexed.
+
+| Condition | Result |
+| --- | --- |
+| The argument is not a Dependency Injector container | `TypeError` during construction |
+| A provider's output type cannot be inferred without resolving it | `TypeError` during construction |
+| A declared provider is asynchronous | `TypeError` during construction or resolution |
+| Nested containers form a cycle | `ValueError` during construction |
+| A type-changing override produces a value different from the indexed type | `TypeError` during resolution; rebuild the adapter after the override |
+
+The indexed provider graph and output types form a construction-time snapshot. Overrides that
+preserve output types continue to resolve through the original provider.
+
+## `ServiceNotFoundError`
 
 ```python
 class ServiceNotFoundError(Exception):
-    def __init__(self, service_type: type, available_types: list[type]) -> None: ...
+    def __init__(
+        self,
+        service_type: type,
+        available_types: list[type],
+    ) -> None: ...
 ```
 
-Raised by `get()` when no instance of the requested exact type is registered. The message lists the types that *are* available. Note this is a plain `Exception`, not a `PyMediateError` — see [errors](/docs/api/errors).
+`get()` raises `ServiceNotFoundError` when the exact requested type is absent. Its
+`service_type` and `available_types` attributes retain the constructor arguments. This exception
+inherits directly from `Exception`, not from `PyMediateError`.
 
 ## See also
 
-- [Dependency injection guide](/docs/guide/dependency-injection) — container patterns and lifetimes
-- [Mediator](/docs/api/mediator) — the consumer of the provider
+- [Mediator](/docs/api/mediator) — consumes a service provider
+- [Dependency injection](/docs/guide/dependency-injection) — composition and container lifetimes
+- [Errors](/docs/api/errors) — service-resolution failures during dispatch

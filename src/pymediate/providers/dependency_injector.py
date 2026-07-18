@@ -38,13 +38,20 @@ class DependencyInjectorServiceProvider:
         from pymediate import Mediator
         from pymediate.providers import DependencyInjectorServiceProvider
 
+        class Database:
+            pass
+
+        class PlaceOrderHandler:
+            def __init__(self, database: Database) -> None:
+                self.database = database
+
         class AppContainer(containers.DeclarativeContainer):
             database = providers.Singleton(Database)
-            create_user = providers.Factory(CreateUserHandler, database=database)
+            place_order = providers.Factory(PlaceOrderHandler, database=database)
 
         container = AppContainer()
         services = DependencyInjectorServiceProvider(container)
-        mediator = Mediator(services)
+        mediator = Mediator(services=services)
         ```
 
     Note:
@@ -54,9 +61,6 @@ class DependencyInjectorServiceProvider:
         continue to work because service resolution remains delegated to the original
         Dependency Injector provider.
 
-    See Also:
-        - ServiceProvider: The protocol this class implements.
-        - Services: A DI-container-free alternative for manual service registration.
     """
 
     def __init__(self, container: containers.Container) -> None:
@@ -197,8 +201,8 @@ class DependencyInjectorServiceProvider:
 
         Raises:
             ServiceNotFoundError: If no instance of the exact type is registered.
-            TypeError: If the matching Dependency Injector provider resolves
-                asynchronously.
+            TypeError: If the matching provider resolves asynchronously or returns
+                a value that does not match its indexed service type.
         """
         registrations = self._type_providers.get(service_type)
         if registrations is None:
@@ -216,8 +220,8 @@ class DependencyInjectorServiceProvider:
             All matching instances in declaration order, or an empty sequence.
 
         Raises:
-            TypeError: If a matching Dependency Injector provider resolves
-                asynchronously.
+            TypeError: If a matching provider resolves asynchronously or returns
+                a value that does not match its indexed service type.
         """
         result: list[Any] = []
         for registration in self._registration_order:

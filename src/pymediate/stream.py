@@ -13,41 +13,33 @@ class StreamRequest[ChunkT]:
 
     Where a `Request[ResponseT]` is answered by exactly one response and an `Event`
     is published to zero or more handlers, a `StreamRequest[ChunkT]` is answered by
-    exactly one handler that **yields** a stream of `ChunkT` values, consumed lazily
-    via `Mediator.stream()`. Inherit from `StreamRequest[ChunkT]` to declare the
-    element type of that stream - LLM tokens, paginated rows, export records.
+    exactly one handler that yields a stream of ``ChunkT`` values, consumed lazily
+    through ``Mediator.stream()``. Inherit from ``StreamRequest[ChunkT]`` to
+    declare the element type of that stream.
 
-    The chunk type is extracted and registered automatically when the class is
-    defined, so `stream()` infers the element type at the call site with no casts.
-    `StreamRequest` is deliberately separate from `Request`: `stream()` accepts only
-    `StreamRequest` and `send()` only `Request`, so mixing them up is a type error.
+    The generic declaration lets a static type checker infer the element type
+    returned by ``stream()``. Separately, PyMediate records the chunk type when
+    Python defines the request class so it can validate the stream handler's
+    annotations. ``StreamRequest`` is separate from ``Request``: ``stream()``
+    accepts stream requests, while ``send()`` accepts single-response requests.
 
-    This class works seamlessly with dataclasses, regular classes, and any Python
-    class structure.
+    Stream request subclasses can be dataclasses or regular classes.
 
     Type Parameters:
         ChunkT: The type of each item the handler yields for this request.
 
     Examples:
-        Declaring a streaming request:
+        Declaring an order export:
             ```python
             from dataclasses import dataclass
+
             from pymediate import StreamRequest
 
-            @dataclass
-            class StreamCompletion(StreamRequest[str]):
-                prompt: str
+            @dataclass(frozen=True)
+            class ExportOrders(StreamRequest[bytes]):
+                customer_id: int
             ```
 
-    Note:
-        The chunk type is registered at import time, not at runtime, so there is no
-        performance penalty for using this pattern.
-
-    See Also:
-        - StreamRequestHandler: Async handler that yields the stream (this module).
-        - Mediator.stream: Routes a stream request to its handler.
-        - Request: The one-handler, single-response counterpart.
-        - pymediate.sync.StreamRequestHandler: Sync stream handler variant.
     """
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -55,7 +47,7 @@ class StreamRequest[ChunkT]:
 
         This hook is automatically called when a new StreamRequest subclass is defined.
         It extracts the chunk type from the generic type parameter and stores it in the
-        global registry for handler validation and element-type inference.
+        global registry for handler annotation validation.
 
         Args:
             **kwargs: Additional keyword arguments passed to parent __init_subclass__.
@@ -78,9 +70,9 @@ class StreamRequest[ChunkT]:
 class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixin[StreamReqT], ABC):
     """Abstract base class for asynchronous streaming request handlers.
 
-    A stream handler processes a `StreamRequest` by **yielding** a stream of chunks
-    asynchronously. It only needs to specify the request type - the chunk type is
-    inferred from the request's `StreamRequest[ChunkT]` declaration.
+    A stream handler processes a ``StreamRequest`` by yielding chunks
+    asynchronously. Its type parameter names the stream request; that request's
+    ``StreamRequest[ChunkT]`` declaration supplies the chunk type.
 
     The handler performs class-definition-time validation via __init_subclass__ to ensure:
     - The __call__ method exists and is an async generator (uses `yield`)
@@ -88,8 +80,8 @@ class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixi
       (not a base class or union)
     - The __call__ return type is `AsyncIterator[ChunkT]`, matching the request's chunk type
 
-    This validation happens at class definition time (import time), catching errors
-    early rather than at runtime.
+    Validation runs when Python executes the handler's class body, usually
+    during import and before the handler is instantiated.
 
     Type Parameters:
         StreamReqT: The type of stream request this handler processes. Must inherit
@@ -97,31 +89,21 @@ class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixi
             validates it at class definition time.
 
     Examples:
-        Streaming tokens for a completion request:
+        Streaming an order export:
             ```python
             from collections.abc import AsyncIterator
             from dataclasses import dataclass
+
             from pymediate import StreamRequest, StreamRequestHandler
 
-            @dataclass
-            class StreamCompletion(StreamRequest[str]):
-                prompt: str
+            @dataclass(frozen=True)
+            class ExportOrders(StreamRequest[bytes]):
+                customer_id: int
 
-            class CompletionHandler(StreamRequestHandler[StreamCompletion]):
-                async def __call__(self, request: StreamCompletion) -> AsyncIterator[str]:
-                    for token in request.prompt.split():
-                        yield token
-            ```
-
-        Delegating to an existing async stream:
-            ```python
-            class CompletionHandler(StreamRequestHandler[StreamCompletion]):
-                def __init__(self, client: LLMClient):
-                    self.client = client
-
-                async def __call__(self, request: StreamCompletion) -> AsyncIterator[str]:
-                    async for token in self.client.stream(request.prompt):
-                        yield token
+            class ExportOrdersHandler(StreamRequestHandler[ExportOrders]):
+                async def __call__(self, request: ExportOrders) -> AsyncIterator[bytes]:
+                    yield b"order_id,total_pence"
+                    yield b"42,2500"
             ```
 
     Note:
@@ -131,13 +113,10 @@ class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixi
         behaviors do not wrap `stream()`.
 
     Raises:
-        InvalidStreamRequestTypeError: If the request type doesn't inherit from StreamRequest.
+        InvalidStreamRequestTypeError: If the request type does not declare a chunk type.
         InvalidHandlerSignatureError: If __call__ isn't a correctly typed async generator.
+        HandlerAlreadyRegisteredError: If the request type already has a handler class.
 
-    See Also:
-        - StreamRequest: Base streaming request class.
-        - Mediator.stream: Routes stream requests to async stream handlers.
-        - pymediate.sync.StreamRequestHandler: Sync stream handler variant.
     """
 
     _is_async = True  # Mark this as an asynchronous stream handler

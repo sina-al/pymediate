@@ -1,13 +1,21 @@
-"""Custom exceptions for PyMediate with helpful error messages and documentation links."""
+"""PyMediate exceptions and their documentation links."""
 
 DOCS_URL = "https://pymediate.sina-al.uk"
 
 
-class PyMediateError(Exception):
-    """Base exception for all PyMediate errors.
+def _type_name(value: object) -> str:
+    """Return a readable name for a class or another type annotation."""
+    if isinstance(value, type):
+        return value.__name__
+    return str(value)
 
-    All PyMediate exceptions inherit from this class, making it easy to
-    catch any PyMediate-specific error.
+
+class PyMediateError(Exception):
+    """Base exception for PyMediate validation, registration, and dispatch errors.
+
+    ``ServiceNotFoundError`` is separate and inherits directly from ``Exception``.
+    Subscriber failures from ``publish()`` may use Python exception groups;
+    fatal base exceptions can propagate directly.
     """
 
     def __init__(self, message: str, docs_path: str | None = None):
@@ -15,28 +23,22 @@ class PyMediateError(Exception):
 
         Args:
             message: The error message
-            docs_path: Optional path to relevant documentation (e.g., "guide/handlers")
+            docs_path: Optional path to relevant documentation, without a leading slash.
         """
         self.docs_path = docs_path
         full_message = message
         if docs_path:
-            full_message = f"{message}\n\n📚 Learn more: {DOCS_URL}/{docs_path}"
+            full_message = f"{message}\n\nDocumentation: {DOCS_URL}/{docs_path}"
         super().__init__(full_message)
 
 
 class HandlerNotFoundError(PyMediateError):
     """Raised when no handler is registered for a request type.
 
-    This typically happens when:
-    1. You forgot to register a handler for the request
-    2. You're using a DI container but the handler provider is missing
-    3. The request type doesn't inherit from Request[ResponseType]
-
-    Example:
-        ```python
-        mediator.send(MyRequest())
-        # HandlerNotFoundError: No handler registered for request type 'MyRequest'
-        ```
+    Request and stream handler classes register when Python defines them. This
+    error means the exact request class has no handler class in that registry.
+    A registered handler class whose instance cannot be resolved instead raises
+    ``ServiceNotFoundError``.
     """
 
     def __init__(self, request_type: type, available_handlers: list[type] | None = None):
@@ -51,40 +53,31 @@ class HandlerNotFoundError(PyMediateError):
 
         message = (
             f"No handler registered for request type '{request_type.__name__}'\n\n"
-            "💡 Possible solutions:\n"
-            "  1. Register a handler: services.add(your_handler_instance)\n"
-            "  2. Ensure your DI container has a provider for this handler\n"
-            f"  3. Verify {request_type.__name__} inherits from Request[ResponseType]"
+            "Checks:\n"
+            "  1. Define a handler for this exact request type\n"
+            "  2. Import the module containing that handler before dispatch\n"
+            "  3. Use send() for Request and stream() for StreamRequest"
         )
 
         if available_handlers:
             handler_names = ", ".join(h.__name__ for h in available_handlers[:5])
             if len(available_handlers) > 5:
                 handler_names += f", ... and {len(available_handlers) - 5} more"
-            message += f"\n\n📋 Available handlers: {handler_names}"
+            message += f"\n\nRequest types with handlers: {handler_names}"
 
         super().__init__(
             message,
-            docs_path="docs/advanced/troubleshooting#handlernotfounderror",
+            docs_path="docs/guide/troubleshooting#handlernotfounderror",
         )
 
 
 class InvalidHandlerSignatureError(PyMediateError):
     """Raised when a handler has an invalid __call__ signature.
 
-    Handlers must have a __call__ method with exactly one parameter (the request)
-    and a return type annotation matching the expected response type. The request
-    parameter must annotate the exact request class declared in RequestHandler[...] —
-    a base class or union is rejected, because dispatch is keyed by the exact
-    request type.
-
-    Example:
-        ```python
-        class BadHandler(RequestHandler[MyRequest]):
-            def __call__(self):  # Missing request parameter!
-                pass
-        # InvalidHandlerSignatureError: Invalid handler signature
-        ```
+    Request, event, and stream handlers each validate the parameter annotation,
+    return annotation, and synchronous, asynchronous, or generator form required
+    by their handler base class. ``issue`` describes the failed part of that
+    contract.
     """
 
     def __init__(self, handler_type: type, issue: str):
@@ -99,63 +92,49 @@ class InvalidHandlerSignatureError(PyMediateError):
 
         message = (
             f"Invalid handler signature in {handler_type.__name__}: {issue}\n\n"
-            "✅ Correct handler signature:\n"
-            "  class MyHandler(RequestHandler[MyRequest]):\n"
-            "      def __call__(self, request: MyRequest) -> MyResponse:\n"
-            "          return MyResponse(...)\n\n"
-            "Common mistakes:\n"
-            "  ❌ Missing request parameter\n"
-            "  ❌ Parameter not annotated with the exact request class\n"
-            "     (a base class or union is rejected)\n"
-            "  ❌ Missing or wrong return type annotation\n"
-            "  ❌ Extra parameters (only 'self' and 'request' allowed)"
+            "Handler declaration checks:\n"
+            "  - __call__ accepts one message parameter in addition to self\n"
+            "  - the parameter annotation is the exact declared message class\n"
+            "  - the return annotation matches the handler contract\n"
+            "  - __call__ uses the required sync, async, or generator form"
         )
 
         super().__init__(
             message,
-            docs_path="docs/advanced/troubleshooting#invalidhandlersignatureerror",
+            docs_path="docs/guide/troubleshooting#invalidhandlersignatureerror",
         )
 
 
 class InvalidRequestTypeError(PyMediateError):
-    """Raised when a request doesn't properly inherit from Request[ResponseType].
+    """Raised when a request handler's type parameter has no declared response type.
 
-    All request classes must inherit from Request[ResponseType] to specify
-    their expected response type.
-
-    Example:
-        ```python
-        class MyRequest:  # Missing Request[ResponseType] inheritance!
-            pass
-
-        class MyHandler(RequestHandler[MyRequest]):
-            pass
-        # InvalidRequestTypeError: Invalid request type
-        ```
+    A request used with ``RequestHandler`` must inherit from
+    ``Request[ResponseType]`` so its expected response type is recorded.
     """
 
     def __init__(self, request_type: type):
         """Initialize invalid request type error.
 
         Args:
-            request_type: The request type that doesn't inherit from Request
+            request_type: The type that does not declare a request response type.
         """
         self.request_type = request_type
 
+        request_name = _type_name(request_type)
         message = (
-            f"Request type '{request_type.__name__}' must inherit from Request[ResponseType]\n\n"
-            "✅ Correct request definition:\n"
+            f"Request type '{request_name}' must inherit from Request[ResponseType]\n\n"
+            "Expected request definition:\n"
             "  @dataclass\n"
             "  class MyRequest(Request[MyResponse]):\n"
             "      field1: str\n"
             "      field2: int\n\n"
-            "💡 The Request[ResponseType] inheritance tells PyMediate what type of\n"
-            "   response to expect, enabling type-safe validation."
+            "Request[ResponseType] records the expected response for static\n"
+            "inference and handler return-annotation validation."
         )
 
         super().__init__(
             message,
-            docs_path="docs/advanced/troubleshooting#invalidrequesttypeerror",
+            docs_path="docs/guide/troubleshooting#invalid-request-event-or-stream-types",
         )
 
 
@@ -164,16 +143,6 @@ class InvalidEventTypeError(PyMediateError):
 
     All event classes must inherit from Event so they can be published via
     Mediator.publish().
-
-    Example:
-        ```python
-        class OrderPlaced:  # Missing Event inheritance!
-            pass
-
-        class SendConfirmation(EventHandler[OrderPlaced]):
-            pass
-        # InvalidEventTypeError: Invalid event type
-        ```
     """
 
     def __init__(self, event_type: type):
@@ -187,78 +156,60 @@ class InvalidEventTypeError(PyMediateError):
         name = getattr(event_type, "__name__", str(event_type))
         message = (
             f"Event type '{name}' must inherit from Event\n\n"
-            "✅ Correct event definition:\n"
+            "Expected event definition:\n"
             "  @dataclass\n"
             f"  class {name}(Event):\n"
             "      field1: str\n"
             "      field2: int\n\n"
-            "💡 Inheriting from Event is what makes a class publishable via\n"
-            "   mediator.publish() and lets handlers subscribe with EventHandler[...]"
+            "An Event subclass can be passed to mediator.publish() and named in\n"
+            "EventHandler[...]."
         )
 
         super().__init__(
             message,
-            docs_path="docs/advanced/troubleshooting#invalideventtypeerror",
+            docs_path="docs/guide/troubleshooting#invalid-request-event-or-stream-types",
         )
 
 
 class InvalidStreamRequestTypeError(PyMediateError):
-    """Raised when a stream handler's type parameter doesn't inherit from StreamRequest.
+    """Raised when a stream handler's type parameter has no declared chunk type.
 
-    All streaming request classes must inherit from StreamRequest[ChunkType] so they
-    can be dispatched via Mediator.stream() and their chunk type inferred.
-
-    Example:
-        ```python
-        class StreamCompletion:  # Missing StreamRequest inheritance!
-            pass
-
-        class CompletionHandler(StreamRequestHandler[StreamCompletion]):
-            pass
-        # InvalidStreamRequestTypeError: Invalid stream request type
-        ```
+    A request used with ``StreamRequestHandler`` must inherit from
+    ``StreamRequest[ChunkType]`` so its yielded element type is recorded.
     """
 
     def __init__(self, stream_request_type: type):
-        """Initialize the error for a type parameter that isn't a StreamRequest subclass.
+        """Initialize the error for a type with no StreamRequest chunk declaration.
 
         Args:
-            stream_request_type: The type that doesn't inherit from StreamRequest
+            stream_request_type: The type that does not declare a stream chunk type.
         """
         self.stream_request_type = stream_request_type
 
         name = getattr(stream_request_type, "__name__", str(stream_request_type))
         message = (
             f"Stream request type '{name}' must inherit from StreamRequest[ChunkType]\n\n"
-            "✅ Correct stream request definition:\n"
+            "Expected stream request definition:\n"
             "  @dataclass\n"
             f"  class {name}(StreamRequest[str]):\n"
             "      field1: str\n"
             "      field2: int\n\n"
-            "💡 Inheriting from StreamRequest[ChunkType] is what makes a request\n"
-            "   streamable via mediator.stream() and tells PyMediate the element type\n"
-            "   its handler yields."
+            "StreamRequest[ChunkType] records the element type yielded by its\n"
+            "handler and returned by mediator.stream()."
         )
 
         super().__init__(
             message,
-            docs_path="docs/advanced/troubleshooting#invalidstreamrequesttypeerror",
+            docs_path="docs/guide/troubleshooting#invalid-request-event-or-stream-types",
         )
 
 
 class ResponseTypeMismatchError(PyMediateError):
-    """Raised when a handler returns the wrong response type.
+    """Raised when a request handler's return annotation names the wrong response type.
 
-    This is caught at class definition time through signature validation,
-    but can also occur at runtime if response types are incorrect.
-
-    Example:
-        ```python
-        class MyHandler(RequestHandler[MyRequest]):
-            def __call__(self, request: MyRequest) -> WrongResponse:  # Should be MyResponse
-                return WrongResponse()
-        # ResponseTypeMismatchError: Response type mismatch
-        ```
+    PyMediate compares the handler's return annotation with the response type
+    declared by its request when Python defines the handler class. It does not
+    inspect the value returned later during dispatch.
     """
 
     def __init__(self, handler_type: type, expected_type: type, actual_type: type):
@@ -273,39 +224,30 @@ class ResponseTypeMismatchError(PyMediateError):
         self.expected_type = expected_type
         self.actual_type = actual_type
 
+        expected_name = _type_name(expected_type)
+        actual_name = _type_name(actual_type)
+        method_prefix = "async def" if getattr(handler_type, "_is_async", False) else "def"
         message = (
             f"Response type mismatch in {handler_type.__name__}\n\n"
-            f"Expected: {expected_type.__name__}\n"
-            f"Got: {actual_type.__name__}\n\n"
-            "💡 The response type must match what's declared in Request[ResponseType]:\n"
-            f"  class MyRequest(Request[{expected_type.__name__}]):\n"
+            f"Expected: {expected_name}\n"
+            f"Got: {actual_name}\n\n"
+            "The return annotation must match Request[ResponseType]:\n"
+            f"  class MyRequest(Request[{expected_name}]):\n"
             "      ...\n\n"
             f"  class MyHandler(RequestHandler[MyRequest]):\n"
-            f"      def __call__(self, request: MyRequest) -> {expected_type.__name__}:\n"
-            f"          return {expected_type.__name__}(...)"
+            f"      {method_prefix} __call__(self, request: MyRequest) -> {expected_name}:\n"
+            f"          return {expected_name}(...)"
         )
 
-        super().__init__(
-            message, docs_path="docs/advanced/troubleshooting#responsetypemismatcherror"
-        )
+        super().__init__(message, docs_path="docs/guide/troubleshooting#responsetypemismatcherror")
 
 
 class HandlerAlreadyRegisteredError(PyMediateError):
-    """Raised when attempting to register a second handler for a request type.
+    """Raised when a second request or stream handler targets one request type.
 
-    PyMediate enforces a strict one-handler-per-request-type policy to prevent
-    ambiguity and accidental registration conflicts. Each request type can only
-    have a single handler.
-
-    Example:
-        ```python
-        class FirstHandler(RequestHandler[MyRequest]):
-            pass
-
-        class SecondHandler(RequestHandler[MyRequest]):  # Error!
-            pass
-        # HandlerAlreadyRegisteredError: RequestHandler already registered for 'MyRequest'
-        ```
+    The process-wide registry stores one request or stream handler class for each
+    exact request type. Event handlers use a separate registry and may have several
+    subscribers for one event type.
     """
 
     def __init__(
@@ -329,28 +271,22 @@ class HandlerAlreadyRegisteredError(PyMediateError):
         self.existing_location = existing_location
 
         message = (
-            f"⚠️  RequestHandler already registered for '{request_type.__name__}'\n\n"
+            f"Handler already registered for '{request_type.__name__}'\n\n"
             f"Existing handler: {existing_handler.__name__}\n"
             f"Attempting to register: {new_handler.__name__}\n"
         )
 
         if existing_location:
-            message += f"\n📍 First handler was registered at:\n   {existing_location}\n"
+            message += f"\nFirst handler was registered at:\n   {existing_location}\n"
 
         message += (
-            "\n💡 Each request type can only have ONE handler.\n\n"
+            "\nEach request type can have one request or stream handler.\n\n"
             "Solutions:\n"
             "  1. Remove one of the handler class definitions\n"
-            "  2. Use different request types for different behaviors:\n"
-            f"     class {request_type.__name__}V1(Request[Response]): ...\n"
-            f"     class {request_type.__name__}V2(Request[Response]): ...\n\n"
-            "  3. Compose handlers to combine behaviors:\n"
-            "     class ComposedHandler(RequestHandler[MyRequest]):\n"
-            "         def __call__(self, request):\n"
-            "             # Combine both behaviors here\n"
-            "             ...\n"
+            "  2. Use different request types when the operations have different contracts\n"
+            "  3. Compose the work behind one registered handler\n"
         )
 
         super().__init__(
-            message, docs_path="docs/advanced/troubleshooting#handleralreadyregisterederror"
+            message, docs_path="docs/guide/troubleshooting#handleralreadyregisterederror"
         )

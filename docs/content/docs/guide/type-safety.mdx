@@ -1,0 +1,128 @@
+---
+title: Type safety
+description: Understand generic inference, static checking, and handler validation at class definition.
+---
+
+PyMediate uses generic types for call-site inference and validates handler declarations when
+Python defines their classes. Static checking and definition-time validation cover different
+mistakes.
+
+## Generic types connect input to output
+
+The response type on `Request[ResponseT]` becomes the return type of `send()`:
+
+```python
+import asyncio
+from dataclasses import dataclass
+
+from pymediate import Mediator, Request, RequestHandler, Services
+
+
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
+
+
+async def main() -> None:
+    services = Services().add(PlaceOrderHandler())
+    mediator = Mediator(services.provider())
+
+    receipt = await mediator.send(
+        PlaceOrder(customer_id=7, item="tea", quantity=2),
+    )
+    # mypy and pyright infer receipt as OrderReceipt.
+    print(receipt.order_id)
+
+
+asyncio.run(main())
+```
+
+`StreamRequest[ChunkT]` provides the element type returned by `stream()`. Events have no
+response type because `publish()` returns `None`.
+
+A bare `Request` or `StreamRequest` discards this relationship and usually introduces `Any`.
+Always parameterize application request types. When a pipeline behavior intentionally accepts
+every request, make that choice explicit with `Request[Any]`; for example, use
+`PipelineBehavior[Request[Any]]` with `request: Request[Any]` and `Next[Any]` rather than a
+bare `Request` annotation.
+
+## Static checkers validate ordinary Python typing rules
+
+mypy, pyright, and editor type checking can report:
+
+- passing the wrong request kind to `send()` or `stream()`;
+- treating a response or stream chunk as the wrong type;
+- a handler parameter type that is incompatible with its `RequestHandler[...]`,
+  `EventHandler[...]`, or `StreamRequestHandler[...]` declaration;
+- an invalid generic type argument, such as a non-event type in `EventHandler[...]`; and
+- a return statement that conflicts with the method's own return annotation.
+
+Run a checker over application code; PyMediate cannot replace that step. The project itself
+uses `mypy --strict`, but applications can choose settings appropriate to their codebase.
+
+## PyMediate validates declarations at class definition
+
+Python's type annotations normally have no enforcement at runtime. PyMediate reads a handler's
+declaration when its class body finishes and checks the contract needed for dispatch:
+
+| Handler kind | Definition-time checks |
+| --- | --- |
+| Request | Exact request parameter, matching response annotation, async or sync form |
+| Stream | Exact request parameter, generator form, matching iterator and chunk annotation |
+| Event | Exact event parameter, `None` return annotation, async or sync form |
+
+This validation catches several cases that ordinary override checking does not:
+
+- A base-class parameter annotation is valid contravariance in Python, but PyMediate rejects
+  it because dispatch uses the exact request or event class.
+- `RequestHandler.__call__` has an abstract return type of `Any`, so a handler annotation that
+  disagrees with `Request[ResponseT]` needs PyMediate's `ResponseTypeMismatchError` check.
+- A stream handler must contain `yield`; returning an iterator from a plain function does not
+  satisfy the stream-handler contract.
+
+The errors occur as the module is imported, before a handler instance is constructed. See
+[handler annotations](/docs/guide/handlers#match-the-declared-request-exactly) and
+[troubleshooting](/docs/guide/troubleshooting#definition-time-validation-errors).
+
+## Values are not inspected on every call
+
+Definition-time validation compares annotations. `send()` does not inspect each returned
+value, and `stream()` does not consume chunks to verify their runtime types. If a handler is
+annotated to return `OrderReceipt` but unchecked code returns another value, PyMediate passes
+that value through. A static checker and tests cover that implementation error without adding
+runtime inspection to every dispatch.
+
+## Type checks in this repository
+
+PyMediate's typing fixtures are under `tests/typing/snippets/`:
+
+- valid snippets must pass mypy in strict mode, produce no basedpyright diagnostics in
+  standard or recommended mode, and execute successfully;
+- error snippets must fail mypy and produce the expected basedpyright rule in both modes;
+  a small pinned set is warning-only in basedpyright's recommended mode; and
+- `basedpyright --verifytypes` checks the public package for 100% type completeness.
+
+The files under `tests/typing/snippets/errors/` are intentionally invalid and should not be
+corrected as application examples.
+
+## Continue
+
+- [Requests and responses](/docs/guide/requests-responses) explains the generic declaration.
+- [Handlers](/docs/guide/handlers) covers the exact annotation contract.
+- [Testing](/docs/guide/testing) shows direct and mediator-level tests.

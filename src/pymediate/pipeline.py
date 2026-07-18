@@ -1,11 +1,4 @@
-"""Asynchronous pipeline behavior implementation for cross-cutting concerns.
-
-This module provides async/await compatible pipeline behaviors for the mediator pattern.
-Behaviors are fully asynchronous, allowing for async operations in the middleware chain.
-
-See Also:
-    - pymediate.sync.pipeline: Synchronous pipeline implementation
-"""
+"""Asynchronous request pipeline behaviors and their continuation type."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
@@ -18,12 +11,10 @@ type Next[ResponseT] = Callable[[], Awaitable[ResponseT]]
 
 Awaiting it runs the rest of the pipeline - the remaining behaviors and, finally,
 the handler - and yields the response. ``ResponseT`` is the response type the
-behavior expects back; annotate it concretely (``Next[UserResponse]``) to keep the
+behavior expects back; annotate it concretely (``Next[OrderReceipt]``) to keep the
 call site typed, or ``Next[Any]`` for a universal behavior that passes the response
-through untouched.
-
-See Also:
-    - pymediate.sync.Next: Synchronous variant (``Callable[[], ResponseT]``)
+through untouched. ``pymediate.sync.Next`` is the synchronous
+``Callable[[], ResponseT]`` variant.
 """
 
 
@@ -57,105 +48,48 @@ def _resolve_request_type(cls: type) -> Any:
 class PipelineBehavior[RequestT: Request[Any]](ABC):
     """Abstract base class for asynchronous pipeline behaviors that wrap request processing.
 
-    An async pipeline behavior is middleware that sits between the mediator and the
-    handler, allowing you to execute asynchronous logic before and after the handler
-    processes the request.
+    A behavior can run logic before and after the next behavior or request handler.
+    Awaiting ``next()`` continues the chain. Returning without awaiting it
+    short-circuits dispatch, and the behavior's return value becomes the result of
+    ``Mediator.send()``.
 
-    Behaviors can be selective - they only apply to specific request types or mixins.
-    The type parameter indicates which requests this behavior applies to.
-
-    Behaviors receive:
-    - The request being processed (typed as RequestT)
-    - A 'next' callable that represents the next step in the pipeline
-
-    By awaiting next(), the behavior passes control to the next step. The behavior
-    can execute code before awaiting next() (pre-processing), after awaiting next()
-    (post-processing), or both.
+    The type parameter controls selection. ``PipelineBehavior[Request[Any]]``
+    applies to every request; a concrete request class applies to that class and,
+    by default, its subclasses. Set ``apply_to_subclasses`` to ``False`` for an
+    exact-type match, or override ``should_apply()`` for other conditions.
 
     Type Parameters:
-        RequestT: The request type (or mixin) this behavior applies to.
-                  Can be Request (universal), a specific request class, or a mixin.
+        RequestT: The ``Request`` subclass or request-class family this behavior wraps.
 
     Examples:
-        Universal async behavior (applies to all requests):
+        Defining a behavior that applies to every request:
             ```python
+            from typing import Any
+
             from pymediate import Next, PipelineBehavior, Request
 
-            class AsyncLoggingBehavior(PipelineBehavior[Request]):
+            class LoggingBehavior(PipelineBehavior[Request[Any]]):
                 async def __call__(
                     self,
-                    request: Request,
-                    next: Next[Any]
+                    request: Request[Any],
+                    next: Next[Any],
                 ) -> Any:
-                    await log_to_database(f"Handling: {type(request).__name__}")
+                    print(f"handling {type(request).__name__}")
                     response = await next()
-                    await log_to_database(f"Handled: {type(request).__name__}")
+                    print(f"handled {type(request).__name__}")
                     return response
-            ```
-
-        Selective behavior for cacheable requests:
-            ```python
-            class CacheableMixin:
-                cache_key: str
-                ttl: int
-
-            class CachingBehavior(PipelineBehavior[CacheableMixin]):
-                def __init__(self, cache: AsyncCache):
-                    self.cache = cache
-
-                async def __call__(
-                    self,
-                    request: CacheableMixin,
-                    next: Next[Any]
-                ) -> Any:
-                    # Check cache
-                    cached = await self.cache.get(request.cache_key)
-                    if cached is not None:
-                        return cached
-
-                    # Execute and cache
-                    response = await next()
-                    await self.cache.set(request.cache_key, response, ttl=request.ttl)
-                    return response
-            ```
-
-        Specific request type with transaction:
-            ```python
-            class TransactionBehavior(PipelineBehavior[CreateOrderRequest]):
-                def __init__(self, db: AsyncDatabase):
-                    self.db = db
-
-                async def __call__(
-                    self,
-                    request: CreateOrderRequest,
-                    next: Next[Any]
-                ) -> Any:
-                    async with self.db.transaction():
-                        return await next()
             ```
 
     Attributes:
-        apply_to_subclasses: If True (default), applies to subclasses of RequestT.
-                            If False, only applies to exact type match.
+        apply_to_subclasses: Whether the default selector includes subclasses of
+            ``RequestT``. Defaults to ``True``.
 
     Note:
-        The response type is not statically known because selective behaviors can
-        apply to requests with different response types. If you need response type
-        safety, manually annotate in your implementation:
-
-            ```python
-            async def __call__(self, request: MyRequest, next) -> MyResponse:
-                result: MyResponse = await next()  # Manual type assertion
-                return result
-            ```
-
-        For synchronous behaviors, use `pymediate.sync.PipelineBehavior` instead.
-
-    See Also:
-        - Mediator.send: Discovers applicable behaviors and runs them
-          around the handler.
-        - should_apply: Override to customize behavior selection logic
-        - pymediate.sync.PipelineBehavior: Sync version
+        For a behavior scoped to one request type, annotate ``next`` and the
+        return value with that request's concrete response type. Use ``Next[Any]``
+        and return ``Any`` when the behavior can wrap several response types.
+        Pipeline behaviors apply to ``send()`` only, not ``stream()`` or
+        ``publish()``. Use ``pymediate.sync.PipelineBehavior`` for synchronous code.
     """
 
     apply_to_subclasses: bool = True
@@ -184,32 +118,15 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     def should_apply(cls, request: Request[Any]) -> bool:
         """Determine if this behavior should apply to the given request.
 
-        Default implementation uses isinstance() check against the type parameter.
-        Override for custom matching logic.
+        The default selector matches the behavior's request type. It uses
+        ``isinstance()`` when ``apply_to_subclasses`` is true and an exact type
+        comparison otherwise. Override this method for request-dependent selection.
 
         Args:
-            request: The request to check
+            request: The request to check.
 
         Returns:
-            True if this behavior should apply to the request
-
-        Examples:
-            Custom matching logic:
-                ```python
-                class RateLimitBehavior(PipelineBehavior[Request]):
-                    @classmethod
-                    def should_apply(cls, request: Request) -> bool:
-                        # Only apply to non-admin users
-                        return not getattr(request, 'is_admin', False)
-                ```
-
-            Multiple type matching:
-                ```python
-                class ValidationBehavior(PipelineBehavior[Request]):
-                    @classmethod
-                    def should_apply(cls, request: Request) -> bool:
-                        return isinstance(request, (CreateRequest, UpdateRequest))
-                ```
+            ``True`` when the behavior should join the request's pipeline.
         """
         match_type = cls.__match_type__
         if match_type is Request:
@@ -228,20 +145,16 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         """Execute the behavior's async logic and await next to continue the pipeline.
 
         Args:
-            request: The request being processed (typed as RequestT)
+            request: The request being processed.
             next: Async continuation that invokes the next behavior or handler in
-                the chain; annotate it as ``Next[YourResponse]`` to type the call site
+                the chain.
 
         Returns:
-            The response from the handler (type not statically known)
+            The response to return from ``Mediator.send()``.
 
         Note:
-            This method should await next() to continue the pipeline execution.
-            Code before next() runs before the handler, code after runs after.
-
-            The response type is Any because selective behaviors can apply to
-            requests with different response types. If you need type safety,
-            manually annotate the return type in your implementation.
+            Await ``next()`` to continue the chain. A behavior may instead return
+            directly to short-circuit it.
         """
         ...
 

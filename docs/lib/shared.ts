@@ -1,5 +1,5 @@
 export const appName = 'PyMediate';
-export const appTagline = 'Type-safe request dispatch for modern Python';
+export const appTagline = 'A typed mediator for Python';
 export const docsRoute = '/docs';
 export const docsImageRoute = '/og/docs';
 export const docsContentRoute = '/llms.mdx/docs';

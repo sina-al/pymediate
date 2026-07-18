@@ -1,4 +1,0 @@
-{
-  "title": "Examples",
-  "pages": ["basic", "async", "events", "pipeline-behaviors", "cqrs", "fastapi"]
-}

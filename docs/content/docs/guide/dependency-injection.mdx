@@ -1,126 +1,201 @@
 ---
 title: Dependency injection
-description: Wiring handlers through a dependency-injector container via the optional di extra.
+description: Resolve handlers and behaviors from a Dependency Injector container.
 ---
 
-PyMediate ships optional support for [`dependency-injector`](https://python-dependency-injector.ets-labs.org/), so handlers get their dependencies from a DI container instead of being constructed by hand.
+PyMediate can use a [`dependency-injector`](https://python-dependency-injector.ets-labs.org/)
+container as its service provider. Install the optional integration first:
 
 ```bash
 pip install 'pymediate[di]'
 ```
 
-See [installation](/docs/getting-started/installation) for other package managers, and [troubleshooting](/docs/advanced/troubleshooting#dependencyinjectorserviceprovider-not-available) if the import fails.
+The core package does not require this integration. For direct instance registration, use
+[`Services`](/docs/api/service-provider#services).
 
-## Basic setup
+## Connect a container
 
-`DependencyInjectorServiceProvider` wraps a `dependency-injector` container and implements PyMediate's `ServiceProvider` [protocol](https://docs.python.org/3/library/typing.html#typing.Protocol), so it drops in wherever `Services.provider()` would go. It indexes handlers by their declared output type — provider names in the container are irrelevant, and providers are not called during indexing:
+`DependencyInjectorServiceProvider` implements PyMediate's `ServiceProvider` protocol. It indexes
+the container's declared providers by their inferred output type, then delegates each resolution
+back to the original Dependency Injector provider:
 
 ```python
 from dependency_injector import containers, providers
-from pymediate import RequestHandler, Mediator
+
+from pymediate import Mediator
 from pymediate.providers import DependencyInjectorServiceProvider
 
-class AppContainer(containers.DeclarativeContainer):
-    database = providers.Singleton(Database)
 
-    # The provider name can be anything — PyMediate matches by type, not by name
-    user_service = providers.Factory(CreateUserHandler, database=database)
+class ApplicationContainer(containers.DeclarativeContainer):
+    order_store = providers.Singleton(PostgresOrderStore)
+    place_order = providers.Factory(
+        PlaceOrderHandler,
+        orders=order_store,
+    )
+
+
+container = ApplicationContainer()
+services = DependencyInjectorServiceProvider(container)
+mediator = Mediator(services)
+
+receipt = await mediator.send(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+)
 ```
+
+The provider name `place_order` has no routing meaning. The adapter infers
+`PlaceOrderHandler` from `providers.Factory(PlaceOrderHandler, ...)`, and the mediator requests
+that type when it dispatches `PlaceOrder`.
+
+Indexing does not construct the handler or its dependencies. Construction happens when the
+mediator asks the provider for an instance.
+
+## Keep service construction synchronous
+
+Service resolution is synchronous for both mediator variants. An asynchronous request handler is
+constructed synchronously, then its `async def __call__` runs asynchronously during `send()`.
+
+The adapter rejects a `providers.Coroutine` while indexing. It also raises `TypeError` if any
+provider returns an awaitable during resolution, including a provider placed in Dependency
+Injector's asynchronous mode.
+
+This distinction is valid:
 
 ```python
-container = AppContainer()
-provider = DependencyInjectorServiceProvider(container)
-mediator = Mediator(provider)
-
-response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+# Synchronous construction; asynchronous work remains in the handler method.
+place_order = providers.Factory(PlaceOrderHandler, orders=order_store)
 ```
 
-## Modular containers
+An asynchronous factory for `PlaceOrderHandler` is not a supported service source.
 
-Child [`providers.Container`](https://python-dependency-injector.ets-labs.org/examples/application-multiple-containers.html) providers are discovered recursively. Their providers appear at the child's position in the root declaration order, which keeps pipeline behavior ordering predictable:
+## Understand which providers can be indexed
+
+The adapter must determine each service type without calling its provider. It can index:
+
+- class-backed `Factory`, singleton, and `Callable` providers;
+- function-backed providers with a concrete return annotation;
+- `Object`, `List`, and `Dict` providers, which have intrinsic output types;
+- declared child `Container` providers, which it visits recursively.
+
+The constructor expects a `DeclarativeContainer` or `DynamicContainer` instance. Passing another
+object raises `TypeError` before indexing begins.
+
+A function-backed factory therefore needs a concrete return annotation:
+
+```python
+def build_place_order_handler(
+    orders: OrderStore,
+) -> PlaceOrderHandler:
+    return PlaceOrderHandler(orders)
+
+
+place_order = providers.Factory(
+    build_place_order_handler,
+    orders=order_store,
+)
+```
+
+An unannotated factory, `Selector`, `Resource`, or another provider whose output type is opaque is
+rejected with `TypeError` when `DependencyInjectorServiceProvider` is constructed. The provider is
+not called to discover its type.
+
+Configuration, dependency placeholders, dependency containers, and `providers.Self()` are
+composition inputs rather than exposed services, so the adapter skips them during indexing.
+
+## Use nested containers
+
+Declared `providers.Container` children are indexed recursively. Their services retain their
+position in root declaration order, which also preserves pipeline-behavior ordering:
 
 ```python
 class OrdersContainer(containers.DeclarativeContainer):
-    database = providers.Dependency()
-    create_order = providers.Factory(CreateOrderHandler, database=database)
+    order_store = providers.Dependency()
+    place_order = providers.Factory(
+        PlaceOrderHandler,
+        orders=order_store,
+    )
+
 
 class ApplicationContainer(containers.DeclarativeContainer):
-    database = providers.Singleton(PostgresDatabase)
-    logging = providers.Factory(LoggingBehavior)
-    orders = providers.Container(OrdersContainer, database=database)
+    request_logging = providers.Singleton(RequestLogging)
+    order_store = providers.Singleton(PostgresOrderStore)
+    orders = providers.Container(
+        OrdersContainer,
+        order_store=order_store,
+    )
 ```
 
-Only declared child containers are descended into. Dependencies injected into a factory are not independently traversed and registered.
+The adapter descends only into declared child containers. It does not expose every provider passed
+as an argument to another provider. A cycle between child containers raises `ValueError` and names
+the path at which the cycle was found.
 
-## Compose the mediator in the container
+## Choose provider lifetimes
 
-Provider indexing does not construct services, so Dependency Injector's documented [`providers.Self()`](https://python-dependency-injector.ets-labs.org/providers/inject_self.html) pattern is safe:
+Dependency Injector retains control of each registered lifetime:
+
+- `Factory` constructs a handler or behavior each time the mediator resolves it.
+- `Singleton` reuses one instance from that container.
+- `ContextLocalSingleton` follows Dependency Injector's context-local lifetime.
+
+The mediator resolves a request or stream handler for each dispatch. It resolves applicable
+pipeline behaviors for each `send()`, and resolves event subscribers for each `publish()`. Choose a
+lifetime that matches the state and concurrency rules of that service rather than relying on a
+handler-wide default.
+
+## Compose the mediator inside the container
+
+Dependency Injector's `providers.Self()` pattern lets the container construct its own service
+provider and mediator without recursive indexing:
 
 ```python
 class ApplicationContainer(containers.DeclarativeContainer):
     __self__ = providers.Self()
 
-    create_user = providers.Factory(CreateUserHandler)
-    services = providers.Singleton(DependencyInjectorServiceProvider, __self__)
+    order_store = providers.Singleton(PostgresOrderStore)
+    place_order = providers.Factory(
+        PlaceOrderHandler,
+        orders=order_store,
+    )
+    services = providers.Singleton(
+        DependencyInjectorServiceProvider,
+        __self__,
+    )
     mediator = providers.Singleton(Mediator, services=services)
+
 
 mediator = ApplicationContainer().mediator()
 ```
 
-Constructing the mediator outside the container remains equally valid.
+Constructing the mediator outside the container is also valid. Both arrangements pass the same
+`ServiceProvider` interface to `Mediator`.
 
-## Opaque factories
+## Rebuild the index after type changes
 
-Class-backed providers are inferred directly. A function-backed provider needs a concrete return annotation:
+The adapter's provider graph and inferred types are a construction-time snapshot. Overrides that
+preserve a provider's output type continue to work because resolution remains delegated to the
+original provider. If an override changes the output type, construct a new
+`DependencyInjectorServiceProvider` after applying it.
 
-```python
-def build_handler(database: Database) -> CreateUserHandler:
-    return CreateUserHandler(database)
+If a provider produces a value that no longer matches its indexed type, resolution raises
+`TypeError` and asks for the adapter to be rebuilt.
 
-create_user = providers.Factory(build_handler, database=database)
-```
-
-A provider whose output type cannot be determined this way — an unannotated factory, a `Selector`, a `Resource` — is rejected at construction time with a `TypeError` naming the provider, rather than being called to discover its type.
-
-The provider graph and inferred types are indexed once. Rebuild the service provider after adding providers or applying an override that changes a provider's output type. Same-type overrides continue to work.
-
-## Factory vs. Singleton providers
-
-Both provider types work — pick the one matching the handler's intended lifetime:
+Tests can use ordinary Dependency Injector overrides:
 
 ```python
-class AppContainer(containers.DeclarativeContainer):
-    database = providers.Singleton(Database)
+container = ApplicationContainer()
+container.order_store.override(providers.Singleton(InMemoryOrderStore))
 
-    # Factory: a new handler instance on every resolution
-    create_user_handler = providers.Factory(CreateUserHandler, database=database)
-
-    # Singleton: one shared handler instance for the whole application
-    metrics_handler = providers.Singleton(RecordMetricsHandler, database=database)
+mediator = Mediator(DependencyInjectorServiceProvider(container))
+receipt = await mediator.send(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+)
 ```
 
-Most handlers should be `Factory` unless they're genuinely stateless and safe to share. [Pipeline behaviors registered through the container](/docs/guide/pipeline-behaviors#di-container-integration) respect their scopes the same way, including `ContextLocalSingleton` for per-request lifetimes.
+For a unit test that does not exercise container wiring, construct the handler directly. See the
+[testing guide](/docs/guide/testing).
 
-## Testing with a container
+## Continue
 
-Override providers exactly as you would in any `dependency-injector` test:
-
-```python
-@pytest.mark.asyncio
-async def test_create_user_with_container():
-    container = AppContainer()
-    container.database.override(providers.Singleton(InMemoryDatabase))
-
-    mediator = Mediator(DependencyInjectorServiceProvider(container))
-    response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
-
-    assert response.username == "alice"
-```
-
-If a test doesn't need the container at all, construct the handler directly — see [testing without frameworks](/docs/guide/requests-responses#testing-without-frameworks).
-
-## See also
-
-- [Handlers](/docs/guide/handlers) — writing the handlers you'll wire up here
-- [Service provider API reference](/docs/api/service-provider) — the `ServiceProvider` protocol
-- [Troubleshooting](/docs/advanced/troubleshooting) — common DI setup issues
+- Review handler state and dependencies in [request handlers](/docs/guide/handlers).
+- Check resolution semantics in the [`ServiceProvider` reference](/docs/api/service-provider).
+- Diagnose construction and resolution failures with [error handling](/docs/guide/error-handling).
