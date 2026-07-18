@@ -42,17 +42,19 @@ In suggested order:
 | 20 | [070-error-handling-sync](070-error-handling-sync/) | The same two-transport story on `pymediate.sync`. |
 | 21 | [075-authorization](075-authorization/) | Authn at the edge, authz in the core: coarse authorization as **selective pipeline behaviors** (`[Authorize]`/`[Authorize(Roles=…)]` analogs), resource authorization as an **imperative in-handler check** after the entity loads. |
 | 22 | [075-authorization-sync](075-authorization-sync/) | The same three-layer split on `pymediate.sync`. |
-| 23 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
-| 24 | [adapters-sync](adapters-sync/) | The sync twin of #23: Flask, FastAPI, and a click CLI over one sync core. |
-| 25 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
+| 23 | [080-cqrs](080-cqrs/) | Commands vs. queries over **separate engines**, kept in sync the correct way — a SQLite write side (OLTP) with a **transactional outbox**, a background **projection worker**, and a DuckDB read model (OLAP), plus a through-the-app benchmark for the analytical query. |
+| 24 | [adapters](adapters/) | One framework-free async core delivered through FastAPI, aiohttp, **and** an async CLI, unchanged. |
+| 25 | [adapters-sync](adapters-sync/) | The sync twin of #24: Flask, FastAPI, and a click CLI over one sync core. |
+| 26 | [with-dependency-injector](with-dependency-injector/) | Swap hand-wiring for a real DI container — PyMediate's optional `di` extra. |
 
 1–2 make the case for a mediator at all; 3–4 teach `send` (request → response); 5–6 add
 `publish` (event fan-out); 7–8 add `stream` (a lazy feed of typed chunks); 9–10 wrap
 requests with pipeline behaviors; 11–12 contrast a behavior with a plain decorator; 13–14
 compose handlers through the mediator; 15–16 design requests as value objects; 17–18 place
 validation at the edge vs. the core; 19–20 map domain errors across transports; 21–22 place
-authn at the edge and authz in the core; 23–24 make the framework-independence argument; 25
-plugs it into a DI container. Async and sync
+authn at the edge and authz in the core; 23 separates commands from queries with a
+transactional outbox and a projection worker; 24–25 make the framework-independence
+argument; 26 plugs it into a DI container. Async and sync
 examples mirror each other deliberately — diffing a pair is the fastest way to see how
 small the sync delta is. (`adapters` and `with-dependency-injector` keep their original
 names for now; they're renumbered later as the
