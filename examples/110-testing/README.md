@@ -119,4 +119,4 @@ subscribers.
   `pymediate.sync`.
 - [100-dependency-injection](../100-dependency-injection/) — review constructor injection and
   mediator wiring.
-- Read the [testing guide](https://pymediate.sina-al.uk/docs/advanced/testing).
+- Read the [testing guide](https://pymediate.sina-al.uk/docs/guide/testing).

@@ -90,7 +90,9 @@ belongs in a request dataclass.
 
 `slots=True` removes the per-instance `__dict__`. Use it when its memory and attribute restrictions
 fit the application; it is not required by PyMediate. Mutable defaults still require
-`field(default_factory=...)` so instances do not share one list or dictionary.
+`field(default_factory=...)` so instances do not share one list or dictionary. See
+[request value immutability](https://pymediate.sina-al.uk/docs/guide/requests-responses#prefer-immutable-message-values-when-practical)
+for related guidance.
 
 Run `uv run pytest` to execute the nine tests for equality, hashing, representation, and
 construction-time errors.
@@ -100,4 +102,4 @@ construction-time errors.
 - [065-validation](../065-validation/) separates request-body validation from business rules.
 - [060-messages-sync](../060-messages-sync/) shows the same dataclass choices with
   `pymediate.sync`.
-- Read the [dataclasses guide](https://pymediate.sina-al.uk/docs/guide/dataclasses).
+- Read the [requests and responses guide](https://pymediate.sina-al.uk/docs/guide/requests-responses).

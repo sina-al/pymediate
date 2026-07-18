@@ -22,8 +22,8 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
       (not a base class or union)
     - The __call__ return annotation is None - event handlers produce no response
 
-    This validation happens at class definition time (import time), catching
-    errors early in the development cycle rather than at runtime.
+    Validation runs when Python executes the handler's class body, usually
+    during import and before the handler is instantiated.
 
     Type Parameters:
         EventT: The type of event this handler subscribes to. Must inherit
@@ -34,11 +34,13 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
         Two handlers subscribed to one event:
             ```python
             from dataclasses import dataclass
+
             from pymediate.sync import Event, EventHandler, Mediator, Services
 
-            @dataclass
+            @dataclass(frozen=True)
             class OrderPlaced(Event):
                 order_id: int
+                item: str
 
             class SendConfirmation(EventHandler[OrderPlaced]):
                 def __call__(self, event: OrderPlaced) -> None:
@@ -52,36 +54,23 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
             services.add(SendConfirmation()).add(UpdateAnalytics())
             mediator = Mediator(services.provider())
 
-            mediator.publish(OrderPlaced(order_id=42))
+            mediator.publish(OrderPlaced(order_id=42, item="tea"))
             # confirming order 42
             # recording order 42
             ```
 
-        EventHandler with dependencies:
-            ```python
-            class SendConfirmation(EventHandler[OrderPlaced]):
-                def __init__(self, mailer: Mailer):
-                    self.mailer = mailer
-
-                def __call__(self, event: OrderPlaced) -> None:
-                    self.mailer.send(f"order {event.order_id} confirmed")
-            ```
-
     Note:
-        For asynchronous event handlers, use `pymediate.EventHandler`
-        instead. Validation occurs at class definition time: if your __call__
-        signature doesn't match expectations, you'll get a clear error message
-        when the module is imported, not when the event is published.
+        For asynchronous event handlers, use ``pymediate.EventHandler`` instead.
+        The two forms share one subscription registry, so every handler for an
+        exact event type must use the same form. If the ``__call__`` signature
+        does not meet this contract, validation raises while Python defines the
+        class, usually during import.
 
     Raises:
         InvalidHandlerSignatureError: If the __call__ signature is invalid,
             including a return annotation other than None.
         InvalidEventTypeError: If the event type doesn't inherit from Event.
 
-    See Also:
-        - Event: Base event class.
-        - Mediator.publish: Publishes an event to all its handlers (sync version).
-        - pymediate.EventHandler: Async event handler variant.
     """
 
     _is_async = False  # Mark this as a synchronous event handler

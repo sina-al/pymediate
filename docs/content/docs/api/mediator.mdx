@@ -1,163 +1,139 @@
 ---
 title: Mediator
-description: API reference for the async and sync Mediator classes.
+description: API reference for the asynchronous and synchronous Mediator classes.
 ---
 
-The mediator routes requests to their handlers through a `ServiceProvider`. It looks up the handler type from the registry (populated automatically when `RequestHandler[RequestT]` subclasses are defined), resolves an instance from the provider, and invokes it — wrapped in any applicable pipeline behaviors. It also streams `StreamRequest`s to their stream handlers and publishes events to every subscribed `EventHandler`.
+`Mediator` resolves handler instances through a [`ServiceProvider`](/docs/api/service-provider)
+and supports three dispatch forms: one response, a stream of chunks, or event publication.
 
 <Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
     from collections.abc import AsyncIterator
-    from pymediate import Mediator
+
+    from pymediate import Event, Request, ServiceProvider, StreamRequest
 
     class Mediator:
-        def __init__(self, provider: ServiceProvider) -> None: ...
+        def __init__(self, services: ServiceProvider) -> None: ...
 
-        async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
-            """Send a request and await the typed response from its handler."""
+        async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT: ...
 
-        def stream[ChunkT](self, request: StreamRequest[ChunkT]) -> AsyncIterator[ChunkT]:
-            """Route a stream request to its handler and return the async chunk stream."""
+        def stream[ChunkT](
+            self,
+            request: StreamRequest[ChunkT],
+        ) -> AsyncIterator[ChunkT]: ...
 
-        async def publish(self, event: Event) -> None:
-            """Publish an event to every async handler subscribed to its type."""
+        async def publish(self, event: Event) -> None: ...
     ```
   </Tab>
   <Tab value="Sync">
     ```python
     from collections.abc import Iterator
-    from pymediate.sync import Mediator
+
+    from pymediate.sync import Event, Request, ServiceProvider, StreamRequest
 
     class Mediator:
-        def __init__(self, provider: ServiceProvider) -> None: ...
+        def __init__(self, services: ServiceProvider) -> None: ...
 
-        def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
-            """Send a request and get the typed response from its handler."""
+        def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT: ...
 
-        def stream[ChunkT](self, request: StreamRequest[ChunkT]) -> Iterator[ChunkT]:
-            """Route a stream request to its handler and return the chunk stream."""
+        def stream[ChunkT](
+            self,
+            request: StreamRequest[ChunkT],
+        ) -> Iterator[ChunkT]: ...
 
-        def publish(self, event: Event) -> None:
-            """Publish an event to every handler subscribed to its type."""
+        def publish(self, event: Event) -> None: ...
     ```
   </Tab>
 </Tabs>
 
-## `send()`
+## Constructor
 
-Resolves the handler registered for the request's type, discovers any registered `PipelineBehavior` instances that apply to this request, and invokes the handler — wrapped by those behaviors, if any.
-
-| | |
-| --- | --- |
-| **Args** | `request` — the request instance to send |
-| **Returns** | The handler's response, typed as `ResponseT` (inferred from `Request[ResponseT]`) |
-| **Raises** | `HandlerNotFoundError` — no handler is registered for the request type |
-
-Exceptions raised inside handlers propagate unchanged — `send()` never catches or wraps them. See [error handling](/docs/guide/error-handling).
-
-<Callout type="info" title="Zero-overhead fast path">
-  If no behaviors apply to a request, the handler is called directly with no
-  pipeline-construction overhead. Otherwise a pipeline is built per request from every applicable
-  behavior in registration order (first registered is outermost), then the handler.
-</Callout>
-
-## `stream()`
-
-Resolves the [`StreamRequestHandler`](/docs/api/stream-request-handler) registered for the request's type and returns its (async) generator. The handler is resolved **eagerly** — a missing registration raises `HandlerNotFoundError` at the `stream()` call, not on first iteration — while the stream itself is **lazy**: the handler's body runs only as chunks are pulled.
-
-| | |
-| --- | --- |
-| **Args** | `request` — the stream request instance to dispatch |
-| **Returns** | An `AsyncIterator[ChunkT]` (async) or `Iterator[ChunkT]` (sync); the element type is inferred from `StreamRequest[ChunkT]` |
-| **Raises** | `HandlerNotFoundError` — no handler is registered for the request type |
-
-Unlike `send()`, the handler is a generator, so `stream()` itself is not awaited — iterate its result:
-
-```python
-async for token in mediator.stream(StreamCompletion(prompt="hi there")):
-    print(token)  # token is typed from StreamRequest[ChunkT]
-```
-
-<Callout type="info" title="Pipeline behaviors wrap send() only">
-  Behaviors do not run on `stream()`. Cross-cutting concerns around a stream live in the handler
-  itself.
-</Callout>
-
-## `publish()`
-
-Resolves every `EventHandler` registered for the event's **exact** class and invokes each one with the event. Zero subscribers is a silent no-op. The async mediator runs handlers **concurrently** via `asyncio.gather` (tasks created in registration order); the sync mediator runs them sequentially in registration order.
-
-| | |
-| --- | --- |
-| **Args** | `event` — the event instance to publish |
-| **Returns** | `None` — events have no response |
-| **Raises** | `ServiceNotFoundError` — a subscribed handler class has no registered instance (raised before any handler runs); `ExceptionGroup` — one or more handlers raised during execution |
-
-Error semantics, in order:
-
-1. **Resolution fails fast.** All handler instances are resolved from the provider before any handler runs, so a missing registration never causes partial delivery.
-2. **Execution failures aggregate.** A raising handler doesn't stop the others — every handler runs, then the failures are re-raised together as an `ExceptionGroup`, which you can handle selectively with `except*`.
-
-```python
-try:
-    await mediator.publish(OrderPlaced(order_id=42))
-except* ConnectionError as group:
-    for exc in group.exceptions:
-        log.warning("subscriber unavailable: %s", exc)
-```
-
-<Callout type="info" title="Pipeline behaviors wrap send() only">
-  Behaviors do not run on publishes. Cross-cutting concerns for events live in the handlers
-  themselves.
-</Callout>
-
-## Usage
+`Mediator(services)` accepts any object implementing the `ServiceProvider` protocol. The keyword
+name is `services`:
 
 ```python
 from pymediate import Mediator, Services
 
-services = Services()
-services.add(CreateUserHandler())
-mediator = Mediator(services.provider())
-
-response = await mediator.send(CreateUserRequest(username="alice"))
-# response is typed as UserCreatedResponse
+services = Services().add(PlaceOrderHandler())
+mediator = Mediator(services=services.provider())
 ```
 
-With a DI container:
+The mediator keeps the provider for later dispatches. Handler and behavior lifetimes are therefore
+determined by that provider.
+
+## `send()`
+
+`send()` uses the request's exact class to find its registered `RequestHandler` class, resolves a
+handler instance, and calls it. It returns the response type declared by `Request[ResponseT]`.
+
+Before the handler runs, the mediator resolves registered `PipelineBehavior` instances and keeps
+the ones whose `should_apply()` method returns `True`. The first registered applicable behavior is
+the outermost. If none apply, the mediator calls the handler without constructing a behavior chain.
+
+| | |
+| --- | --- |
+| **Parameter** | `request: Request[ResponseT]` |
+| **Returns** | `ResponseT` |
+| **Raises** | `HandlerNotFoundError` if no handler class is registered; `ServiceNotFoundError` if its instance cannot be resolved |
+
+Exceptions raised by a behavior or handler propagate unchanged.
 
 ```python
-from pymediate.providers import DependencyInjectorServiceProvider
-
-mediator = Mediator(DependencyInjectorServiceProvider(AppContainer()))
+receipt = await mediator.send(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+)
+# receipt is inferred as OrderReceipt
 ```
 
-With behaviors:
+## `stream()`
+
+`stream()` uses the stream request's exact class to resolve its `StreamRequestHandler` and returns
+the resulting iterator. The handler instance is resolved at the `stream()` call. The generator body
+is lazy and runs as the caller consumes chunks.
+
+| | |
+| --- | --- |
+| **Parameter** | `request: StreamRequest[ChunkT]` |
+| **Returns** | `AsyncIterator[ChunkT]` for the async API; `Iterator[ChunkT]` for the sync API |
+| **Raises at the call** | `HandlerNotFoundError` if no handler class is registered; `ServiceNotFoundError` if its instance cannot be resolved |
+
+Errors from inside the generator are raised during iteration. Pipeline behaviors do not wrap
+`stream()`.
 
 ```python
-from pymediate import PipelineBehavior, Request
-
-class LoggingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        print(f"Before: {type(request).__name__}")
-        response = await next()
-        print(f"After: {type(request).__name__}")
-        return response
-
-services = Services()
-services.add(LoggingBehavior())     # registered first = outermost
-services.add(CreateUserHandler())
-mediator = Mediator(services.provider())
+async for row in mediator.stream(ExportOrders(customer_id=7)):
+    print(row)
 ```
 
-`Mediator` isn't designed for subclassing — compose [pipeline behaviors](/docs/guide/pipeline-behaviors) instead.
+Do not await the asynchronous `stream()` call itself; use `async for` on its result.
+
+## `publish()`
+
+`publish()` resolves every `EventHandler` registered for the event's exact class. Publishing with
+no registered handlers returns `None` without error. Pipeline behaviors do not wrap publication.
+
+The mediator resolves every handler instance before invoking any of them. A missing instance thus
+raises `ServiceNotFoundError` before partial delivery can occur.
+
+The asynchronous mediator runs the resolved handlers concurrently. Ordinary `Exception` failures
+are collected after all handlers finish and raised as an `ExceptionGroup`. Other collected
+`BaseException` values produce a `BaseExceptionGroup`. Python treats `KeyboardInterrupt` and
+`SystemExit` specially: they propagate instead of being grouped and can cancel unfinished sibling
+handlers.
+
+The synchronous mediator runs handlers sequentially in registration order, continues after
+ordinary `Exception` failures, and raises those failures together as an `ExceptionGroup`. A direct
+`BaseException` that is not an `Exception` stops synchronous delivery and propagates immediately.
+
+```python
+await mediator.publish(OrderPlaced(order_id=42, item="tea"))
+```
 
 ## See also
 
-- [Services / ServiceProvider](/docs/api/service-provider) — building the provider
-- [StreamRequest](/docs/api/stream-request) / [StreamRequestHandler](/docs/api/stream-request-handler) — the stream-side classes
-- [Event](/docs/api/event) / [EventHandler](/docs/api/event-handler) — the publish-side classes
-- [Pipeline](/docs/api/pipeline) — the behavior API
-- [The mediator guide](/docs/guide/mediator) — lifecycle and best practices
-- [The events guide](/docs/guide/events) — publishing patterns
+- [RequestHandler](/docs/api/request-handler) — the `send()` handler
+- [StreamRequestHandler](/docs/api/stream-request-handler) — the `stream()` handler
+- [EventHandler](/docs/api/event-handler) — a `publish()` subscriber
+- [PipelineBehavior and Next](/docs/api/pipeline) — request middleware
+- [Errors](/docs/api/errors) — dispatch and publication failures

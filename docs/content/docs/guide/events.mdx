@@ -1,152 +1,137 @@
 ---
 title: Events
-description: Publishing events to many handlers — fan-out, ExceptionGroup error handling, async concurrency, and how events differ from requests.
+description: Publish an event to zero or more handlers, including delivery order, failures, and the difference from requests.
 ---
 
-`send()` is a conversation: one request, one handler, one typed response. `publish()` is an announcement: one event, any number of handlers, no response. Use events when something *happened* and multiple parts of the application care — an order was placed, a user registered — and the publisher shouldn't know or care who reacts.
+Events notify zero or more handlers that something has happened. The publisher receives no
+response and does not select a handler.
 
-## Requests vs. events
+## Requests and events have different contracts
 
 | | `send(request)` | `publish(event)` |
 | --- | --- | --- |
-| Handlers | Exactly one (`HandlerNotFoundError` if missing) | Zero or more (zero is a no-op) |
-| Response | Typed, inferred from `Request[ResponseT]` | None — handlers return `None` |
-| Second handler registers | `HandlerAlreadyRegisteredError` | Fine — that's the point |
-| RequestHandler raises | Propagates unchanged | All handlers still run; failures aggregate into an `ExceptionGroup` |
-| Pipeline behaviors | Wrap the dispatch | Not applied |
+| Handler count | Exactly one | Zero or more |
+| Result | The type declared by `Request[ResponseT]` | `None` |
+| No handler | `HandlerNotFoundError` | No operation |
+| Multiple handlers | `HandlerAlreadyRegisteredError` | Supported |
+| Handler failures | Propagated from the handler | Ordinary failures are grouped; fatal base exceptions can interrupt delivery |
+| Pipeline behaviors | Applied | Not applied |
 
-## Defining and publishing an event
+Use a request when the caller needs one operation to produce a result. Use an event when the
+publisher only needs to report a completed fact, such as `OrderPlaced`, and subscribers can
+act independently.
 
-An event inherits from `Event` — no type parameter, because there's no response to infer. Handlers subclass `EventHandler[EventType]` and are validated at class-definition time, exactly like request handlers (exact-class annotation, sync/async correctness) plus one event-specific rule: the return annotation must be `None`.
+## Define and publish an event
+
+An event inherits from `Event`. Its handlers inherit from `EventHandler[EventType]`, accept
+that exact event type, and return `None`:
 
 ```python
+import asyncio
 from dataclasses import dataclass
+
 from pymediate import Event, EventHandler, Mediator, Services
 
-@dataclass
+
+@dataclass(frozen=True)
 class OrderPlaced(Event):
     order_id: int
-    customer_email: str
+    item: str
 
-class SendConfirmation(EventHandler[OrderPlaced]):
-    def __init__(self, mailer):
-        self.mailer = mailer
 
+class RecordOrder(EventHandler[OrderPlaced]):
     async def __call__(self, event: OrderPlaced) -> None:
-        await self.mailer.send(event.customer_email, f"Order {event.order_id} confirmed")
+        print(f"recorded {event.order_id}")
 
-class UpdateAnalytics(EventHandler[OrderPlaced]):
-    def __init__(self, analytics):
-        self.analytics = analytics
 
+class NotifyWarehouse(EventHandler[OrderPlaced]):
     async def __call__(self, event: OrderPlaced) -> None:
-        await self.analytics.record("order_placed", order_id=event.order_id)
+        await asyncio.sleep(0)
+        print(f"warehouse notified about {event.item}")
 
-services = Services()
-services.add(SendConfirmation(mailer)).add(UpdateAnalytics(analytics))
-mediator = Mediator(services.provider())
 
-await mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
+async def main() -> None:
+    services = Services()
+    services.add(RecordOrder()).add(NotifyWarehouse())
+    mediator = Mediator(services.provider())
+
+    await mediator.publish(OrderPlaced(order_id=42, item="tea"))
+
+
+asyncio.run(main())
 ```
 
-Handlers run **concurrently** via `asyncio.gather` (tasks are created in registration order, then awaited together). Publishing an event nobody subscribed to succeeds silently — zero subscribers is a legitimate state, and erroring would couple publishers to subscriber existence, which is the coupling `publish` exists to remove.
+Defining each handler class registers its subscription. Adding a handler instance to
+`Services` makes that instance available when an event is published. Build the provider
+after adding every required instance because `Services.provider()` returns a snapshot.
 
-Like requests, events dispatch on the **exact class** of the published instance: a handler subscribed to a base event class does not receive derived events, and `EventHandler.__call__` must annotate the exact event class declared in `EventHandler[...]` — see [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract).
+The asynchronous and synchronous APIs share this process-wide subscription list. All handlers
+for one exact event type must therefore use the same form: either `async def` handlers from
+`pymediate.EventHandler` or `def` handlers from `pymediate.sync.EventHandler`. Mixing the forms for
+one event gives a mediator subscribers it cannot invoke correctly. Use distinct event types or
+separate processes when both forms are required.
 
-## Error handling: every handler runs
+Dispatch uses the event instance's exact class. A handler for a base event class does not
+receive instances of a derived event class. The parameter annotation must also match the
+event type in `EventHandler[...]` exactly. See the
+[`EventHandler` validation rules](/docs/api/event-handler#definition-time-validation).
 
-If a handler raises, the remaining handlers still run — delivery never depends on registration order. Once all handlers have finished, `publish()` raises an [`ExceptionGroup`](https://docs.python.org/3/library/exceptions.html#ExceptionGroup) carrying every failure, which you can handle selectively with `except*`:
+## Delivery and failures
 
-```python
-try:
-    await mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
-except* ConnectionError as group:
-    for exc in group.exceptions:
-        log.warning("subscriber unavailable: %s", exc)
-except* ValidationError as group:
-    raise  # a bug, not an outage - let it surface
-```
+The asynchronous mediator resolves all subscriber instances before any handler runs. It then
+runs the handlers concurrently with `asyncio.gather()`. Task creation follows registration
+order, but completion order depends on the handlers.
 
-One exception to run-everything: **resolution failures fail fast**. `publish()` resolves every handler instance from the `ServiceProvider` *before* invoking any of them, so a subscriber class whose instance was never registered raises `ServiceNotFoundError` immediately — a configuration bug never causes partial delivery.
+The synchronous mediator runs handlers one at a time in registration order. Resolution failures
+behave the same in both versions, but subscriber failures differ slightly:
 
-<Callout type="warn" title="Concurrent handlers must be independent">
-  Async handlers for one event run at the same time. They must not rely on each other's effects
-  or mutate shared state without synchronization — if two reactions must happen in order, that's
-  one handler (or a handler that sends a request), not two.
-</Callout>
+- If a subscriber class has no instance in the service provider, `ServiceNotFoundError` is
+  raised before any handler runs.
+- The asynchronous mediator lets every subscriber finish after ordinary `Exception` failures and
+  raises them in an `ExceptionGroup`. Other collected `BaseException` values produce a
+  `BaseExceptionGroup`. `KeyboardInterrupt` and `SystemExit` propagate instead and can cancel
+  unfinished subscribers.
+- The synchronous mediator catches ordinary `Exception` failures, continues through the remaining
+  subscribers, and raises those failures in an `ExceptionGroup`. A direct `BaseException`, such as
+  `KeyboardInterrupt`, stops synchronous delivery and propagates immediately.
 
-## Sync events
+Python's `except*` syntax can handle selected exception types from either group. It does not turn a
+directly propagated `KeyboardInterrupt` or `SystemExit` into a group.
 
-The sync mirror works the same way, with one deliberate difference: `pymediate.sync.Mediator.publish()` runs handlers **sequentially, in registration order**. Failures still aggregate into an `ExceptionGroup` after every handler finishes.
+Handlers for one event should therefore not depend on each other's completion order. Put
+ordered work in one handler, or model the dependent operation as a request.
 
-```python
-from dataclasses import dataclass
-from pymediate.sync import Event, EventHandler, Mediator, Services
+## Events are in-process dispatch
 
-@dataclass
-class OrderPlaced(Event):
-    order_id: int
+`publish()` calls handlers in the current process and does not return until they finish. It
+does not persist events, retry failed delivery, or send work to another process. Use a message
+broker or durable job system when those properties are required. An event handler can publish
+to such a system as part of an application's integration code.
 
-class SendConfirmation(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None:
-        mail_service.send_confirmation(event.order_id)
+## Definition-time validation
 
-class UpdateAnalytics(EventHandler[OrderPlaced]):
-    def __call__(self, event: OrderPlaced) -> None:
-        analytics.record("order_placed", order_id=event.order_id)
+PyMediate validates an event handler when Python defines its class. It requires:
 
-services = Services()
-services.add(SendConfirmation()).add(UpdateAnalytics())
-mediator = Mediator(services.provider())
+- an event type that inherits from `Event`;
+- an exact parameter annotation;
+- a `None` return annotation; and
+- `async def` for `pymediate.EventHandler`, or `def` for
+  `pymediate.sync.EventHandler`.
 
-mediator.publish(OrderPlaced(order_id=42))
-```
+The corresponding errors are `InvalidEventTypeError` and
+`InvalidHandlerSignatureError`. Pipeline behaviors wrap `send()` only, so they do not run
+for published events.
 
-## Events and requests together
+## Testing
 
-A common shape: a request handler does the work, then publishes an event announcing it. The command has one owner; the side effects have many:
+Call an event handler directly when testing its own behavior. Use `publish()` in the smaller
+set of tests that need to verify subscriber wiring, concurrency, or grouped failures. Event
+subscriptions are registered at class definition and remain process-wide, so define shared
+test event and handler classes once. The [testing guide](/docs/guide/testing) describes this
+constraint in more detail.
 
-```python
-class PlaceOrderHandler(RequestHandler[PlaceOrderRequest]):
-    def __init__(self, mediator, database):
-        self.mediator = mediator
-        self.database = database
+## Continue
 
-    async def __call__(self, request: PlaceOrderRequest) -> PlaceOrderResponse:
-        order_id = await self.database.create_order(items=request.items)
-        await self.mediator.publish(OrderPlaced(order_id=order_id, customer_email=request.email))
-        return PlaceOrderResponse(order_id=order_id)
-```
-
-This keeps `PlaceOrderHandler` ignorant of confirmation emails, analytics, loyalty points, and whatever subscribes next month.
-
-## Testing event handlers
-
-Like request handlers, event handlers are plain callables — construct and call:
-
-```python
-@pytest.mark.asyncio
-async def test_send_confirmation():
-    mailer = MockMailer()
-    handler = SendConfirmation(mailer)
-
-    await handler(OrderPlaced(order_id=42, customer_email="a@example.com"))
-
-    assert mailer.sent == ["a@example.com"]
-```
-
-To assert fan-out through the mediator, register the handlers you care about and publish. The handler registry is process-global — the same [test-isolation gotcha](/docs/advanced/testing#a-test-isolation-gotcha-the-handler-registry-is-global) as request handlers applies.
-
-## Best practices
-
-- **Name events in the past tense.** `OrderPlaced`, not `PlaceOrder` — an event states a fact; a request asks for work.
-- **Events carry facts, not instructions.** Put what happened in the event; let each subscriber decide what to do about it.
-- **Keep handlers independent.** If one reaction depends on another's result, that's a request chain, not two event subscribers.
-- **Return `None` and mean it.** A subscriber that computes something the publisher needs is a request handler in disguise.
-- **Pipeline behaviors don't run on publishes.** Cross-cutting concerns for events live in the handlers themselves (or a shared helper) for now.
-
-## Next steps
-
-- [The mediator](/docs/guide/mediator) — how `send()` routes requests
-- [Handlers](/docs/guide/handlers) — the request-side counterpart
-- [Error handling](/docs/guide/error-handling) — the exception hierarchy
+- [Requests and responses](/docs/guide/requests-responses) covers single-response dispatch.
+- [Streaming](/docs/guide/streaming) covers one handler yielding several typed chunks.
+- [Error handling](/docs/guide/error-handling) lists PyMediate's exceptions.

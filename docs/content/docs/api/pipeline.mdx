@@ -1,112 +1,140 @@
 ---
-title: Pipeline
-description: API reference for PipelineBehavior, async and sync.
+title: PipelineBehavior and Next
+description: API reference for asynchronous and synchronous request pipeline behaviors.
 ---
 
-Pipeline behaviors wrap request processing with middleware-style logic. The mediator discovers registered behaviors at dispatch and chains them around the handler for you. Async (`pymediate`) and sync (`pymediate.sync`) variants exist.
+`PipelineBehavior` wraps request processing before and after the next behavior or handler.
+Behaviors apply to `Mediator.send()` only; they do not wrap `stream()` or `publish()`.
 
-## PipelineBehavior
+## Signatures
 
 <Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
     ```python
+    from abc import ABC, abstractmethod
+    from collections.abc import Awaitable, Callable
     from typing import Any
-    from pymediate import Next, PipelineBehavior, Request
+
+    from pymediate import Request
+
+    type Next[ResponseT] = Callable[[], Awaitable[ResponseT]]
 
     class PipelineBehavior[RequestT: Request[Any]](ABC):
-        @classmethod
-        def should_apply(cls, request: Request[Any]) -> bool:
-            """Determine if this behavior should apply to the given request."""
+        apply_to_subclasses: bool = True
 
-        @abstractmethod
-        async def __call__(self, request: RequestT, next: Next[Any]) -> Any:
-            """Execute the behavior's async logic and await next to continue the pipeline."""
-    ```
-  </Tab>
-  <Tab value="Sync">
-    ```python
-    from typing import Any
-    from pymediate.sync import Next, PipelineBehavior, Request
-
-    class PipelineBehavior[RequestT: Request[Any]](ABC):
         @classmethod
         def should_apply(cls, request: Request[Any]) -> bool: ...
 
         @abstractmethod
-        def __call__(self, request: RequestT, next: Next[Any]) -> Any:
-            """Execute the behavior's logic and call next to continue the pipeline."""
-    ```
-  </Tab>
-</Tabs>
-
-### Type parameters
-
-| Parameter | Description |
-| --- | --- |
-| `RequestT` | Which requests this behavior wraps: `Request` for all, a specific request type, or a mixin |
-
-### `__call__(request, next)`
-
-The behavior's body. `next` is a callable representing the rest of the pipeline — remaining behaviors and, ultimately, the handler. Await it (or call it plainly in the sync variant) to continue; skip it to short-circuit.
-
-Its type is the public `Next` alias — `Next[ResponseT]` is `Callable[[], Awaitable[ResponseT]]` (async, `from pymediate import Next`) or `Callable[[], ResponseT]` (sync, `from pymediate.sync import Next`). Annotate `next: Next[YourResponse]` to keep the continuation's result typed, or `Next[Any]` for a universal behavior that passes the response through untouched.
-
-| | |
-| --- | --- |
-| **Args** | `request` — the request being processed; `next` — continues the pipeline and returns the response |
-| **Returns** | The response (usually the result of `next()`, possibly transformed) |
-
-### `should_apply(request)` <span className="text-fd-muted-foreground text-sm">classmethod</span>
-
-Decides whether the behavior wraps a given request. The default implementation is an `isinstance` check against `RequestT`. Override it for matching logic beyond types:
-
-```python
-class BusinessHoursBehavior(PipelineBehavior[Request]):
-    @classmethod
-    def should_apply(cls, request: Request) -> bool:
-        return 9 <= datetime.now().hour < 17
-```
-
-## Running a behavior without a mediator
-
-There is no public pipeline class — the chain the mediator builds is internal. To exercise a behavior in isolation (in a unit test, say), call it directly; `next` is just a zero-argument callable:
-
-<Tabs items={['Async', 'Sync']}>
-  <Tab value="Async">
-    ```python
-    behavior = LoggingBehavior(logger)
-    handler = GetUserHandler(database)
-    request = GetUserRequest(user_id=123)
-
-    response = await behavior(request, lambda: handler(request))
+        async def __call__(
+            self,
+            request: RequestT,
+            next: Next[Any],
+        ) -> Any: ...
     ```
   </Tab>
   <Tab value="Sync">
     ```python
-    behavior = LoggingBehavior(logger)
-    handler = GetUserHandler(database)
-    request = GetUserRequest(user_id=123)
+    from abc import ABC, abstractmethod
+    from collections.abc import Callable
+    from typing import Any
 
-    response = behavior(request, lambda: handler(request))
+    from pymediate.sync import Request
+
+    type Next[ResponseT] = Callable[[], ResponseT]
+
+    class PipelineBehavior[RequestT: Request[Any]](ABC):
+        apply_to_subclasses: bool = True
+
+        @classmethod
+        def should_apply(cls, request: Request[Any]) -> bool: ...
+
+        @abstractmethod
+        def __call__(
+            self,
+            request: RequestT,
+            next: Next[Any],
+        ) -> Any: ...
     ```
   </Tab>
 </Tabs>
 
-For anything beyond a one-off, register the behaviors and let the mediator run them — ordering, selection via `should_apply`, and provider lifetimes all come from registration:
+| Type parameter | Meaning |
+| --- | --- |
+| `RequestT` | The `Request` subclass, or request-class family, that the behavior can wrap |
+| `ResponseT` on `Next` | The response returned by the remainder of the pipeline |
+
+The `RequestT` bound is `Request[Any]`. Use `PipelineBehavior[Request[Any]]` for a universal
+behavior or a specific request class such as `PipelineBehavior[PlaceOrder]` for a selective one.
+
+## `__call__(request, next)`
+
+`next` is a zero-argument continuation. Await it in the asynchronous API, or call it directly in
+the synchronous API, to run the rest of the chain. A behavior may return without calling `next()`
+to short-circuit dispatch. Whatever the behavior returns becomes the result seen by the preceding
+behavior or caller.
+
+For a behavior scoped to one request type, use the concrete response type on `Next` and on the
+method return:
+
+```python
+from pymediate import Next, PipelineBehavior
+
+
+class TracePlaceOrder(PipelineBehavior[PlaceOrder]):
+    async def __call__(
+        self,
+        request: PlaceOrder,
+        next: Next[OrderReceipt],
+    ) -> OrderReceipt:
+        print("handling PlaceOrder")
+        receipt = await next()
+        print("handled PlaceOrder")
+        return receipt
+```
+
+For a universal behavior that can see different response types, use `Next[Any]` and return `Any`.
+PyMediate does not validate a behavior's returned value against the request's declared response
+type.
+
+## Selection
+
+`should_apply(request)` decides whether a registered behavior joins a request's pipeline. The
+default behavior is:
+
+- `PipelineBehavior[Request[Any]]` matches every `Request`;
+- a behavior parameterized with a request class matches that class and its subclasses; and
+- setting `apply_to_subclasses = False` restricts the match to the exact request class.
+
+Override `should_apply()` when selection depends on request data or another condition.
+
+## Registration and order
+
+Register behavior instances in the same `ServiceProvider` as request handlers. The first
+registered applicable behavior is the outermost:
 
 ```python
 services = Services()
-services.add(LoggingBehavior(logger))     # first registered = outermost
-services.add(ValidationBehavior())
-services.add(TimingBehavior(metrics))     # last registered = innermost
-services.add(GetUserHandler(database))
+services.add(LoggingBehavior())
+services.add(TracePlaceOrder())
+services.add(PlaceOrderHandler())
 
 mediator = Mediator(services.provider())
-response = await mediator.send(GetUserRequest(user_id=123))
+```
+
+Use the asynchronous behavior class with `pymediate.Mediator` and the synchronous class with
+`pymediate.sync.Mediator`.
+
+## Direct invocation
+
+There is no public pipeline object. A behavior can be tested directly by supplying a continuation:
+
+```python
+receipt = await TracePlaceOrder()(request, lambda: handler(request))
 ```
 
 ## See also
 
-- [Pipeline behaviors guide](/docs/guide/pipeline-behaviors) — concepts, ordering, recipes
-- [Pipeline behavior examples](/docs/examples/pipeline-behaviors) — runnable recipes
-- [Mediator](/docs/api/mediator) — how behaviors are discovered at dispatch
+- [Pipeline behaviors](/docs/guide/pipeline-behaviors) — selection, ordering, and design
+- [Mediator.send()](/docs/api/mediator#send) — discovers and composes behaviors
+- [Testing](/docs/guide/testing) — direct handler and behavior tests

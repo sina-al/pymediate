@@ -1,200 +1,198 @@
 ---
 title: Error handling
-description: Why PyMediate stays out of error handling, and how to keep domain errors separate from framework errors.
+description: Keep application failures separate from transport responses and handle PyMediate errors at the right stage.
 ---
 
-PyMediate deliberately stays out of your error handling. Handlers raise ordinary Python exceptions, `send()` lets them propagate unchanged, and the edge of your application decides what a given failure means to a caller. That hands-off stance is the point: it's what lets the same core run behind a web framework, a CLI, or a background worker without change.
+PyMediate does not translate exceptions raised by request handlers or pipeline behaviors.
+`send()` propagates them unchanged, so the application's entry point can decide how to report a
+failure over HTTP, a command-line interface, or another transport.
 
-Two families of error show up in a PyMediate application, and keeping them apart is what keeps the core portable:
+It helps to distinguish three sources:
 
-- **Domain errors** — raised by your handlers to signal business-rule violations (`InsufficientFundsError`, `ProductNotFoundError`). Plain exceptions, no framework knowledge.
-- **Framework errors** — HTTP status codes, JSON error bodies, `HTTPException`. These belong to the web layer, not to a handler.
+- **Application errors** describe a failed operation, such as a missing product or insufficient
+  stock.
+- **Transport errors** describe how an entry point reports that failure, such as an HTTP status and
+  response body.
+- **PyMediate errors** report invalid declarations or missing dispatch configuration.
 
-## Domain errors
+## Define application errors without a transport
 
-A handler's job is to describe *what went wrong in the domain*, not how some transport should report it. Model failures as a small exception hierarchy so callers can catch at whatever granularity they need:
+An application error can carry the domain values a caller needs without importing a web
+framework:
 
 ```python
 class ShopError(Exception):
-    """Base for every error the shop domain can raise."""
+    """Base class for shop operation failures."""
+
 
 class ProductNotFoundError(ShopError):
-    def __init__(self, product_id: int):
-        self.product_id = product_id
-        super().__init__(f"Product not found: {product_id}")
+    def __init__(self, product: str) -> None:
+        self.product = product
+        super().__init__(f"product not found: {product}")
+
 
 class OutOfStockError(ShopError):
-    def __init__(self, product_id: int, requested: int, available: int):
-        self.product_id = product_id
+    def __init__(self, product: str, requested: int, available: int) -> None:
+        self.product = product
         self.requested = requested
         self.available = available
         super().__init__(
-            f"Product {product_id} out of stock: requested {requested}, available {available}"
+            f"not enough {product}: requested {requested}, available {available}",
         )
 ```
 
-A handler raises them and nothing else — no status codes, no `abort()`, no imports from your web framework:
+A handler can raise these errors as part of its operation:
 
 ```python
-class PlaceOrderHandler(RequestHandler[PlaceOrderRequest]):
-    async def __call__(self, request: PlaceOrderRequest) -> PlaceOrderResponse:
-        product = await self.database.get_product(request.product_id)
-        if not product:
-            raise ProductNotFoundError(request.product_id)
-        if product.stock < request.quantity:
-            raise OutOfStockError(request.product_id, request.quantity, product.stock)
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    def __init__(self, inventory: Inventory, orders: OrderStore) -> None:
+        self._inventory = inventory
+        self._orders = orders
 
-        order_id = await self.database.create_order(request)
-        return PlaceOrderResponse(order_id=order_id)
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        available = await self._inventory.available(request.item)
+        if available is None:
+            raise ProductNotFoundError(request.item)
+        if available < request.quantity:
+            raise OutOfStockError(request.item, request.quantity, available)
+
+        order_id = await self._orders.add(request)
+        return OrderReceipt(
+            order_id=order_id,
+            summary=f"{request.quantity} × {request.item}",
+        )
 ```
 
-## Framework errors
+Avoid adding an HTTP status or framework exception to these classes solely for one entry point.
+That detail would make a command-line command or scheduled job depend on an HTTP convention it
+does not use.
 
-A handler must speak only in domain terms. The blatant way to break that is raising the web framework's own exception from a handler:
+## Translate errors at the entry point
+
+Web frameworks provide central exception handlers. For example, FastAPI can map the same
+application errors to two HTTP responses:
 
 ```python
-# Leak: the handler now depends on a web framework.
-raise HTTPException(status_code=404, detail="Product not found")
+from fastapi import FastAPI, Request as HTTPRequest
+from fastapi.responses import JSONResponse
+
+app = FastAPI()
+
+
+@app.exception_handler(ProductNotFoundError)
+async def product_not_found(
+    request: HTTPRequest,
+    error: ProductNotFoundError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=404,
+        content={"error": str(error), "product": error.product},
+    )
+
+
+@app.exception_handler(OutOfStockError)
+async def out_of_stock(
+    request: HTTPRequest,
+    error: OutOfStockError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={"error": str(error), "available": error.available},
+    )
 ```
 
-Reaching for your own exception class doesn't fix anything if you smuggle the same transport detail inside it:
+A command-line entry point can catch the same classes and choose an exit code and text output. The
+handler does not change between those entry points.
+
+A pipeline behavior can implement a transport-neutral error policy, such as recording a failure
+and re-raising it. Translating application errors into `HTTPException` inside a behavior makes that
+mediator configuration specific to HTTP. A framework-level exception handler is usually clearer
+when the mapping is only for that framework.
+
+## Understand definition-time errors
+
+Request, event, and stream handlers are validated when Python defines their classes. These errors
+normally stop module import and indicate a declaration that needs to be corrected:
+
+| Exception | Meaning |
+| --- | --- |
+| `InvalidHandlerSignatureError` | A request, event, or stream handler has the wrong call shape, annotations, sync form, or generator form. |
+| `InvalidRequestTypeError` | A request handler's type argument is not a registered `Request[ResponseType]` subclass. |
+| `InvalidEventTypeError` | An event handler's type argument is not an `Event` subclass. |
+| `InvalidStreamRequestTypeError` | A stream handler's type argument is not a `StreamRequest[ChunkType]` subclass, or the chunk type is absent. |
+| `ResponseTypeMismatchError` | A request handler's return annotation does not match its request's declared response type. |
+| `HandlerAlreadyRegisteredError` | A second request or stream-handler class was declared for the same request type. |
+
+These six exceptions inherit from `PyMediateError`. `ResponseTypeMismatchError` checks the return
+annotation; PyMediate does not execute the handler or inspect a later response value during class
+definition.
+
+Static type checkers catch some of the same mistakes. Definition-time validation also runs when
+unchecked Python imports the module. See [type safety](/docs/guide/type-safety) for the boundary
+between those checks.
+
+## Understand dispatch-time errors
+
+Two public errors describe missing resolution configuration:
+
+### `HandlerNotFoundError`
+
+`send()` or `stream()` raises `HandlerNotFoundError` when the exact request type has no declared
+handler class. Common causes include a missing handler definition or an application module that was
+not imported during startup.
+
+`HandlerNotFoundError` inherits from `PyMediateError`.
+
+### `ServiceNotFoundError`
+
+Once a handler class is known, the mediator asks the service provider for an instance of that exact
+class. If the provider does not contain one, it raises `ServiceNotFoundError`. Event publication
+raises the same error when a declared subscriber has no service instance; all subscriber instances
+are resolved before any subscriber runs.
+
+`ServiceNotFoundError` inherits directly from `Exception`, not `PyMediateError`. Catching
+`PyMediateError` therefore does not catch missing services.
+
+Both errors normally indicate application setup rather than invalid user input. An entry point can
+log them as configuration failures while allowing application errors to use their own mappings.
+
+The optional Dependency Injector adapter can also raise `TypeError` for an unsupported or
+asynchronous provider and `ValueError` for a nested-container cycle. Those errors occur while the
+adapter indexes or resolves the container; see [dependency injection](/docs/guide/dependency-injection).
+
+## Know when handler errors appear
+
+Each dispatch form propagates user-code failures at a different point:
+
+| Operation | Error behavior |
+| --- | --- |
+| `await mediator.send(request)` | Handler and behavior exceptions propagate unchanged from the call. |
+| `mediator.stream(request)` | Handler resolution errors occur at this call. |
+| Iterating a stream | Exceptions from the generator body propagate when the relevant chunk is requested. |
+| `await mediator.publish(event)` | Asynchronous subscribers run concurrently; ordinary failures are grouped after all finish. `KeyboardInterrupt` and `SystemExit` propagate directly. |
+| `mediator.publish(event)` | Synchronous subscribers run in order; ordinary `Exception` failures are grouped after all subscribers have been called. |
+
+For asynchronous publication, ordinary exceptions produce an `ExceptionGroup`. Other collected
+failures derived directly from `BaseException` produce a `BaseExceptionGroup`. `KeyboardInterrupt`
+and `SystemExit` are handled specially by Python: they propagate directly and can cancel unfinished
+subscribers. The synchronous mediator groups ordinary `Exception` instances; a direct
+`BaseException` is not collected.
+
+Use `except*` to handle selected failures from a grouped publish:
 
 ```python
-# Also a leak: a domain error that carries its own HTTP status.
-class ProductNotFoundError(ShopError):
-    http_status = 404
-```
-
-The exception is yours, but `http_status` is a fact about HTTP, and HTTP is one transport out of many. The domain's job is to say *what* happened — this product doesn't exist. Deciding that a missing product maps to `404` is the web edge's job. Either form pins your core to one transport.
-
-### Why this matters
-
-The coupling costs nothing on the day you write it. The bill arrives the day you try to reuse the core — and reuse is why the core exists. Suppose the shop needs a second entry point: a nightly batch script that replays failed orders from a partner's CSV feed. `PlaceOrderHandler` is just a class, so this should be the mediator pattern's easiest win:
-
-```
-$ python replay_orders.py
-Traceback (most recent call last):
-  File "replay_orders.py", line 40, in <module>
-    response = asyncio.run(mediator.send(PlaceOrderRequest(...)))
-  ...
-  File "shop/handlers.py", line 12, in __call__
-    raise HTTPException(status_code=404, detail="Product not found")
-fastapi.exceptions.HTTPException: 404: Product not found
-```
-
-A batch script just failed with an HTTP error. There's no server in this program, no client, no request — nothing a 404 could be sent *to*. And the traceback is only the visible symptom: the script can't run at all until FastAPI is installed, because the domain can't say "product not found" without it. A CSV-processing job now hauls a web framework around as a load-bearing dependency — and so does every entry point you add after it.
-
-Swapping frameworks is where the coupling turns from absurd to blocking: migrating from FastAPI to Flask should mean rewriting routes, but instead it means rewriting handlers. Keep transport out of the domain and every new edge is just a new translation. Let it in, and every new edge inherits a framework it has no use for.
-
-## Mapping domain errors at the edge
-
-Every mainstream web framework has a construct for turning an exception into a response. Register your domain-error mapping there — once, centrally — and keep routes down to the happy path.
-
-<Tabs items={['FastAPI', 'Flask']}>
-  <Tab value="FastAPI">
-    ```python
-    from fastapi import FastAPI, Request as HTTPRequest
-    from fastapi.responses import JSONResponse
-
-    app = FastAPI()
-
-    @app.exception_handler(ProductNotFoundError)
-    async def handle_not_found(request: HTTPRequest, err: ProductNotFoundError):
-        return JSONResponse(status_code=404, content={"error": str(err)})
-
-    @app.exception_handler(OutOfStockError)
-    async def handle_out_of_stock(request: HTTPRequest, err: OutOfStockError):
-        return JSONResponse(status_code=409, content={"error": str(err)})
-
-    @app.post("/orders")
-    async def place_order():
-        response = await mediator.send(PlaceOrderRequest(...))
-        return {"order_id": response.order_id}
-    ```
-  </Tab>
-  <Tab value="Flask">
-    ```python
-    from flask import Flask, jsonify
-
-    app = Flask(__name__)
-
-    @app.errorhandler(ProductNotFoundError)
-    def handle_not_found(err: ProductNotFoundError):
-        return jsonify(error=str(err), product_id=err.product_id), 404
-
-    @app.errorhandler(OutOfStockError)
-    def handle_out_of_stock(err: OutOfStockError):
-        return jsonify(error=str(err), available=err.available), 409
-
-    @app.post("/orders")
-    def place_order():
-        # No try/except: the route describes success; the handlers above map failure.
-        response = asyncio.run(mediator.send(PlaceOrderRequest(...)))
-        return jsonify(order_id=response.order_id), 201
-    ```
-  </Tab>
-</Tabs>
-
-Registering against the `ShopError` base maps the whole hierarchy in one handler; add per-subclass handlers only where a failure needs a distinct status code. The core stays clean, and swapping frameworks (or adding a CLI) means rewriting only this mapping layer.
-
-## A tempting trap: mapping inside a behavior
-
-Because a [pipeline behavior](/docs/guide/pipeline-behaviors) wraps every dispatch, it looks like the perfect place to catch domain errors and turn them into responses:
-
-```python
-# Tempting, but it pulls the web framework into your core pipeline.
-class HttpErrorMappingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        try:
-            return await next()
-        except ProductNotFoundError as err:
-            raise HTTPException(status_code=404, detail=str(err))  # framework leak
-        except OutOfStockError as err:
-            raise HTTPException(status_code=409, detail=str(err))
-```
-
-It centralizes the mapping and runs on every request — but it drags `HTTPException` back *inside* the mediator, exactly the coupling the domain errors were designed to avoid. The damage is at least contained (another deployment can leave the behavior out), but prefer the framework's own error-handling construct: mapping at the edge keeps the leak out of the pipeline entirely.
-
-## PyMediate's own errors
-
-PyMediate raises its own exceptions, all subclasses of `PyMediateError` (which carries an optional `docs_path` to the relevant guide). They split into two groups by *when* they fire, and the two call for opposite treatment.
-
-### Definition-time errors — fatal, not meant to be caught
-
-PyMediate validates a `RequestHandler`, `EventHandler`, or `Request` subclass at the point it is *defined*, so these are raised while your modules are being imported — before the app is even running:
-
-- `InvalidHandlerSignatureError` — a `RequestHandler.__call__` or `EventHandler.__call__` with the wrong shape.
-- `InvalidRequestTypeError` — a handler parameterized on something that isn't a `Request`.
-- `InvalidEventTypeError` — an event handler parameterized on something that isn't an `Event`.
-- `ResponseTypeMismatchError` — a handler's return annotation disagrees with its request's response type.
-- `HandlerAlreadyRegisteredError` — two handlers registered for the same request type (event handlers are exempt — any number may subscribe to one event).
-
-There is nothing to catch, because the `import` that defines the offending class is what raises. A program with one of these can't start — it's a programming mistake, like a `SyntaxError`. Read the message, fix the code; don't wrap class definitions in `try`.
-
-### Dispatch-time errors — catchable
-
-These fire while a request is being routed, and you can handle them like any runtime exception:
-
-- `HandlerNotFoundError` — `mediator.send()` received a request with no registered handler.
-- `ServiceNotFoundError` — a `ServiceProvider.get()` couldn't resolve a requested type.
-
-`mediator.publish()` adds one more shape: handler exceptions during a publish are collected and re-raised together as a builtin `ExceptionGroup` after every subscriber has run — handle selectively with `except*`. See the [events guide](/docs/guide/events#error-handling-every-handler-runs).
-
-Both usually signal a *misconfigured deployment* (a handler or service was never registered) rather than bad client input, so at a web edge they map to a 500, not a 4xx:
-
-```python
-from pymediate import HandlerNotFoundError
-
 try:
-    response = await mediator.send(GetUserRequest(user_id=1))
-except HandlerNotFoundError as err:
-    # A handler is missing from the container — a config bug, not the caller's fault.
-    logger.error("No handler registered for %s", err)
-    raise
+    await mediator.publish(OrderPlaced(order_id=42, item="tea"))
+except* ConnectionError as group:
+    for error in group.exceptions:
+        print(f"subscriber unavailable: {error}")
 ```
 
-## Next steps
+The [events guide](/docs/guide/events#delivery-and-failures) covers subscriber
+resolution, concurrency, and grouping in more detail.
 
-- [Pipeline behaviors](/docs/guide/pipeline-behaviors) — cross-cutting logic, and why error mapping usually shouldn't live there
-- [FastAPI example](/docs/examples/fastapi) — a full edge that maps exceptions to responses
-- [Errors API reference](/docs/api/errors) — every PyMediate exception with its signature
+## Continue
+
+- Map application errors in a [FastAPI entry point](/docs/guide/fastapi).
+- Diagnose individual library exceptions in [troubleshooting](/docs/guide/troubleshooting).
+- Look up the exact [error hierarchy and signatures](/docs/api/errors).

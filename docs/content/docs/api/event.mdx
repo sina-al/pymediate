@@ -9,33 +9,33 @@ from pymediate import Event
 class Event: ...
 ```
 
-Base class for events — facts published to zero or more subscribers via `Mediator.publish()`. Events are `send()`'s fan-out counterpart: where a request is routed to exactly one handler and produces a response, an event is delivered to every [`EventHandler`](/docs/api/event-handler) subscribed to its exact type, and returns nothing. See the [events guide](/docs/guide/events) for semantics and patterns; this page is the API contract.
+`Event` is the base class for messages published with
+[`Mediator.publish()`](/docs/api/mediator#publish). Publishing delivers an event to every
+registered handler for its exact class and returns `None`. Zero handlers is valid.
 
-Unlike `Request[ResponseT]`, `Event` takes **no type parameter** — publishing has no response, so there is nothing to infer. Inheriting from `Event` is what makes a class accepted by `Mediator.publish()` and usable as an `EventHandler` type parameter. Works with dataclasses, regular classes, and any class structure.
+Events have no response type parameter. The same `Event` class is re-exported from `pymediate`
+and `pymediate.sync`. Its subscription registry is also shared, so all handlers for one exact
+event type must be asynchronous or all must be synchronous.
 
-## Usage
-
-With dataclasses (recommended):
+## Example
 
 ```python
 from dataclasses import dataclass
+
 from pymediate import Event
 
-@dataclass
+
+@dataclass(frozen=True)
 class OrderPlaced(Event):
     order_id: int
-    customer_email: str
+    item: str
 ```
 
-Like requests, events dispatch on the **exact class** of the published instance — a handler subscribed to a base event class does not receive derived events.
-
-<Callout type="info" title="Name events in the past tense">
-  An event states a fact — `OrderPlaced`, `UserRegistered` — while a request asks for work.
-  A class you're tempted to name imperatively (`SendEmail`) is probably a request.
-</Callout>
+Dispatch is exact: a handler registered for a base event class does not receive instances of a
+derived event class.
 
 ## See also
 
-- [EventHandler](/docs/api/event-handler) — the subscriber base class
-- [Mediator](/docs/api/mediator) — `publish()` semantics (ordering, `ExceptionGroup`, async concurrency)
-- [The events guide](/docs/guide/events) — patterns and best practices
+- [EventHandler](/docs/api/event-handler) — subscribes to one event type
+- [Mediator.publish()](/docs/api/mediator#publish) — delivery and failure behavior
+- [Events](/docs/guide/events) — design and integration guidance

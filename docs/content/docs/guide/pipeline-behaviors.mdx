@@ -1,298 +1,217 @@
 ---
 title: Pipeline behaviors
-description: Middleware-style cross-cutting concerns — logging, validation, caching, transactions — via PipelineBehavior.
+description: Run shared processing around Mediator.send(), with typed selection and explicit ordering.
 ---
 
-Pipeline behaviors are middleware that wrap request processing. They implement cross-cutting concerns — logging, validation, caching, transactions, retries — without modifying handler code. The concept comes from [MediatR](https://github.com/jbogard/MediatR)'s `IPipelineBehavior` in the .NET ecosystem.
+A `PipelineBehavior` runs around request handling. It can inspect a request, run code before and
+after the next step, modify the response, or return without calling the handler.
 
-## The pipeline chain
+Behaviors wrap `Mediator.send()` only. They do not wrap `stream()` or `publish()`.
 
-Behaviors nest around the handler. Each one runs code before and after everything inside it:
+## Define a typed behavior
 
-```
-Request → Behavior 1 → Behavior 2 → Behavior 3 → RequestHandler
-                                                    ↓
-Response ← Behavior 1 ← Behavior 2 ← Behavior 3 ← RequestHandler
-```
-
-A behavior inherits from `PipelineBehavior` and implements `__call__` with two parameters — the request, and `next`, a callable that continues the pipeline:
+The behavior's type argument selects its request type. Its `next` parameter represents the
+remaining behaviors and, finally, the request handler:
 
 ```python
-from typing import Any
-from pymediate import Next, Request, PipelineBehavior
+from typing import override
 
-class MyBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request: Request, next: Next[Any]) -> Any:
-        print(f"Before: {type(request).__name__}")   # pre-processing
-        response = await next()                       # continue the chain
-        print(f"After: {type(response).__name__}")   # post-processing
-        return response
-```
+from pymediate import Next, PipelineBehavior
 
-`Next[ResponseT]` is a public alias for the pipeline continuation — `Callable[[], Awaitable[ResponseT]]` in async behaviors (`from pymediate import Next`), `Callable[[], ResponseT]` in [sync](#sync-behaviors) ones (`from pymediate.sync import Next`). Use `Next[Any]` for a universal behavior; name the response — `Next[UserResponse]` — when a behavior works with a specific one.
 
-<Callout type="warning" title="Always call next() — unless you mean not to">
-  `next()` is the rest of the pipeline: the remaining behaviors and, ultimately, the handler. If a
-  behavior doesn't call it, the handler never executes — which is exactly what you want for
-  short-circuiting (cache hits, authorization failures) and a silent bug otherwise.
-</Callout>
+class ValidatePlaceOrder(PipelineBehavior[PlaceOrder]):
+    @override
+    async def __call__(
+        self,
+        request: PlaceOrder,
+        next: Next[OrderReceipt],
+    ) -> OrderReceipt:
+        if request.quantity < 1:
+            raise ValueError("quantity must be at least 1")
 
-## When to use behaviors
-
-Behaviors are for concerns that apply *across* handlers: logging and auditing, performance monitoring, validation, caching, transaction management, authentication and authorization, rate limiting, retries.
-
-They are **not** for handler-specific logic, business rules, or request transformation — that all belongs in handlers and request types. If a behavior needs complex conditionals to decide what to do, it probably shouldn't be a behavior.
-
-Behaviors wrap `send()` only. `mediator.publish()` delivers [events](/docs/guide/events) straight to their subscribers — cross-cutting concerns for events live in the event handlers themselves.
-
-## Universal, selective, and mixin-based behaviors
-
-The type parameter decides which requests a behavior wraps:
-
-```python
-from pymediate import Request, PipelineBehavior
-
-# Universal — applies to every request
-class LoggingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        print(f"Processing: {type(request).__name__}")
         return await next()
-
-# Selective — only wraps CreateUserRequest
-class CreateUserValidation(PipelineBehavior[CreateUserRequest]):
-    async def __call__(self, request, next):
-        if not request.username:
-            raise ValueError("Username required")
-        return await next()
-
-# Mixin-based — wraps any request that includes AuthMixin
-class AuthMixin:
-    principal: Principal
-
-class AuthenticationBehavior(PipelineBehavior[AuthMixin]):
-    async def __call__(self, request, next):
-        if not request.principal.is_authenticated:
-            raise Unauthorized()
-        return await next()
-
-class CreateUserRequest(Request[UserResponse], AuthMixin):
-    username: str
-    principal: Principal
-# AuthenticationBehavior applies here because of the mixin
 ```
 
-The mediator filters behaviors per request with `isinstance()` checks. For matching logic beyond the type parameter, override `should_apply()`:
+Read `PipelineBehavior[PlaceOrder]` as “this behavior applies to `PlaceOrder` requests.”
+`Next[OrderReceipt]` records the response returned by the rest of this particular pipeline.
 
-```python
-class BusinessHoursOnlyBehavior(PipelineBehavior[Request]):
-    @classmethod
-    def should_apply(cls, request: Request) -> bool:
-        return 9 <= datetime.now().hour < 17
+`@override` lets a type checker confirm that `__call__` matches the asynchronous behavior API.
+PyMediate does not apply the request-handler class-definition checks to behavior methods, so static
+checking is useful here.
+
+## Follow the call order
+
+Behaviors form nested calls. The first registered behavior is the outermost:
+
+```text
+Request
+  -> RequestLogging
+    -> ValidatePlaceOrder
+      -> PlaceOrderHandler
+      <- OrderReceipt
+    <- OrderReceipt
+  <- OrderReceipt
 ```
 
-## Registration and ordering
+Calling `await next()` enters the next layer. Code after it runs as the response returns through
+the layers. A `try`, `except`, or `finally` block can observe failures from every inner behavior and
+the handler.
 
-Register behaviors like any other service — the mediator discovers them automatically:
+If a behavior does not call `next()`, the remaining layers do not run. This supports deliberate
+short-circuits such as a cache hit or an authorization rejection. A behavior that returns a value
+directly should still return the response type declared by the request.
 
-```python
-services = Services()
-services.add(LoggingBehavior())      # applies to all requests
-services.add(ValidationBehavior())   # applies to CreateUserRequest only
-services.add(GetUserHandler())
-services.add(CreateUserHandler())
+Calling `next()` more than once repeats every inner layer, including the handler. A retry behavior
+therefore needs the same idempotency and transaction-ordering decisions as any other retry
+mechanism.
 
-mediator = Mediator(services.provider())
+## Apply a behavior to every request
 
-response = await mediator.send(GetUserRequest(user_id=123))
-# Output: Processing: GetUserRequest
-```
-
-**Registration order is execution order** — first registered is outermost:
+Use `Request[Any]` for a behavior that accepts all request types. Keep all three annotations broad
+because different requests can return different response types:
 
 ```python
-services.add(LoggingBehavior())      # first (outermost)
-services.add(ValidationBehavior())   # second
-services.add(TimingBehavior())       # third (innermost, closest to the handler)
-```
+from typing import Any, override
 
-Order the pipeline logically: authorization before validation, validation before caching, logging outermost so it sees everything. When no behavior applies to a request, the mediator calls the handler directly — there's zero pipeline overhead on that path.
+from pymediate import Next, PipelineBehavior, Request
 
-## Behavior recipes
 
-### Logging
-
-```python
-from datetime import datetime
-from pymediate import Request, PipelineBehavior
-
-class LoggingBehavior(PipelineBehavior[Request]):
-    def __init__(self, logger):
-        self.logger = logger
-
-    async def __call__(self, request, next):
-        name = type(request).__name__
-        start = datetime.now()
-        self.logger.info(f"Processing: {name}")
-        try:
-            response = await next()
-            duration = (datetime.now() - start).total_seconds()
-            self.logger.info(f"Completed: {name} in {duration:.3f}s")
-            return response
-        except Exception as e:
-            self.logger.error(f"Failed: {name} - {e}")
-            raise
-```
-
-### Caching (with short-circuit)
-
-```python
-import hashlib, json
-
-class CachingBehavior(PipelineBehavior[Request]):
-    def __init__(self, cache_store, ttl=300):
-        self.cache = cache_store
-        self.ttl = ttl
-
-    async def __call__(self, request, next):
-        key = self._generate_key(request)
-        cached = await self.cache.get(key)
-        if cached is not None:
-            return cached          # short-circuit: handler never runs
-
+class RequestLogging(PipelineBehavior[Request[Any]]):
+    @override
+    async def __call__(
+        self,
+        request: Request[Any],
+        next: Next[Any],
+    ) -> Any:
+        print(f"handling {type(request).__name__}")
         response = await next()
-        await self.cache.set(key, response, ttl=self.ttl)
+        print(f"handled {type(request).__name__}")
         return response
-
-    def _generate_key(self, request):
-        data = json.dumps(request.__dict__, sort_keys=True)
-        return hashlib.sha256(f"{type(request).__name__}:{data}".encode()).hexdigest()
 ```
 
-### Transactions
+The `PipelineBehavior` type parameter is bounded to `Request[Any]`. Use `Request[Any]` or a
+concrete `Request` subclass, rather than an unrelated mixin type, so the declaration satisfies the
+public typing contract.
+
+## Select request types
+
+`PipelineBehavior[PlaceOrder]` applies to `PlaceOrder` and its subclasses by default. Set the
+public `apply_to_subclasses` class attribute to `False` for exact-type matching:
 
 ```python
-class TransactionBehavior(PipelineBehavior[Request]):
-    def __init__(self, async_session):
-        self.session = async_session
+class ExactPlaceOrderValidation(PipelineBehavior[PlaceOrder]):
+    apply_to_subclasses = False
 
-    async def __call__(self, request, next):
-        async with self.session.begin():
-            return await next()
-        # commits on success, rolls back on exception
+    @override
+    async def __call__(
+        self,
+        request: PlaceOrder,
+        next: Next[OrderReceipt],
+    ) -> OrderReceipt:
+        if request.quantity < 1:
+            raise ValueError("quantity must be at least 1")
+        return await next()
 ```
 
-### Retry with backoff
+For selection based on request values, override `should_apply()`. An override replaces the default
+type test, so include the type condition explicitly:
 
 ```python
-import asyncio
+class AuditBulkOrders(PipelineBehavior[PlaceOrder]):
+    @classmethod
+    @override
+    def should_apply(cls, request: Request[Any]) -> bool:
+        return isinstance(request, PlaceOrder) and request.quantity >= 10
 
-class RetryBehavior(PipelineBehavior[Request]):
-    def __init__(self, max_attempts=3, base_delay=0.1):
-        self.max_attempts = max_attempts
-        self.base_delay = base_delay
-
-    async def __call__(self, request, next):
-        for attempt in range(self.max_attempts):
-            try:
-                return await next()
-            except Exception:
-                if attempt == self.max_attempts - 1:
-                    raise
-                await asyncio.sleep(self.base_delay * (2 ** attempt))
+    @override
+    async def __call__(
+        self,
+        request: PlaceOrder,
+        next: Next[OrderReceipt],
+    ) -> OrderReceipt:
+        print(f"auditing order of {request.quantity} items")
+        return await next()
 ```
 
-### Per-request context
+The mediator calls `should_apply()` for each registered behavior on every `send()`.
 
-Attach metadata (request ID, timestamp) that handlers can read via a `contextvars.ContextVar`, without threading it through parameters:
+## Register and order behaviors
+
+Register behaviors through the same provider as handlers:
 
 ```python
-from contextvars import ContextVar
+from pymediate import Mediator, Services
 
-request_context: ContextVar[dict] = ContextVar("request_context")
-
-class RequestContextBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        token = request_context.set({
-            "request_id": generate_id(),
-            "request_type": type(request).__name__,
-        })
-        try:
-            return await next()
-        finally:
-            request_context.reset(token)
+services = (
+    Services()
+    .add(RequestLogging())       # outermost
+    .add(ValidatePlaceOrder())   # runs inside logging
+    .add(PlaceOrderHandler())
+)
+mediator = Mediator(services.provider())
 ```
 
-More complete, runnable recipes live in the [pipeline behavior examples](/docs/examples/pipeline-behaviors).
+Registration order is the execution order on the way into the handler; it reverses on the way
+out. When no registered behavior accepts a request, the mediator calls the handler directly and
+does not construct a behavior chain.
 
-## Sync behaviors
+Ordering changes semantics. For example, a transaction outside a retry covers every attempt in one
+transaction, while a transaction inside a retry can create one transaction per attempt. Define the
+intended order in application setup and cover it with a mediator-level test.
 
-Sync pipelines use `pymediate.sync` — same structure, plain `next()` instead of `await next()`:
+The provider controls behavior lifetimes. `Services` reuses the registered instances.
+`DependencyInjectorServiceProvider` can resolve behaviors through `Factory`, `Singleton`, or other
+supported container lifetimes.
+
+## Use the synchronous behavior API
+
+Import `PipelineBehavior` and `Next` from `pymediate.sync`, implement `def __call__`, and call
+`next()` without `await`:
 
 ```python
-from pymediate.sync import Request, PipelineBehavior
+from typing import override
 
-class SyncTransactionBehavior(PipelineBehavior[Request]):
-    def __init__(self, session_factory):
-        self.session_factory = session_factory
+from pymediate.sync import Next, PipelineBehavior
 
-    def __call__(self, request, next):
-        session = self.session_factory()
-        try:
-            session.begin()
-            response = next()
-            session.commit()
-            return response
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+
+class ValidatePlaceOrder(PipelineBehavior[PlaceOrder]):
+    @override
+    def __call__(
+        self,
+        request: PlaceOrder,
+        next: Next[OrderReceipt],
+    ) -> OrderReceipt:
+        if request.quantity < 1:
+            raise ValueError("quantity must be at least 1")
+        return next()
 ```
 
-## DI container integration
+Asynchronous and synchronous behaviors are separate service types. Register the form that matches
+the mediator and handler being used.
 
-Behaviors resolved from a [dependency-injector container](/docs/guide/dependency-injection) respect their lifecycle scopes:
+## Test a behavior directly
+
+A behavior is a callable, so a focused test can supply a small `next` function:
 
 ```python
-from dependency_injector import containers, providers
-from pymediate.providers import DependencyInjectorServiceProvider
+async def finish() -> OrderReceipt:
+    return OrderReceipt(order_id=42, summary="2 × tea")
 
-class Container(containers.DeclarativeContainer):
-    # new instance per resolution
-    logging = providers.Factory(LoggingBehavior, logger=providers.Dependency())
 
-    # one shared instance application-wide
-    cache = providers.Singleton(CacheBehavior, ttl=300)
+behavior = ValidatePlaceOrder()
+receipt = await behavior(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+    finish,
+)
 
-    # one instance per logical scope (e.g. per web request), via contextvars
-    transaction = providers.ContextLocalSingleton(TransactionBehavior, db=providers.Dependency())
-
-mediator = Mediator(DependencyInjectorServiceProvider(Container()))
+assert receipt.order_id == 42
 ```
 
-## Running a behavior without a mediator
+Use a mediator-level test when behavior selection, registration order, or provider lifetimes are
+part of the behavior under test.
 
-A behavior is just a callable taking the request and a zero-argument `next`. To exercise one in isolation — in a unit test, say — call it directly:
+## Continue
 
-```python
-behavior = LoggingBehavior(logger)
-handler = GetUserHandler(database)
-request = GetUserRequest(user_id=123)
-
-response = await behavior(request, lambda: handler(request))
-```
-
-For anything beyond a one-off, register the behaviors and let the mediator chain them — ordering, selection via `should_apply`, and provider lifetimes all come from registration.
-
-## Best practices
-
-- **Keep behaviors focused** — one concern per behavior, composed in order.
-- **Order deliberately** — auth → validation → caching → handler, with logging outermost.
-- **Short-circuit intentionally** — skipping `next()` is a feature for caches and guards, a bug anywhere else.
-- **Document behavior contracts** — what a behavior requires of requests/responses (hashable, serializable) belongs in its docstring.
-
-## Next steps
-
-- [Pipeline behavior examples](/docs/examples/pipeline-behaviors) — complete runnable recipes
-- [Pipeline API reference](/docs/api/pipeline) — `PipelineBehavior` signatures
-- [The mediator](/docs/guide/mediator) — how behaviors integrate with dispatch
+- Review behavior resolution in [the mediator](/docs/guide/mediator#how-send-resolves-a-request).
+- Configure container-managed lifetimes with [dependency injection](/docs/guide/dependency-injection).
+- Look up [`PipelineBehavior`, `Next`, and `apply_to_subclasses`](/docs/api/pipeline).

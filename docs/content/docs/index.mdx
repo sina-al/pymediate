@@ -1,101 +1,111 @@
 ---
 title: Introduction
-description: The problem PyMediate solves, how the mediator pattern works, and where to go next.
+description: What PyMediate does, how its core types relate, and where to begin.
 ---
 
-PyMediate is a small library for Python 3.12+ that gives your application one type-safe way to ask for things. You describe what you want as a plain object, hand it to a single dispatcher, and get back a fully typed response:
+PyMediate is a Python 3.12+ library that routes typed requests to handlers. A request declares its response type, so `Mediator.send()` preserves that type for static type checkers and editors.
 
-```python
-response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
-# response is UserCreated — inferred from the request type, checked by mypy
-```
-
-That one line is most of the library. The rest of this page is what it's for and how the pieces fit.
-
-## The problem
-
-In every application there's code that *wants* something done and code that *knows how* to do it. Connecting the two with a direct call is the right way to start — and as an application grows, it's also how call sites quietly accumulate knowledge they never needed: the concrete class, its constructor, its dependencies, its framework context. Knowledge is coupling, and coupling compounds. One day a simple request — *run this operation in a background job, add a CLI for that feature* — turns out to require a cascade of other changes first, and the codebase has become the kind nobody wants to touch.
-
-<Card
-  title="Nobody wants to touch that code"
-  description="How a growing Python application becomes hard to change, two ways to make its business operations more resilient, and where a mediator helps."
-  href="/articles/nobody-wants-to-touch-that-code"
-/>
-
-## The mediator pattern
-
-The [mediator pattern](https://en.wikipedia.org/wiki/Mediator_pattern) removes the direct call. Instead of invoking business logic, you describe what you want as a plain message — a **request** — and hand it to a single dispatcher — the **mediator** — which routes it to the one place that knows how to do it — a **handler**:
+The core flow has three declarations:
 
 ```python
 from dataclasses import dataclass
 from pymediate import Request, RequestHandler
 
-@dataclass
-class CreateUser(Request[UserCreated]):   # the message, declaring its response type
-    username: str
-    email: str
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
 
-class CreateUserHandler(RequestHandler[CreateUser]):   # the one place it's handled
-    async def __call__(self, request: CreateUser) -> UserCreated:
-        ...
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
 
-user = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
 ```
 
-Now the caller knows only the message it sends and the mediator it sends it to. The handler knows only the request it receives. The web view, the CLI command, and the background job all send the same `CreateUser` and none of them can tell — or need to know — how it's fulfilled. And cross-cutting concerns get a real home: a **pipeline behavior** wraps every dispatch, so logging or validation is written once instead of scattered across handlers.
+## How to read the types
 
-Requests are one-to-one: something is *wanted*, and exactly one handler does it. The same mediator also covers the one-to-many case — something *happened*, and any number of places care. `mediator.publish()` delivers an **event** to every subscribed **event handler**, with no response and no knowledge of who's listening:
+The value inside each pair of square brackets states a relationship. The following guide highlights the code and its plain-language reading together.
+
+<ApiTypeReader />
+
+`Request[OrderReceipt]` records the response type on `PlaceOrder`. `RequestHandler[PlaceOrder]` records which request the handler accepts. PyMediate validates the handler's annotated parameter and return types when Python defines the class.
+
+## Sending the request
+
+Register a handler instance, create a mediator, and send the request:
 
 ```python
-await mediator.publish(UserRegistered(user_id=user.user_id))
-# the welcome email, the analytics record, the audit log — each a separate EventHandler
+from pymediate import Mediator, Services
+
+services = Services().add(PlaceOrderHandler())
+mediator = Mediator(services.provider())
+
+receipt = await mediator.send(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+)
+
+print(receipt.order_id)
+# 42
 ```
 
-## Why PyMediate?
+At dispatch, the mediator uses the request's exact class to find its handler type, asks the service provider for the registered handler instance, and calls it. The type of `receipt` is inferred as `OrderReceipt` from `PlaceOrder(Request[OrderReceipt])`.
 
-PyMediate implements the pattern entirely inside Python's type system — built on [PEP 695](https://peps.python.org/pep-0695/) generics, new in Python 3.12 — so the indirection costs you nothing you'd have with a direct call:
+The [quick start](/docs/getting-started/quick-start) turns this example into a complete runnable program and explains each step.
 
-- **The link is a type.** `RequestHandler[CreateUser]` declares what a handler handles, and dispatch is keyed on the class itself. Rename the request and every handler follows in the refactor.
-- **You always know what comes back.** A request inherits `Request[UserCreated]`, and from then on `mediator.send()` returns `UserCreated` everywhere — inferred by mypy, autocompleted by your editor, no casts. The response can be any type at all: no framework base class, no serialization methods.
-- **Wiring mistakes surface before requests flow.** RequestHandler signatures are validated the moment the class is defined — a wrong parameter type, a missing return type, a sync/async mixup all raise at import. A second handler for the same request raises immediately, pointing at the file and line of the first.
-- **Sync and async are equals.** The top-level API is async; `pymediate.sync` mirrors it class for class — switch the import, drop the `await`, done.
-- **It travels light.** Zero runtime dependencies, ships `py.typed`, and is checked under `mypy --strict`. `dependency-injector` support is an optional extra.
+## The rest of the API
 
-Evaluating it against other libraries? [How it compares](/docs/comparison) has a feature-by-feature look at the Python mediator ecosystem and a reproducible benchmark of what `send()` and `publish()` cost over direct calls.
+Start with `send()`. The other dispatch forms use the same typed-message model for different result shapes:
 
-## The moving parts
+| When you need | Declare | Dispatch | Result |
+| --- | --- | --- | --- |
+| One result | `Request[T]` and `RequestHandler` | `await mediator.send(request)` | `T` |
+| Results over time | `StreamRequest[T]` and `StreamRequestHandler` | `mediator.stream(request)` | `AsyncIterator[T]` |
+| Zero or more subscribers | `Event` and `EventHandler` | `await mediator.publish(event)` | `None` |
 
-| Concept | Role |
-| --- | --- |
-| `Request[T]` | A message declaring what it wants and the response type `T` it expects |
-| `RequestHandler[R]` | The single place where a request type `R` gets handled |
-| `Event` | A fact that already happened, published to whoever subscribed — no response |
-| `EventHandler[E]` | One subscriber's reaction to an event type `E`; any number may subscribe |
-| `Mediator` | Routes each request to its handler and each event to its subscribers; the only thing callers depend on |
-| `PipelineBehavior` | Optional middleware wrapping handlers — logging, validation, transactions |
-| `Services` / `ServiceProvider` | Registration and resolution of handlers, behaviors, and their dependencies |
+`PipelineBehavior` can wrap `send()` with shared processing such as logging or validation. `Services` and the `ServiceProvider` protocol supply handler and behavior instances to the mediator. The [core concepts](/docs/getting-started/concepts) page introduces these parts after the request flow.
 
-## Where to go next
+The top-level `pymediate` package is asynchronous. `pymediate.sync` provides the corresponding blocking API for synchronous applications.
+
+## Scope
+
+PyMediate provides in-process dispatch, type propagation at call sites, and class-definition-time validation of handler annotations. It does not provide a task queue, choose how your application stores data, or require CQRS or hexagonal architecture.
+
+Direct calls are often clearer when callers can depend on their collaborators without repeated wiring. A small hand-written dispatcher can also be enough. [Nobody wants to touch that code](/articles/nobody-wants-to-touch-that-code) develops the architectural case for a mediator and describes the trade-offs.
+
+## Where to begin
 
 <Cards>
   <Card
-    title="Quick start"
-    description="Define a request, write a handler, send it — a working feature in five minutes."
+    title="Install PyMediate"
+    description="Check the Python requirement and choose an installation command."
+    href="/docs/getting-started/installation"
+  />
+  <Card
+    title="Build the first request"
+    description="Run the complete PlaceOrder example and examine each declaration."
     href="/docs/getting-started/quick-start"
   />
   <Card
-    title="Core concepts"
-    description="The vocabulary: requests, handlers, the mediator, and pipeline behaviors."
-    href="/docs/getting-started/concepts"
+    title="Understand the design trade-offs"
+    description="Follow the path from direct calls to a mediator and decide whether it fits."
+    href="/articles/nobody-wants-to-touch-that-code"
   />
   <Card
-    title="Examples"
-    description="From a minimal round trip to CQRS and FastAPI integration."
-    href="/docs/examples/basic"
+    title="Look up the API"
+    description="Find signatures, constraints, and raised exceptions for each public type."
+    href="/docs/api"
   />
   <Card
-    title="API reference"
-    description="Every public class, method, and error, with signatures."
-    href="/docs/api/request"
+    title="Browse runnable examples"
+    description="Open the repository curriculum for complete projects and expected output."
+    href="https://github.com/sina-al/pymediate/tree/main/examples"
   />
 </Cards>

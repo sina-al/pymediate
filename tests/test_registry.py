@@ -422,6 +422,6 @@ def test_handler_registration_error_provides_solutions() -> None:
     # Error message should provide helpful solutions
     error_message = str(exc_info.value)
     assert "Solutions:" in error_message or "Solution:" in error_message
-    assert "ONE handler" in error_message
+    assert "one request or stream handler" in error_message
     # Should suggest using different request types
     assert "V1" in error_message or "different request types" in error_message.lower()

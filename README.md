@@ -1,8 +1,7 @@
 <p align="center">
   <img src="https://github.com/sina-al/pymediate/blob/main/assets/logo.svg?raw=true" alt="PyMediate logo" width="400"><br><br>
-  <b>A type-safe request mediator for Python 3.12+</b><br><br>
+  <b>Typed in-process request dispatch for Python 3.12+</b><br><br>
 
-  <!-- Badges — row 1: the package (what/where), row 2: the guarantees (quality/security) -->
   <a href="https://pypi.org/project/pymediate/">
     <img src="https://img.shields.io/pypi/v/pymediate" alt="PyPI version">
   </a>
@@ -35,235 +34,141 @@
 
 ---
 
-## Features
-
-- **Type safe.** Full runtime validation with mypy support.
-- **Events.** One-to-many `publish()` alongside one-to-one `send()` — same type-safe, validated-at-import design.
-- **Async-first.** The top-level API is async; the full sync mirror lives in `pymediate.sync`.
-- **DI ready.** Built-in `dependency-injector` integration.
-- **Well tested.** Comprehensive test suite.
-
-Wondering how this stacks up against other Python mediator libraries — and what `send()` and
-`publish()` cost over direct calls? See [How it compares](https://pymediate.sina-al.uk/docs/comparison),
-a source-level survey of the ecosystem plus a reproducible micro-benchmark you can run against
-the latest release with `uv run https://pymediate.sina-al.uk/benchmark.py` (read it first, as
-with any script from the network).
-
-## Quick example
-
-```python
-import asyncio
-from dataclasses import dataclass
-from pymediate import Request, RequestHandler, Mediator, Services
-
-# Define response and request as pure dataclasses
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
-
-# RequestHandler automatically linked by type
-class CreateUserHandler(RequestHandler[CreateUser]):
-    async def __call__(self, req: CreateUser) -> UserCreated:
-        return UserCreated(user_id=1, username=req.username)
-
-# Set up and use
-async def main():
-    services = Services()
-    services.add(CreateUserHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
-
-    response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
-    print(f"User {response.username} created with ID {response.user_id}")
-
-asyncio.run(main())
-```
-
-### Sync support
-
-Not every application runs an event loop. The `pymediate.sync` package is the
-full sync mirror of the top-level API — the same names, with plain `def`
-handlers and a blocking `send()`:
-
-```python
-from dataclasses import dataclass
-from pymediate.sync import Request, RequestHandler, Mediator, Services
-
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
-
-class CreateUserHandler(RequestHandler[CreateUser]):
-    def __call__(self, req: CreateUser) -> UserCreated:
-        return UserCreated(user_id=1, username=req.username)
-
-services = Services()
-services.add(CreateUserHandler())
-provider = services.provider()
-mediator = Mediator(provider)
-
-response = mediator.send(CreateUser(username="alice", email="alice@example.com"))
-print(f"User {response.username} created with ID {response.user_id}")
-```
-
-**Key differences for sync:**
-
-- Import from `pymediate.sync` instead of `pymediate`.
-- The handler's `__call__` method is a plain `def`.
-- `mediator.send(...)` blocks and returns the response directly — no `await`.
-- Shared names (`Request`, `Event`, `Services`, errors) are the same objects
-  on both sides, so the two APIs mix freely in one codebase.
-
-### Pipeline behaviors
-
-PyMediate supports pipeline behaviors (middleware) that automatically wrap request processing for cross-cutting concerns like logging, validation, caching, and more:
-
-```python
-from pymediate import Request, PipelineBehavior
-
-# Universal behavior - applies to all requests
-class LoggingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        print(f"Handling: {type(request).__name__}")
-        response = await next()
-        print(f"Completed: {type(request).__name__}")
-        return response
-
-# Selective behavior - only applies to CreateUser requests
-class ValidationBehavior(PipelineBehavior[CreateUser]):
-    async def __call__(self, request, next):
-        # Validate before processing
-        if not request.username:
-            raise ValueError("Username is required")
-        return await next()
-
-# Register behaviors and handlers
-services = Services()
-services.add(LoggingBehavior())       # Applied to all requests
-services.add(ValidationBehavior())    # Only applied to CreateUser
-services.add(CreateUserHandler())
-
-mediator = Mediator(services.provider())
-
-# Behaviors automatically wrap matching requests (inside an async context)
-response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
-# Output:
-# Handling: CreateUser
-# Completed: CreateUser
-```
-
-Behaviors can be **universal** (`PipelineBehavior[Request]`) or **selective** (`PipelineBehavior[SpecificRequest]`), applying only to matching request types or mixins. They're resolved per request and work with any `dependency-injector` provider lifetime — `Factory`, `Singleton`, or a scoped variant like `ContextLocalSingleton`. See the [Pipeline behaviors guide](https://pymediate.sina-al.uk/docs/guide/pipeline-behaviors) for more examples.
-
-### Events
-
-`send()` routes one request to its one handler. `publish()` is the one-to-many counterpart: announce a fact once, and every subscribed `EventHandler` reacts — the publisher never knows who's listening:
-
-```python
-from dataclasses import dataclass
-from pymediate import Event, EventHandler, Mediator, Services
-
-@dataclass
-class OrderPlaced(Event):
-    order_id: int
-
-class SendConfirmation(EventHandler[OrderPlaced]):
-    async def __call__(self, event: OrderPlaced) -> None:
-        print(f"Confirming order {event.order_id}")
-
-class UpdateAnalytics(EventHandler[OrderPlaced]):
-    async def __call__(self, event: OrderPlaced) -> None:
-        print(f"Recording order {event.order_id}")
-
-services = Services()
-services.add(SendConfirmation()).add(UpdateAnalytics())
-mediator = Mediator(services.provider())
-
-await mediator.publish(OrderPlaced(order_id=42))  # inside an async context
-# Output:
-# Confirming order 42
-# Recording order 42
-```
-
-Handlers run concurrently via `asyncio.gather` (sequentially, in registration order, in the sync API), zero subscribers is a no-op, and a raising handler never stops the others — failures aggregate into an `ExceptionGroup`. See the [Events guide](https://pymediate.sina-al.uk/docs/guide/events).
+PyMediate routes typed requests to handlers. A request declares its response type, so
+`Mediator.send()` preserves that type for static type checkers and editors.
 
 ## Installation
 
 ```bash
-# Core package
 pip install pymediate
-
-# With dependency injection support
-pip install pymediate[di]
 ```
+
+The core package has no required dependencies. Install the optional Dependency Injector
+integration with `pip install 'pymediate[di]'`.
+
+## First request
+
+```python
+import asyncio
+from dataclasses import dataclass
+
+from pymediate import Mediator, Request, RequestHandler, Services
+
+
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+
+
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
+
+
+async def main() -> None:
+    mediator = Mediator(Services().add(PlaceOrderHandler()).provider())
+    receipt = await mediator.send(
+        PlaceOrder(customer_id=7, item="tea", quantity=2),
+    )
+    print(receipt.order_id, receipt.summary)
+
+
+asyncio.run(main())
+```
+
+The program prints:
+
+```text
+42 2 × tea
+```
+
+Read the declarations as follows:
+
+- `OrderReceipt` is the response.
+- `PlaceOrder(Request[OrderReceipt])` is a request for an `OrderReceipt`.
+- `PlaceOrderHandler(RequestHandler[PlaceOrder])` handles `PlaceOrder` requests.
+
+The [introduction](https://pymediate.sina-al.uk/docs) contains an interactive guide to these
+relationships. The [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start)
+explains the complete dispatch flow.
+
+## API at a glance
+
+| Need | API | Result |
+| --- | --- | --- |
+| Send a request to one handler | `Mediator.send()` | One response, inferred from `Request[T]` |
+| Yield results over time | `Mediator.stream()` | Typed chunks from `StreamRequest[T]` |
+| Notify zero or more subscribers | `Mediator.publish()` | No response |
+| Wrap request handling | `PipelineBehavior` | Shared processing around `send()` |
+| Supply handlers and behaviors | `Services` or another `ServiceProvider` | Resolved instances |
+
+The top-level package is asynchronous. `pymediate.sync` provides corresponding blocking mediator
+and handler classes. Shared message types, services, and errors are the same objects in both
+namespaces.
+
+## Type checking and validation
+
+`Request[T]` records the return type used by `send()` at static call sites. Separately, PyMediate
+checks a request handler's parameter annotation, return annotation, and asynchronous or synchronous
+form when Python defines the handler class.
+
+Configuration can still fail during dispatch. For example, sending a request without a registered
+handler instance raises an error at that point. The [type-safety guide](https://pymediate.sina-al.uk/docs/guide/type-safety)
+describes which checks happen statically, at class definition, and during dispatch.
+
+## Scope and trade-offs
+
+PyMediate provides in-process dispatch. It does not provide a task queue, choose persistence, or
+require CQRS or hexagonal architecture. Direct calls are often clearer when callers can depend on
+their collaborators without repeated wiring, and a small hand-written dispatcher can be enough.
+
+The article [*Nobody wants to touch that code*](https://pymediate.sina-al.uk/articles/nobody-wants-to-touch-that-code)
+develops the case for a mediator and covers the added indirection, registration, and runtime cost.
+The [comparison](https://pymediate.sina-al.uk/docs/comparison) documents the current feature set,
+dated dispatch benchmarks, and a runnable benchmark script.
 
 ## Documentation
 
-**[📚 Full documentation](https://pymediate.sina-al.uk)**
-
+- [Introduction](https://pymediate.sina-al.uk/docs)
 - [Quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start)
-- [User guide](https://pymediate.sina-al.uk/docs/guide/requests-responses)
-- [Examples](https://pymediate.sina-al.uk/docs/examples/basic)
-- [API reference](https://pymediate.sina-al.uk/docs/api/request)
+- [Core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts)
+- [Guides](https://pymediate.sina-al.uk/docs/guide/requests-responses)
+- [API reference](https://pymediate.sina-al.uk/docs/api)
+- [Runnable examples](https://github.com/sina-al/pymediate/tree/main/examples)
 
 ## Development
 
-### Quick start
-
 ```bash
-# Clone and install
 git clone https://github.com/sina-al/pymediate.git
 cd pymediate
 uv sync --all-extras --group test
 
-# Optional: commit-time format/lint gate (same checks CI runs)
-uvx pre-commit install
-
-# Run tests
-poe test
-
-# Run all checks
-poe check:all
-
-# See all available tasks
-poe
+uv run poe test
+uv run poe check:all
 ```
 
-### Available commands
-
-PyMediate uses [Poe the Poet](https://poethepoet.natn.io/) for task running. Run `poe` to see all commands, or check [`tasks.toml`](tasks.toml).
-
-> **Note:** `uv sync` alone only installs the default `dev` dependency group (ruff, mypy,
-> poethepoet). Test dependencies (pytest and friends) live in the separate `test` group and
-> won't be installed unless you pass `--group test` (or `--all-groups`) — otherwise `poe test`
-> fails with `Failed to spawn: pytest`.
-
-## Requirements
-
-- Python 3.12+.
-- Optional: `dependency-injector>=4.41.0` for DI support.
+Run `uv run poe` to list the repository tasks. See
+[CONTRIBUTING.md](https://github.com/sina-al/pymediate/blob/main/CONTRIBUTING.md) for the
+contribution process.
 
 ## Versioning
 
-PyMediate follows [ZeroVer](https://0ver.org/) — the major version stays at `0` indefinitely,
-with no planned 1.0. Expect the public API to keep evolving: a minor release (`0.X.0`) can
-include breaking changes, while a patch release (`0.1.X`) is backward-compatible.
-
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+PyMediate follows [ZeroVer](https://0ver.org/): the major version remains `0`. A minor release
+(`0.X.0`) can contain a breaking API change or a backward-compatible feature. A patch release
+(`0.X.Y`) contains changes that do not alter the public API.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+PyMediate is available under the
+[MIT License](https://github.com/sina-al/pymediate/blob/main/LICENSE).

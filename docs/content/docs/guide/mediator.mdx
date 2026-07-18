@@ -1,216 +1,156 @@
 ---
 title: The mediator
-description: How the mediator routes requests to handlers and publishes events, its lifecycle, error propagation, and composing behaviors instead of subclassing.
+description: How send, stream, and publish resolve handlers, apply behaviors, and propagate errors.
 ---
 
-The mediator is PyMediate's central dispatch point, with two verbs. `send()` receives a request, resolves the right handler through a service provider, executes it (wrapped in any applicable pipeline behaviors), and returns the typed response. `publish()` delivers an event to every subscribed handler and returns nothing.
+`Mediator` connects message declarations to the handler instances in a `ServiceProvider`. It
+supports three dispatch forms:
+
+| Method | Input | Handler count | Result | Pipeline behaviors |
+| --- | --- | ---: | --- | --- |
+| `await send(request)` | `Request[T]` | One | `T` | Applied |
+| `stream(request)` | `StreamRequest[T]` | One | `AsyncIterator[T]` | Not applied |
+| `await publish(event)` | `Event` | Zero or more | `None` | Not applied |
+
+The top-level `pymediate.Mediator` is asynchronous. The
+[`pymediate.sync` variant](#use-the-synchronous-mediator) provides the corresponding blocking
+methods.
+
+## Build a mediator
+
+Register handler and behavior instances before constructing the mediator:
 
 ```python
 from pymediate import Mediator, Services
 
-services = Services()
-services.add(CreateUserHandler(database))
-
+services = Services().add(PlaceOrderHandler())
 mediator = Mediator(services.provider())
 
-response = await mediator.send(CreateUserRequest(username="alice", email="alice@example.com"))
+receipt = await mediator.send(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+)
 ```
 
-## What `send()` actually does
+`Services.provider()` returns a read-only snapshot. Later changes to the `Services` collection do
+not affect an existing provider. The mediator constructor also accepts another implementation of
+the [`ServiceProvider` protocol](/docs/api/service-provider), such as the optional
+[`dependency-injector` adapter](/docs/guide/dependency-injection).
 
-1. The application sends a request to the mediator.
-2. The mediator looks up the handler **class** registered for this request type — recorded automatically when the `RequestHandler[RequestT]` subclass was defined.
-3. It resolves a handler **instance** of that class from the `ServiceProvider`.
-4. It discovers every registered `PipelineBehavior` that applies to this request, and either calls the handler directly (no applicable behaviors) or wraps it in a `Pipeline` and calls that.
+## How `send()` resolves a request
 
-Step 4 is a built-in fast path: if no behavior applies, the handler is called directly with zero pipeline-construction overhead. See [pipeline behaviors](/docs/guide/pipeline-behaviors) for how behaviors are matched and ordered.
+Each `send()` call follows the same sequence:
 
-With multiple handlers registered, routing is purely by request type:
+1. The exact runtime class of the request identifies its request-handler class. This mapping was
+   recorded when Python defined `RequestHandler[RequestType]`.
+2. The service provider resolves an instance of that handler class.
+3. The provider resolves registered `PipelineBehavior` instances. The mediator keeps the ones
+   whose `should_apply()` method accepts the request.
+4. If behaviors apply, the mediator composes them around the handler. The first registered
+   behavior is the outermost. If none apply, it calls the handler directly without constructing a
+   behavior chain.
+5. The mediator awaits the handler path and returns its response.
+
+The return type comes from the request declaration:
 
 ```python
-services = Services()
-services.add(CreateUserHandler(database))
-services.add(GetUserHandler(database))
-services.add(DeleteUserHandler(database))
-
-mediator = Mediator(services.provider())
-
-create_response = await mediator.send(CreateUserRequest(...))  # → CreateUserHandler
-get_response = await mediator.send(GetUserRequest(...))        # → GetUserHandler
-delete_response = await mediator.send(DeleteUserRequest(...))  # → DeleteUserHandler
+receipt = await mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
+# receipt is inferred as OrderReceipt
 ```
 
-## Type safety
+PyMediate validates the handler's parameter and return annotations when the handler class is
+defined. `send()` does not inspect the type of the value returned at runtime.
 
-`send()` infers its return type from the request's `Request[ResponseT]` parameter:
+Pipeline behaviors apply only to `send()`. They can run before and after the handler, or return a
+response without calling the handler. The [pipeline-behavior guide](/docs/guide/pipeline-behaviors)
+covers selection, ordering, and short-circuiting.
+
+## How `stream()` resolves a stream
+
+`stream()` uses the same exact-type lookup and service resolution for a
+`StreamRequestHandler`. Resolution happens when `stream()` is called, while the generator body is
+lazy:
 
 ```python
-response = await mediator.send(CreateUserRequest(...))
-# response: CreateUserResponse — inferred, no annotation needed
+chunks = mediator.stream(ExportOrders(customer_id=7))  # resolves the handler
 
-print(response.user_id)   # autocompletes
-print(response.invalid)   # mypy error
+async for chunk in chunks:  # runs the handler body as chunks are requested
+    print(chunk)
 ```
 
-## Publishing events
+Do not await `mediator.stream()` itself. The asynchronous method returns an `AsyncIterator[T]` for
+use with `async for`; the synchronous method returns an `Iterator[T]` for use with `for`.
 
-The mediator's second verb is `publish()`. Where `send()` routes a request to its one handler and returns the response, `publish()` delivers an event to *every* `EventHandler` subscribed to its type — zero, one, or many — and returns nothing:
+Pipeline behaviors do not wrap streams. The [streaming guide](/docs/guide/streaming) explains the
+generator contract and definition-time validation.
+
+## How `publish()` resolves subscribers
+
+`publish()` looks up subscribers by the event's exact runtime class. Publishing an event with no
+subscribers completes without error.
+
+For an event with subscribers, the mediator resolves every handler instance before running any of
+them. The asynchronous mediator then runs the handlers concurrently. The synchronous mediator runs
+them sequentially in registration order. Pipeline behaviors do not wrap either form.
+
+The asynchronous mediator lets every subscriber finish after ordinary `Exception` failures and
+then reports those failures as a group. `KeyboardInterrupt` and `SystemExit` propagate instead and
+can cancel unfinished subscribers. The synchronous mediator continues only after ordinary
+`Exception` failures; a direct `BaseException` stops delivery and propagates immediately. See
+[events](/docs/guide/events) for the concurrency and error details.
+
+## Handler and behavior lifetimes
+
+The service provider controls instance lifetimes; the mediator does not cache resolved services.
+
+- With `Services`, the provider returns the instances supplied during registration. Reusing that
+  provider therefore reuses those handler and behavior instances.
+- With `DependencyInjectorServiceProvider`, a `Factory` can create a new instance on each
+  resolution, while a `Singleton` can return one shared instance.
+
+A mediator can normally be built during application startup and reused. Whether its handlers are
+safe to share or call concurrently depends on their own state and dependencies. The
+[handlers guide](/docs/guide/handlers#keep-state-ownership-explicit) covers that distinction.
+
+## Errors and timing
+
+Resolution and user-code errors occur at different points:
+
+| Situation | Result |
+| --- | --- |
+| No handler class is declared for a request or stream request | `HandlerNotFoundError` at `send()` or `stream()` |
+| A handler class is declared but its instance is absent from the provider | `ServiceNotFoundError` at `send()` or `stream()` |
+| A subscriber class is declared but its instance is absent | `ServiceNotFoundError` before any subscriber runs |
+| A request handler or behavior raises | The exception propagates unchanged from `send()` |
+| A stream handler raises in its generator body | The exception propagates during iteration |
+| One or more async event handlers raise an ordinary `Exception` | Failures are grouped after every subscriber finishes |
+| An async event handler raises `KeyboardInterrupt` or `SystemExit` | The failure propagates and can cancel unfinished subscribers |
+| One or more sync event handlers raise an ordinary `Exception` | Failures are grouped after every subscriber has been called |
+| A sync event handler raises a direct `BaseException` | Delivery stops and the failure propagates immediately |
+
+The [error-handling guide](/docs/guide/error-handling) distinguishes these library errors from
+application and transport errors.
+
+## Use the synchronous mediator
+
+The blocking API has the same three methods without `await` or asynchronous iteration:
 
 ```python
-await mediator.publish(OrderPlaced(order_id=42, customer_email="a@example.com"))
+from pymediate.sync import Mediator, Services
+
+mediator = Mediator(Services().add(PlaceOrderHandler()).provider())
+
+receipt = mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
+for chunk in mediator.stream(ExportOrders(customer_id=7)):
+    print(chunk)
+mediator.publish(OrderPlaced(order_id=receipt.order_id, item="tea"))
 ```
 
-Handlers run concurrently via `asyncio.gather`; a raising handler doesn't stop the others, and failures aggregate into an `ExceptionGroup` once every handler has run. Pipeline behaviors wrap `send()` only — publishes go straight to the subscribers. The full semantics, patterns, and error handling are in the [events guide](/docs/guide/events).
+Use synchronous handler and behavior classes with the synchronous mediator. The two mediator
+variants do not adapt handler call styles at runtime. See [async and sync](/docs/guide/async-sync)
+for the corresponding imports and coexistence rules.
 
-## The sync mediator
+## Continue
 
-Sync handlers use a separate mediator: `pymediate.sync.Mediator`, paired with `pymediate.sync.RequestHandler`. The sync API mirrors the async one structurally, but the two don't mix at runtime — a sync `Mediator` never awaits anything, so it can't dispatch an `async def __call__`.
-
-```python
-from pymediate.sync import Request, RequestHandler, Mediator, Services
-
-class FetchDataHandler(RequestHandler[FetchDataRequest]):
-    def __call__(self, request: FetchDataRequest) -> FetchDataResponse:
-        data = self.http_client.get(request.url)
-        return FetchDataResponse(data=data)
-
-services = Services()
-services.add(FetchDataHandler(http_client))
-mediator = Mediator(services.provider())
-
-response = mediator.send(FetchDataRequest(url="https://api.example.com/data"))
-```
-
-An application can run both variants side by side — an async `Mediator` for async handlers and a sync one for sync handlers — but each request goes through the mediator that matches its handler. There is no single mediator that routes to either kind.
-
-The same split applies to events: `pymediate.sync.Mediator.publish()` dispatches to `pymediate.sync.EventHandler` subscribers — sequentially in registration order, unlike the async mediator's [concurrent delivery](/docs/guide/events#sync-events).
-
-## Error behavior
-
-If no handler is registered for a request type, `send()` raises `HandlerNotFoundError`:
-
-```python
-from pymediate import HandlerNotFoundError
-
-try:
-    response = await mediator.send(UnregisteredRequest())
-except HandlerNotFoundError as e:
-    print(f"No handler for request: {e}")
-```
-
-Exceptions raised *inside* handlers propagate unchanged — the mediator never catches or wraps them:
-
-```python
-class CreateUserHandler(RequestHandler[CreateUserRequest]):
-    async def __call__(self, request: CreateUserRequest) -> CreateUserResponse:
-        if not request.email:
-            raise ValueError("Email is required")
-        ...
-
-try:
-    await mediator.send(CreateUserRequest(username="test", email=""))
-except ValueError as e:
-    print(f"Validation error: {e}")
-```
-
-See [error handling](/docs/guide/error-handling) for keeping domain errors independent of the framework at the edge of your application.
-
-## Compose behaviors, don't subclass
-
-`Mediator` isn't designed to be subclassed — there's no protected hook, and `send()`'s behavior isn't meant to vary between instances. For logging, timing, validation, or any other cross-cutting concern, register a [pipeline behavior](/docs/guide/pipeline-behaviors). Behaviors are auto-discovered from the same `Services`/`ServiceProvider` as handlers:
-
-```python
-from pymediate import Request, PipelineBehavior, Services, Mediator
-
-class LoggingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        print(f"Before: {type(request).__name__}")
-        response = await next()
-        print(f"After: {type(request).__name__}")
-        return response
-
-class TimingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        start = time.time()
-        response = await next()
-        print(f"Took {time.time() - start:.3f}s")
-        return response
-
-services = Services()
-services.add(LoggingBehavior())   # outermost
-services.add(TimingBehavior())    # inner
-services.add(CreateUserHandler())
-
-mediator = Mediator(services.provider())
-# Every request runs: Logging → Timing → RequestHandler
-```
-
-Registration order sets execution order, outermost first:
-
-```
-Request
-  → Logging (outermost)
-    → Timing
-      → RequestHandler
-      ← response
-    ← Timing
-  ← Logging
-```
-
-This gets you everything a subclass would — shared setup, teardown, error handling — while staying independently testable and reusable.
-
-## Testing with the mediator
-
-Unit-test handlers directly, without a mediator at all. Use a real mediator for integration tests of the full flow:
-
-```python
-@pytest.mark.asyncio
-async def test_with_mediator():
-    services = Services()
-    services.add(CreateUserHandler(mock_db))
-    mediator = Mediator(services.provider())
-
-    response = await mediator.send(CreateUserRequest(username="test", email="test@example.com"))
-
-    assert response.user_id > 0
-```
-
-For consumers that *send* requests or *publish* events, fake the mediator — it's two methods:
-
-```python
-class MockMediator:
-    def __init__(self):
-        self.sent_requests = []
-        self.published_events = []
-
-    async def send(self, request):
-        self.sent_requests.append(request)
-        if isinstance(request, CreateUserRequest):
-            return CreateUserResponse(user_id=999, username=request.username)
-
-    async def publish(self, event):
-        self.published_events.append(event)
-
-@pytest.mark.asyncio
-async def test_place_order_sends_expected_requests():
-    mock_mediator = MockMediator()
-    handler = PlaceOrderHandler(mediator=mock_mediator, database=mock_db)
-
-    await handler(PlaceOrderRequest(...))
-
-    assert isinstance(mock_mediator.sent_requests[0], ChargePaymentRequest)
-```
-
-## Best practices
-
-- **One mediator instance per application.** Build it once at startup; don't construct one per request.
-- **Inject the mediator into handlers** that need to dispatch further requests — no globals.
-- **Don't mix dispatch styles.** If a handler composes through the mediator, don't also hand it direct references to other handlers.
-- **Swap providers, not call sites.** `ServiceProvider` is a protocol; you can move from `Services` to a [dependency-injector container](/docs/guide/dependency-injection) without changing any `mediator.send()` call.
-
-## Next steps
-
-- [Events](/docs/guide/events) — the `publish()` side in full
-- [Pipeline behaviors](/docs/guide/pipeline-behaviors) — the full middleware guide
-- [Dependency injection](/docs/guide/dependency-injection) — wiring handlers through a container
-- [Mediator API reference](/docs/api/mediator) — signatures for both async and sync mediators
+- Add shared request processing with [pipeline behaviors](/docs/guide/pipeline-behaviors).
+- Configure service lifetimes with [dependency injection](/docs/guide/dependency-injection).
+- Look up the exact [`Mediator` signatures](/docs/api/mediator).

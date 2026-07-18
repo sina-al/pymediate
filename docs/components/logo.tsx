@@ -5,7 +5,15 @@ import { cn } from '@/lib/cn';
  * The PyMediate "dispatch node" mark: message paths converging through a
  * single gradient node. Original artwork — renders crisply down to 16px.
  */
-export function LogoMark({ className, size = 24 }: { className?: string; size?: number }) {
+export function LogoMark({
+  accessibleLabel,
+  className,
+  size = 24,
+}: {
+  accessibleLabel?: string;
+  className?: string;
+  size?: number;
+}) {
   const id = useId();
   const gradient = `pm-mark-${id}`;
 
@@ -16,8 +24,9 @@ export function LogoMark({ className, size = 24 }: { className?: string; size?: 
       viewBox="0 0 32 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label="PyMediate"
+      role={accessibleLabel ? 'img' : undefined}
+      aria-label={accessibleLabel}
+      aria-hidden={accessibleLabel ? undefined : true}
       className={className}
     >
       <defs>

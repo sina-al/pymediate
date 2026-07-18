@@ -1,19 +1,4 @@
-"""Pipeline behavior implementation for cross-cutting concerns in the mediator pattern.
-
-Pipeline behaviors provide a way to implement middleware-like functionality that wraps
-around request handlers. This is inspired by MediatR's IPipelineBehavior pattern and
-enables clean implementation of cross-cutting concerns such as:
-
-- Logging and auditing
-- Performance measurement and monitoring
-- Validation
-- Transaction management
-- Caching
-- Error handling and retry logic
-
-Behaviors are executed in the order they are registered, forming a chain where each
-behavior can execute logic before and after the next behavior (or final handler) runs.
-"""
+"""Synchronous request pipeline behaviors and their continuation type."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -26,12 +11,10 @@ type Next[ResponseT] = Callable[[], ResponseT]
 
 Calling it runs the rest of the pipeline - the remaining behaviors and, finally,
 the handler - and returns the response. ``ResponseT`` is the response type the
-behavior expects back; annotate it concretely (``Next[UserResponse]``) to keep the
+behavior expects back; annotate it concretely (``Next[OrderReceipt]``) to keep the
 call site typed, or ``Next[Any]`` for a universal behavior that passes the response
-through untouched.
-
-See Also:
-    - pymediate.Next: Asynchronous variant (``Callable[[], Awaitable[ResponseT]]``)
+through untouched. ``pymediate.Next`` is the asynchronous
+``Callable[[], Awaitable[ResponseT]]`` variant.
 """
 
 
@@ -65,92 +48,48 @@ def _resolve_request_type(cls: type) -> Any:
 class PipelineBehavior[RequestT: Request[Any]](ABC):
     """Abstract base class for pipeline behaviors that wrap request processing.
 
-    A pipeline behavior is middleware that sits between the mediator and the handler,
-    allowing you to execute logic before and after the handler processes the request.
+    A behavior can run logic before and after the next behavior or request handler.
+    Calling ``next()`` continues the chain. Returning without calling it
+    short-circuits dispatch, and the behavior's return value becomes the result of
+    ``Mediator.send()``.
 
-    Behaviors can be selective - they only apply to specific request types or mixins.
-    The type parameter indicates which requests this behavior applies to.
-
-    Behaviors receive:
-    - The request being processed (typed as RequestT)
-    - A 'next' callable that represents the next step in the pipeline
-
-    By calling next(), the behavior passes control to the next step. The behavior
-    can execute code before calling next() (pre-processing), after calling next()
-    (post-processing), or both.
+    The type parameter controls selection. ``PipelineBehavior[Request[Any]]``
+    applies to every request; a concrete request class applies to that class and,
+    by default, its subclasses. Set ``apply_to_subclasses`` to ``False`` for an
+    exact-type match, or override ``should_apply()`` for other conditions.
 
     Type Parameters:
-        RequestT: The request type (or mixin) this behavior applies to.
-                  Can be Request (universal), a specific request class, or a mixin.
+        RequestT: The ``Request`` subclass or request-class family this behavior wraps.
 
     Examples:
-        Universal behavior (applies to all requests):
+        Defining a behavior that applies to every request:
             ```python
+            from typing import Any
+
             from pymediate.sync import Next, PipelineBehavior, Request
 
-            class LoggingBehavior(PipelineBehavior[Request]):
+            class LoggingBehavior(PipelineBehavior[Request[Any]]):
                 def __call__(
                     self,
-                    request: Request,
-                    next: Next[Any]
+                    request: Request[Any],
+                    next: Next[Any],
                 ) -> Any:
-                    print(f"Handling: {type(request).__name__}")
+                    print(f"handling {type(request).__name__}")
                     response = next()
-                    print(f"Handled: {type(request).__name__}")
+                    print(f"handled {type(request).__name__}")
                     return response
             ```
 
-        Selective behavior for authenticated requests:
-            ```python
-            class AuthMixin:
-                principal: Principal
-
-            class AuthBehavior(PipelineBehavior[AuthMixin]):
-                def __call__(
-                    self,
-                    request: AuthMixin,
-                    next: Next[Any]
-                ) -> Any:
-                    if not request.principal.is_authenticated:
-                        raise Unauthorized()
-                    return next()
-            ```
-
-        Specific request type:
-            ```python
-            class ValidationBehavior(PipelineBehavior[CreateUserRequest]):
-                def __call__(
-                    self,
-                    request: CreateUserRequest,
-                    next: Next[Any]
-                ) -> Any:
-                    if not request.username:
-                        raise ValueError("Username required")
-                    return next()
-            ```
-
     Attributes:
-        apply_to_subclasses: If True (default), applies to subclasses of RequestT.
-                            If False, only applies to exact type match.
+        apply_to_subclasses: Whether the default selector includes subclasses of
+            ``RequestT``. Defaults to ``True``.
 
     Note:
-        The response type is not statically known because selective behaviors can
-        apply to requests with different response types. If you need response type
-        safety, manually annotate in your implementation:
-
-            ```python
-            def __call__(self, request: MyRequest, next) -> MyResponse:
-                result: MyResponse = next()  # Manual type assertion
-                return result
-            ```
-
-        For async behaviors, use `pymediate.PipelineBehavior` instead.
-
-    See Also:
-        - Mediator.send: Discovers applicable behaviors and runs them
-          around the handler.
-        - should_apply: Override to customize behavior selection logic
-        - pymediate.PipelineBehavior: Async version
+        For a behavior scoped to one request type, annotate ``next`` and the
+        return value with that request's concrete response type. Use ``Next[Any]``
+        and return ``Any`` when the behavior can wrap several response types.
+        Pipeline behaviors apply to ``send()`` only, not ``stream()`` or
+        ``publish()``. Use ``pymediate.PipelineBehavior`` for asynchronous code.
     """
 
     apply_to_subclasses: bool = True
@@ -179,32 +118,15 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
     def should_apply(cls, request: Request[Any]) -> bool:
         """Determine if this behavior should apply to the given request.
 
-        Default implementation uses isinstance() check against the type parameter.
-        Override for custom matching logic.
+        The default selector matches the behavior's request type. It uses
+        ``isinstance()`` when ``apply_to_subclasses`` is true and an exact type
+        comparison otherwise. Override this method for request-dependent selection.
 
         Args:
-            request: The request to check
+            request: The request to check.
 
         Returns:
-            True if this behavior should apply to the request
-
-        Examples:
-            Custom matching logic:
-                ```python
-                class BusinessHoursBehavior(PipelineBehavior[Request]):
-                    @classmethod
-                    def should_apply(cls, request: Request) -> bool:
-                        from datetime import datetime
-                        return 9 <= datetime.now().hour < 17
-                ```
-
-            Multiple type matching:
-                ```python
-                class MultiTypeBehavior(PipelineBehavior[Request]):
-                    @classmethod
-                    def should_apply(cls, request: Request) -> bool:
-                        return isinstance(request, (CreateRequest, UpdateRequest))
-                ```
+            ``True`` when the behavior should join the request's pipeline.
         """
         match_type = cls.__match_type__
         if match_type is Request:
@@ -223,20 +145,16 @@ class PipelineBehavior[RequestT: Request[Any]](ABC):
         """Execute the behavior's logic and call next to continue the pipeline.
 
         Args:
-            request: The request being processed (typed as RequestT)
+            request: The request being processed.
             next: Continuation that invokes the next behavior or handler in the
-                chain; annotate it as ``Next[YourResponse]`` to type the call site
+                chain.
 
         Returns:
-            The response from the handler (type not statically known)
+            The response to return from ``Mediator.send()``.
 
         Note:
-            This method should call next() to continue the pipeline execution.
-            Code before next() runs before the handler, code after runs after.
-
-            The response type is Any because selective behaviors can apply to
-            requests with different response types. If you need type safety,
-            manually annotate the return type in your implementation.
+            Call ``next()`` to continue the chain. A behavior may instead return
+            directly to short-circuit it.
         """
         ...
 

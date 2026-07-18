@@ -6,58 +6,41 @@ from ._internal import registry
 
 
 class Request[ResponseT]:
-    """Base request class with generic response type parameter.
+    """Base class for a request that produces one typed response.
 
-    All requests should inherit from `Request[ResponseType]` to specify their
-    expected response type. This enables automatic type inference and runtime
-    validation throughout the mediator pattern.
+    Inherit from ``Request[ResponseT]`` to declare the type returned by the
+    request's handler. This lets a static type checker infer the result of
+    ``Mediator.send()``.
 
-    The response type is automatically registered when a Request subclass is
-    created via the __init_subclass__ hook, making it available for handler
-    validation and type checking.
-
-    This class works seamlessly with dataclasses, regular classes, and any
-    Python class structure.
+    PyMediate records the relationship when Python defines the request class and
+    uses it to validate a handler's return annotation. It does not inspect the
+    value returned by the handler at dispatch time.
 
     Type Parameters:
-        ResponseT: The type of response that handlers will return for this request.
+        ResponseT: The response type returned by the request's handler.
 
     Examples:
-        Using with dataclasses (recommended):
+        Defining a dataclass request:
             ```python
             from dataclasses import dataclass
 
-            @dataclass
-            class UserCreatedResponse:
-                user_id: int
-                username: str
+            from pymediate import Request
 
-            @dataclass
-            class CreateUserRequest(Request[UserCreatedResponse]):
-                username: str
-                email: str
-            ```
+            @dataclass(frozen=True)
+            class OrderReceipt:
+                order_id: int
+                summary: str
 
-        Using with regular classes:
-            ```python
-            class UserCreatedResponse:
-                def __init__(self, user_id: int):
-                    self.user_id = user_id
-
-            class CreateUserRequest(Request[UserCreatedResponse]):
-                def __init__(self, name: str, email: str):
-                    self.name = name
-                    self.email = email
+            @dataclass(frozen=True)
+            class PlaceOrder(Request[OrderReceipt]):
+                customer_id: int
+                item: str
+                quantity: int
             ```
 
     Note:
-        The response type is extracted and registered automatically when the
-        class is defined. This happens at import time, not at runtime, so
-        there is no performance penalty for using this pattern.
-
-    See Also:
-        - RequestHandler: Base handler class that processes requests
-        - Mediator.send: Method that routes requests to handlers
+        A bare subclass such as ``class PlaceOrder(Request): ...`` has no recorded
+        response type and cannot be paired with a valid ``RequestHandler``.
     """
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

@@ -28,8 +28,8 @@ export default async function ArticlesIndex() {
             className="pm-fade-up mt-4 max-w-xl text-pretty text-fd-muted-foreground"
             style={{ animationDelay: '60ms' }}
           >
-            Long-form writing about the ideas behind PyMediate — coupling, application
-            architecture, and why codebases get harder to change. Essays, not release notes.
+            Long-form articles about coupling, application architecture, and the design
+            context for PyMediate. Release notes are published on GitHub.
           </p>
         </div>
       </section>

@@ -1,71 +1,92 @@
 ---
 title: Errors
-description: API reference for PyMediate's exception hierarchy.
+description: API reference for validation, registration, dispatch, and service-resolution errors.
 ---
 
-All PyMediate-specific exceptions subclass `PyMediateError`. They split into **definition-time** errors (raised at import, when a class is defined — fatal programming mistakes, not meant to be caught) and **dispatch-time** errors (raised while routing a request — catchable). See the [error handling guide](/docs/guide/error-handling#pymediates-own-errors) for how to treat each group.
+Most validation and dispatch errors inherit from `PyMediateError`. Service resolution uses the
+separate `ServiceNotFoundError`, which inherits directly from `Exception`. Subscriber failures from
+`publish()` use Python's built-in exception groups.
 
-## PyMediateError
+## `PyMediateError`
 
 ```python
 from pymediate import PyMediateError
 
 class PyMediateError(Exception):
-    def __init__(self, message: str, docs_path: str | None = None): ...
+    def __init__(
+        self,
+        message: str,
+        docs_path: str | None = None,
+    ): ...
 ```
 
-Base exception for all PyMediate errors. Carries an optional `docs_path` pointing to the relevant documentation page, which subclasses use to append a "learn more" link to their messages.
+`docs_path` is stored on the exception. When present, PyMediate appends the corresponding
+documentation URL to the exception message.
 
 ## Definition-time errors
 
-Raised by `RequestHandler.__init_subclass__` validation the moment a class is defined — the failing `import` is the signal. Fix the code; don't catch these.
+Handler classes are validated and registered when Python defines them, usually while importing a
+module. These errors indicate a class declaration that does not meet the handler contract.
 
-### InvalidHandlerSignatureError
+### `InvalidHandlerSignatureError`
 
 ```python
 class InvalidHandlerSignatureError(PyMediateError):
     def __init__(self, handler_type: type, issue: str): ...
 ```
 
-The handler's `__call__` has the wrong shape: missing type annotations, wrong parameter count, a parameter annotation that isn't *exactly* the request class declared in `RequestHandler[RequestT]` (a base class or union is rejected — see [the exact-annotation contract](/docs/guide/handlers#the-exact-annotation-contract)), or async/sync mismatch (a plain `def __call__` on the async `RequestHandler`, or vice versa).
+Raised when a request, stream, or event handler's `__call__` has the wrong number of parameters,
+annotations, or synchronous/asynchronous form. Stream handlers also raise it when `__call__` is not
+the required generator form. The `handler_type` and `issue` attributes describe the failed
+declaration.
 
-### InvalidRequestTypeError
+### `InvalidRequestTypeError`
 
 ```python
 class InvalidRequestTypeError(PyMediateError):
     def __init__(self, request_type: type): ...
 ```
 
-A handler was parameterized on a type that doesn't inherit from `Request[ResponseType]`.
+Raised when `RequestHandler[...]` is parameterized with a type that has no recorded
+`Request[ResponseT]` relationship. The rejected type is available as `request_type`.
 
-### InvalidEventTypeError
+### `InvalidEventTypeError`
 
 ```python
 class InvalidEventTypeError(PyMediateError):
     def __init__(self, event_type: type): ...
 ```
 
-An event handler was parameterized on a type that doesn't inherit from `Event`. Because `EventHandler`'s type parameter is bound to `Event`, mypy and basedpyright flag this statically too — the runtime error is the backstop for unchecked code.
+Raised when `EventHandler[...]` is parameterized with a type that is not an `Event` subclass. The
+rejected type is available as `event_type`.
 
-### InvalidStreamRequestTypeError
+### `InvalidStreamRequestTypeError`
 
 ```python
 class InvalidStreamRequestTypeError(PyMediateError):
     def __init__(self, stream_request_type: type): ...
 ```
 
-A stream handler was parameterized on a type that doesn't inherit from `StreamRequest[ChunkType]` (or on a bare `StreamRequest` with no declared chunk type). Because `StreamRequestHandler`'s type parameter is bound to `StreamRequest`, mypy and basedpyright flag this statically too — the runtime error is the backstop for unchecked code.
+Raised when `StreamRequestHandler[...]` is parameterized with a type that is not a parameterized
+`StreamRequest` subclass. The rejected type is available as `stream_request_type`.
 
-### ResponseTypeMismatchError
+### `ResponseTypeMismatchError`
 
 ```python
 class ResponseTypeMismatchError(PyMediateError):
-    def __init__(self, handler_type: type, expected_type: type, actual_type: type): ...
+    def __init__(
+        self,
+        handler_type: type,
+        expected_type: type,
+        actual_type: type,
+    ): ...
 ```
 
-The handler's return annotation disagrees with the response type its request declares. Note this is *runtime* (import-time) validation — mypy doesn't catch this particular mismatch. See [type safety](/docs/advanced/type-safety#runtime-checking-at-class-definition-time).
+Raised when a request handler's return annotation differs from the response type declared by its
+request. It compares annotations while defining the class; PyMediate does not inspect the returned
+value later. The arguments are stored as `handler_type`, `expected_type`, and `actual_type`.
 
-### HandlerAlreadyRegisteredError
+### `HandlerAlreadyRegisteredError`
 
 ```python
 class HandlerAlreadyRegisteredError(PyMediateError):
@@ -78,41 +99,57 @@ class HandlerAlreadyRegisteredError(PyMediateError):
     ): ...
 ```
 
-A second `RequestHandler` subclass was defined for a request type that already has one. PyMediate enforces one handler per request type, process-wide. The message includes both handler names and, when available, the file and line where the first was registered. Common in test suites — see [testing](/docs/advanced/testing#a-test-isolation-gotcha-the-handler-registry-is-global).
+Raised when a second request handler or stream handler is defined for a request type already in
+the process-wide registry. Its attributes retain the request type, both handler classes, and the
+first registration location when available. Event handlers do not use this one-handler limit.
 
 ## Dispatch-time errors
 
-Raised while a request is being routed. Both usually indicate a misconfigured deployment (something was never registered) rather than bad client input — at a web edge they map to a 500, not a 4xx.
-
-### HandlerNotFoundError
+### `HandlerNotFoundError`
 
 ```python
 class HandlerNotFoundError(PyMediateError):
-    def __init__(self, request_type: type, available_handlers: list[type] | None = None): ...
+    def __init__(
+        self,
+        request_type: type,
+        available_handlers: list[type] | None = None,
+    ): ...
 ```
 
-`mediator.send()` received a request whose type has no registered handler. The message lists the handlers that are available.
+`Mediator.send()` and `Mediator.stream()` raise this error when the exact request class has no
+registered handler class. The attributes are `request_type` and `available_handlers`. A missing
+handler *instance* is instead a service-resolution error.
 
-```python
-from pymediate import HandlerNotFoundError
-
-try:
-    response = await mediator.send(GetUserRequest(user_id=1))
-except HandlerNotFoundError:
-    logger.error("RequestHandler missing from services — config bug")
-    raise
-```
-
-### ServiceNotFoundError
+### `ServiceNotFoundError`
 
 ```python
 class ServiceNotFoundError(Exception):
-    def __init__(self, service_type: type, available_types: list[type]) -> None: ...
+    def __init__(
+        self,
+        service_type: type,
+        available_types: list[type],
+    ) -> None: ...
 ```
 
-A `ServiceProvider.get()` call couldn't resolve the requested type. Lives in `pymediate.service` and — unlike the others — subclasses plain `Exception`, not `PyMediateError`.
+`ServiceProvider.get()` raises this error when no instance is registered for the exact requested
+type. During mediator dispatch, that can occur while resolving a request handler, stream handler,
+or event handler. The arguments are stored as `service_type` and `available_types`.
+
+Because `ServiceNotFoundError` is not a `PyMediateError`, catching `PyMediateError` alone does not
+catch all mediator configuration failures.
+
+## Other propagated failures
+
+- `send()` lets handler and pipeline-behavior exceptions propagate unchanged.
+- `stream()` lets generator-body exceptions propagate during iteration.
+- Asynchronous `publish()` aggregates ordinary subscriber failures in an `ExceptionGroup`. Other
+  collected `BaseException` values produce a `BaseExceptionGroup`; `KeyboardInterrupt` and
+  `SystemExit` propagate directly and can cancel unfinished subscribers.
+- Synchronous `publish()` aggregates ordinary subscriber exceptions in an `ExceptionGroup`. A
+  direct `BaseException` that is not an `Exception` stops delivery and propagates immediately.
 
 ## See also
 
-- [Error handling guide](/docs/guide/error-handling) — domain vs. framework errors, and mapping at the edge
-- [Troubleshooting](/docs/advanced/troubleshooting) — causes and fixes for each error
+- [Error handling](/docs/guide/error-handling) — application boundaries and domain errors
+- [Troubleshooting](/docs/guide/troubleshooting) — likely causes and corrections
+- [Mediator](/docs/api/mediator) — when dispatch errors are raised
