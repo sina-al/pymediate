@@ -7,12 +7,16 @@ on:
       - "src/**"
       - "tests/**"
       - "scripts/**"
+      - "examples/**"
+      - ".devcontainer/**"
       - "pyproject.toml"
       - "uv.lock"
       - "tasks.toml"
+      - "pymediate.code-workspace"
       - "ruff.toml"
       - "mypy.ini"
       - ".github/workflows/**"
+      - ".claude/skills/example/**"
       - ".claude/context/**"
       - ".claude/CLAUDE.md"
   pull_request:
@@ -34,6 +38,7 @@ jobs:
     if: github.event_name == 'pull_request'
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      examples: ${{ steps.filter.outputs.examples }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -57,6 +62,18 @@ jobs:
               - ".github/workflows/**"
               - ".claude/context/**"
               - ".claude/CLAUDE.md"
+            examples:
+              - "src/**"
+              - "examples/**"
+              - ".devcontainer/**"
+              - "scripts/run_examples.py"
+              - "tests/test_run_examples.py"
+              - "pyproject.toml"
+              - "uv.lock"
+              - "tasks.toml"
+              - "pymediate.code-workspace"
+              - ".claude/skills/example/**"
+              - ".github/workflows/checks.yml"
 
   check:
     name: Run Checks
@@ -111,16 +128,67 @@ jobs:
         run: |
           uv run poe actions:lint --format github
 
+  examples:
+    name: Run Examples
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [changes]
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' ||
+       (github.base_ref == 'main' && needs.changes.outputs.examples == 'true'))
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # hatch-vcs needs the tags to derive a valid wheel version.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Sync runner dependencies
+        run: |
+          uv sync --only-dev
+
+      - name: Check examples contract
+        run: |
+          uv run poe examples:test --check-contract
+
+      - name: Check examples repository structure
+        run: |
+          uv run poe examples:test --check-repository
+
+      - name: Build wheel
+        run: |
+          uv run poe build
+
+      - name: Test examples against the wheel
+        run: |
+          uv run poe examples:test --wheel dist/*.whl
+
   checks-summary:
     name: Checks
     runs-on: ubuntu-latest
-    needs: [changes, check]
+    needs: [changes, check, examples]
     if: always()
     steps:
       - name: Check result
         run: |
-          if [[ "${{ needs.check.result }}" == "failure" ]]; then
-            echo "Checks failed"
+          if [[ "${{ needs.changes.result }}" == "failure" || \
+                "${{ needs.changes.result }}" == "cancelled" || \
+                "${{ needs.check.result }}" == "failure" || \
+                "${{ needs.check.result }}" == "cancelled" || \
+                "${{ needs.examples.result }}" == "failure" || \
+                "${{ needs.examples.result }}" == "cancelled" ]]; then
+            echo "One or more required checks failed"
             exit 1
           fi
           echo "Checks passed (or were skipped: no relevant changes)"

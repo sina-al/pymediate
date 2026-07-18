@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "src/**"
+      - "scripts/**"
       - "tests/**"
       - "pyproject.toml"
       - "uv.lock"
@@ -43,6 +44,7 @@ jobs:
           filters: |
             code:
               - "src/**"
+              - "scripts/**"
               - "tests/**"
               - "pyproject.toml"
               - "uv.lock"

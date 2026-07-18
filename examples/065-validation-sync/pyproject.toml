@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-validation-sync"
+name = "pymediate-example-065-validation-sync"
 version = "0.1.0"
-description = "Where validation goes on pymediate.sync: Pydantic DTO at the edge, invariants in the core"
+description = "Synchronous schema validation at the edge and business rules in the core"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

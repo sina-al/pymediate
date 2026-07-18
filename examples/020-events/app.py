@@ -1,11 +1,10 @@
-"""One completion, three reactions: PyMediate's ``publish`` fan-out (async top-level API).
+"""Publish one event to several handlers with PyMediate's asynchronous API.
 
-``send`` asks one handler a question and awaits its answer. ``publish`` does the opposite:
-it announces that something *happened* and lets any number of subscribers react — no
-response, and no idea who is listening. Completing a task here publishes one ``TaskCompleted``
-event that three independent subscribers pick up (a notifier, a stats counter, and an audit
-log), and the async mediator runs them *concurrently*. A second publish with no subscribers
-shows that zero reactions is a perfectly valid outcome. The sync mirror is 020-events-sync.
+``send`` asks one handler a question and awaits its answer. ``publish`` reports that
+something happened and lets any number of event handlers react. Completing a task publishes
+one ``TaskCompleted`` event to a notifier, statistics counter, and audit log. The
+asynchronous mediator runs them concurrently. Publishing an event with no matching handlers
+also succeeds. The synchronous mirror is 020-events-sync.
 """
 
 import asyncio
@@ -59,7 +58,7 @@ class Notifier(EventHandler[TaskCompleted]):
     async def __call__(self, event: TaskCompleted) -> None:
         self._dashboard.feed.append("notify  started")
         await asyncio.sleep(0.03)  # stand-in for an async send (email, push, ...)
-        self._dashboard.feed.append(f"notify  done    (queued: Nice work! {event.title} is done.)")
+        self._dashboard.feed.append(f"notify  done    (queued task completion for {event.title})")
 
 
 class StatsCounter(EventHandler[TaskCompleted]):
@@ -110,11 +109,11 @@ async def main() -> None:
     await mediator.publish(TaskCompleted(task_id=1, title="Buy groceries"))
     for line in dashboard.feed:
         print(f"  {line}")
-    print("Every subscriber started before any finished — async publish ran them concurrently.\n")
+    print("All event handlers started before any finished; asynchronous publish was concurrent.\n")
 
-    print("Archiving task 1 (nothing subscribes to TaskArchived):")
+    print("Archiving task 1 (no handlers registered for TaskArchived):")
     await mediator.publish(TaskArchived(task_id=1))
-    print("  publish returned, no handlers ran — zero subscribers is a valid no-op.")
+    print("  publish returned; no matching handlers ran.")
 
 
 if __name__ == "__main__":

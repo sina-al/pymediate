@@ -1,9 +1,8 @@
-"""HTTP edge: authenticate from the header, attach the principal, map denials to statuses.
+"""Read HTTP credentials, attach a principal, and map access errors to statuses.
 
-Each route does the same two-step: parse the credential into a ``Principal`` (``authn.py``),
-then build the request with that principal attached. The authorization that follows is the
-core's job, identical to every other transport. A denial comes back as ``AuthorizationError``,
-which this layer maps to 403. Routes are plain ``def`` because the core is synchronous.
+The demo parser in ``authn.py`` is unsigned; a production adapter must verify credentials first.
+Missing authentication maps to 401. A verified principal that lacks permission maps to 403.
+Routes use ``def`` because the mediator is synchronous.
 """
 
 from fastapi import FastAPI
@@ -13,6 +12,7 @@ from pydantic import BaseModel
 
 from .authn import from_http
 from .core import (
+    AuthenticationRequiredError,
     AuthorizationError,
     Document,
     DocumentNotFoundError,
@@ -31,9 +31,19 @@ class EditBody(BaseModel):
 
 
 def create_app(store: DocumentStore | None = None) -> FastAPI:
-    """Build a FastAPI app that authenticates at the edge and authorizes in the core."""
+    """Build a FastAPI app that authenticates at the boundary and authorizes in the core."""
     app = FastAPI(title="Vault")
     mediator = build_mediator(store)
+
+    @app.exception_handler(AuthenticationRequiredError)
+    def on_authentication_required(
+        request: HTTPRequest, err: AuthenticationRequiredError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=401,
+            content={"error": str(err)},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     @app.exception_handler(AuthorizationError)
     def on_denied(request: HTTPRequest, err: AuthorizationError) -> JSONResponse:

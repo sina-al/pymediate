@@ -57,7 +57,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pymediate-example-handler-composition"
+name = "pymediate-example-050-handler-composition"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

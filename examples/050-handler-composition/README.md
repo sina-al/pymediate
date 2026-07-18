@@ -2,15 +2,14 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F050-handler-composition%2Fdevcontainer.json)
 
-One command, `PlaceOrder`, needs three things done — reserve stock, charge a card, announce
-the result. The handler that owns it does none of them itself and **holds none of the other
-handlers**: it dispatches sub-requests and an event back through the mediator, and runs the
-two independent ones at the same time.
+`PlaceOrderHandler` reserves stock, charges a card, and publishes `OrderPlaced` by dispatching
+through the mediator. It depends on request and event types rather than concrete handler classes.
 
-## Run it
+## Run
+
+From this directory:
 
 ```bash
-cd examples/050-handler-composition
 uv sync
 uv run pytest
 ```
@@ -19,7 +18,7 @@ uv run pytest
 4 passed
 ```
 
-Then place an order and watch the order of execution:
+Run the console example to see the scheduling order:
 
 ```console
 $ uv run orders
@@ -35,20 +34,19 @@ Journal (top to bottom = order of execution):
   place:done
 ```
 
-Both sub-requests **start** before either one finishes — `reserve:start` and `charge:start`
-are back to back, ahead of either `:done`. They were in flight at the same time.
+Both subrequests start before either finishes. After they complete, `publish` runs the event
+subscribers and waits for all of them before returning.
 
-## The composing handler
+## Compose through the mediator
 
 ```python
-# handlers.py — owns one operation, holds no other handler, only the mediator's send/publish
 class PlaceOrderHandler(RequestHandler[PlaceOrder]):
     def __init__(self, sender: Sender, journal: list[str]) -> None:
-        self._sender = sender          # the mediator's dispatch seam, not the sub-handlers
+        self._sender = sender
+        self._journal = journal
         self._next_id = count(1)
 
     async def __call__(self, request: PlaceOrder) -> Order:
-        # Reserving stock and charging the card are independent — run them concurrently.
         reservation, receipt = await asyncio.gather(
             self._sender.send(ReserveStock(request.sku, request.quantity)),
             self._sender.send(ChargePayment(request.customer_id, request.amount_cents)),
@@ -58,61 +56,53 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
         return order
 ```
 
-`ReserveStockHandler` and `ChargePaymentHandler` are ordinary handlers, each unaware it's
-being composed. `PlaceOrderHandler` reaches them the same way any caller would — two `send`
-calls — then announces the finished order with one `publish`. It never imports or references
-another handler, so the dependency graph stays flat. Because the two sub-requests don't
-depend on each other, `asyncio.gather` overlaps them; swapping in `await`-one-then-the-other
-would be the only change needed to serialize them.
+The reservation and payment handlers do not know that `PlaceOrderHandler` uses them. Mediator
+dispatch also applies any behaviors registered for the subrequest types. The cost is indirect
+control flow: a reader must follow each request type to find its handler.
 
-## Closing the construction cycle
+Direct service or subhandler injection is also valid. It makes calls explicit and can simplify
+construction, but the composing handler then depends on those service interfaces and direct
+calls do not enter mediator pipelines automatically.
 
-There's a chicken-and-egg problem hiding in that `Sender`. The mediator is built *from* the
-handlers, so it doesn't exist yet when `PlaceOrderHandler` is constructed — you can't inject
-the mediator the handler needs to dispatch into. The fix is to depend on a narrow interface,
-not the concrete mediator, and bind it a moment later:
+## Bind the sender
+
+The mediator is created from its handlers, while `PlaceOrderHandler` needs a sender that will
+eventually forward to that mediator. `LateBoundSender` allows registration before the mediator
+exists and is bound immediately afterward.
 
 ```python
-# app.py — two extra lines close the loop
-sender = LateBoundSender()                     # a Sender you can register before the mediator exists
+sender = LateBoundSender()
 services.add(PlaceOrderHandler(sender, journal))
-...
 mediator = Mediator(services.provider())
-sender.bind(mediator)                          # now the handler dispatches into its own mediator
+sender.bind(mediator)
 ```
 
-`Sender` is a two-method `Protocol` (`send`, `publish`) that `Mediator` already satisfies
-structurally. Depending on *it* — rather than `Mediator` — is also what lets a test hand the
-composing handler a fake and check what it dispatched, without a real mediator at all.
+`Sender` is a narrow `Protocol` containing `send` and `publish`. `Mediator` satisfies it, and a
+test double can implement the same two methods.
 
-## The files
+## Read the code
 
-| File | What it is |
+| File | What to read |
 | --- | --- |
-| [`src/orders/handlers.py`](src/orders/handlers.py) | **Start here.** The two leaf handlers, the composing `PlaceOrderHandler`, and the two event subscribers. |
-| [`src/orders/domain.py`](src/orders/domain.py) | Value objects, the requests and event, the fakes, and the `Sender` / `LateBoundSender` seam. |
-| [`src/orders/app.py`](src/orders/app.py) | Wiring: register the late-bound sender, build the mediator, `bind` it — plus the `uv run orders` demo. |
-| [`tests/test_composition.py`](tests/test_composition.py) | The four claims: sub-requests dispatched, event delivered, sub-requests overlap, a failure propagates. |
+| [`src/orders/handlers.py`](src/orders/handlers.py) | Start here for the composing handler, subrequest handlers, and subscribers. |
+| [`src/orders/domain.py`](src/orders/domain.py) | Requests, results, service doubles, and the `Sender` protocol. |
+| [`src/orders/app.py`](src/orders/app.py) | Service registration and late binding. |
+| [`tests/test_composition.py`](tests/test_composition.py) | Dispatch order, subscriber delivery, and partial failure effects. |
 
-## Small print
+## Details
 
-- **Composing by dispatch, not by holding.** Injecting the sub-handlers into `PlaceOrder`
-  directly would work, but it rebuilds the very tangle the mediator removed — the composing
-  handler would know each collaborator's constructor and type. Dispatching keeps it knowing
-  only the *requests*.
-- **Announce and move on.** The two subscribers (`OrderConfirmation`, `SalesAnalytics`)
-  react to `OrderPlaced` independently; the order handler names neither and depends on
-  neither. That's the `publish` half of composition — see [020-events](../020-events/) for
-  it on its own.
-- **A failing sub-request propagates.** If `ReserveStock` raises `OutOfStockError`, it
-  surfaces straight out of `send(PlaceOrder)` and the order is never announced — no partial
-  `OrderPlaced`. The tests pin both the out-of-stock and declined-payment paths.
+Concurrent operations are not automatically atomic. In this demo, payment can complete when
+stock reservation fails. A reservation can also remain when payment fails. The tests assert
+these partial effects so the example does not imply rollback.
+
+Production order processing must define failure handling. Depending on the storage and external
+services, that can mean deliberate ordering, idempotency keys, a database transaction, or a
+compensating action. Publishing is also awaited; it is not background delivery.
 
 ## Where next
 
-- [050-handler-composition-sync](../050-handler-composition-sync/) — the same composition on
-  `pymediate.sync`, where the sub-requests run sequentially. Diff the two journals.
-- [020-events](../020-events/) — `publish()` on its own: one event, many independent subscribers.
-- [040-pipeline-behaviors](../040-pipeline-behaviors/) — the other way to factor shared work,
-  *around* a handler rather than *from inside* one.
-- The docs: [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts).
+- [060-messages](../060-messages/) explains how request data affects equality, representation,
+  and validation.
+- [050-handler-composition-sync](../050-handler-composition-sync/) shows sequential subrequests
+  with `pymediate.sync`.
+- Read the [core concepts guide](https://pymediate.sina-al.uk/docs/getting-started/concepts).

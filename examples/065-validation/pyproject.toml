@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-validation"
+name = "pymediate-example-065-validation"
 version = "0.1.0"
-description = "Where validation goes: Pydantic DTO at the edge, command invariants in the core"
+description = "Request-body schema validation at the edge and business rules in the core"
 requires-python = ">=3.12"
 dependencies = [
     "pymediate>=0.5.0",

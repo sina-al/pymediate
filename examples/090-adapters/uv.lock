@@ -678,7 +678,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pymediate-example-adapters"
+name = "pymediate-example-090-adapters"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

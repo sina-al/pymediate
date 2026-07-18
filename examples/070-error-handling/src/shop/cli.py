@@ -1,14 +1,10 @@
-"""CLI edge: the *same* core, mapping the *same* domain errors to exit codes.
+"""Map shop domain errors to command-line exit codes.
 
-This is the proof that keeping transport out of the core pays off. There is no HTTP here —
-no request, no client, nothing a 404 could be sent to. The core raised the very same
-``ProductNotFoundError`` it raises for the web edge; this layer decides that means exit
-code 3. Only this mapping differs between the two transports; the core is byte-for-byte the
-same.
+The command-line interface has no HTTP response, so it maps ``ProductNotFoundError`` to exit
+code 3 instead of status 404. The core is shared by both interfaces.
 
-``send_as_cli`` is the mapping, factored out so a test can drive it directly. It catches
-domain errors and turns them into exit codes — and *only* domain errors, which is exactly
-why a handler that leaks a framework exception (see ``leaky.py``) breaks it.
+``send_as_cli`` is separated so tests can call the mapping directly. An HTTP-specific exception
+is not one of the domain errors it handles; ``leaky.py`` demonstrates that mismatch.
 """
 
 import argparse
@@ -28,9 +24,9 @@ EXIT_OUT_OF_STOCK = 4
 def send_as_cli(mediator: Mediator, request: Request[object]) -> int:
     """Dispatch a request and translate domain errors into process exit codes.
 
-    Note what it catches: ``ProductNotFoundError`` and ``OutOfStockError`` — domain errors.
-    Anything else (including a leaked ``HTTPException``) is not the CLI's to interpret and
-    escapes, crashing the process. That's the failure mode the anti-pattern triggers.
+    It catches ``ProductNotFoundError`` and ``OutOfStockError``, which are domain errors.
+    Other exceptions, including ``HTTPException``, propagate because the command-line mapping
+    has no rule for them.
     """
     try:
         result = asyncio.run(mediator.send(request))

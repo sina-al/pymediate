@@ -241,7 +241,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pymediate-example-authorization-sync"
+name = "pymediate-example-075-authorization-sync"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -1,5 +1,5 @@
 [project]
-name = "pymediate-example-adapters-sync"
+name = "pymediate-example-090-adapters-sync"
 version = "0.1.0"
 description = "Framework independence: one synchronous PyMediate core behind Flask, FastAPI, and click adapters"
 requires-python = ">=3.12"

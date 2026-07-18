@@ -1,10 +1,8 @@
-"""HTTP edge: map each domain error to a status code, once, centrally.
+"""Map domain errors to HTTP status codes in one module.
 
-The routes describe only the happy path. Failure is handled by the exception handlers
-registered below — the FastAPI construct for turning an exception into a response. The core
-raised a ``ProductNotFoundError``; *this* layer decides that means 404. A different edge
-decides something else (see ``cli.py``). Endpoints are plain ``def`` because the core is
-synchronous.
+Routes return successful results. FastAPI exception handlers convert domain errors into HTTP
+responses. This module maps ``ProductNotFoundError`` to 404; ``cli.py`` maps the same error to
+a process exit code. Endpoints use ``def`` because the core is synchronous.
 """
 
 from fastapi import FastAPI

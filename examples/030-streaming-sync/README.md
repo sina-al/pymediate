@@ -2,16 +2,15 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F030-streaming-sync%2Fdevcontainer.json)
 
-**How do I return results incrementally?** When the answer arrives a piece at a time — LLM
-tokens, paginated rows, a large export — you don't want one big response after a long wait.
-`stream()` is the mediator's third dispatch shape: one request answered by a **lazy feed of
-typed chunks**. This is the synchronous mirror of [030-streaming](../030-streaming/), on
-`pymediate.sync` — an `Iterator`, pulled with a plain `for`.
+`pymediate.sync.Mediator.stream()` returns results incrementally instead of building one
+complete response first. This example uses a simulated large language model (LLM) to yield
+one typed token (`str`) at a time through an `Iterator`.
 
-## Run it
+## Run
+
+From this example directory:
 
 ```bash
-cd examples/030-streaming-sync
 uv sync
 uv run python app.py
 ```
@@ -30,7 +29,7 @@ Model emitted only 3 tokens — the rest were never produced
 Unregistered stream raised HandlerNotFoundError at the call, before iteration
 ```
 
-## The idea: a handler that yields
+## Yield typed chunks
 
 A `StreamRequest[ChunkT]` declares the type of each chunk. Its handler's `__call__` is a
 **generator** — it `yield`s chunks instead of `return`ing a value:
@@ -57,38 +56,38 @@ for token in mediator.stream(StreamCompletion(prompt="Explain a mediator")):
 the way to the consumer. The only delta from the async twin is `def`/`Iterator`/`for` in
 place of `async def`/`AsyncIterator`/`async for`.
 
-## Eager resolution, lazy iteration
+## Resolve the handler before iteration
 
 Two things happen at different times, and this example makes both visible:
 
 - **The handler is resolved eagerly**, at the `stream()` call. An unregistered request
-  raises `HandlerNotFoundError` right there, before you pull a single chunk — a missing
-  handler is a config bug you want to see immediately, not on first iteration.
+  raises `HandlerNotFoundError` right there, before you pull a single chunk. A missing
+  handler is a configuration error reported before iteration.
 - **The stream itself is lazy.** The handler's body runs only as you pull chunks. The demo's
   fake model records each token as it emits it, so the "emitted" count stays in lockstep with
   what you've consumed — and breaking early proves the remaining tokens are *never generated*.
 
-## The files
+## Read the code
 
-| File | What it is |
+| File | What to read |
 | --- | --- |
 | [`app.py`](app.py) | **Start here.** The stream request, the generator handler, a fake token source, and a demo of lazy streaming, an early break, and eager resolution. |
 | [`test_app.py`](test_app.py) | Asserts the exact chunk sequence, that production never runs ahead of consumption, that an early break stops production, and that an unregistered stream raises eagerly. `uv run pytest` → `5 passed`. |
 
-## Small print
+## Details
 
-- **Pipeline behaviors do not wrap streams.** Behaviors run on `send()` only — a
-  single-response middleware contract can't answer whether it should wrap a stream as a unit
-  or run per chunk. Cross-cutting concerns around a stream (timing, logging, retry) live in
-  the handler for now.
+- **Pipeline behaviors do not wrap streams.** They run on `send()` only. Put stream timing,
+  logging, or retry logic around source iteration in the stream handler.
 - The handler `__call__` must be a **generator** (contain `yield`). A plain `def` that merely
   *returns* an iterator is rejected when the class is defined, not at dispatch time.
-- Keep the handler lazy: stream from the source rather than building the whole result up
-  front and yielding from a list, so memory stays flat.
+- Yield chunks as the source produces them. Building a list first delays the first result
+  and stores the complete response in memory.
 
 ## Where next
 
-- [030-streaming](../030-streaming/) — the async original, on the top-level `pymediate` API
-  (`AsyncIterator`, `async for`).
+- [040-pipeline-behaviors-sync](../040-pipeline-behaviors-sync/) — apply logging,
+  authorization, caching, and a transaction boundary around synchronous request handlers.
+- [030-streaming](../030-streaming/) — the asynchronous version
+  (`AsyncIterator` and `async for`).
 - The docs: [streaming guide](https://pymediate.sina-al.uk/docs/guide/streaming) ·
   [StreamRequestHandler](https://pymediate.sina-al.uk/docs/api/stream-request-handler).

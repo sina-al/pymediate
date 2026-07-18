@@ -1,8 +1,7 @@
 """Wiring: the one place that builds a mediator from the domain, messages, and handlers.
 
-Every adapter in ``adapters/`` calls exactly this and nothing else to get a working
-application — that's what makes each adapter a thin doorway rather than its own
-copy of the wiring.
+Every adapter in ``adapters/`` calls this function to get the configured application. The
+adapters translate input and output without copying the wiring.
 """
 
 from pymediate.sync import Mediator, Services

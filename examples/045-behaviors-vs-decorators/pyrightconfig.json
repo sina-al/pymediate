@@ -1,6 +1,16 @@
 {
-    "typeCheckingMode": "standard",
-    "pythonVersion": "3.12",
-    "venvPath": ".",
-    "venv": ".venv"
+  "typeCheckingMode": "standard",
+  "venvPath": ".",
+  "venv": ".venv",
+  "exclude": [
+    "**/.venv",
+    "**/__pycache__",
+    "**/.mypy_cache",
+    "**/.pytest_cache",
+    "**/.ruff_cache",
+    "**/build",
+    "**/dist",
+    "**/htmlcov",
+    "**/site"
+  ]
 }

@@ -16,9 +16,7 @@ def mediator(dashboard: Dashboard) -> Mediator:
     return build_mediator(dashboard)
 
 
-async def test_publish_fans_out_to_all_three_subscribers(
-    mediator: Mediator, dashboard: Dashboard
-) -> None:
+async def test_publish_runs_all_three_handlers(mediator: Mediator, dashboard: Dashboard) -> None:
     await mediator.publish(TaskCompleted(task_id=1, title="Ship it"))
 
     # notify + stats + audit each contribute a started and a done line.

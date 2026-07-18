@@ -1,18 +1,20 @@
 {
     "name": "pymediate example: 045-behaviors-vs-decorators-sync",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/045-behaviors-vs-decorators-sync",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/045-behaviors-vs-decorators-sync && uv sync",
+    "postCreateCommand": "uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
+                "ms-python.vscode-pylance",
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/045-behaviors-vs-decorators-sync/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
             }
         }
     }

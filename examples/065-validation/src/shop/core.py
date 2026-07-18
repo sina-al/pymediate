@@ -1,16 +1,15 @@
-"""The core: commands, invariants, and a validation behavior — no web framework in sight.
+"""Commands, business rules, and a validation behavior without web dependencies.
 
-This module is the whole point of the example's *placement* answer: it validates **business
-invariants** (a plan must be one we sell; an order must have at least one line), and it does
-so with **no import of Pydantic or FastAPI**. The edge (``api.py``) validates the *shape* of
-untrusted input; the core validates what it *means*. The command is the contract between them.
+This module validates business rules such as the supported plans and the requirement that an
+order contain a line. ``api.py`` validates the request-body schema. Commands carry data from
+that boundary into this module without importing Pydantic or FastAPI here.
 
-Two mechanisms for core validation appear here, and both are legitimate:
+Two mechanisms for core validation appear here:
 
-- ``Subscribe`` validates in ``__post_init__`` — the invariant is intrinsic to the value, so
+- ``Subscribe`` validates in ``__post_init__`` — the rule applies whenever the value exists, so
   the command refuses to exist in an invalid state.
-- ``PlaceOrder`` is validated by a ``ValidationBehavior`` at dispatch time — the rules are
-  richer and belong in a reusable, registered validator rather than the dataclass body.
+- ``PlaceOrder`` is validated by a ``ValidationBehavior`` at dispatch time — its several rules
+  live in a reusable, registered validator rather than the dataclass body.
 """
 
 from collections.abc import Awaitable, Callable
@@ -19,15 +18,15 @@ from typing import Any
 
 from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
 
-# The set of plans we actually sell — a business fact, not a wire-format detail.
+# The supported plans are a business rule, not an HTTP schema rule.
 KNOWN_PLANS = ("free", "pro")
 
 
 class ValidationError(Exception):
-    """A broken business invariant. The edge maps this to HTTP 422.
+    """One or more business rules failed. The HTTP boundary maps this to 422.
 
     Distinct from ``pydantic.ValidationError`` (which lives at the edge): this one carries
-    domain messages and never depends on any web framework.
+    business-rule messages and never depends on a web framework.
     """
 
     def __init__(self, errors: list[str]) -> None:
@@ -48,7 +47,7 @@ class Subscription:
 
 @dataclass(frozen=True)
 class OrderLine:
-    """One line of an order — a domain value object, not the wire shape."""
+    """One line of an order in the transport-independent core."""
 
     sku: str
     quantity: int
@@ -63,13 +62,15 @@ class Order:
     lines: tuple[OrderLine, ...]
 
 
-# ---- Collapsed case: the command validates itself in __post_init__ ----
+# ---- Directly mapped command with construction-time validation ----
 
 
 @dataclass
 class Subscribe(Request[Subscription]):
-    """Start a subscription. Wire shape and domain shape are the same, so the edge DTO maps
-    to this command field-for-field. The invariant lives here, in ``__post_init__``.
+    """Start a subscription from directly copied request-body fields.
+
+    ``SubscribeBody`` and ``Subscribe`` are distinct types with matching fields. The business
+    rules are checked here in ``__post_init__``.
     """
 
     email: str
@@ -85,14 +86,15 @@ class Subscribe(Request[Subscription]):
             raise ValidationError(errors)
 
 
-# ---- Split case: the command carries a domain shape; a behavior validates it ----
+# ---- Structurally transformed command with behavior-based validation ----
 
 
 @dataclass
 class PlaceOrder(Request[Order]):
-    """Place an order. The wire DTO (``api.OrderBody``) has a different shape and is mapped
-    into this command by the adapter. Business rules are checked by ``ValidationBehavior``
-    at dispatch, not in ``__post_init__`` — they're richer and reusable.
+    """Place an order after ``OrderBody`` has been transformed into domain values.
+
+    Business rules are checked by ``ValidationBehavior`` during dispatch rather than in
+    ``__post_init__``.
     """
 
     customer: str
@@ -105,7 +107,7 @@ Validator = Callable[[Any], list[str]]
 
 
 def validate_place_order(request: PlaceOrder) -> list[str]:
-    """Business invariants for placing an order (transport-independent)."""
+    """Return the failed business rules for placing an order."""
     errors: list[str] = []
     if "@" not in request.customer:
         errors.append("customer must be an email address")
@@ -122,8 +124,8 @@ def validate_place_order(request: PlaceOrder) -> list[str]:
 class ValidationBehavior(PipelineBehavior[Request]):
     """Run registered validators before dispatch; raise ``ValidationError`` if any fail.
 
-    The MediatR ``ValidationBehavior`` analog: validators are keyed by request type and run
-    before ``next()``. A request with no registered validator passes straight through.
+    Validators are keyed by request type and run before ``next()``. A request with no
+    registered validator continues to its handler.
     """
 
     def __init__(self, validators: dict[type[Request[Any]], list[Validator]]) -> None:

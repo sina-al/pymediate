@@ -1,18 +1,20 @@
 {
     "name": "pymediate example: 005-why-a-mediator",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/005-why-a-mediator",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/005-why-a-mediator && uv sync",
+    "postCreateCommand": "uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
+                "ms-python.vscode-pylance",
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/005-why-a-mediator/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
             }
         }
     }

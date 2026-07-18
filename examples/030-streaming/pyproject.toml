@@ -1,7 +1,7 @@
 [project]
 name = "pymediate-example-030-streaming"
 version = "0.1.0"
-description = "Asynchronous PyMediate example: stream() answering a request with a lazy feed of typed chunks"
+description = "Stream typed response chunks lazily from one asynchronous request"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

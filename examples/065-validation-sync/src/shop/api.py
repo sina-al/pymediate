@@ -1,16 +1,15 @@
-"""The edge: Pydantic DTOs validate the *shape* of untrusted input, then map to commands.
+"""Validate request-body schemas at the HTTP boundary, then map them to commands.
 
 This is the only module that imports Pydantic or FastAPI. It does two jobs:
 
-1. **Shape validation** — a Pydantic model rejects malformed JSON (missing fields, wrong
-   types) with an automatic HTTP 422, before anything reaches the core.
-2. **Mapping DTO → command** — trivially when the wire shape equals the domain shape
-   (``/subscriptions``), or with a real transformation when they differ (``/orders``).
+1. **Schema validation** — a Pydantic model rejects JSON with missing fields or invalid field
+   types with an automatic HTTP 422, before anything reaches the core.
+2. **Mapping to a command** — direct field copying for ``/subscriptions`` and a structural
+   transformation for ``/orders``.
 
 Endpoints are plain ``def`` functions (FastAPI runs them in a threadpool) because the core
-is synchronous — the async mirror of this example uses ``async def``. Business invariants
-are *not* checked here; the core raises ``ValidationError`` and the handler below maps it
-to a 422.
+is synchronous — the async mirror of this example uses ``async def``. Business rules are
+not checked here; the core raises ``ValidationError`` and the handler below maps it to a 422.
 """
 
 from fastapi import FastAPI
@@ -28,51 +27,51 @@ from .core import (
     build_mediator,
 )
 
-# ---- Collapsed case: the DTO mirrors the command field-for-field ----
+# ---- Direct mapping: the body model and command have matching fields ----
 
 
 class SubscribeBody(BaseModel):
-    """Wire shape for starting a subscription — identical to the ``Subscribe`` command."""
+    """HTTP request body for starting a subscription."""
 
     email: str
     plan: str = "free"
 
 
-# ---- Split case: the DTO's shape differs from the domain command ----
+# ---- Transformed mapping: the body model and command have different structures ----
 
 
 class LineBody(BaseModel):
-    """Wire shape for one order line."""
+    """HTTP request-body data for one order line."""
 
     sku: str
     quantity: int
 
 
 class OrderBody(BaseModel):
-    """Wire shape for an order — nested and named differently from the domain ``Order``."""
+    """HTTP request body for an order, with nested item data."""
 
     customer_email: str
     items: list[LineBody]
 
 
 def create_app() -> FastAPI:
-    """Build a FastAPI app whose endpoints validate shape, then dispatch commands."""
+    """Build a FastAPI app whose endpoints validate body schemas, then dispatch commands."""
     app = FastAPI(title="Shop")
     mediator = build_mediator()
 
     @app.exception_handler(ValidationError)
-    def on_invariant_error(request: HTTPRequest, error: ValidationError) -> JSONResponse:
-        # A broken business invariant from the core surfaces as 422, like a shape failure.
+    def on_business_rule_error(request: HTTPRequest, error: ValidationError) -> JSONResponse:
+        # A business-rule failure from the core surfaces as 422, like a schema failure.
         return JSONResponse(status_code=422, content={"errors": error.errors})
 
     @app.post("/subscriptions", status_code=201)
     def subscribe(body: SubscribeBody) -> Subscription:
-        # Collapsed: wire shape == domain shape, so the mapping is a trivial pass-through.
+        # Direct mapping: copy matching fields from one distinct type to another.
         return mediator.send(Subscribe(email=body.email, plan=body.plan))
 
     @app.post("/orders", status_code=201)
     def place_order(body: OrderBody) -> Order:
-        # Split: translate the wire DTO into the domain command. The core never sees the DTO.
+        # Transformed mapping: rename fields and convert nested lists to domain values.
         command = PlaceOrder(
             customer=body.customer_email,
             lines=tuple(OrderLine(sku=item.sku, quantity=item.quantity) for item in body.items),

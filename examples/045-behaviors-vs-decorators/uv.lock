@@ -57,7 +57,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pymediate-example-behaviors-vs-decorators"
+name = "pymediate-example-045-behaviors-vs-decorators"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

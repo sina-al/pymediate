@@ -57,7 +57,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pymediate-example-testing-sync"
+name = "pymediate-example-110-testing-sync"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

@@ -1,9 +1,4 @@
-"""Tests for the sync handler-composition example.
-
-The claims under test: (1) placing an order dispatches the two sub-requests and publishes
-the event — no handler references another; (2) with no event loop the sub-requests run
-sequentially; (3) a failing sub-request propagates and the order is never announced.
-"""
+"""Tests for synchronous handler composition and its failure effects."""
 
 import pytest
 from pymediate.sync import Mediator
@@ -61,7 +56,7 @@ def test_sub_requests_run_sequentially(mediator: Mediator, journal: list[str]) -
 
 
 def test_out_of_stock_propagates_and_nothing_is_announced(
-    mediator: Mediator, journal: list[str]
+    mediator: Mediator, gateway: PaymentGateway, journal: list[str]
 ) -> None:
     with pytest.raises(OutOfStockError):
         mediator.send(PlaceOrder("cust-1", sku="WIDGET", quantity=99, amount_cents=500))
@@ -69,6 +64,8 @@ def test_out_of_stock_propagates_and_nothing_is_announced(
     # A sub-request's failure surfaces from send(PlaceOrder); the order is never announced.
     assert "place:done" not in journal
     assert not any(entry.startswith("email:sent") for entry in journal)
+    # Sequential execution stops before the payment handler is called.
+    assert gateway.charged == []
 
 
 def test_declined_payment_propagates(warehouse: Warehouse, journal: list[str]) -> None:
@@ -79,3 +76,5 @@ def test_declined_payment_propagates(warehouse: Warehouse, journal: list[str]) -
         mediator.send(PlaceOrder("cust-broke", sku="WIDGET", quantity=1, amount_cents=500))
 
     assert "place:done" not in journal
+    # The earlier reservation is not rolled back when payment fails.
+    assert warehouse.stock["WIDGET"] == 9

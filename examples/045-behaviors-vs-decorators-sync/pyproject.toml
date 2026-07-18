@@ -1,7 +1,7 @@
 [project]
-name = "pymediate-example-behaviors-vs-decorators-sync"
+name = "pymediate-example-045-behaviors-vs-decorators-sync"
 version = "0.1.0"
-description = "Why a decorator falls short once a cross-cutting concern needs a swappable dependency (sync)"
+description = "A fair comparison of a method decorator and a synchronous pipeline behavior"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the

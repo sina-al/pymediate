@@ -34,7 +34,7 @@ def test_frozen_request_is_normalized_and_hashable() -> None:
     a = GetForecast("london")
     b = GetForecast("  LONDON ")
 
-    # Normalization collapses the spellings; frozen makes them hashable and equal.
+    # These are distinct instances whose normalized fields compare equal.
     assert a == b
     assert hash(a) == hash(b)
     assert a.city == "London"
@@ -61,7 +61,7 @@ def test_secret_field_is_hidden_from_repr() -> None:
     reading = SubmitReading(station_id="st-1", celsius=21.5, api_key="sk-secret")
 
     text = repr(reading)
-    assert "sk-secret" not in text  # the api_key never lands in a log line
+    assert "sk-secret" not in text  # repr=False affects the generated representation
     assert "station_id='st-1'" in text  # non-secret fields still show
 
 

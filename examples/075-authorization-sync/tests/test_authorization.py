@@ -1,17 +1,13 @@
-"""Tests for the authorization example — the three layers, each visibly separable.
-
-Coarse authorization (authenticated? right role? MFA for a mutation?) is enforced by the
-behaviors before the handler. Resource authorization (may this principal edit *this* doc?)
-is enforced inside the handler, after the load. The adapters map a denial to their transport.
-"""
+"""Tests for authentication requirements and request/resource authorization."""
 
 import pytest
 from fastapi.testclient import TestClient
 from pymediate.sync import Mediator
 
 from vault.api import create_app
-from vault.cli import EXIT_FORBIDDEN, EXIT_OK, main
+from vault.cli import EXIT_ACCESS_DENIED, EXIT_OK, main
 from vault.core import (
+    AuthenticationRequiredError,
     AuthorizationError,
     EditDocument,
     ListAllDocuments,
@@ -36,11 +32,11 @@ def mediator(audit: list[str]) -> Mediator:
     return build_mediator(audit=audit)
 
 
-# ---- Layer 2a: coarse authz — authentication ----
+# ---- Request-level authentication requirement ----
 
 
 def test_unauthenticated_is_denied_by_the_behavior(mediator: Mediator, audit: list[str]) -> None:
-    with pytest.raises(AuthorizationError, match="authentication required"):
+    with pytest.raises(AuthenticationRequiredError, match="authentication required"):
         mediator.send(ViewDocument(doc_id=1, principal=None))
 
     assert audit == ["deny:unauthenticated ViewDocument"]  # never reached the handler
@@ -51,7 +47,7 @@ def test_authenticated_view_is_allowed(mediator: Mediator) -> None:
     assert document.owner_id == "alice"
 
 
-# ---- Layer 2b: coarse authz — role ----
+# ---- Request-level role requirement ----
 
 
 def test_authentication_is_enforced_before_the_role_check(
@@ -60,7 +56,7 @@ def test_authentication_is_enforced_before_the_role_check(
     # ListAllDocuments is role-gated *and* authenticated. Unauthenticated, it must be stopped by
     # RequireAuthentication (registered outermost) — never reaching RequireRole, whose
     # `assert principal is not None` trusts exactly that ordering.
-    with pytest.raises(AuthorizationError, match="authentication required"):
+    with pytest.raises(AuthenticationRequiredError, match="authentication required"):
         mediator.send(ListAllDocuments(principal=None))
 
     assert audit == ["deny:unauthenticated ListAllDocuments"]  # the role behavior never ran
@@ -76,27 +72,26 @@ def test_admin_role_is_allowed(mediator: Mediator) -> None:
     assert len(documents) == 2
 
 
-# ---- Layer 2c: coarse authz — MFA, gated at runtime by should_apply ----
+# ---- Multifactor authentication for state-changing requests ----
 
 
 def test_mutation_without_mfa_is_denied(mediator: Mediator) -> None:
-    # should_apply targets mutating commands only, so this MFA check fires on edit...
-    with pytest.raises(AuthorizationError, match="MFA required"):
+    # should_apply targets mutating commands, so this multifactor check runs on edit.
+    with pytest.raises(AuthorizationError, match="multifactor authentication required"):
         mediator.send(EditDocument(doc_id=1, new_body="x", principal=ALICE_NO_MFA))
 
 
-def test_read_without_mfa_is_fine(mediator: Mediator) -> None:
-    # ...but not on a read: ViewDocument isn't a MutatingCommand, so should_apply skips it.
+def test_read_without_mfa_is_allowed(mediator: Mediator) -> None:
+    # ViewDocument is not a MutatingCommand, so should_apply skips the check.
     document = mediator.send(ViewDocument(doc_id=1, principal=ALICE_NO_MFA))
     assert document.doc_id == 1
 
 
-# ---- Layer 3: resource authz — the in-handler ownership check ----
+# ---- Resource authorization after loading the document ----
 
 
 def test_non_owner_is_denied_in_the_handler(mediator: Mediator) -> None:
-    # Bob is authenticated and has MFA, so he clears every behavior — and is still denied,
-    # because ownership can only be checked once doc 1 is loaded inside the handler.
+    # Bob passes the request-level checks but does not own the loaded document.
     with pytest.raises(AuthorizationError, match="bob may not edit document 1"):
         mediator.send(EditDocument(doc_id=1, new_body="hacked", principal=BOB))
 
@@ -111,7 +106,7 @@ def test_admin_can_edit_any_document(mediator: Mediator) -> None:
     assert updated.body == "by admin"
 
 
-# ---- Layer 1: authentication + denial mapping, at two different edges ----
+# ---- HTTP and command-line status mappings ----
 
 
 @pytest.fixture
@@ -119,9 +114,10 @@ def client() -> TestClient:
     return TestClient(create_app())
 
 
-def test_http_no_credentials_is_403(client: TestClient) -> None:
+def test_http_no_credentials_is_401(client: TestClient) -> None:
     response = client.get("/documents/1")  # no Authorization header
-    assert response.status_code == 403
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
 
 
 def test_http_authenticated_view_is_200(client: TestClient) -> None:
@@ -139,8 +135,8 @@ def test_http_non_owner_edit_is_403(client: TestClient) -> None:
     assert response.status_code == 403
 
 
-def test_cli_no_token_is_forbidden_exit_code() -> None:
-    assert main(["view", "1"]) == EXIT_FORBIDDEN  # same denial, different transport
+def test_cli_no_token_uses_access_denied_exit_code() -> None:
+    assert main(["view", "1"]) == EXIT_ACCESS_DENIED
 
 
 def test_cli_owner_edit_succeeds() -> None:

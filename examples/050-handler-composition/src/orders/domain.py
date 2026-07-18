@@ -1,15 +1,12 @@
-"""Value objects, messages, fake collaborators, and the sender seam.
+"""Value objects, messages, local service doubles, and the sender interface.
 
-Everything here is plumbing for the one idea in ``handlers.PlaceOrderHandler``: a handler
-that needs other operations done doesn't *hold* the other handlers — it dispatches
-requests through the mediator. To do that it needs something it can call ``send`` and
-``publish`` on. The obvious candidate is the ``Mediator`` itself, but the mediator doesn't
-exist yet when the handler is constructed — the mediator is built *from* the handlers, so
-injecting it directly would be a chicken-and-egg cycle.
+``PlaceOrderHandler`` dispatches requests through the mediator instead of holding the other
+handlers. It depends on an object with ``send`` and ``publish`` methods. The mediator itself
+does not exist until its handlers have been registered, so the sender is bound after mediator
+construction.
 
-``Sender`` (the small interface the composing handler actually depends on) and
-``LateBoundSender`` (a stand-in you register now and bind once the mediator exists) are how
-we break that cycle cleanly. ``app.build_mediator`` shows the two extra lines it costs.
+``Sender`` defines the required interface. ``LateBoundSender`` can be registered first and
+bound once the mediator exists. ``app.build_mediator`` shows that setup.
 """
 
 from dataclasses import dataclass, field
@@ -82,7 +79,7 @@ class ChargePayment(Request[Receipt]):
 
 @dataclass
 class OrderPlaced(Event):
-    """Announces a completed order. Subscribers react; the order handler doesn't wait on them."""
+    """Announce a completed order to subscribers before publication returns."""
 
     order_id: int
     customer_id: str
@@ -118,7 +115,7 @@ class PaymentGateway:
     declined: set[str] = field(default_factory=set)
 
 
-# ---- The sender seam: what the composing handler depends on instead of the Mediator ----
+# ---- The sender interface used by the composing handler ----
 
 
 class Sender(Protocol):
@@ -141,10 +138,8 @@ class Sender(Protocol):
 class LateBoundSender:
     """A ``Sender`` you register before the mediator exists, then ``bind`` once it does.
 
-    This is the whole trick for breaking the construction cycle. The composing handler
-    depends on this object, so it can go into the same ``Services`` the mediator is built
-    from. Immediately after constructing the mediator you call ``bind`` to close the loop.
-    Every dispatch simply forwards to the bound mediator.
+    The composing handler can be registered with this object before the mediator exists.
+    Calling ``bind`` after mediator construction supplies the final dispatch target.
     """
 
     def __init__(self) -> None:

@@ -1,4 +1,4 @@
-"""LLM-style token streaming built on PyMediate's async (top-level) API.
+"""Large language model (LLM) token streaming on PyMediate's asynchronous API.
 
 Demonstrates the mediator's third dispatch shape: ``stream``. Where ``send`` returns one
 typed response and ``publish`` fans an event out to many handlers, ``stream`` answers one
@@ -142,7 +142,7 @@ async def main() -> None:
     print(f"Model emitted only {len(emitted)} tokens — the rest were never produced")
 
     # 3) Eager resolution: an unregistered stream request raises at the stream() call,
-    #    before any chunk is pulled — a missing handler is a config bug you see immediately.
+    #    before any chunk is pulled, so a missing handler is reported before iteration.
     try:
         mediator.stream(StreamAudioClip(clip_id="clip-1"))
     except HandlerNotFoundError:

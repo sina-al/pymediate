@@ -1,5 +1,5 @@
 [project]
-name = "pymediate-example-error-handling"
+name = "pymediate-example-070-error-handling"
 version = "0.1.0"
 description = "Domain errors vs. framework errors: one core, two transports, mapping at the edge"
 requires-python = ">=3.12"

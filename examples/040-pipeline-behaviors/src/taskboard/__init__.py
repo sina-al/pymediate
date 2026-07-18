@@ -1,1 +1,1 @@
-"""A task board whose cross-cutting concerns live in composed pipeline behaviors."""
+"""A task board whose requests run through an ordered set of pipeline behaviors."""

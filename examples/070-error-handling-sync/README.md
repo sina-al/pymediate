@@ -2,15 +2,15 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F070-error-handling-sync%2Fdevcontainer.json)
 
-The synchronous mirror of [070-error-handling](../070-error-handling/), on `pymediate.sync`.
-Same story: handlers raise **plain domain errors**, and each **edge** maps them to its own
-transport — a `404` on the FastAPI app, an **exit code** on the CLI. And the same
-anti-pattern (`raise HTTPException` from a handler) breaks the non-HTTP caller.
+Synchronous handlers raise errors that describe domain failures, such as a missing product.
+Each external interface converts those errors into its own result: HTTP status codes for
+FastAPI and process exit codes for the command-line interface.
 
-## Run it
+## Run
+
+From this directory:
 
 ```bash
-cd examples/070-error-handling-sync
 uv sync
 uv run pytest
 ```
@@ -19,77 +19,108 @@ uv run pytest
 8 passed
 ```
 
-Try the CLI yourself — the same core, no web server in sight:
+The command-line interface shows the error text and returns a nonzero exit status:
 
 ```console
 $ uv run shop-cli get 999
-error: product not found: 999          # exit code 3
+error: product not found: 999
+$ echo $?
+3
 
 $ uv run shop-cli order 2 3
-error: product 2 out of stock: requested 3, available 0   # exit code 4
+error: product 2 out of stock: requested 3, available 0
+$ echo $?
+4
 
 $ uv run shop-cli get 1
-Product(product_id=1, name='Widget', stock=5)             # exit code 0
+Product(product_id=1, name='Widget', stock=5)
+$ echo $?
+0
 ```
 
-## The core raises domain errors — nothing else
+## Raise domain errors in handlers
 
 ```python
+class ProductNotFoundError(ShopError):
+    def __init__(self, product_id: int) -> None:
+        self.product_id = product_id
+        super().__init__(f"product not found: {product_id}")
+
 class GetProductHandler(RequestHandler[GetProduct]):
     def __call__(self, request: GetProduct) -> Product:
         product = self._catalog.get(request.product_id)
         if product is None:
-            raise ProductNotFoundError(request.product_id)   # what happened, not how to report it
+            raise ProductNotFoundError(request.product_id)
         return product
 ```
 
-`core.py` imports pymediate and the standard library — no FastAPI, no `http_status`, no exit
-codes. (Only the API import and the `async`/`await` mechanics differ from the async twin.)
+The core contains no HTTP status or process exit code. It records what failed, leaving each
+interface to decide how to report that failure.
 
-## Each edge maps the same error its own way
+## Convert errors at each boundary
+
+FastAPI registers one HTTP conversion:
 
 ```python
-# api.py — the web edge
 @app.exception_handler(ProductNotFoundError)
-def on_not_found(request, err):
-    return JSONResponse(status_code=404, content={"error": str(err)})
+def on_not_found(request, error):
+    return JSONResponse(status_code=404, content={"error": str(error)})
+```
 
-# cli.py — the CLI edge
+The command-line interface registers a different conversion:
+
+```python
 def send_as_cli(mediator, request) -> int:
     try:
         result = mediator.send(request)
-    except ProductNotFoundError as err:
-        print(f"error: {err}", file=sys.stderr)
-        return 3                                  # the same error, a different meaning
-    ...
+    except ProductNotFoundError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 3
+    print(result)
+    return 0
 ```
 
-## The anti-pattern: `raise HTTPException` from a handler
+Routes and commands do not repeat these mappings. FastAPI maps `OutOfStockError` to 409, while
+the command-line interface maps it to exit code 4.
 
-[`src/shop/leaky.py`](src/shop/leaky.py) imports FastAPI into a core handler — the tell — and
-raises `HTTPException`. Driven through the CLI it escapes the domain-error mapping:
+## Keep HTTP exceptions at the HTTP boundary
+
+`src/shop/leaky.py` contains a comparison handler that raises FastAPI's `HTTPException`.
+When called through the command-line mapping, that exception propagates because the mapping
+handles domain errors only.
 
 ```python
-def test_leaked_http_exception_escapes_the_cli():
-    with pytest.raises(HTTPException):           # sails past `except ProductNotFoundError`
+def test_http_exception_has_no_cli_mapping():
+    with pytest.raises(HTTPException):
         send_as_cli(build_leaky_mediator(), LeakyGetProduct(product_id=999))
 ```
 
-A batch job crashing with an HTTP error and no client to send a 404 to — exactly what
-keeping transport out of the core prevents.
+The issue is not the exception class itself; it is deciding an HTTP response inside code also
+used by non-HTTP callers.
 
-## The files
+## Read the code
 
-| File | What it is |
+| File | What to read |
 | --- | --- |
-| [`src/shop/core.py`](src/shop/core.py) | **Start here.** Domain errors, requests, handlers — no transport anywhere. |
-| [`src/shop/api.py`](src/shop/api.py) | The web edge: domain errors → `404` / `409`. |
-| [`src/shop/cli.py`](src/shop/cli.py) | The CLI edge: the same errors → exit codes. |
-| [`src/shop/leaky.py`](src/shop/leaky.py) | The anti-pattern, isolated. Imports FastAPI — the tell. |
-| [`tests/test_error_handling.py`](tests/test_error_handling.py) | Both transports' mappings, and the leak breaking the CLI: `uv run pytest` → `8 passed`. |
+| [`src/shop/core.py`](src/shop/core.py) | Start here for domain errors, requests, and handlers. |
+| [`src/shop/api.py`](src/shop/api.py) | Domain errors converted to HTTP 404 and 409. |
+| [`src/shop/cli.py`](src/shop/cli.py) | The same errors converted to exit codes. |
+| [`src/shop/leaky.py`](src/shop/leaky.py) | The HTTP-coupled comparison handler. |
+| [`tests/test_error_handling.py`](tests/test_error_handling.py) | Both mappings and the comparison case. |
+
+## Details
+
+Map application errors at the outer boundary that knows the response format. A pipeline
+behavior can centralize domain logging or retries, but converting an error to `HTTPException`
+inside that behavior still couples mediator dispatch to HTTP.
+
+PyMediate's configuration errors are separate from the shop's domain errors. Errors such as
+`HandlerNotFoundError` normally indicate incomplete registration and should be reported as
+server failures rather than client input errors.
 
 ## Where next
 
-- [070-error-handling](../070-error-handling/) — the async original.
-- [075-authorization](../075-authorization/) — authn at the edge, authz in the core.
-- The docs: [error handling guide](https://pymediate.sina-al.uk/docs/guide/error-handling).
+- [075-authorization-sync](../075-authorization-sync/) distinguishes missing authentication
+  from an authenticated authorization denial.
+- [070-error-handling](../070-error-handling/) shows the asynchronous API.
+- Read the [error handling guide](https://pymediate.sina-al.uk/docs/guide/error-handling).

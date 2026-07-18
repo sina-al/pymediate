@@ -80,7 +80,7 @@ di = [
 ]
 
 [[package]]
-name = "pymediate-example-dependency-injection-sync"
+name = "pymediate-example-100-dependency-injection-sync"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

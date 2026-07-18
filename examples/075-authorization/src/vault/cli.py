@@ -1,9 +1,7 @@
-"""CLI edge: the *same* core and the *same* authorization, behind a ``--token`` flag.
+"""Expose the authorization example through a command-line interface.
 
-This is the payoff of putting identity in the request and authorization in the core: the CLI
-reuses every behavior and the in-handler ownership check unchanged. Only two things differ
-from the HTTP edge — where the principal comes from (a flag, not a header) and how a denial is
-reported (an exit code, not a 403).
+The command-line interface reads the unsigned demo token from a flag and maps access errors to
+exit codes. A production adapter must verify its credential before creating a principal.
 """
 
 import argparse
@@ -15,7 +13,7 @@ from pymediate import Mediator, Request
 
 from .authn import from_cli
 from .core import (
-    AuthorizationError,
+    AccessError,
     DocumentNotFoundError,
     EditDocument,
     ListAllDocuments,
@@ -24,7 +22,7 @@ from .core import (
 )
 
 EXIT_OK = 0
-EXIT_FORBIDDEN = 13
+EXIT_ACCESS_DENIED = 13
 EXIT_NOT_FOUND = 3
 
 
@@ -32,9 +30,9 @@ def send_as_cli(mediator: Mediator, request: Request[object]) -> int:
     """Dispatch and translate a domain denial into an exit code."""
     try:
         result = asyncio.run(mediator.send(request))
-    except AuthorizationError as err:
+    except AccessError as err:
         print(f"denied: {err}", file=sys.stderr)
-        return EXIT_FORBIDDEN
+        return EXIT_ACCESS_DENIED
     except DocumentNotFoundError as err:
         print(f"error: {err}", file=sys.stderr)
         return EXIT_NOT_FOUND
@@ -45,7 +43,7 @@ def send_as_cli(mediator: Mediator, request: Request[object]) -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse ``--token`` plus a subcommand and dispatch through the core."""
     parser = argparse.ArgumentParser(prog="vault", description="Vault CLI over the same core.")
-    parser.add_argument("--token", help="fake auth token: 'id;roles;claims'")
+    parser.add_argument("--token", help="unsigned demo token: 'id;roles;claims'")
     sub = parser.add_subparsers(dest="command", required=True)
 
     view_parser = sub.add_parser("view", help="read a document")

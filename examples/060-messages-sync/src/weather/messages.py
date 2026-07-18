@@ -1,21 +1,8 @@
-"""The messages — where the interesting decisions live.
+"""Requests implemented as dataclasses with deliberate data semantics.
 
-A PyMediate request is a plain dataclass, so *how you declare it* is a design choice with
-real consequences. This module shows three that pay off:
-
-- ``frozen=True`` makes a request immutable **and hashable**, so a query can be its own
-  cache key (see ``GetForecast`` and ``handlers.GetForecastHandler``).
-- ``field(repr=False)`` keeps a secret out of every log line and traceback (see the
-  ``Authenticated`` mixin's ``api_key``).
-- ``__post_init__`` normalizes and validates at construction, so a malformed request
-  **fails before it is ever dispatched** — no handler ever sees bad data.
-
-This is the synchronous mirror of ``060-messages``. Message design is identical on both
-APIs — dataclasses don't care about async — so the only change is the import below.
-
-Note: this example is about the *shape* of the message. *Where* validation belongs
-architecturally — at the edge as a DTO, or in the core command — is a separate decision,
-covered in 065-validation.
+PyMediate requests do not have to be dataclasses. This example chooses dataclasses and stages
+three related decisions: equality and hashing, generated representations, and validation at
+construction. These decisions are the same for synchronous and asynchronous requests.
 """
 
 from dataclasses import dataclass, field
@@ -50,12 +37,11 @@ class Ack:
 class GetForecast(Request[Forecast]):
     """Look up the forecast for a city.
 
-    ``frozen=True`` buys two things at once: the request can't be mutated in flight, and it
-    becomes hashable — so a handler can use the request object *itself* as a cache key.
-    ``slots=True`` drops the per-instance ``__dict__`` for a lighter object, worth it for a
-    high-volume request type. ``__post_init__`` normalizes the inputs (with
-    ``object.__setattr__``, since the instance is frozen) so ``"london"`` and ``" LONDON "``
-    collapse to the same value — and therefore the same cache key.
+    ``frozen=True`` prevents field assignment and allows a generated hash when every compared
+    field is hashable. Both fields here are strings, so an instance can be a dictionary key.
+    ``slots=True`` removes the per-instance ``__dict__``. ``__post_init__`` normalizes the
+    inputs so separate instances for ``"london"`` and ``" LONDON "`` compare equal and have
+    the same hash.
     """
 
     city: str
@@ -76,12 +62,11 @@ class GetForecast(Request[Forecast]):
 
 @dataclass
 class Authenticated:
-    """Mixin adding an API key that never appears in a repr, log, or traceback.
+    """Mixin adding an API key omitted from the generated dataclass representation.
 
-    ``field(repr=False)`` hides the value from ``__repr__``; ``kw_only=True`` keeps it out
-    of the way of the positional fields on the requests that mix it in. The
-    ``__post_init__`` here validates the key, and requests that add their own validation
-    call ``super().__post_init__()`` to keep this check.
+    ``field(repr=False)`` affects only the generated ``__repr__``. It is not a general secret
+    storage mechanism: explicit logging, serialization, or local-variable capture can still
+    expose the value. ``kw_only=True`` makes the field keyword-only.
     """
 
     api_key: str = field(repr=False, kw_only=True)

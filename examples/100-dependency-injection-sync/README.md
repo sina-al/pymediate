@@ -2,16 +2,24 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F100-dependency-injection-sync%2Fdevcontainer.json)
 
-The synchronous mirror of [100-dependency-injection](../100-dependency-injection/), on
-`pymediate.sync`. Same container, same three provider lifetimes — **Factory** (rebuilt
-per dispatch), **Singleton** (app-wide), and **`ContextLocalSingleton`** (one instance
-per logical scope) — resolved **by type, not by provider name**, via PyMediate's
-optional **`di` extra**.
+This example connects `pymediate.sync` to a
+[`dependency-injector`](https://python-dependency-injector.ets-labs.org/) container through the
+optional `pymediate[di]` extra. It demonstrates three provider lifetimes:
 
-## Run it
+- `Factory`: create an instance each time the provider resolves it;
+- `Singleton`: share one instance for the life of the container; and
+- `ContextLocalSingleton`: share one instance in the current `contextvars` context until the
+  provider is reset.
+
+It assumes the application wiring introduced in
+[090-adapters-sync](../090-adapters-sync/) and replaces manual service registration with a
+container-backed service provider.
+
+## Run
+
+Run these commands from `examples/100-dependency-injection-sync`:
 
 ```bash
-cd examples/100-dependency-injection-sync
 uv sync
 uv run python app.py
 ```
@@ -23,45 +31,92 @@ Registered: User(user_id=2, username='bob')
 Unit of work: ['begin', "registered 'bob'", 'commit']
 ```
 
-## What changes from the async version
+The repository retains both users because it is a `Singleton`. The unit-of-work log is reset
+between the two operations, so Bob's log does not contain Alice's entry.
 
-Only the API import and the mechanics — the container and the three lifetimes are
-identical:
+## Configure the container
 
 ```python
-# app.py
-from pymediate.sync import Mediator, Next, PipelineBehavior, Request, RequestHandler
+class AppContainer(containers.DeclarativeContainer):
+    repository = providers.Singleton(UserRepository)
+    unit_of_work = providers.ContextLocalSingleton(UnitOfWork)
 
+    transaction_behavior = providers.Factory(
+        TransactionLoggingBehavior,
+        unit_of_work=unit_of_work,
+    )
+    register_user_handler = providers.Factory(
+        RegisterUserHandler,
+        repository=repository,
+        unit_of_work=unit_of_work,
+    )
+
+
+container = AppContainer()
+mediator = Mediator(DependencyInjectorServiceProvider(container))
+user = mediator.send(RegisterUser(username="alice"))
+```
+
+`DependencyInjectorServiceProvider` scans the completed container and indexes providers by the
+concrete type they produce. The provider attribute names are not used for handler lookup.
+
+The `Factory` providers create new handler and behavior instances when the mediator resolves
+them. Those instances still receive the same singleton repository.
+
+## Define and end a context-local scope
+
+The handler and pipeline behavior independently resolve `unit_of_work`. Within one context,
+the container returns the same instance, so their entries appear in order:
+
+```python
 class TransactionLoggingBehavior(PipelineBehavior[Request]):
-    def __call__(self, request, next):        # no async
+    def __call__(self, request, next):
         self._unit_of_work.record("begin")
-        response = next()                      # no await
+        response = next()
         self._unit_of_work.record("commit")
         return response
 ```
 
-`AppContainer` — `Singleton` repository, `ContextLocalSingleton` unit of work, `Factory`
-handlers and behavior — is byte-for-byte the same declaration as the async twin.
+```text
+['begin', "registered 'alice'", 'commit']
+```
 
-## The files
+`ContextLocalSingleton` does not create or end web-request scopes automatically. The adapter
+or middleware that owns the request boundary must reset the provider, including when dispatch
+raises:
 
-| File | What it is |
+```python
+try:
+    response = mediator.send(request)
+finally:
+    container.unit_of_work.reset()
+```
+
+Without that reset, later dispatches in the same context reuse the previous unit of work.
+
+## Read the code
+
+| File | What to read |
 | --- | --- |
-| [`app.py`](app.py) | **Start here.** A small user directory: requests, handlers, the unit of work, and the container. |
-| [`test_app.py`](test_app.py) | Dispatch plus all three lifetimes, as tests: `uv run pytest` → `7 passed`. |
+| [`app.py`](app.py) | **Start here.** Follow the providers in `AppContainer`, then `build_mediator` and the context-local reset in `main`. |
+| [`test_app.py`](test_app.py) | See how the tests distinguish factory, singleton, and context-local provider behavior. |
 
-## Small print
+Run the tests with `uv run pytest`; the expected result is `7 passed`.
 
-- This example depends on `pymediate[di]`, which pulls in `dependency-injector`. The
-  integration lives in `pymediate.providers` — the core package never imports it.
-- `DependencyInjectorServiceProvider` scans the container once, at construction. Build it
-  from a finished container, not from a provider inside that same container.
+## Details
+
+- `pymediate[di]` installs `dependency-injector`. The optional integration is implemented in
+  `pymediate.providers`; the core package does not import it.
+- Construct `DependencyInjectorServiceProvider` after all required providers have been added to
+  the container.
+- `GetUserHandler` only reads the repository, so it does not receive a unit of work.
 
 ## Where next
 
-- [100-dependency-injection](../100-dependency-injection/) — the async default, with the
-  full explanation of all three lifetimes.
-- [090-adapters-sync](../090-adapters-sync/) — a bigger composition-root story: one core,
-  three frameworks.
-- The docs: [dependency injection](https://pymediate.sina-al.uk/docs/guide/dependency-injection) ·
-  [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start).
+- [110-testing-sync](../110-testing-sync/) — test handlers and mediator composition at
+  separate boundaries.
+- [100-dependency-injection](../100-dependency-injection/) — use the same container with the
+  asynchronous API.
+- [090-adapters-sync](../090-adapters-sync/) — review the application wiring that this
+  example moves into a container.
+- Read the [dependency-injection guide](https://pymediate.sina-al.uk/docs/guide/dependency-injection).

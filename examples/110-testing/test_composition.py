@@ -1,9 +1,8 @@
-"""Layer 2: faking the mediator, for a handler that dispatches through one.
+"""Boundary 2: replace the sender used by a handler that dispatches another request.
 
-``RegisterUserHandler`` depends on ``Sender`` — the narrow slice of the mediator it
-actually uses — not the concrete ``Mediator``. That's what makes this test possible
-without wiring up ``SendWelcomeEmailHandler``, a real mailer, or a container at all:
-a `FakeSender` that just records what it was asked to send is enough.
+``RegisterUserHandler`` depends on ``Sender`` — the narrow part of the mediator interface it
+uses, not the concrete ``Mediator``. The test can therefore record the dispatched
+request without configuring ``SendWelcomeEmailHandler``, a mailer, or a container.
 """
 
 from typing import TypeVar, cast
@@ -16,12 +15,12 @@ ResponseT = TypeVar("ResponseT")
 
 
 class FakeSender:
-    """A fake ``Sender`` — records every request it was asked to dispatch, answers nothing.
+    """Record each request passed to ``send``.
 
     Every request this example dispatches through a ``Sender`` responds with ``None``
-    (``SendWelcomeEmail`` is a ``Request[None]``), so the ``cast`` below documents a
-    real gap rather than papering over one: a fake covering a wider ``Sender`` would
-    need a way to supply canned responses per request type instead.
+    (``SendWelcomeEmail`` is a ``Request[None]``), so the ``cast`` below is valid for this
+    test implementation. A sender that accepts other request types would need configured
+    responses for each type.
     """
 
     def __init__(self) -> None:
