@@ -151,8 +151,8 @@ In suggested reading order:
 ## Where next
 
 - [005-why-a-mediator](../005-why-a-mediator/) — the async original this mirrors.
-- [basic-sync](../basic-sync/) — now that you know *why*, the smallest *how* on the sync API:
-  the core loop and a pipeline behavior, in one file.
+- [010-basic-sync](../010-basic-sync/) — now that you know *why*, the smallest *how* on the sync API:
+  the core `send()` loop, in one file.
 - The essay this example makes runnable:
   [*Nobody wants to touch that code*](https://pymediate.sina-al.uk/articles/nobody-wants-to-touch-that-code).
 - The docs: [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) ·

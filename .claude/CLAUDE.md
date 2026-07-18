@@ -196,7 +196,9 @@ snippets back at the root config. The basedpyright half uses the checked-in
 `tests/typing/basedpyright_{standard,recommended}.json` configs, asserts an exact pinned
 basedpyright version (`PINNED_BASEDPYRIGHT_VERSION` in `test_basedpyright.py` — bump it
 together with `uv lock --upgrade-package basedpyright` and re-review the corpus), and gates
-`basedpyright --verifytypes pymediate` at 100% public-API type completeness.
+`basedpyright --verifytypes pymediate --ignoreexternal` at 100% public-API type completeness.
+The flag excludes incomplete third-party stubs; PyMediate's own public symbols must still be
+fully known.
 
 ## ADRs
 

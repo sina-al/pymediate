@@ -146,8 +146,8 @@ In suggested reading order:
 ## Where next
 
 - [005-why-a-mediator-sync](../005-why-a-mediator-sync/) — this example's sync twin.
-- [basic](../basic/) — now that you know *why*, the smallest *how*: the core loop and a
-  pipeline behavior, in one file.
+- [010-basic](../010-basic/) — now that you know *why*, the smallest *how*: the core
+  `send()` loop, in one file.
 - The essay this example makes runnable:
   [*Nobody wants to touch that code*](https://pymediate.sina-al.uk/articles/nobody-wants-to-touch-that-code).
 - The docs: [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) ·

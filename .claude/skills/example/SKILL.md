@@ -72,9 +72,9 @@ classic `httpx`, for HTTP test clients (starlette deprecated httpx there).
   └── tests/
   ```
 
-  Template: `examples/adapters/`. Being a real package is what buys pleasant
+  Template: `examples/090-adapters/`. Being a real package is what buys pleasant
   commands: `uv run taskboard …` via `[project.scripts]`,
-  `uv run uvicorn taskboard.adapters.fastapi_app:app` — never
+  `uv run uvicorn taskboard.adapters.fastapi:app` — never
   `uv run python src/….py` paths in a README. uv installs the project editable on sync,
   which also makes IDE imports resolve.
 
@@ -82,8 +82,9 @@ Directory names are kebab-case and content-descriptive. Async is the default and
 **unmarked** (`<name>`); its synchronous mirror is `<name>-sync` and must mirror it
 structurally (same rule as the library: async is the top-level API, sync the mirror — the
 async default leads in reading order). A topic example that isn't part of an async/sync
-pair keeps a plain descriptive name (e.g. `with-dependency-injector`, which happens to be
-built on the sync API but sits off the async/sync axis).
+pair keeps a plain descriptive name and sits off the async/sync axis — rare in this
+curriculum now that every numbered slot ships both twins, but still the rule for one-off
+topic examples that don't warrant a pair.
 
 ## The README — treat it as a landing page
 
@@ -140,8 +141,8 @@ venv. Copy an existing one and adjust the three obvious fields. README badge:
 
 `examples/README.md` opens with the gallery. Add/update the new example's card: name
 (linked), one-sentence hook, "start here"-ordering position. Keep the recommended reading
-order coherent: basic → basic-sync → events → with-dependency-injector →
-adapters → adapters-sync → (new ones slotted deliberately, not appended blindly).
+order coherent: basic → basic-sync → events → adapters → adapters-sync →
+dependency-injection → dependency-injection-sync → (new ones slotted deliberately).
 
 ## Verification bar (all of it, every time)
 

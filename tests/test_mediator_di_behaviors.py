@@ -521,10 +521,12 @@ def test_di_nested_containers() -> None:
 
     response = mediator.send(CounterRequest(value=10))
 
-    # The nested providers won't be automatically discovered
-    # This tests that only providers directly in the container are used
-    assert response.value == 10  # No behaviors applied from nested containers
-    assert response.execution_log == ["RequestHandler"]
+    assert response.value == 17
+    assert response.execution_log == [
+        "RequestHandler",
+        "Increment(+7)",
+        "Logging(core)",
+    ]
 
 
 def test_di_flat_container_composition() -> None:
@@ -778,13 +780,12 @@ def test_di_factory_behavior_fresh_instances() -> None:
     response2 = mediator.send(CounterRequest(value=2))
     response3 = mediator.send(CounterRequest(value=3))
 
-    # Should have created 4 instances (1 from scan + 3 from sends)
-    assert CountingBehavior.instance_counter == 4
+    # Discovery does not construct and discard a factory instance.
+    assert CountingBehavior.instance_counter == 3
 
-    # Instance IDs: first is from scan (not used), then 2,3,4 from actual sends
-    assert "Counting(inst=2,exec=1)" in response1.execution_log
-    assert "Counting(inst=3,exec=1)" in response2.execution_log
-    assert "Counting(inst=4,exec=1)" in response3.execution_log
+    assert "Counting(inst=1,exec=1)" in response1.execution_log
+    assert "Counting(inst=2,exec=1)" in response2.execution_log
+    assert "Counting(inst=3,exec=1)" in response3.execution_log
 
 
 def test_di_mixed_scopes() -> None:
@@ -1212,13 +1213,11 @@ def test_di_provider_has_get_all_types_and_len() -> None:
     assert len(provider) == 2
 
 
-def test_di_provider_scan_container_without_providers_attribute() -> None:
-    """_scan_container silently no-ops for a container lacking a `.providers` attribute."""
+def test_di_provider_rejects_non_container() -> None:
+    """The public constructor accepts Dependency Injector containers, not lookalikes."""
 
     class NotAContainer:
         pass
 
-    provider = DependencyInjectorServiceProvider(NotAContainer())
-
-    assert len(provider) == 0
-    assert provider.get_all_types() == ()
+    with pytest.raises(TypeError, match="dependency_injector.containers.Container"):
+        DependencyInjectorServiceProvider(NotAContainer())

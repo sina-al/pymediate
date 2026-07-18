@@ -1,0 +1,1 @@
+"""Background-worker inbound adapter."""

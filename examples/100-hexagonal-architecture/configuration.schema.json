@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pymediate.sina-al.uk/schemas/configuration.schema.json",
+  "title": "Shop deployment configuration",
+  "description": "Composes executable Shop roles from named Dependency Injector providers. Providers describe construction and lifetime. Bindings select the providers and process resources required by the application, outbox relay, and queue consumer.",
+  "type": "object",
+  "required": ["providers", "bindings"],
+  "additionalProperties": false,
+  "properties": {
+    "providers": {
+      "title": "Named providers",
+      "description": "The complete provider graph available to this deployment. Each key is a stable local name used by role bindings or by another provider's $ref argument. Declaration order has no meaning; missing references and cycles fail during startup.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "description": "Provider names use lowercase snake_case so references remain readable in YAML and diagnostics.",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": { "$ref": "#/$defs/provider" }
+    },
+    "bindings": {
+      "title": "Executable role bindings",
+      "description": "Declares the dependency providers and process resources needed by each independently executable role. Application is required. Relay and consumer may be omitted from an API- or CLI-only manifest.",
+      "$ref": "#/$defs/roleBindings"
+    }
+  },
+  "$defs": {
+    "providerName": {
+      "title": "Provider name",
+      "description": "The lowercase snake_case name of a provider declared in the top-level providers mapping. Reference existence is checked at application startup.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "examples": ["database", "storage", "broker", "telemetry"]
+    },
+    "provider": {
+      "title": "Provider",
+      "description": "Either constructs a concrete Python implementation or aliases another named provider. The two forms are mutually exclusive.",
+      "oneOf": [
+        { "$ref": "#/$defs/implementationProvider" },
+        { "$ref": "#/$defs/providerReference" }
+      ]
+    },
+    "implementationProvider": {
+      "title": "Implementation provider",
+      "description": "Constructs the callable imported from impl. Dependency Injector resolves provider references in arguments before passing them as keyword arguments.",
+      "type": "object",
+      "required": ["impl"],
+      "additionalProperties": false,
+      "properties": {
+        "impl": {
+          "title": "Implementation",
+          "description": "Fully qualified import path to a callable class or factory. A resource implementation must return an asynchronous context manager.",
+          "type": "string",
+          "pattern": "^[A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)+$",
+          "examples": [
+            "shop.adapters.postgres.PostgresDbGateway",
+            "shop.bindings.opentelemetry.configure_opentelemetry"
+          ]
+        },
+        "lifetime": {
+          "title": "Provider lifetime",
+          "description": "singleton returns one lazily constructed object for the graph; factory constructs for every resolution; resource is a real Dependency Injector Resource provider whose asynchronous context manager is initialized and shut down only when a selected role needs it. Omit for singleton.",
+          "type": "string",
+          "enum": ["singleton", "factory", "resource"],
+          "default": "singleton"
+        },
+        "arguments": {
+          "title": "Implementation arguments",
+          "description": "Keyword arguments passed to impl. Each value is a YAML literal, an environment lookup, or a reference to another named provider.",
+          "type": "object",
+          "propertyNames": {
+            "description": "A valid Python keyword parameter accepted by the implementation callable.",
+            "pattern": "^[A-Za-z_]\\w*$"
+          },
+          "additionalProperties": { "$ref": "#/$defs/argument" },
+          "default": {}
+        }
+      }
+    },
+    "providerReference": {
+      "title": "Provider alias",
+      "description": "Exposes another provider under an additional local name. An alias keeps the referenced provider's lifetime and cannot declare impl, lifetime, or arguments.",
+      "type": "object",
+      "required": ["$ref"],
+      "additionalProperties": false,
+      "properties": {
+        "$ref": { "$ref": "#/$defs/providerName" }
+      }
+    },
+    "argument": {
+      "title": "Implementation argument",
+      "description": "A literal constructor value, a provider reference, or an environment lookup.",
+      "oneOf": [
+        { "$ref": "#/$defs/literalArgument" },
+        { "$ref": "#/$defs/argumentReference" },
+        { "$ref": "#/$defs/environmentReference" }
+      ]
+    },
+    "literalArgument": {
+      "title": "Literal argument",
+      "description": "A null, scalar, or nested sequence passed to the implementation unchanged.",
+      "oneOf": [
+        { "type": ["string", "number", "boolean", "null"] },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/literalArgument" }
+        }
+      ]
+    },
+    "argumentReference": {
+      "title": "Injected provider argument",
+      "description": "Injects the object produced by another named provider into this implementation argument. References are order-independent.",
+      "type": "object",
+      "required": ["$ref"],
+      "additionalProperties": false,
+      "properties": {
+        "$ref": { "$ref": "#/$defs/providerName" }
+      },
+      "examples": [{ "$ref": "database" }]
+    },
+    "environmentReference": {
+      "title": "Environment argument",
+      "description": "Reads a value from one case-sensitive environment variable when the provider graph is built. A missing or empty value fails startup unless default is present.",
+      "type": "object",
+      "required": ["env"],
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "title": "Environment variable",
+          "description": "Case-sensitive environment variable name. Shop-owned variables use the SHOP_ prefix and single underscores.",
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "examples": ["SHOP_POSTGRES_URL"]
+        },
+        "default": {
+          "title": "Environment default",
+          "description": "Literal value used when env is missing or empty. Omit this property when the deployment must supply the variable.",
+          "$ref": "#/$defs/literalArgument"
+        }
+      },
+      "examples": [
+        { "env": "SHOP_POSTGRES_URL" },
+        { "env": "SHOP_AWS_REGION", "default": "eu-west-2" }
+      ]
+    },
+    "roleResources": {
+      "title": "Explicit process resources",
+      "description": "Named resource-lifetime providers activated for process setup even when no injected provider depends on them. Telemetry is the usual example. Resources reached through the role's injected providers are discovered automatically and need not be repeated here.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/providerName" },
+      "uniqueItems": true,
+      "default": [],
+      "examples": [["telemetry"]]
+    },
+    "applicationProviderBindings": {
+      "title": "Application dependency providers",
+      "description": "The complete outward dependency set required by ApplicationContainer. Missing and unknown dependencies fail both editor validation and startup.",
+      "type": "object",
+      "required": [
+        "database",
+        "unit",
+        "catalogue",
+        "storage",
+        "clock",
+        "inventory",
+        "payments",
+        "mailer",
+        "rates",
+        "renderer"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "database": {
+          "description": "Provider implementing the feature-specific database gateway protocols, journal, transactional outbox, and inbox persistence.",
+          "$ref": "#/$defs/providerName"
+        },
+        "unit": {
+          "description": "Provider implementing UnitOfWork. This is normally a factory so each handler receives an independent transaction boundary.",
+          "$ref": "#/$defs/providerName"
+        },
+        "catalogue": {
+          "description": "Provider looking up the products and prices used to build validated order lines.",
+          "$ref": "#/$defs/providerName"
+        },
+        "storage": {
+          "description": "Provider storing order exports, invoices, and monthly statements.",
+          "$ref": "#/$defs/providerName"
+        },
+        "clock": {
+          "description": "Provider supplying the business date derived from an explicit clock.",
+          "$ref": "#/$defs/providerName"
+        },
+        "inventory": {
+          "description": "Provider reserving and releasing order inventory.",
+          "$ref": "#/$defs/providerName"
+        },
+        "payments": {
+          "description": "Provider capturing and refunding customer payments.",
+          "$ref": "#/$defs/providerName"
+        },
+        "mailer": {
+          "description": "Provider sending customer-facing messages with idempotency protection.",
+          "$ref": "#/$defs/providerName"
+        },
+        "rates": {
+          "description": "Provider supplying currency exchange rates.",
+          "$ref": "#/$defs/providerName"
+        },
+        "renderer": {
+          "description": "Provider rendering invoices and statements into storable documents.",
+          "$ref": "#/$defs/providerName"
+        }
+      }
+    },
+    "relayProviderBindings": {
+      "title": "Relay dependency providers",
+      "description": "Dependencies required to lease committed outbox messages and publish them to the selected queue.",
+      "type": "object",
+      "required": ["outbox", "publisher"],
+      "additionalProperties": false,
+      "properties": {
+        "outbox": {
+          "description": "Provider from which the relay leases unpublished transactional outbox messages.",
+          "$ref": "#/$defs/providerName"
+        },
+        "publisher": {
+          "description": "Provider publishing versioned integration envelopes to the selected queue.",
+          "$ref": "#/$defs/providerName"
+        }
+      }
+    },
+    "consumerProviderBindings": {
+      "title": "Consumer dependency providers",
+      "description": "Dependencies required to receive and settle queue deliveries and to deduplicate mediator dispatch through the inbox.",
+      "type": "object",
+      "required": ["queue", "inbox"],
+      "additionalProperties": false,
+      "properties": {
+        "queue": {
+          "description": "Provider receiving, renewing, completing, and abandoning queue deliveries.",
+          "$ref": "#/$defs/providerName"
+        },
+        "inbox": {
+          "description": "Provider claiming message IDs and recording successful processing for idempotency.",
+          "$ref": "#/$defs/providerName"
+        }
+      }
+    },
+    "applicationRole": {
+      "title": "Application role",
+      "description": "Composition used by primary adapters such as the CLI and OpenAPI server. Only its injected and explicit resources are active in those processes.",
+      "type": "object",
+      "required": ["providers"],
+      "additionalProperties": false,
+      "properties": {
+        "providers": { "$ref": "#/$defs/applicationProviderBindings" },
+        "resources": { "$ref": "#/$defs/roleResources" }
+      }
+    },
+    "relayRole": {
+      "title": "Outbox relay role",
+      "description": "Composition used by shop-worker relay. It does not construct the application container or consume queue deliveries.",
+      "type": "object",
+      "required": ["providers"],
+      "additionalProperties": false,
+      "properties": {
+        "providers": { "$ref": "#/$defs/relayProviderBindings" },
+        "resources": { "$ref": "#/$defs/roleResources" }
+      }
+    },
+    "consumerRole": {
+      "title": "Queue consumer role",
+      "description": "Worker-only composition activated alongside the application role so deliveries can be translated into mediator requests.",
+      "type": "object",
+      "required": ["providers"],
+      "additionalProperties": false,
+      "properties": {
+        "providers": { "$ref": "#/$defs/consumerProviderBindings" },
+        "resources": { "$ref": "#/$defs/roleResources" }
+      }
+    },
+    "roleBindings": {
+      "title": "Role bindings",
+      "description": "The application role is required. Relay and consumer are independently optional so a manifest may describe an API/CLI-only deployment.",
+      "type": "object",
+      "required": ["application"],
+      "additionalProperties": false,
+      "properties": {
+        "application": { "$ref": "#/$defs/applicationRole" },
+        "relay": { "$ref": "#/$defs/relayRole" },
+        "consumer": { "$ref": "#/$defs/consumerRole" }
+      }
+    }
+  }
+}
