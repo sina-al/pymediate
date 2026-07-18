@@ -5,7 +5,9 @@ DOCS_URL = "https://pymediate.sina-al.uk"
 
 def _type_name(value: object) -> str:
     """Return a readable name for a class or another type annotation."""
-    return getattr(value, "__name__", None) or str(value)
+    if isinstance(value, type):
+        return value.__name__
+    return str(value)
 
 
 class PyMediateError(Exception):
