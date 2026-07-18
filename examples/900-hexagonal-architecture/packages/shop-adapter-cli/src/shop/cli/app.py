@@ -1,4 +1,4 @@
-"""Typer command-line adapter for the Shop application."""
+"""Typer CLI adapter for the Shop application."""
 
 import os
 from pathlib import Path
@@ -12,7 +12,7 @@ from shop.cli.context import CliContext
 
 app = typer.Typer(
     name="shop",
-    help="[bold cyan]Shop[/] — command-line interface for the hexagonal architecture example.",
+    help="[bold cyan]Shop[/] — CLI for the hexagonal architecture example.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -47,6 +47,6 @@ cli = app
 
 
 def main() -> None:
-    """Run the Shop command-line application."""
+    """Run the Shop CLI application."""
     os.environ.setdefault("OTEL_SDK_DISABLED", "true")
     app(prog_name="shop")

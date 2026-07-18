@@ -59,9 +59,9 @@ application at the end.
 | Position | Topic | Async | Sync | What you learn |
 | --- | --- | --- | --- | --- |
 | 065 | Validation | [065-validation](065-validation/) | [065-validation-sync](065-validation-sync/) | Validate transport shape at the edge and business rules in the core; compare direct and transformed mappings. |
-| 070 | Error handling | [070-error-handling](070-error-handling/) | [070-error-handling-sync](070-error-handling-sync/) | Raise transport-independent errors in handlers and translate them separately for HTTP and command-line callers. |
+| 070 | Error handling | [070-error-handling](070-error-handling/) | [070-error-handling-sync](070-error-handling-sync/) | Raise transport-independent errors in handlers and translate them separately for HTTP and CLI callers. |
 | 075 | Identity and authorization | [075-authorization](075-authorization/) | [075-authorization-sync](075-authorization-sync/) | Extract identity at the edge, apply request-level authorization in behaviors, and check resource access after loading data. |
-| 090 | Framework adapters | [090-adapters](090-adapters/) | [090-adapters-sync](090-adapters-sync/) | Serve one application through multiple web and command-line frameworks without importing them into the core. |
+| 090 | Framework adapters | [090-adapters](090-adapters/) | [090-adapters-sync](090-adapters-sync/) | Serve one application through multiple web and CLI frameworks without importing them into the core. |
 
 ### Wiring and testing
 
@@ -80,7 +80,7 @@ application at the end.
 
 | Position | Topic | Example | What you learn |
 | --- | --- | --- | --- |
-| 900 | Hexagonal architecture | [900-hexagonal-architecture](900-hexagonal-architecture/) | Apply the earlier boundaries in a uv workspace with HTTP, command-line, and worker entry points plus replaceable local, AWS-compatible, and Azure-compatible infrastructure. |
+| 900 | Hexagonal architecture | [900-hexagonal-architecture](900-hexagonal-architecture/) | Apply the earlier boundaries in a uv workspace with HTTP, CLI, and worker entry points plus replaceable local, AWS-compatible, and Azure-compatible infrastructure. |
 
 ## The examples contract
 

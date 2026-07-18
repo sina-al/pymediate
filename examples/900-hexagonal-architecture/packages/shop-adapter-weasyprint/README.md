@@ -5,7 +5,7 @@ documents. It is separate from storage: rendering creates bytes, while another a
 whether those bytes go to memory, S3-compatible storage, or Azure Blob Storage.
 
 The package depends on `shop-ports` and WeasyPrint. It does not import the application, persistence,
-bindings, or a cloud client library.
+bindings, or a cloud SDK.
 
 ## Module
 

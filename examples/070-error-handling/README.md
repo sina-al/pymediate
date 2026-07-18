@@ -4,7 +4,7 @@
 
 Handlers raise errors that describe domain failures, such as a missing product. Each external
 interface converts those errors into its own result: HTTP status codes for FastAPI and process
-exit codes for the command-line interface.
+CLI exit codes.
 
 ## Run
 
@@ -19,7 +19,7 @@ uv run pytest
 8 passed
 ```
 
-The command-line interface shows the error text and returns a nonzero exit status:
+The CLI shows the error text and returns a nonzero exit status:
 
 ```console
 $ uv run shop-cli get 999
@@ -67,7 +67,7 @@ async def on_not_found(request, error):
     return JSONResponse(status_code=404, content={"error": str(error)})
 ```
 
-The command-line interface registers a different conversion:
+The CLI registers a different conversion:
 
 ```python
 def send_as_cli(mediator, request) -> int:
@@ -81,12 +81,12 @@ def send_as_cli(mediator, request) -> int:
 ```
 
 Routes and commands do not repeat these mappings. FastAPI maps `OutOfStockError` to 409, while
-the command-line interface maps it to exit code 4.
+the CLI maps it to exit code 4.
 
 ## Keep HTTP exceptions at the HTTP boundary
 
 `src/shop/leaky.py` contains a comparison handler that raises FastAPI's `HTTPException`.
-When called through the command-line mapping, that exception propagates because the mapping
+When called through the CLI mapping, that exception propagates because the mapping
 handles domain errors only.
 
 ```python

@@ -4,7 +4,7 @@
 
 Hexagonal architecture separates application and domain code from delivery and infrastructure
 code. The application declares the capabilities it needs as ports; adapters implement those
-ports for HTTP, command-line, database, queue, and storage technologies.
+ports for HTTP, CLI, database, queue, and storage technologies.
 
 This flagship example combines the focused PyMediate topics in a Shop application. It assumes
 you have read the earlier examples. It is a reference for boundaries and composition, not a
@@ -107,7 +107,7 @@ the candidate wheel or index version.
 
 The default database and broker are created for the current process. Separate `shop` or
 `shop-worker` invocations do not share a complete local workflow. Use `poe demo`, an application
-test, one long-running application programming interface (API) process, or a durable profile when
+test, one long-running API process, or a durable profile when
 state must cross process boundaries.
 
 ### Run the API
@@ -140,7 +140,7 @@ is running.
 flowchart LR
     subgraph Input[Executable adapters]
         HTTP[FastAPI]
-        CLI[Typer command-line interface]
+        CLI[Typer CLI]
         CONSUMER[Queue consumer]
     end
 
@@ -154,7 +154,7 @@ flowchart LR
 
     subgraph Output[Infrastructure adapters]
         LOCAL[SQLite and process-local services]
-        AWS[Amazon Web Services profile]
+        AWS[AWS profile]
         AZURE[Azure profile]
     end
 
@@ -183,7 +183,7 @@ flowchart LR
 | Query order history | `GetOrderHistoryRequest` | Allowlisted projection of versioned audit events. |
 
 Requests return operation-specific response types rather than domain entities. An internal entity
-field therefore does not automatically cross an HTTP, command-line, or queue boundary.
+field therefore does not automatically cross an HTTP, CLI, or queue boundary.
 
 ### Workspace packages
 
@@ -197,12 +197,12 @@ namespace-package mechanism.
 | [`shop-application`](packages/shop-application/) | Application | Requests, responses, handlers, feature containers, pipeline behaviors, and services. |
 | [`shop-bindings`](packages/shop-bindings/) | Composition | Configuration validation, provider construction, role bindings, and resource lifecycle. |
 | [`shop-adapter-cli`](packages/shop-adapter-cli/) | Input adapter | Typer commands and terminal output. |
-| [`shop-adapter-openapi`](packages/shop-adapter-openapi/) | Input adapter | FastAPI routes, Pydantic data-transfer objects, OpenAPI, and Problem Details. |
+| [`shop-adapter-openapi`](packages/shop-adapter-openapi/) | Input adapter | FastAPI routes, Pydantic DTOs, OpenAPI, and Problem Details. |
 | [`shop-adapter-worker`](packages/shop-adapter-worker/) | Input adapter | Outbox relay, queue consumer, settlement, and message registry. |
 | [`shop-adapter-common`](packages/shop-adapter-common/) | Output adapter | Clock and exchange-rate defaults. |
 | [`shop-adapter-ephemeral`](packages/shop-adapter-ephemeral/) | Output adapter | SQLite persistence and process-local service implementations. |
 | [`shop-adapter-postgres`](packages/shop-adapter-postgres/) | Output adapter | PostgreSQL persistence, transactions, journal, outbox, and inbox. |
-| [`shop-adapter-aws`](packages/shop-adapter-aws/) | Output adapter | S3-compatible storage and Simple Queue Service messaging. |
+| [`shop-adapter-aws`](packages/shop-adapter-aws/) | Output adapter | S3-compatible storage and SQS messaging. |
 | [`shop-adapter-azure`](packages/shop-adapter-azure/) | Output adapter | Blob Storage and Service Bus messaging. |
 | [`shop-adapter-weasyprint`](packages/shop-adapter-weasyprint/) | Output adapter | Invoice and statement PDF documents. |
 
@@ -233,10 +233,10 @@ consumers, identifiers, versions, and retention policies.
 
 ### Deployment profiles
 
-| Capability | Default | Amazon Web Services compatible | Azure compatible |
+| Capability | Default | AWS-compatible | Azure-compatible |
 | --- | --- | --- | --- |
 | Database | SQLite | PostgreSQL | PostgreSQL |
-| Queue | Process-local | Simple Queue Service | Service Bus |
+| Queue | Process-local | SQS | Service Bus |
 | Storage | Process-local | S3-compatible | Blob Storage |
 | Document rendering | WeasyPrint | WeasyPrint | WeasyPrint |
 | Catalogue, inventory, payment, mail | Process-local | Process-local | Process-local |

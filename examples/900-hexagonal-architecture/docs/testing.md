@@ -56,11 +56,11 @@ registrations.
 ## Mediator-first tests
 
 Application integration tests build the configured feature containers and send requests through
-the mediator without adding an HTTP or command-line adapter. These tests show that a use case is
+the mediator without adding an HTTP or CLI adapter. These tests show that a use case is
 usable before a transport is chosen.
 
 They enter the same resource lifecycle used by executables. Tests do not patch constructors or rely
-on destructors to close SQLite, broker, storage, or client-library resources.
+on destructors to close SQLite, broker, storage, or SDK resources.
 
 ## Persistence concurrency
 

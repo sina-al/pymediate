@@ -1,12 +1,12 @@
 # Shop AWS adapter
 
-`shop-adapter-aws` provides the Amazon Web Services (AWS) implementations needed by the Shop:
-S3-compatible object storage and Simple Queue Service (SQS) message delivery. Selecting this
+`shop-adapter-aws` provides the AWS implementations needed by the Shop: S3-compatible object
+storage and SQS message delivery. Selecting this
 package changes infrastructure without changing
 an application request or handler.
 
-The package depends on `shop-ports` and the AWS Python software development kit (SDK). It does not
-import the application, bindings, FastAPI, command-line adapter, or worker implementation.
+The package depends on `shop-ports` and the AWS Python SDK. It does not import the application,
+bindings, FastAPI, CLI adapter, or worker implementation.
 
 ## Modules
 

@@ -457,7 +457,7 @@ Use the implementation-time verified compatible pair:
 
 - `restate_sdk[serde]==1.0.2` at runtime;
 - `restate_sdk[harness]==1.0.2` only in test dependencies;
-- Restate Server `1.7.2`, pinned by tag and image digest in `.env`.
+- Restate Server `1.7.2`, pinned by tag and image digest in `.env.images`.
 
 The Python SDK 1.0 compatibility matrix supports Restate 1.7. Recheck the official matrix and image
 digest immediately before implementation because these are external release facts.
@@ -707,7 +707,7 @@ state.
 
 Add:
 
-- `RESTATE_IMAGE` and, if used, `RESTATE_CLI_IMAGE` in `.env`, each pinned by version and digest;
+- `RESTATE_IMAGE` and, if used, `RESTATE_CLI_IMAGE` in `.env.images`, each pinned by version and digest;
 - Restate Server 1.7.2 with a stable node name and persistent named volume;
 - health checks;
 - localhost-only ingress `8080` and UI/admin `9070` bindings;

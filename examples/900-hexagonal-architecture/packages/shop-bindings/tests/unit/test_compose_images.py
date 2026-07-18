@@ -12,6 +12,7 @@ IMAGE_INPUT_FILES = (
     Path("compose.azure.yaml"),
     Path("docker/Dockerfile"),
 )
+IMAGE_ENVIRONMENT_FILE = Path(".env.images")
 LOCAL_BUILD_OUTPUTS = {
     "SHOP_AWS_ADMINISTRATION_IMAGE",
     "SHOP_AWS_OPENAPI_IMAGE",
@@ -25,14 +26,14 @@ LOCAL_BUILD_OUTPUTS = {
 def image_environment() -> dict[str, str]:
     return {
         name: value
-        for line in Path(".env").read_text().splitlines()
+        for line in IMAGE_ENVIRONMENT_FILE.read_text().splitlines()
         if line and not line.startswith("#")
         for name, value in [line.split("=", 1)]
         if name.endswith("_IMAGE")
     }
 
 
-def test_compose_image_names_are_declared_in_dotenv() -> None:
+def test_compose_image_names_are_declared_in_image_environment() -> None:
     # Arrange
     environment = image_environment()
     referenced: set[str] = set()
@@ -98,7 +99,7 @@ def test_collector_is_bounded_and_processes_memory_before_batches() -> None:
 
 def test_compose_hardcodes_telemetry_by_process_role() -> None:
     # Arrange
-    dotenv = Path(".env").read_text()
+    image_environment_file = IMAGE_ENVIRONMENT_FILE.read_text()
     compose = yaml.safe_load(Path("compose.yaml").read_text())
     services = compose["services"]
 
@@ -110,8 +111,8 @@ def test_compose_hardcodes_telemetry_by_process_role() -> None:
     }
 
     # Assert
-    assert "OTEL_SDK_DISABLED=" not in dotenv
-    assert "OTEL_EXPORTER_OTLP_ENDPOINT=" not in dotenv
+    assert "OTEL_SDK_DISABLED=" not in image_environment_file
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT=" not in image_environment_file
     assert observed["shop-openapi"]["OTEL_SDK_DISABLED"] == "false"
     assert observed["shop-relay"]["OTEL_SDK_DISABLED"] == "false"
     assert observed["shop-worker"]["OTEL_SDK_DISABLED"] == "false"
@@ -268,3 +269,17 @@ def test_repository_build_context_exposes_only_required_source_inputs() -> None:
     assert "!examples/900-hexagonal-architecture/packages/**" in patterns
     assert "!examples/900-hexagonal-architecture/configuration/*.yaml" in patterns
     assert not Path(".dockerignore").exists()
+
+
+def test_compose_tasks_load_the_image_environment_file() -> None:
+    # Arrange
+    tasks = Path("tasks.compose.toml").read_text()
+
+    # Act
+    compose_commands = [
+        line for line in tasks.splitlines() if line.startswith('cmd = "docker compose ')
+    ]
+
+    # Assert
+    assert compose_commands
+    assert all("docker compose --env-file .env.images " in line for line in compose_commands)

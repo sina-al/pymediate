@@ -101,9 +101,8 @@ message idempotency key to the export-ready mail port.
 registered once on the application mediator rather than repeated in each host. Logging records safe
 request metadata, not arbitrary payloads.
 
-OpenTelemetry's public application programming interface (API) is used directly. `shop-bindings`
-configures the software development kit (SDK) and exporter for a deployment; without an SDK the
-API is a no-op. The
+OpenTelemetry's public API is used directly. `shop-bindings` configures the SDK and exporter for
+a deployment; without an SDK, the API is a no-op. The
 [third-party abstractions guide](../../docs/third-party-abstractions.md) explains this dependency
 choice.
 

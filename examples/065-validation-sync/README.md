@@ -113,6 +113,6 @@ choice depends on where the rule can be maintained and reused.
 ## Where next
 
 - [070-error-handling-sync](../070-error-handling-sync/) maps domain errors for both HTTP and a
-  synchronous command-line interface.
+  synchronous CLI.
 - [065-validation](../065-validation/) shows the asynchronous endpoints.
 - Read the [requests and responses guide](https://pymediate.sina-al.uk/docs/guide/requests-responses).

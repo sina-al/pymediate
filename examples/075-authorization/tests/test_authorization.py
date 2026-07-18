@@ -110,7 +110,7 @@ async def test_admin_can_edit_any_document(mediator: Mediator) -> None:
     assert updated.body == "by admin"
 
 
-# ---- HTTP and command-line status mappings ----
+# ---- HTTP and CLI status mappings ----
 
 
 @pytest.fixture

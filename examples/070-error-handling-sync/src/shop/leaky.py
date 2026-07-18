@@ -1,7 +1,7 @@
 """An HTTP-coupled handler used as a comparison case.
 
 This handler imports FastAPI and raises ``HTTPException`` instead of a domain error.
-``tests/test_error_handling.py`` calls it through the command-line mapping and confirms that
+``tests/test_error_handling.py`` calls it through the CLI mapping and confirms that
 the HTTP-specific exception is not converted to an exit code.
 
 Only the comparison test imports this module.

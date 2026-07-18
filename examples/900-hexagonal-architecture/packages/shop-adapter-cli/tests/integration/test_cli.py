@@ -1,4 +1,4 @@
-"""Exercise the Typer command-line adapter against a mediator and local YAML wiring."""
+"""Exercise the Typer CLI adapter against a mediator and local YAML wiring."""
 
 import os
 from datetime import UTC, date, datetime

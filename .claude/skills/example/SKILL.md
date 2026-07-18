@@ -137,8 +137,9 @@ two or three sentences.
 - Use direct, neutral language. Remove sales claims, urgency, praise, and staged reactions.
 - Do not use "simple," "obvious," "just," or "magic" to dismiss work the reader may find
   difficult.
-- Do not use invented labels, abbreviations, or decorative metaphors. Define an abbreviation
-  on first use unless it is standard for the intended reader.
+- Do not use invented labels, abbreviations, or decorative metaphors. Use established developer
+  acronyms such as API, CLI, DTO, HTTP, JSON, and SDK without spelling them out. Define less
+  familiar or topic-specific abbreviations on first use.
 - Keep established technical terms when they are precise. Explain them before depending on
   them; do not replace them with vaguer wording merely because they are technical.
 - Preserve facts, conditions, identifiers, numbers, and commands while editing prose.

@@ -12,7 +12,7 @@ below addresses a separate failure.
 
 ```mermaid
 sequenceDiagram
-    participant Host as HTTP or command line
+    participant Host as HTTP or CLI
     participant App as Application handler
     participant Database as State and outbox
     participant Relay as Relay process
@@ -59,7 +59,7 @@ object storage, mail, and the application database.
 | Work exceeds queue visibility | Broker and inbox renewal | Both ownership windows remain aligned during dispatch. |
 | Effect succeeds before process stops | `message_id` idempotency key | Redelivery observes or recreates the same effect. |
 | Inbox completes but broker acknowledgement fails | Inbox completion precedes acknowledgement | Redelivery sees `PROCESSED` and completes without dispatch. |
-| Payload cannot be decoded or handled | Abandon and broker redrive policy | The delivery retries and eventually reaches its dead-letter queue. |
+| Payload cannot be decoded or handled | Abandon and broker redrive policy | The delivery retries and eventually reaches its dead-letter queue (DLQ). |
 
 ## Four narrow boundaries
 
@@ -67,7 +67,7 @@ Messaging is split by responsibility instead of collected into one general queue
 
 ### Integration contract
 
-`shop.ports.integration` owns `IntegrationMessage`, its strict JavaScript Object Notation (JSON)
+`shop.ports.integration` owns `IntegrationMessage`, its strict JSON
 codec, and the protocol implemented by typed application contracts. An envelope contains:
 
 - application-generated universally unique identifier (UUID) `message_id`;
@@ -116,7 +116,7 @@ unrelated event-name string and payload, and it does not accept a domain audit e
 The consumer treats broker bytes as untrusted. Its registry selects a decoder by
 `(event_type, schema_version)`, validates a strict version-specific Pydantic payload, and only then
 constructs a mediator request. Unknown names, unknown versions, missing fields, extra fields, and
-wrong primitive types follow the normal retry and dead-letter path.
+wrong primitive types follow the normal retry and DLQ path.
 
 The worker's [registry tests](../packages/shop-adapter-worker/tests/unit/test_registry.py) include an
 executable V1/V2 example. Both versions remain decodable while new producers move to V2; the
@@ -167,12 +167,12 @@ the completed row and attempts broker completion without running application cod
 | Profile | Publisher and consumer | Persistence |
 | --- | --- | --- |
 | Default | `EphemeralMessageBroker` | Shared in-process SQLite connection. |
-| Amazon Web Services compatible | `SqsMessageBroker` | PostgreSQL pool. |
+| AWS-compatible | `SqsMessageBroker` | PostgreSQL pool. |
 | Azure-compatible | `AzureServiceBusMessageBroker` | PostgreSQL pool. |
 
 The ephemeral broker crosses the same strict serialization boundary as cloud adapters. Visibility
 expiry increments delivery attempts, and the configured fifth failed attempt moves a message to
-its process-local dead-letter queue.
+its process-local DLQ.
 
 The default profile cannot connect separate processes: its queue and in-memory effects exist only
 inside one Python process. `poe demo` and the acceptance journey run relay and consumer together.
@@ -189,10 +189,10 @@ measured processing time, broker limits, and operational recovery procedures.
 - consumer unit tests isolate inbox decisions, completion ordering, renewal loss, and
   acknowledgement failures;
 - registry unit tests isolate malformed data and version compatibility;
-- ephemeral adapter tests demonstrate visibility expiry and dead-letter behavior;
+- ephemeral adapter tests demonstrate visibility expiry and DLQ behavior;
 - the root acceptance test follows confirmation, invoice, and export effects through both mediator
   dispatches;
-- opt-in SQS and Service Bus tests cover renewal, redelivery, dead-letter movement, and settlement against
-  provider emulators.
+- opt-in SQS and Service Bus tests cover renewal, redelivery, DLQ movement, and settlement
+  against provider emulators.
 
 See [Testing the Shop example](testing.md) for the complete test-layer map.

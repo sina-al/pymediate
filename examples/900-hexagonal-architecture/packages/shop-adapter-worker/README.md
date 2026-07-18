@@ -2,10 +2,10 @@
 
 `shop-adapter-worker` moves committed integration messages to a queue and turns queue deliveries
 back into typed PyMediate requests. It lets confirmation mail, invoice generation, and order exports
-run after the original HTTP or command-line request has completed.
+run after the original HTTP or CLI request has completed.
 
 This is an executable adapter. It depends inward on `shop-application`, `shop-ports`, and
-`shop-bindings`. It does not depend directly on Amazon Simple Queue Service (SQS) or Azure Service
+`shop-bindings`. It does not depend directly on Amazon SQS or Azure Service
 Bus; configured queue adapters implement the messaging ports.
 
 ## Two process roles
@@ -51,7 +51,7 @@ repeatedly failing message stops returning.
 
 ### `shop.worker.app`
 
-Defines the command line, selects relay or consumer, loads configuration, and owns wiring startup
+Defines the CLI, selects relay or consumer, loads configuration, and owns wiring startup
 and shutdown in one event loop.
 
 ### `shop.worker.container`
@@ -95,7 +95,7 @@ broker retains the `OutboxMessage` carrier separately.
 
 ## Queue independence
 
-The default profile uses `EphemeralMessageBroker`, Amazon Web Services (AWS) uses
+The default profile uses `EphemeralMessageBroker`, AWS uses
 `SqsMessageBroker`, and Azure uses
 `AzureServiceBusMessageBroker`. The relay and consumer code is identical in all three cases. Broker
 differences are contained in their delivery implementations.

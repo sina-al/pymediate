@@ -1,4 +1,4 @@
-"""Command-line entry point for outbox relay and broker consumer roles."""
+"""CLI entry point for outbox relay and broker consumer roles."""
 
 import argparse
 import asyncio

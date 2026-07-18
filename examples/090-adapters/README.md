@@ -3,7 +3,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F090-adapters%2Fdevcontainer.json)
 
 This example exposes one task-board application through FastAPI, aiohttp, and an asyncclick
-command-line interface (CLI). Each adapter translates its input into a request, sends that
+CLI. Each adapter translates its input into a request, sends that
 request through the mediator, and translates the result. The application layer does not import
 any of the three adapter frameworks.
 
@@ -65,7 +65,7 @@ In suggested reading order:
 | [`src/taskboard/messages.py`](src/taskboard/messages.py) | The requests: `AddTask`, `CompleteTask`, `ListOpenTasks`. |
 | [`src/taskboard/handlers.py`](src/taskboard/handlers.py) | One async handler per request — the framework-free application logic. |
 | [`src/taskboard/wiring.py`](src/taskboard/wiring.py) | `build_mediator` — the one place that assembles domain, messages, and handlers. |
-| [`src/taskboard/adapters/cli.py`](src/taskboard/adapters/cli.py) | The command-line adapter: asyncclick commands await the mediator directly. |
+| [`src/taskboard/adapters/cli.py`](src/taskboard/adapters/cli.py) | The CLI adapter: asyncclick commands await the mediator directly. |
 | [`src/taskboard/adapters/fastapi.py`](src/taskboard/adapters/fastapi.py) | `async def` endpoints — diff it against the sync example's version: only `async`/`await` changed. |
 | [`src/taskboard/adapters/aiohttp.py`](src/taskboard/adapters/aiohttp.py) | A third dialect: plain handler functions, mediator carried on the app, errors mapped in a middleware. |
 | [`tests/`](tests/) | One suite per adapter — together they cover the application three times over. |

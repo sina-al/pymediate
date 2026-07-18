@@ -33,12 +33,12 @@ this example's scope.
 
 ### `shop.openapi.web`
 
-Defines `create_app`, the Asynchronous Server Gateway Interface (ASGI) factory. It loads wiring, composes the application
-container, wires each feature route module, registers error handlers, and activates the
-`application` role through ASGI lifespan.
+Defines `create_app`, the ASGI factory. It loads wiring, composes the application container,
+wires each feature route module, registers error handlers, and activates the `application` role
+through ASGI lifespan.
 
 The factory also applies OpenTelemetry's maintained FastAPI instrumentation. It creates HTTP server
-spans when a deployment configures a software development kit (SDK); otherwise the OpenTelemetry
+spans when a deployment configures an SDK; otherwise the OpenTelemetry
 API remains a no-op. The
 mediator tracing behaviour appears beneath that server span rather than duplicating HTTP metadata.
 
@@ -71,9 +71,9 @@ internal detail.
 
 ## Response safety
 
-Routes return data-transfer objects (DTOs) built field by field from application responses. They do not serialize domain
-entities. If a customer or order later gains a password hash, fraud score, or internal note, it
-does not enter the HTTP schema automatically.
+Routes return DTOs built field by field from application responses. They do not serialize
+domain entities. If a customer or order later gains a password hash, fraud score, or internal
+note, it does not enter the HTTP schema automatically.
 
 This also keeps OpenAPI evolution separate from business state. A transport alias or deprecation
 can change without renaming a domain field.

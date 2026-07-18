@@ -1,6 +1,6 @@
-"""Expose the authorization example through a command-line interface.
+"""Expose the authorization example through a CLI.
 
-The command-line interface reads the unsigned demo token from a flag and maps access errors to
+The CLI reads the unsigned demo token from a flag and maps access errors to
 exit codes. A production adapter must verify its credential before creating a principal.
 """
 

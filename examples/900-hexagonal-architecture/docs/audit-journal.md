@@ -16,7 +16,7 @@ This guide explains why that extra record exists, what it proves, and what it do
 
 Similar fields do not make these records interchangeable. Changing an internal audit projection
 must not silently change a worker contract. Moving or renaming a Python domain class must not break
-messages already waiting in Amazon Simple Queue Service (SQS) or Azure Service Bus.
+messages already waiting in Amazon SQS or Azure Service Bus.
 
 ## Why logs are insufficient
 
@@ -29,7 +29,7 @@ transition. `OrderPlacedEvent`, `StoreCreditAdjustedEvent`, and the other event 
 
 - a stable business name and schema version;
 - a typed aggregate reference;
-- a primitive JavaScript Object Notation (JSON)-compatible payload.
+- a primitive JSON-compatible payload.
 
 The handler passes the complete event to `DomainEventJournal`. It cannot provide one event name
 with an unrelated aggregate string or second payload.
@@ -80,8 +80,8 @@ never intended to expose.
 `GetOrderHistoryRequest` reads the journal and projects only allowlisted
 `(event_type, schema_version)` pairs into explicit response fields. Unknown event types and newer
 versions are omitted rather than interpreted with an older payload assumption. The FastAPI route
-then maps that application response to its Pydantic data-transfer object. Production deployments must additionally
-authenticate the caller and authorize access to the requested order.
+then maps that application response to its Pydantic DTO. Production deployments must
+additionally authenticate the caller and authorize access to the requested order.
 
 The example intentionally has no generic HTTP endpoint returning arbitrary journal records.
 
