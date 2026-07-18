@@ -111,7 +111,7 @@ curl -X POST localhost:8000/tasks -H 'content-type: application/json' -d '{"titl
 
 - [adapters](../adapters/) — this example's async twin (FastAPI `async def`,
   aiohttp, asyncclick).
-- [basic-sync](../basic-sync/) — the same core pattern at its smallest, if this felt
+- [010-basic-sync](../010-basic-sync/) — the same core pattern at its smallest, if this felt
   like too much at once.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·
   [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) for the

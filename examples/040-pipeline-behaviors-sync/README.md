@@ -112,7 +112,7 @@ def should_apply(cls, request):
   Redis client or database session drops in behind the same calls without touching a
   behavior.
 - This example assumes you've met `send()` already — if not, start with
-  [basic-sync](../basic-sync/), then come back.
+  [010-basic-sync](../010-basic-sync/), then come back.
 
 ## Where next
 

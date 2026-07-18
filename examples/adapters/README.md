@@ -113,8 +113,7 @@ curl -X POST localhost:8080/tasks -H 'content-type: application/json' -d '{"titl
 
 - [adapters-sync](../adapters-sync/) — this example's sync twin (Flask, FastAPI `def`,
   click).
-- [basic](../basic/) — the async core pattern at its smallest, plus a
-  pipeline behavior.
+- [010-basic](../010-basic/) — the async core pattern at its smallest.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·
   [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) for the
   ideas this example leans on.
