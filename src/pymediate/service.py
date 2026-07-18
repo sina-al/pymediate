@@ -1,24 +1,24 @@
 """Service collection and provider for dependency injection.
 
-Register service instances with `Services`, then build an immutable `ServiceProvider`
+Register service instances with ``Services``, then build an immutable ``ServiceProvider``
 from it to resolve them. Multiple instances of the same type can be registered, and
-`get_all()` resolves by inheritance so a base type or protocol matches every registered
-subclass.
+``get_all()`` resolves by inheritance, so a base type or runtime-checkable protocol
+matches registered instances that satisfy it.
 
-Example:
+Examples:
     ```python
-    from pymediate.service import Services
+    from pymediate import Services
 
-    services = Services()
-    services.add(MyService())
-    services.add(AnotherService())
-    services.add(MyService())  # A second instance of the same type
+    class Cache:
+        pass
+
+    cache = Cache()
+    services = Services().add(cache)
 
     provider = services.provider()
 
-    all_services = provider.get_all(MyService)  # [instance1, instance2]
-    first_service = provider.get(MyService)      # instance1
-    has_service = provider.has(MyService)         # True
+    assert provider.get(Cache) is cache
+    assert provider.get_all(Cache) == (cache,)
     ```
 """
 
@@ -58,43 +58,18 @@ class ServiceNotFoundError(Exception):
 class ServiceProvider(Protocol):
     """Protocol for resolving registered service instances.
 
-    Implementations resolve services two ways: `get()` matches the exact registered
-    type only, while `get_all()` also matches subclasses and mixins (via `isinstance()`),
-    returning every match in registration order.
+    ``get()`` matches an exact registered type. ``get_all()`` also matches
+    subclasses and runtime-checkable protocols, returning all matches in
+    registration order.
 
-    The standard implementation is returned by `Services.provider()` - most users never
-    construct a provider directly. Implement this protocol yourself to plug in a
-    different resolution strategy; `DependencyInjectorServiceProvider` is an example,
-    wrapping a `dependency-injector` container instead of `Services`:
-
-    ```python
-    class LazyServiceProvider:
-        def __init__(self, factories: dict[type, Callable[[], object]]):
-            self._factories = factories
-            self._instances: dict[type, object] = {}
-
-        def get(self, service_type):
-            if service_type not in self._instances:
-                self._instances[service_type] = self._factories[service_type]()
-            return self._instances[service_type]
-
-        def get_all(self, service_type):
-            return [v for v in self._instances.values() if isinstance(v, service_type)]
-
-        def has(self, service_type):
-            return service_type in self._factories
-
-        def get_all_types(self):
-            return tuple(self._factories.keys())
-    ```
+    ``Services.provider()`` returns the built-in implementation.
+    ``DependencyInjectorServiceProvider`` adapts a Dependency Injector container.
+    A custom provider can use another resolution and lifetime policy while
+    implementing the same five operations.
 
     Note:
-        Implementations must be safe to call concurrently from multiple threads.
-        There are no mutation methods, so this is naturally achieved through
-        immutability rather than locking.
-
-    See Also:
-        - Services: The mutable collection that builds the standard provider.
+        The protocol is read-only. Thread-safety and mutation behavior depend on
+        the implementation.
     """
 
     def get(self, service_type: type[ServiceT]) -> ServiceT:
@@ -117,8 +92,8 @@ class ServiceProvider(Protocol):
     def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
         """Get all instances of the type, including subclasses.
 
-        Matches using `isinstance()`, so a base class, abstract class, or protocol
-        resolves every registered instance that satisfies it, not just exact matches.
+        Matches using ``isinstance()``, so a base class, abstract class, or
+        runtime-checkable protocol resolves registered instances that satisfy it.
 
         Args:
             service_type: The type (or base type) of services to resolve.
@@ -172,19 +147,6 @@ class Services:
     Not thread-safe: complete all registrations in a single thread before calling
     `provider()`.
 
-    Example:
-        ```python
-        services = Services()
-        services.add(DatabaseService())
-        services.add(EmailService())
-        services.add(CacheService(ttl=60))
-        services.add(CacheService(ttl=300))  # A second instance of the same type
-
-        provider = services.provider()
-        ```
-
-    See Also:
-        - ServiceProvider: The protocol implemented by `provider()`'s return value.
     """
 
     def __init__(self) -> None:
@@ -214,13 +176,6 @@ class Services:
         Raises:
             ValueError: If instance is None.
 
-        Example:
-            ```python
-            services = Services()
-            services.add(MyService())
-            services.add(CacheService(ttl=60))
-            services.add(CacheService(ttl=300))  # A second instance, both are kept
-            ```
         """
         if instance is None:
             raise ValueError("Cannot register None as a service instance")
@@ -245,15 +200,6 @@ class Services:
         Returns:
             A new ServiceProvider over the services registered so far.
 
-        Example:
-            ```python
-            services = Services()
-            services.add(MyService())
-            provider = services.provider()
-
-            services.add(AnotherService())
-            provider.has(AnotherService)  # False - registered after the snapshot
-            ```
         """
         return _Provider(self)
 

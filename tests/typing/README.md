@@ -41,8 +41,9 @@ by *every* checker, with the specific diagnostic pinned per checker in `expectat
 working.
 
 On top of the corpus, `test_basedpyright.py` enforces **100% public-API type completeness**
-via `basedpyright --verifytypes pymediate` — no exported symbol may resolve as `Unknown` in
-a user's editor.
+via `basedpyright --verifytypes pymediate --ignoreexternal` — no exported PyMediate symbol may
+resolve as `Unknown` in a user's editor. This deliberately excludes incomplete stubs in optional
+third-party integrations, which PyMediate cannot correct.
 
 ## Configuration isolation
 

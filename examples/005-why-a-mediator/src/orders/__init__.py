@@ -1,1 +1,1 @@
-"""The orders domain, delivered two ways: `before/` (a god service) and `after/` (pymediate)."""
+"""The orders domain, delivered by `OrderService` and by PyMediate request handlers."""

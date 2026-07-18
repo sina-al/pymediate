@@ -1,0 +1,38 @@
+[project]
+name = "pymediate-example-075-authorization-sync"
+version = "0.1.0"
+description = "Synchronous authentication and request/resource authorization"
+requires-python = ">=3.12"
+dependencies = [
+    # Loose lower bound per the examples contract: the release pipeline re-pins this to the
+    # exact release candidate on TestPyPI (scripts/run_examples.py).
+    "pymediate>=0.5.0",
+    "fastapi>=0.115",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+vault = "vault.cli:run"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "httpx2>=2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vault"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

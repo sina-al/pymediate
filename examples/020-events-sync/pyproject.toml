@@ -1,12 +1,12 @@
 [project]
 name = "pymediate-example-020-events-sync"
 version = "0.1.0"
-description = "Synchronous PyMediate example: publishing an event that fans out to many handlers"
+description = "Publish one event to several synchronous handlers"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the
     # exact release candidate on TestPyPI (scripts/run_examples.py).
-    "pymediate>=0.5.0",
+    "pymediate>=0.6.0",
 ]
 
 [dependency-groups]

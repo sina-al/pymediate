@@ -1,0 +1,21 @@
+{
+    "name": "pymediate example: 070-error-handling",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/070-error-handling",
+    "features": {
+        "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
+    },
+    "postCreateCommand": "uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
+            }
+        }
+    }
+}

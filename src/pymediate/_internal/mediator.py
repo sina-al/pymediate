@@ -29,33 +29,15 @@ class MediatorMixin:
     _services: "ServiceProvider"
 
     def __init__(self, services: "ServiceProvider") -> None:
-        """Initialize mediator with services for obtaining handler and behavior instances.
+        """Initialize the mediator with a service provider.
 
         Args:
-            services: Any object implementing the ServiceProvider protocol.
-                This can be a ServiceProvider from Services.provider(),
-                a DependencyInjectorServiceProvider, or your own custom implementation.
+            services: An object implementing ``ServiceProvider``. The keyword name
+                is ``services``.
 
-        Examples:
-            ```python
-            from pymediate import Mediator
-            from pymediate.service import Services
-
-            services = Services()
-            services.add(CreateUserHandler())
-            provider = services.provider()
-
-            mediator = Mediator(provider)
-            ```
-
-            With dependency injection:
-            ```python
-            from pymediate.providers import DependencyInjectorServiceProvider
-
-            container = AppContainer()
-            provider = DependencyInjectorServiceProvider(container)
-            mediator = Mediator(provider)
-            ```
+        Note:
+            The mediator retains this provider for later dispatches. Handler and
+            behavior lifetimes therefore follow the provider's policy.
         """
         self._services = services
 

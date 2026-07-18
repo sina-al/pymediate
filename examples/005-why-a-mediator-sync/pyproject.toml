@@ -1,12 +1,12 @@
 [project]
 name = "pymediate-example-005-why-a-mediator-sync"
 version = "0.1.0"
-description = "Why not one big service? The sync mirror: the same orders feature as a god service, shown failing, then as pymediate.sync handlers"
+description = "Compare one order service with one synchronous PyMediate handler per operation"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the
     # exact release candidate on TestPyPI (scripts/run_examples.py).
-    "pymediate>=0.5.0",
+    "pymediate>=0.6.0",
 ]
 
 [dependency-groups]

@@ -1,10 +1,9 @@
 """Wire the pipeline and run a short demo.
 
-``build_mediator`` is where registration order becomes execution order: the four
-behaviors are added outermost-first, then the handlers. Because each behavior routes on
-its type parameter, a single registration produces a different effective stack per
-request — commands flow through logging → authorization → transaction → handler, while
-queries flow through logging → caching → handler.
+``build_mediator`` registers four behaviors before the handlers. Registration order is
+execution order, and each behavior's type parameter selects the requests it receives.
+Commands pass through logging, authorization, and a transaction-boundary trace. Queries
+pass through logging and caching.
 """
 
 import asyncio
@@ -58,7 +57,7 @@ def build_mediator(
     services.add(LoggingBehavior(trace))  # 1. outermost — every request
     services.add(AuthorizationBehavior(principal, trace))  # 2. commands only
     services.add(CachingBehavior(cache, trace))  # 3. queries only; may short-circuit
-    services.add(TransactionBehavior(store, trace))  # 4. innermost — commands only
+    services.add(TransactionBehavior(trace))  # 4. innermost — commands only
     services.add(AddTaskHandler(store))
     services.add(CompleteTaskHandler(store))
     services.add(GetTaskHandler(store))

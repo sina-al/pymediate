@@ -87,6 +87,22 @@ def test_handler_rejects_wrong_return_type() -> None:
                 return WrongResponse()
 
 
+def test_handler_formats_union_return_annotation_in_mismatch_error() -> None:
+    """A union annotation should produce the intended validation error."""
+
+    class CorrectResponse:
+        pass
+
+    class ReqWithCorrectResponse(Request[CorrectResponse]):
+        pass
+
+    with pytest.raises(ResponseTypeMismatchError, match="Got:.*None"):
+
+        class BadHandler(RequestHandler[ReqWithCorrectResponse]):
+            def __call__(self, request: ReqWithCorrectResponse) -> CorrectResponse | None:
+                return CorrectResponse()
+
+
 def test_handler_rejects_wrong_parameter_type() -> None:
     """Test that RequestHandler with wrong parameter type is rejected."""
 
@@ -223,6 +239,16 @@ def test_handler_with_request_not_in_registry() -> None:
 
         class BadHandler(RequestHandler[UnregisteredRequest]):
             def __call__(self, request: UnregisteredRequest) -> None:
+                pass
+
+
+def test_handler_formats_union_request_type_in_validation_error() -> None:
+    """A union type argument should produce InvalidRequestTypeError."""
+
+    with pytest.raises(InvalidRequestTypeError, match=r"int \| str"):
+
+        class BadHandler(RequestHandler[int | str]):
+            def __call__(self, request: int | str) -> None:
                 pass
 
 

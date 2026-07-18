@@ -1,0 +1,164 @@
+---
+title: Troubleshooting
+description: Identify installation, handler registration, service wiring, and type-checking problems.
+---
+
+PyMediate errors distinguish handler class registration from handler instance resolution.
+Check which stage failed before changing the service configuration.
+
+## Dispatch errors
+
+| Error | Meaning | First check |
+| --- | --- | --- |
+| `HandlerNotFoundError` | No handler class is registered for the exact request type | Was the module that defines the handler imported? |
+| `ServiceNotFoundError` | A handler class is registered, but the provider cannot supply its instance | Was the instance added before `Services.provider()`? |
+| `HandlerAlreadyRegisteredError` | A second request or stream handler class was defined for one request type | Search for both class definitions or duplicate imports |
+| `ExceptionGroup` from `publish()` | One or more event handlers raised | Inspect the grouped exceptions with `except*` |
+
+### `HandlerNotFoundError`
+
+Request and stream handler classes register when Python defines them. The mediator raises
+`HandlerNotFoundError` when its registry has no handler class for the concrete request type.
+
+Check that:
+
+1. the module containing the handler has been imported before dispatch;
+2. the handler's type argument names the request you are sending;
+3. you are using `send()` for `Request` and `stream()` for `StreamRequest`; and
+4. you are not sending a derived request while only its base request has a handler.
+
+Dispatch uses `type(request)`, not `isinstance()`. A handler for a base request does not
+receive a derived request.
+
+Adding an instance to `Services` does not create the request-to-handler class mapping. That
+mapping comes from defining `RequestHandler[RequestType]` or
+`StreamRequestHandler[RequestType]`. Conversely, once a mapping exists, a missing instance
+raises `ServiceNotFoundError`, not `HandlerNotFoundError`.
+
+### `ServiceNotFoundError`
+
+`Services.provider()` returns a snapshot. Add all handler instances to `Services`, then call
+`.provider()`, and then pass that provider to `Mediator`. Instances added to the collection
+after the provider is created are not visible through that provider. With
+`DependencyInjectorServiceProvider`, check that the container declares a provider whose
+resolved type is the exact handler class.
+
+Publishing resolves every subscriber instance before any handler runs. One missing event
+handler instance therefore raises `ServiceNotFoundError` and prevents partial delivery.
+
+### `HandlerAlreadyRegisteredError`
+
+Each `Request` or `StreamRequest` type has one handler class in a process. Defining a second
+class for the same request type raises this error immediately, before either handler is
+instantiated.
+
+Common causes are:
+
+- two implementations for one request type;
+- a test suite that defines replacement handler classes in several files;
+- importing the same source module under two module names; or
+- defining asynchronous and synchronous handlers for the same request type.
+
+Keep one handler class and vary its dependencies through the constructor. Use distinct
+request types when the operations have different contracts. Event handlers are different:
+several `EventHandler` classes may subscribe to one event type.
+
+## Definition-time validation errors
+
+PyMediate validates handler declarations when Python executes their class bodies. An error
+at import time usually means the declaration and `__call__` signature disagree.
+
+### `InvalidHandlerSignatureError`
+
+For a request handler, check all of the following:
+
+- `__call__` has only `self` and one request parameter;
+- the request parameter and return value both have annotations;
+- the parameter annotation is the exact type named in `RequestHandler[...]`;
+- the asynchronous class uses `async def`, while the synchronous class uses `def`; and
+- an event handler returns `None`.
+
+Stream handlers must be generators. Their return annotation must be
+`AsyncIterator[ChunkT]` for the asynchronous API or `Iterator[ChunkT]` for the synchronous
+API. Returning an iterator from a function that contains no `yield` is rejected.
+
+### `ResponseTypeMismatchError`
+
+The return annotation on a request handler must equal the response type declared by its
+request. For example, a handler for `PlaceOrder`, where
+`PlaceOrder(Request[OrderReceipt])`, must annotate its return as `OrderReceipt`.
+
+This check compares annotations when Python defines the handler class. PyMediate does not
+inspect the value returned on every call. Keep a static type checker enabled so an
+implementation that returns a value inconsistent with its annotation is also reported.
+
+### Invalid request, event, or stream types
+
+- `InvalidRequestTypeError` means a request handler's type argument does not declare a
+  response through `Request[ResponseT]`.
+- `InvalidEventTypeError` means an event handler's type argument does not inherit `Event`.
+- `InvalidStreamRequestTypeError` means a stream handler's type argument does not declare a
+  chunk type through `StreamRequest[ChunkT]`.
+
+These constraints are also represented in the type annotations, so mypy and pyright can
+report many of them before import-time validation runs.
+
+## Type inference problems
+
+If `mediator.send()` is inferred as returning `Any`, check that the concrete request
+parameterizes `Request`:
+
+```python
+from dataclasses import dataclass
+
+from pymediate import Request
+
+
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
+```
+
+A bare `Request` loses the relationship between the request and response types. Similarly, a
+bare `StreamRequest` loses the stream's chunk type. See [type safety](/docs/guide/type-safety)
+for the boundary between static checking and definition-time validation.
+
+## Installation problems
+
+PyMediate requires Python 3.12 or newer. Check that the interpreter used to run the
+application is the same environment in which the package was installed.
+
+`DependencyInjectorServiceProvider` requires the optional `di` extra:
+
+<Tabs items={['pip', 'uv', 'poetry']}>
+  <Tab value="pip">
+    ```bash
+    pip install 'pymediate[di]'
+    ```
+  </Tab>
+  <Tab value="uv">
+    ```bash
+    uv add 'pymediate[di]'
+    ```
+  </Tab>
+  <Tab value="poetry">
+    ```bash
+    poetry add 'pymediate[di]'
+    ```
+  </Tab>
+</Tabs>
+
+## Getting help
+
+1. Check the [guide](/docs/guide/requests-responses) and [API reference](/docs/api).
+2. Search [existing issues](https://github.com/sina-al/pymediate/issues).
+3. Ask in [GitHub Discussions](https://github.com/sina-al/pymediate/discussions).
+4. [Report a reproducible bug](https://github.com/sina-al/pymediate/issues/new).

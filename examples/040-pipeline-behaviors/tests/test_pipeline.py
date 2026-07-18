@@ -42,12 +42,12 @@ async def test_command_runs_the_full_stack_in_registration_order(
 ) -> None:
     await mediator.send(AddTask(title="Buy groceries"))
 
-    # Outermost-first: logging wraps authorization wraps transaction wraps the handler.
+    # Outermost-first: logging wraps authorization and the transaction-boundary trace.
     assert trace == [
         "log:enter AddTask",
-        "authz AddTask",
-        "tx:begin",
-        "tx:commit",
+        "authorization AddTask",
+        "transaction:enter",
+        "transaction:exit",
         "log:exit AddTask",
     ]
 
@@ -58,7 +58,7 @@ async def test_query_skips_command_only_behaviors(mediator: Mediator, trace: lis
 
     await mediator.send(GetTask(task_id=task.task_id))
 
-    # No authz, no transaction — those behaviors route on Command, not Query.
+    # No authorization or transaction boundary: those behaviors select Command, not Query.
     assert trace == ["log:enter GetTask", "cache:miss GetTask", "log:exit GetTask"]
 
 
@@ -119,11 +119,11 @@ async def test_unauthorized_command_is_rejected_before_the_handler(
         await mediator.send(AddTask(title="denied"))
 
     assert store.tasks == {}  # the handler never ran
-    # Authorization sits outside the transaction, so tx:begin never happens.
+    # Authorization runs before the transaction boundary, so no transaction marker is added.
     assert trace == ["log:enter AddTask", "log:exit AddTask"]
 
 
-async def test_transaction_rolls_back_when_the_handler_raises(
+async def test_transaction_boundary_records_handler_error(
     mediator: Mediator, trace: list[str]
 ) -> None:
     with pytest.raises(TaskNotFoundError):
@@ -131,8 +131,8 @@ async def test_transaction_rolls_back_when_the_handler_raises(
 
     assert trace == [
         "log:enter CompleteTask",
-        "authz CompleteTask",
-        "tx:begin",
-        "tx:rollback",  # the handler raised; the transaction rolls back and re-raises
+        "authorization CompleteTask",
+        "transaction:enter",
+        "transaction:error",
         "log:exit CompleteTask",
     ]

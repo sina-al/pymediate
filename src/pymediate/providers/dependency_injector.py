@@ -1,41 +1,36 @@
-"""Dependency Injector integration for PyMediate ServiceProvider.
-
-This module provides a ServiceProvider that integrates with the dependency-injector
-library, allowing services (including handlers) to be resolved from a DI container.
-"""
+"""Dependency Injector integration for PyMediate service resolution."""
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Protocol
+from dataclasses import dataclass
+from inspect import Signature, isawaitable, iscoroutine, signature
+from types import NoneType, UnionType
+from typing import Annotated, Any, cast, get_args, get_origin, get_type_hints
+
+from dependency_injector import containers, providers
 
 from ..service import ServiceNotFoundError
 
+type _Provider = providers.Provider[Any]
 
-class ContainerLike(Protocol):
-    """Structural type for dependency-injector containers.
 
-    Matches any object that exposes a ``providers`` mapping of provider
-    callables. Every dependency-injector container (`DeclarativeContainer`,
-    `DynamicContainer`) satisfies it, so you never implement this protocol
-    yourself - pass your container instance where a `ContainerLike` is expected.
-    """
-
-    @property
-    def providers(self) -> Mapping[str, Callable[[], Any]]:
-        """Mapping of provider name to provider callable."""
-        ...
+@dataclass(frozen=True, slots=True)
+class _Registration:
+    service_type: type[Any]
+    provider: _Provider
+    path: str
 
 
 class DependencyInjectorServiceProvider:
-    """ServiceProvider backed by a dependency-injector container.
+    """ServiceProvider backed by a Dependency Injector container.
 
-    Scans every provider in the container once, at construction time, building a
-    type-keyed cache for O(1) lookups. Works with any provider type - `Factory`,
-    `Singleton`, and so on - since it only cares about the type of instance each
-    provider produces, not how that provider manages the instance's lifetime.
+    Indexes services from the container without resolving them, then delegates each
+    service resolution to its original Dependency Injector provider. Class-backed
+    factories and singletons, object providers, and factories with concrete return
+    annotations are discovered automatically.
 
-    Build it from a container you've already constructed - not from a provider
-    declared inside that same container, which would require the container to
-    resolve this provider while still scanning itself.
+    Child ``providers.Container`` providers are indexed recursively in declaration
+    order. Other provider dependencies are not traversed, so providers reachable only
+    through injection are not accidentally exposed as PyMediate services.
 
     Examples:
         ```python
@@ -43,55 +38,159 @@ class DependencyInjectorServiceProvider:
         from pymediate import Mediator
         from pymediate.providers import DependencyInjectorServiceProvider
 
+        class Database:
+            pass
+
+        class PlaceOrderHandler:
+            def __init__(self, database: Database) -> None:
+                self.database = database
+
         class AppContainer(containers.DeclarativeContainer):
             database = providers.Singleton(Database)
-            create_user_handler = providers.Factory(CreateUserHandler, database=database)
+            place_order = providers.Factory(PlaceOrderHandler, database=database)
 
         container = AppContainer()
-        provider = DependencyInjectorServiceProvider(container)
-        mediator = Mediator(provider)
-
-        response = mediator.send(CreateUserRequest(...))
+        services = DependencyInjectorServiceProvider(container)
+        mediator = Mediator(services=services)
         ```
 
     Note:
-        The container is scanned once, in `__init__`. Providers added to the
-        container afterward won't be picked up - construct a new
-        `DependencyInjectorServiceProvider` instead.
+        The provider graph and inferred types are a construction-time snapshot.
+        Rebuild this service provider after adding providers or applying an override
+        that changes a provider's output type. Overrides that preserve the output type
+        continue to work because service resolution remains delegated to the original
+        Dependency Injector provider.
 
-    See Also:
-        - ServiceProvider: The protocol this class implements.
-        - Services: A DI-container-free alternative for manual service registration.
     """
 
-    def __init__(self, container: ContainerLike) -> None:
-        """Scan a dependency-injector container and cache its providers by type.
+    def __init__(self, container: containers.Container) -> None:
+        """Index services declared by a Dependency Injector container.
 
         Args:
-            container: Any dependency-injector Container instance
-                (`DeclarativeContainer` or `DynamicContainer`).
+            container: A ``DeclarativeContainer`` or ``DynamicContainer`` instance.
+
+        Raises:
+            TypeError: If ``container`` is not a Dependency Injector container, or a
+                service provider's output type cannot be determined without
+                resolving it.
+            ValueError: If nested containers form a cycle.
         """
+        if not isinstance(container, containers.Container):
+            raise TypeError("container must be a dependency_injector.containers.Container")
+
         self._container = container
-        self._type_providers: dict[type, list[Any]] = {}
-        self._registration_order: list[tuple[type, Any]] = []
-        self._scan_container()
+        self._type_providers: dict[type[Any], list[_Registration]] = {}
+        self._registration_order: list[_Registration] = []
 
-    def _scan_container(self) -> None:
-        """Call every provider once to learn its instance type, then index by type."""
-        if not hasattr(self._container, "providers"):
-            return
+        self._scan_container(container, path="", active_containers=set())
 
-        for _provider_name, provider in self._container.providers.items():
-            instance = provider()
-            service_type = type(instance)
+    def _scan_container(
+        self,
+        container: containers.Container,
+        *,
+        path: str,
+        active_containers: set[int],
+    ) -> None:
+        container_id = id(container)
+        if container_id in active_containers:
+            location = path.removesuffix(".") or "<root>"
+            raise ValueError(f"nested Dependency Injector container cycle at '{location}'")
 
-            if service_type not in self._type_providers:
-                self._type_providers[service_type] = []
-            self._type_providers[service_type].append(provider)
+        active_containers.add(container_id)
+        declared = cast(Mapping[str, _Provider], container.providers)
 
-            self._registration_order.append((service_type, provider))
+        try:
+            for name, provider in declared.items():
+                provider_path = f"{path}{name}"
+                effective = provider.last_overriding or provider
 
-    def get(self, service_type: type[Any]) -> Any:
+                if isinstance(effective, providers.Container):
+                    child = cast(containers.Container, effective.container)
+                    self._scan_container(
+                        child,
+                        path=f"{provider_path}.",
+                        active_containers=active_containers,
+                    )
+                    continue
+
+                service_type = self._service_type(provider, effective, provider_path)
+                if service_type is not None:
+                    self._register(service_type, provider, provider_path)
+        finally:
+            active_containers.remove(container_id)
+
+    def _service_type(
+        self,
+        provider: _Provider,
+        effective: _Provider,
+        path: str,
+    ) -> type[Any] | None:
+        if isinstance(
+            provider,
+            (
+                providers.Configuration,
+                providers.DependenciesContainer,
+                providers.Dependency,
+                providers.Self,
+            ),
+        ):
+            return None
+
+        if isinstance(effective, providers.Object):
+            return type(effective.provides)
+
+        if isinstance(effective, providers.List):
+            return list
+
+        if isinstance(effective, providers.Dict):
+            return dict
+
+        if isinstance(effective, providers.Coroutine):
+            raise TypeError(
+                f"provider '{path}' is asynchronous; PyMediate service resolution is "
+                "synchronous even when handlers are asynchronous"
+            )
+
+        if isinstance(
+            effective,
+            (providers.Factory, providers.BaseSingleton, providers.Callable),
+        ):
+            service_type = _callable_return_type(effective.provides)
+            if service_type is not None:
+                return service_type
+            raise TypeError(_opaque_provider_message(path))
+
+        if isinstance(effective, providers.BaseResource):
+            raise TypeError(_opaque_provider_message(path))
+
+        raise TypeError(_opaque_provider_message(path))
+
+    def _register(self, service_type: type[Any], provider: _Provider, path: str) -> None:
+        registration = _Registration(service_type, provider, path)
+        self._type_providers.setdefault(service_type, []).append(registration)
+        self._registration_order.append(registration)
+
+    def _resolve(self, registration: _Registration) -> Any:
+        instance = registration.provider()
+        if isawaitable(instance):
+            if iscoroutine(instance):
+                instance.close()
+            cancel = getattr(instance, "cancel", None)
+            if callable(cancel):
+                cancel()
+            raise TypeError(
+                f"provider '{registration.path}' resolved asynchronously; PyMediate "
+                "service providers must construct services synchronously"
+            )
+        if not isinstance(instance, registration.service_type):
+            raise TypeError(
+                f"provider '{registration.path}' produced {type(instance).__name__}, not its "
+                f"indexed service type {registration.service_type.__name__}; rebuild the "
+                "DependencyInjectorServiceProvider after a type-changing override"
+            )
+        return instance
+
+    def get[ServiceT](self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
 
         Args:
@@ -102,31 +201,42 @@ class DependencyInjectorServiceProvider:
 
         Raises:
             ServiceNotFoundError: If no instance of the exact type is registered.
+            TypeError: If the matching provider resolves asynchronously or returns
+                a value that does not match its indexed service type.
         """
-        if service_type not in self._type_providers:
-            available = list(self._type_providers.keys())
-            raise ServiceNotFoundError(service_type, available)
-
-        providers_list = self._type_providers[service_type]
-        return providers_list[0]()
+        registrations = self._type_providers.get(service_type)
+        if registrations is None:
+            raise ServiceNotFoundError(service_type, list(self._type_providers))
+        return cast(ServiceT, self._resolve(registrations[0]))
 
     def get_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Get all instances of the type, including subclasses, in registration order.
+        """Get all instances of the type, including subclasses, in declaration order.
 
         Args:
-            service_type: The type (or base type) of services to resolve.
+            service_type: The type, abstract base, or runtime-checkable protocol to
+                resolve.
 
         Returns:
-            All matching instances in registration order, or an empty sequence.
+            All matching instances in declaration order, or an empty sequence.
+
+        Raises:
+            TypeError: If a matching provider resolves asynchronously or returns
+                a value that does not match its indexed service type.
         """
         result: list[Any] = []
-        for _reg_type, provider in self._registration_order:
-            instance = provider()
-            if isinstance(instance, service_type):
-                result.append(instance)
+        for registration in self._registration_order:
+            try:
+                matches = issubclass(registration.service_type, service_type)
+            except TypeError:
+                instance = self._resolve(registration)
+                if isinstance(instance, service_type):
+                    result.append(instance)
+            else:
+                if matches:
+                    result.append(self._resolve(registration))
         return result
 
-    def has(self, service_type: type) -> bool:
+    def has(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered.
 
         Args:
@@ -137,14 +247,51 @@ class DependencyInjectorServiceProvider:
         """
         return service_type in self._type_providers
 
-    def get_all_types(self) -> tuple[type, ...]:
+    def get_all_types(self) -> tuple[type[Any], ...]:
         """Get every exact type that has at least one registered instance.
 
         Returns:
-            All registered service types, in no particular order.
+            All registered service types in first-declaration order.
         """
-        return tuple(self._type_providers.keys())
+        return tuple(self._type_providers)
 
     def __len__(self) -> int:
-        """Return the total number of registered service instances."""
+        """Return the total number of indexed service providers."""
         return len(self._registration_order)
+
+
+def _callable_return_type(provided: Callable[..., Any] | None) -> type[Any] | None:
+    if isinstance(provided, type):
+        return provided
+    if provided is None:
+        return None
+
+    annotation: Any
+    try:
+        annotation = get_type_hints(provided).get("return", Signature.empty)
+    except (AttributeError, NameError, TypeError, ValueError):
+        try:
+            annotation = signature(provided).return_annotation
+        except (TypeError, ValueError):
+            return None
+
+    if annotation in (Signature.empty, Any, None, NoneType) or isinstance(annotation, str):
+        return None
+
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        annotation = get_args(annotation)[0]
+        origin = get_origin(annotation)
+    if origin is UnionType:
+        return None
+    if origin is not None:
+        annotation = origin
+
+    return annotation if isinstance(annotation, type) else None
+
+
+def _opaque_provider_message(path: str) -> str:
+    return (
+        f"cannot determine the service type for provider '{path}' without resolving it; "
+        "use a class-backed provider or add a concrete return annotation"
+    )

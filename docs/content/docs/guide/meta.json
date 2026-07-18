@@ -1,6 +1,7 @@
 {
   "title": "Guide",
   "pages": [
+    "async-sync",
     "requests-responses",
     "handlers",
     "mediator",
@@ -8,7 +9,10 @@
     "streaming",
     "pipeline-behaviors",
     "dependency-injection",
-    "dataclasses",
-    "error-handling"
+    "error-handling",
+    "testing",
+    "fastapi",
+    "type-safety",
+    "troubleshooting"
   ]
 }

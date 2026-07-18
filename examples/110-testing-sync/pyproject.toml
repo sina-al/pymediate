@@ -1,0 +1,28 @@
+[project]
+name = "pymediate-example-110-testing-sync"
+version = "0.1.0"
+description = "Synchronous handlers: three test boundaries and process-global registration"
+requires-python = ">=3.12"
+dependencies = [
+    # Loose lower bound per the examples contract: the release pipeline re-pins this to the
+    # exact release candidate on TestPyPI (scripts/run_examples.py).
+    "pymediate>=0.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.uv]
+# An example is an application, not a distributable package: nothing to build or install.
+package = false
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

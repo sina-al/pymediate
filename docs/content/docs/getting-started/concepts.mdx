@@ -1,204 +1,162 @@
 ---
 title: Core concepts
-description: The vocabulary of PyMediate — requests, handlers, the mediator, events, pipeline behaviors, and the service provider.
+description: Requests, handlers, dispatch, events, streaming, behaviors, and service resolution.
 ---
 
-PyMediate has six moving parts. This page introduces each one and shows how they fit together.
+PyMediate starts with one flow: a caller sends a request, one handler processes it, and the mediator returns the request's declared response type. Events, streaming, and pipeline behaviors extend that model for other needs.
 
-## Requests
+## Requests and responses
 
-A request represents an intention — something you want your application to do. It's a plain data container that also declares, via its type parameter, what response it expects back:
+A request is a value that describes an operation. Its type parameter declares the response:
 
 ```python
 from dataclasses import dataclass
 from pymediate import Request
 
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-    email: str
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
 ```
 
-## Responses
+Read `PlaceOrder(Request[OrderReceipt])` as “`PlaceOrder` is a request for an `OrderReceipt`.” The response is an ordinary Python type; it does not inherit from PyMediate.
 
-A response is whatever the handler produces. It has no PyMediate type at all — any class (usually a dataclass) works:
+## Request handlers
 
-```python
-from datetime import datetime
-
-@dataclass
-class UserCreated:
-    user_id: int
-    username: str
-    created_at: datetime
-```
-
-## Handlers
-
-A handler holds the business logic for exactly one request type. Subclassing `RequestHandler[CreateUser]` is what links it to its request — PyMediate discovers the relationship through type inspection, not naming conventions:
+A request handler declares which request it accepts and implements `__call__`:
 
 ```python
 from pymediate import RequestHandler
 
-class CreateUserHandler(RequestHandler[CreateUser]):
-    async def __call__(self, request: CreateUser) -> UserCreated:
-        # business logic here
-        return UserCreated(...)
+class PlaceOrderHandler(RequestHandler[PlaceOrder]):
+    async def __call__(self, request: PlaceOrder) -> OrderReceipt:
+        return OrderReceipt(
+            order_id=42,
+            summary=f"{request.quantity} × {request.item}",
+        )
 ```
+
+Read `PlaceOrderHandler(RequestHandler[PlaceOrder])` as “`PlaceOrderHandler` handles `PlaceOrder` requests.” Each request type has one registered request-handler type.
+
+PyMediate validates the handler's annotated parameter and return types when Python defines the class. The handler still owns the operation's implementation, dependencies, and errors.
 
 ## The mediator
 
-The mediator is the single dispatch point. It receives a request, finds the handler registered for that request type, and returns the handler's response — typed:
+The mediator is the dispatch entry point. It receives a request and returns the handler's response:
 
 ```python
-response = await mediator.send(CreateUser(username="alice", email="alice@example.com"))
-# response: UserCreated
+from pymediate import Mediator, Services
+
+services = Services().add(PlaceOrderHandler())
+mediator = Mediator(services.provider())
+
+receipt = await mediator.send(
+    PlaceOrder(customer_id=7, item="tea", quantity=2),
+)
+# receipt is inferred as OrderReceipt
 ```
 
-Callers depend only on the mediator, never on individual handlers.
+The caller imports the request type and receives the response type. It does not locate or construct the handler.
 
-## Events
+## Services and service providers
 
-`send()` is one-to-one: a request has exactly one handler and produces a response. Events are the one-to-many counterpart: something *happened*, any number of subscribers care, and nothing comes back. An event inherits from `Event` (no type parameter — there's no response to declare), subscribers inherit from `EventHandler[EventType]`, and `mediator.publish()` delivers the event to every one of them:
+The mediator needs handler instances. The built-in `Services` collection records instances during application setup, and `provider()` creates a read-only `ServiceProvider`:
 
 ```python
+from pymediate import Mediator, Services
+
+services = Services().add(PlaceOrderHandler())
+mediator = Mediator(services.provider())
+```
+
+`ServiceProvider` is a protocol. Applications can use another implementation, including the optional [`dependency-injector` integration](/docs/guide/dependency-injection), as long as it provides the required methods.
+
+## Three dispatch forms
+
+The mediator supports three result shapes:
+
+| Operation | Handlers | Result | Declaration | Call |
+| --- | --- | --- | --- | --- |
+| Send a request | One | One response | `Request[T]` | `await mediator.send(request)` |
+| Stream a response | One | Many chunks | `StreamRequest[T]` | `mediator.stream(request)` |
+| Publish an event | Zero or more | No response | `Event` | `await mediator.publish(event)` |
+
+### Streaming
+
+A stream request declares the type of each yielded chunk. Its handler is an asynchronous generator:
+
+```python
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from pymediate import StreamRequest, StreamRequestHandler
+
+@dataclass(frozen=True)
+class ExportOrders(StreamRequest[bytes]):
+    customer_id: int
+
+class ExportOrdersHandler(StreamRequestHandler[ExportOrders]):
+    async def __call__(self, request: ExportOrders) -> AsyncIterator[bytes]:
+        yield b"order_id,total_pence\n"
+        yield b"42,2500\n"
+```
+
+`mediator.stream()` returns an `AsyncIterator[bytes]`. The caller decides when to consume each chunk. See [streaming](/docs/guide/streaming) for resolution and iteration behavior.
+
+### Events
+
+An event records that something happened. It has no response type, and any number of event handlers may subscribe:
+
+```python
+from dataclasses import dataclass
 from pymediate import Event, EventHandler
 
-@dataclass
-class UserCreated(Event):
-    user_id: int
+@dataclass(frozen=True)
+class OrderPlaced(Event):
+    order_id: int
+    item: str
 
-class SendWelcomeEmail(EventHandler[UserCreated]):
-    async def __call__(self, event: UserCreated) -> None:
-        ...
+class RecordOrderMetric(EventHandler[OrderPlaced]):
+    async def __call__(self, event: OrderPlaced) -> None:
+        print(f"recorded order {event.order_id}")
 
-class RecordSignupMetric(EventHandler[UserCreated]):
-    async def __call__(self, event: UserCreated) -> None:
-        ...
-
-await mediator.publish(UserCreated(user_id=1))   # both handlers run
+# After supplying RecordOrderMetric to the mediator's service provider:
+await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 ```
 
-Zero subscribers is fine — the publisher never knows or cares who's listening. The full semantics (ordering, error aggregation, async concurrency) are in the [events guide](/docs/guide/events).
+Publishing with no subscribers is valid. The [events guide](/docs/guide/events) covers concurrency, ordering, and error aggregation.
 
 ## Pipeline behaviors
 
-Pipeline behaviors are [middleware](https://en.wikipedia.org/wiki/Middleware) that wrap request processing. They handle cross-cutting concerns — logging, validation, caching, transactions — without touching handler code.
-
-Without behaviors, you'd repeat that logic in every handler, and it would drift. A behavior is written once and applies automatically:
+Pipeline behaviors wrap request handling. They can run logic before and after the next behavior or handler:
 
 ```python
-from pymediate import Request, PipelineBehavior, Services, Mediator
+from typing import Any
+from pymediate import Next, PipelineBehavior, Request
 
-# Universal behavior — applies to all requests
-class LoggingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        print(f"Processing: {type(request).__name__}")
+class LoggingBehavior(PipelineBehavior[Request[Any]]):
+    async def __call__(self, request: Request[Any], next: Next[Any]) -> Any:
+        print(f"handling {type(request).__name__}")
         response = await next()
-        print(f"Completed: {type(request).__name__}")
+        print(f"handled {type(response).__name__}")
         return response
-
-services = Services()
-services.add(LoggingBehavior())   # discovered by the mediator automatically
-services.add(CreateUserHandler())
-services.add(GetUserHandler())
-
-mediator = Mediator(services.provider())
 ```
 
-Behaviors can be **universal** (`PipelineBehavior[Request]`, applying to everything) or **selective** (`PipelineBehavior[CreateUser]`, applying to one request type or a mixin). They wrap `send()` only — a published event goes straight to its subscribers.
+Behaviors can apply to every request or to selected request types. They wrap `send()`; they do not wrap `stream()` or `publish()`. See [pipeline behaviors](/docs/guide/pipeline-behaviors) for selection and ordering.
 
-### How the chain executes
+## Asynchronous and synchronous APIs
 
-Behaviors nest around the handler, each calling `next()` to continue:
+The top-level `pymediate` package is asynchronous. Request and event handlers use `async def`, `send()` and `publish()` are awaited, and `stream()` returns an asynchronous iterator.
 
-```
-Request → Logging → Validation → Timing → RequestHandler
-                                             ↓
-Response ← Logging ← Validation ← Timing ← RequestHandler
-```
+`pymediate.sync` provides corresponding blocking mediator and handler classes. Shared message types, services, and errors are the same objects in both namespaces.
 
-1. The request enters the outermost behavior.
-2. Each behavior runs its pre-processing, then calls `next()`.
-3. The handler executes and returns a response.
-4. Each behavior's post-processing runs in reverse order.
+## Continue
 
-A behavior can also modify the request or response, short-circuit the pipeline by not calling `next()`, or handle and wrap errors.
-
-## The service provider
-
-The service provider resolves registered instances — handlers, behaviors, and anything else — for the mediator. The built-in flow is `Services` (mutable registration) → `provider()` (immutable resolution):
-
-```python
-from pymediate import Services, Mediator
-
-services = Services()
-services.add(CreateUserHandler(database))
-mediator = Mediator(services.provider())
-```
-
-`ServiceProvider` is a protocol, so you can substitute any implementation — including the optional [`dependency-injector` integration](/docs/guide/dependency-injection).
-
-## Everything together
-
-```python
-import asyncio
-from dataclasses import dataclass
-from pymediate import Event, EventHandler, Request, RequestHandler, PipelineBehavior, Services, Mediator
-
-# 1. Request and response
-@dataclass
-class UserCreated:
-    user_id: int
-
-@dataclass
-class CreateUser(Request[UserCreated]):
-    username: str
-
-# 2. RequestHandler
-class CreateUserHandler(RequestHandler[CreateUser]):
-    async def __call__(self, request: CreateUser) -> UserCreated:
-        return UserCreated(user_id=1)
-
-# 3. Optional behavior — wraps every request automatically
-class LoggingBehavior(PipelineBehavior[Request]):
-    async def __call__(self, request, next):
-        print(f"Before: {type(request).__name__}")
-        response = await next()
-        print(f"After: {type(request).__name__}")
-        return response
-
-# 4. Optional event and subscriber — announce the fact, react anywhere
-@dataclass
-class UserRegistered(Event):
-    user_id: int
-
-class LogRegistration(EventHandler[UserRegistered]):
-    async def __call__(self, event: UserRegistered) -> None:
-        print(f"Registered user {event.user_id}")
-
-# 5. Wire it up
-services = Services()
-services.add(LoggingBehavior())
-services.add(CreateUserHandler())
-services.add(LogRegistration())
-mediator = Mediator(services.provider())
-
-# 6. Send, then publish
-async def main():
-    response = await mediator.send(CreateUser(username="alice"))
-    # Output: Before: CreateUser
-    #         After: CreateUser
-
-    await mediator.publish(UserRegistered(user_id=response.user_id))
-    # Output: Registered user 1
-
-asyncio.run(main())
-```
-
-## Next steps
-
-- Deep-dive into [requests and responses](/docs/guide/requests-responses).
-- Learn handler design in the [handlers guide](/docs/guide/handlers).
-- Fan out notifications with [events](/docs/guide/events).
-- Add middleware with [pipeline behaviors](/docs/guide/pipeline-behaviors).
+- Design messages with [requests and responses](/docs/guide/requests-responses).
+- Add dependencies and tests with the [handlers guide](/docs/guide/handlers).
+- Check exact signatures in the [API reference](/docs/api/request).

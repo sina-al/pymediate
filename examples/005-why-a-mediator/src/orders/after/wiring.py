@@ -1,8 +1,7 @@
-"""Assemble the mediator: the one place that knows every handler and the audit seam.
+"""Register the order handlers and successful-request audit behavior.
 
-This is the destination the god service never had — a single file entitled to know
-everything, so no caller has to. It also hosts the cross-cutting concern: `AuditBehavior`
-wraps every request once, which is why no operation in ``operations.py`` repeats it.
+`AuditBehavior` records requests after their handlers return successfully. Individual
+handlers in ``operations.py`` therefore do not contain audit calls.
 """
 
 from collections.abc import Awaitable, Callable
@@ -20,11 +19,10 @@ from orders.domain import AuditLog, InventoryService, Mailer, OrderStore, Paymen
 
 
 class AuditBehavior(PipelineBehavior[Request[Any]]):
-    """Records every request that flows through the mediator — one home for auditing.
+    """Record each request after its handler returns successfully.
 
-    The ``Request[Any]`` type parameter makes it apply to *every* operation. A new handler
-    is audited the moment it's registered; there is no per-method line to copy, so there is
-    none to forget. This is the god service's Pain #3, closed for good.
+    The ``Request[Any]`` type parameter applies the behavior to every request type.
+    Exceptions propagate before the audit entry is written.
     """
 
     def __init__(self, audit: AuditLog) -> None:
@@ -45,7 +43,7 @@ def build_mediator(
 ) -> Mediator:
     """Wire a mediator: one handler instance per request, plus the audit behavior.
 
-    Every collaborator defaults to a fresh in-memory fake, so `build_mediator()` with no
+    Every collaborator defaults to a fresh in-memory implementation, so `build_mediator()` with no
     arguments is a complete, working application. Pass your own to observe them in a test.
     """
     store = store if store is not None else OrderStore()

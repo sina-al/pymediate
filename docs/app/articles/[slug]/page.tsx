@@ -68,9 +68,7 @@ export default async function ArticlePage(props: PageProps<'/articles/[slug]'>) 
 
       <section className="mx-auto max-w-2xl px-6 pb-24">
         <div className="pm-gradient-border rounded-2xl p-8 text-center">
-          <p className="text-fd-muted-foreground">
-            Want to see what this looks like in practice?
-          </p>
+          <p className="text-fd-muted-foreground">Continue with a complete request flow.</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/docs/getting-started/quick-start"

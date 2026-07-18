@@ -9,52 +9,49 @@ from pymediate import Request
 class Request[ResponseT]: ...
 ```
 
-Base class for all requests, carrying the expected response type as its type parameter. Inheriting from `Request[ResponseType]` is what enables response-type inference at every `mediator.send()` call site and PyMediate's runtime validation of handlers.
+`Request` is the base class for messages sent with [`Mediator.send()`](/docs/api/mediator#send).
+Its type parameter declares the response type, allowing a type checker to infer the result of
+`send()`.
 
-The response type is extracted and registered automatically when the subclass is defined (via `__init_subclass__`) — at import time, with no per-request overhead.
-
-## Type parameters
-
-| Parameter | Description |
+| Type parameter | Meaning |
 | --- | --- |
-| `ResponseT` | The type of response handlers return for this request |
+| `ResponseT` | The type returned by the request's handler |
 
-## Usage
+PyMediate records this relationship when Python defines the request class. It later uses the
+recorded type to validate the handler's return annotation. It does not inspect the value returned
+by the handler at dispatch time.
 
-With dataclasses (recommended):
+## Example
 
 ```python
 from dataclasses import dataclass
+
 from pymediate import Request
 
-@dataclass
-class UserCreatedResponse:
-    user_id: int
-    username: str
 
-@dataclass
-class CreateUserRequest(Request[UserCreatedResponse]):
-    username: str
-    email: str
+@dataclass(frozen=True)
+class OrderReceipt:
+    order_id: int
+    summary: str
+
+
+@dataclass(frozen=True)
+class PlaceOrder(Request[OrderReceipt]):
+    customer_id: int
+    item: str
+    quantity: int
 ```
 
-With regular classes:
+Read `PlaceOrder(Request[OrderReceipt])` as “`PlaceOrder` is a request for an
+`OrderReceipt`.” The response type is an ordinary Python type; it does not inherit from
+PyMediate.
 
-```python
-class CreateUserRequest(Request[UserCreatedResponse]):
-    def __init__(self, name: str, email: str):
-        self.name = name
-        self.email = email
-```
-
-<Callout type="warning" title="Always parameterize">
-  `class MyRequest(Request):` without a type argument type-checks but loses response-type
-  inference entirely — `mediator.send()` will return `Any`. See
-  [type safety](/docs/advanced/type-safety).
-</Callout>
+Define request subclasses with a type argument. A bare subclass such as
+`class PlaceOrder(Request): ...` has no recorded response type and cannot be paired with a valid
+`RequestHandler`.
 
 ## See also
 
-- [RequestHandler](/docs/api/request-handler) — the class that processes requests
-- [Requests and responses guide](/docs/guide/requests-responses) — message design patterns
-- [Dataclasses with PyMediate](/docs/guide/dataclasses) — dataclass-specific patterns
+- [RequestHandler](/docs/api/request-handler) — handles one request type
+- [Mediator.send()](/docs/api/mediator#send) — dispatches a request
+- [Requests and responses](/docs/guide/requests-responses) — message design

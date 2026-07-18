@@ -2,17 +2,15 @@
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F020-events%2Fdevcontainer.json)
 
-**How do I make one thing happening trigger reactions in three different places?** You
-publish an event. `send` routes one request to one handler and hands you its answer;
-`publish` announces a fact and lets *any number* of subscribers react — none, one, or many —
-and the publisher never learns who listened. Here, finishing a task announces
-`TaskCompleted`, and three unrelated subscribers pick it up: a notifier, a stats counter,
-and an audit log.
+`publish()` sends one event to every handler registered for that event type. This example
+publishes `TaskCompleted` to three independent asynchronous handlers and shows that they run
+concurrently.
 
-## Run it
+## Run
+
+From this example directory:
 
 ```bash
-cd examples/020-events
 uv sync
 uv run python app.py
 ```
@@ -24,22 +22,21 @@ Completing task 1: 'Buy groceries'
   audit   started
   audit   done    (task 1 logged)
   stats   done    (completions now 1)
-  notify  done    (queued: Nice work! Buy groceries is done.)
-Every subscriber started before any finished — async publish ran them concurrently.
+  notify  done    (queued task completion for Buy groceries)
+All event handlers started before any finished; asynchronous publish was concurrent.
 
-Archiving task 1 (nothing subscribes to TaskArchived):
-  publish returned, no handlers ran — zero subscribers is a valid no-op.
+Archiving task 1 (no handlers registered for TaskArchived):
+  publish returned; no matching handlers ran.
 ```
 
-Read the feed: all three `started` lines print *before* the first `done`. That ordering is
-only possible because the async mediator ran the subscribers together — it started each one,
-then awaited them all. (The `-sync` twin prints the same subscribers strictly paired, one
-finishing before the next begins — [see below](#sync-vs-async).)
+All three `started` lines appear before the first `done` line. The asynchronous mediator
+starts each handler and then waits for all of them to finish. The synchronous version runs
+the handlers one at a time.
 
-## The idea, in ten lines
+## Publish one event to several handlers
 
-An event is a plain announcement — no response, no single owner. Any number of handlers
-subscribe to it by type:
+An event reports that something happened and does not have a response value. Any number of
+event handlers can register for its exact type:
 
 ```python
 @dataclass
@@ -52,46 +49,43 @@ class AuditLog(EventHandler[TaskCompleted]):
         self._dashboard.feed.append(f"audit done (task {event.task_id} logged)")
 ```
 
-Register as many subscribers as you like, then publish once:
+Register the handlers, then publish once:
 
 ```python
 await mediator.publish(TaskCompleted(task_id=1, title="Buy groceries"))
-# every subscriber runs — concurrently — and publish awaits them all
+# every event handler runs concurrently; publish waits for all of them
 ```
 
-`send` gives back a typed response from exactly one handler; `publish` returns `None` and
-notifies them all. That's the difference between *asking* and *announcing*.
+`send` returns a typed response from one request handler. `publish` returns `None` after all
+matching event handlers finish.
 
-## Sync vs. async
+## Compare asynchronous and synchronous delivery
 
-The delivery model is the one real difference between this example and its `-sync` twin, and
-the output makes it visible:
+The output shows the delivery difference between this example and its synchronous twin:
 
-| | this example (async `publish`) | [020-events-sync](../020-events-sync/) (sync `publish`) |
+| | this example (asynchronous `publish`) | [020-events-sync](../020-events-sync/) (synchronous `publish`) |
 | --- | --- | --- |
-| Subscribers run | **concurrently** — all start, then all finish | **sequentially**, in registration order |
+| Event handlers run | **concurrently** — all start, then all finish | **sequentially**, in registration order |
 | Feed shows | every `started` before any `done` | each `started`/`done` paired, one at a time |
 
-Same three subscribers, same `publish` call — only the mediator changes. Diffing the pair is
-the fastest way to see it.
+Both examples use the same three handlers and the same event.
 
-## The files
+## Read the code
 
-| File | What it is |
+| File | What to read |
 | --- | --- |
-| [`app.py`](app.py) | **Start here.** The `TaskCompleted` event, three subscribers, and a small demo. |
+| [`app.py`](app.py) | **Start here.** The `TaskCompleted` event, three handlers, and a demo. |
 | [`test_app.py`](test_app.py) | Plain `async def` tests via pytest-asyncio's auto mode: `uv run pytest` → `6 passed`. |
 
-## Small print
+## Details
 
-- **Publishing to nobody is a no-op, not an error.** `TaskArchived` has no subscribers, so
-  publishing it does nothing and raises nothing — zero subscribers is a legitimate state.
-  Erroring would couple every publisher to whether a subscriber happens to exist.
-- **Fan-out is by exact type.** A handler subscribed to `TaskCompleted` receives only
+- **Publishing with no matching handlers succeeds.** `TaskArchived` has no handlers, so
+  publishing it returns without changing the dashboard.
+- **Event delivery uses the exact type.** A handler registered for `TaskCompleted` receives only
   `TaskCompleted` — never a subclass, never a base class.
-- **Concurrent subscribers must be independent.** Because async delivery runs them at the
+- **Concurrent handlers must be independent.** Because asynchronous delivery runs them at the
   same time, they must not depend on each other's effects (here each writes only its own
-  feed lines and counter). If one subscriber raises, the rest still run and the failures
+  feed lines and counter). If one handler raises, the rest still run and the failures
   surface together as an
   [`ExceptionGroup`](https://docs.python.org/3/library/exceptions.html#ExceptionGroup) you
   can split with `except*`.
@@ -100,8 +94,7 @@ the fastest way to see it.
 
 ## Where next
 
-- [020-events-sync](../020-events-sync/) — the same fan-out on `pymediate.sync`, where
-  delivery is sequential. Diff it against this one.
-- [basic](../basic/) — the `send` side of the mediator: typed requests, one handler each.
+- [030-streaming](../030-streaming/) — return a sequence of typed chunks from one request.
+- [020-events-sync](../020-events-sync/) — the same event delivery on `pymediate.sync`.
 - The docs: [events guide](https://pymediate.sina-al.uk/docs/guide/events) ·
   [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts).

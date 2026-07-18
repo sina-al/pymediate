@@ -50,9 +50,7 @@ async def test_early_break_stops_production(mediator: Mediator, emitted: list[st
     assert emitted == list(COMPLETION[:3])
 
 
-async def test_unregistered_stream_resolves_eagerly(
-    mediator: Mediator, emitted: list[str]
-) -> None:
+async def test_unregistered_stream_resolves_eagerly(mediator: Mediator, emitted: list[str]) -> None:
     # No handler is registered for StreamAudioClip, so stream() raises at the call itself,
     # before any chunk is pulled — resolution is eager even though iteration is lazy.
     with pytest.raises(HandlerNotFoundError):

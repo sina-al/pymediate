@@ -1,16 +1,14 @@
-"""The domain and its plumbing — everything the behaviors wrap, but no behaviors.
+"""The task requests, handlers, and dependencies wrapped by the behaviors.
 
 Two request *families* carry the routing that the pipeline keys on:
 
 - ``Command`` — requests that change the board (authorized, transactional).
 - ``Query`` — read-only requests (cacheable).
 
-A behavior selects a family just by naming it as its type parameter, so the
-distinction here is what makes the pipeline in ``behaviors.py`` selective. The
-``TaskStore``, ``FakeCache``, and ``Principal`` below are deliberately fake stand-ins
-for a database, Redis, and an authenticated user; a real app swaps them out without
-touching a handler or a behavior. This is the synchronous mirror of the async example
-in `examples/040-pipeline-behaviors/`, built on ``pymediate.sync``.
+A behavior selects a family by naming it as its type parameter. ``TaskStore``,
+``FakeCache``, and ``Principal`` keep the example in memory. Production implementations
+need their own persistence, cache-key, serialization, expiry, invalidation, and identity
+rules. This is the synchronous mirror of `examples/040-pipeline-behaviors/`.
 """
 
 from dataclasses import dataclass, field
@@ -38,10 +36,9 @@ class TaskStore:
 
 
 class FakeCache:
-    """A stand-in for Redis: an in-process dict behind ``get``/``set``.
+    """An in-process dictionary used to demonstrate a cached response.
 
-    A real cache client exposes the same two calls, so ``CachingBehavior`` never learns
-    it's talking to a dict.
+    A production cache also needs stable keys, serialization, expiry, and invalidation.
     """
 
     def __init__(self) -> None:

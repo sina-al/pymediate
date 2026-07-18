@@ -1,0 +1,55 @@
+---
+title: API reference
+description: The public PyMediate types, grouped by dispatch and composition role.
+---
+
+This reference describes PyMediate's public classes, methods, type parameters, attributes, and exceptions. Start with the [introduction](/docs) or [quick start](/docs/getting-started/quick-start) if you want a guided request flow.
+
+## Requests
+
+| API | Role |
+| --- | --- |
+| [`Request[ResponseT]`](/docs/api/request) | Declares the response type returned for a request |
+| [`RequestHandler[RequestT]`](/docs/api/request-handler) | Handles one request type |
+| [`Mediator.send()`](/docs/api/mediator#send) | Routes a request and returns its declared response type |
+
+## Streaming
+
+| API | Role |
+| --- | --- |
+| [`StreamRequest[ChunkT]`](/docs/api/stream-request) | Declares the type of each streamed chunk |
+| [`StreamRequestHandler[StreamReqT]`](/docs/api/stream-request-handler) | Yields chunks for one stream-request type |
+| [`Mediator.stream()`](/docs/api/mediator#stream) | Routes a stream request and returns an iterator |
+
+## Events
+
+| API | Role |
+| --- | --- |
+| [`Event`](/docs/api/event) | Base class for a fact published without a response |
+| [`EventHandler[EventT]`](/docs/api/event-handler) | Handles one event type; several handlers may subscribe |
+| [`Mediator.publish()`](/docs/api/mediator#publish) | Delivers an event to its registered subscribers |
+
+## Request pipelines
+
+| API | Role |
+| --- | --- |
+| [`PipelineBehavior[RequestT]`](/docs/api/pipeline) | Wraps `send()` for selected request types |
+| [`Next[ResponseT]`](/docs/api/pipeline) | Calls the next behavior or request handler and returns `ResponseT` |
+
+Pipeline behaviors do not wrap `stream()` or `publish()`.
+
+## Service resolution
+
+| API | Role |
+| --- | --- |
+| [`Services`](/docs/api/service-provider#services) | Registers service instances during setup |
+| [`ServiceProvider`](/docs/api/service-provider#serviceprovider-protocol) | Read-only protocol used by the mediator for resolution |
+| [`DependencyInjectorServiceProvider`](/docs/api/service-provider#dependencyinjectorserviceprovider) | Optional adapter for a Dependency Injector container |
+
+## Exceptions
+
+The [errors reference](/docs/api/errors) separates handler validation, dispatch, and service-resolution failures. Most PyMediate validation and dispatch exceptions inherit from `PyMediateError`; `ServiceNotFoundError` is a separate `Exception` raised by service resolution.
+
+## Asynchronous and synchronous definitions
+
+The top-level `pymediate` namespace contains asynchronous mediator, handler, behavior, and `Next` definitions. `pymediate.sync` contains their blocking counterparts. Message types, services, service-provider types, and exceptions are shared between the namespaces.

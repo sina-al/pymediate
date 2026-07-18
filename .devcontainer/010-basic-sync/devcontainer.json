@@ -1,18 +1,20 @@
 {
     "name": "pymediate example: 010-basic-sync",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/010-basic-sync",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },
-    "postCreateCommand": "cd examples/010-basic-sync && uv sync",
+    "postCreateCommand": "uv sync",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-python.python",
+                "ms-python.vscode-pylance",
                 "charliermarsh.ruff"
             ],
             "settings": {
-                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/examples/010-basic-sync/.venv/bin/python"
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python"
             }
         }
     }

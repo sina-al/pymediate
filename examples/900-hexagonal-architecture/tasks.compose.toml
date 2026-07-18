@@ -1,0 +1,99 @@
+[tool.poe.groups.compose]
+heading = "Docker Compose"
+
+[tool.poe.groups.compose.tasks."compose:up"]
+help = "Build and start one cloud deployment in the background"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml up --detach --build --remove-orphans"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment to run" },
+]
+
+[tool.poe.groups.compose.tasks."compose:down"]
+help = "Stop one cloud deployment without deleting its volumes"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml down --remove-orphans"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment to stop" },
+]
+
+[tool.poe.groups.compose.tasks."compose:logs"]
+help = "Follow application logs for one cloud deployment"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml logs --follow --tail=${tail} ${services:-shop-openapi shop-relay shop-worker}"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment whose logs are shown" },
+    { name = "tail", options = ["--tail", "-n"], default = "100", help = "Existing lines to show before following" },
+    { name = "services", positional = true, multiple = true, help = "Services to follow; defaults to the API, relay, and worker" },
+]
+
+[tool.poe.groups.compose.tasks."compose:status"]
+help = "Show all containers in one cloud deployment"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml ps --all"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment to inspect" },
+]
+
+[tool.poe.groups.compose.tasks."compose:config"]
+help = "Validate the merged base and cloud Compose configuration"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml config --quiet"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud configuration to validate" },
+]
+
+[tool.poe.groups.compose.tasks."compose:build"]
+help = "Build application images for one cloud deployment"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml build ${services:-shop-openapi shop-worker shop-administration}"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment to build" },
+    { name = "services", positional = true, multiple = true, help = "Services to build; defaults to all three application images" },
+]
+
+[tool.poe.groups.compose.tasks."compose:pull"]
+help = "Pull infrastructure images for one cloud deployment"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml pull ${services}"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment whose images are pulled" },
+    { name = "services", positional = true, multiple = true, help = "Optional services to pull; omit to pull every eligible image" },
+]
+
+[tool.poe.groups.compose.tasks."compose:restart"]
+help = "Restart application containers in one cloud deployment"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml restart ${services:-shop-openapi shop-relay shop-worker shop-administration}"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment to restart" },
+    { name = "services", positional = true, multiple = true, help = "Services to restart; defaults to all application containers" },
+]
+
+[tool.poe.groups.compose.tasks."compose:smoke"]
+help = "Run black-box smoke tests against one running cloud deployment"
+cmd = "pytest tests/smoke -m smoke"
+env = { SHOP_SMOKE_CLOUD = "${cloud}" }
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Running cloud deployment to test" },
+]
+
+[tool.poe.groups.compose.tasks."compose:shell"]
+help = "Open a shell in one cloud administration container"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml exec shop-administration /bin/sh"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud administration container to enter" },
+]
+
+[tool.poe.groups.compose.tasks."compose:images"]
+help = "List locally built Shop images and their digests"
+cmd = "docker image ls shop --digests"
+
+[tool.poe.groups.compose.tasks."compose:clean"]
+help = "Stop one cloud deployment and delete its volumes"
+cmd = "docker compose --env-file .env.images -f compose.yaml -f compose.${cloud}.yaml down --volumes --remove-orphans"
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment to delete" },
+]
+
+[tool.poe.groups.compose.tasks."compose:reset"]
+help = "Delete, rebuild, and start one cloud deployment"
+sequence = [
+    "compose:clean --cloud ${cloud}",
+    "compose:up --cloud ${cloud}",
+]
+args = [
+    { name = "cloud", options = ["--cloud", "-c"], choices = ["aws", "azure"], required = true, help = "Cloud deployment to recreate" },
+]

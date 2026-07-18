@@ -49,15 +49,15 @@ wheels = [
 
 [[package]]
 name = "pymediate"
-version = "0.5.0"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/33/c2/f0f3d83d0333b102b21739b4cc653226517c8ca82183dca4ce394aae0b6b/pymediate-0.5.0.tar.gz", hash = "sha256:1fb25b48f6302ec95558732824d74a04d7faed949b56b1f7c54bc4a6bfc9e37e", size = 1146525, upload-time = "2026-07-11T15:34:29.778Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/cd/a6ac5f36f6d534dc1593a5c7e374a6c01d53a85a4b05924760116920a94d/pymediate-0.6.0.tar.gz", hash = "sha256:b0768167493ebfd871db58c480f32e614e58c7cec0bd3177d3fa0414e2f39f8e", size = 1244084, upload-time = "2026-07-13T00:47:49.7Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/7c/ee294c7dbe5994f530f9b64aa44f852578f447c6c8521ca0abab6aab04cd/pymediate-0.5.0-py3-none-any.whl", hash = "sha256:8edfef331992524a623f9a4edc05ba4baf81bd23cfeca674862f395b130cf3bf", size = 46728, upload-time = "2026-07-11T15:34:28.345Z" },
+    { url = "https://files.pythonhosted.org/packages/70/10/ef8b89d40b2c15b35801d756ad0afcd00086ca00e5d3a419a4be304212fa/pymediate-0.6.0-py3-none-any.whl", hash = "sha256:126f28572259bbbcce8796561945011b3b91d42c814d6a5a880c3b0ff7412aa7", size = 56444, upload-time = "2026-07-13T00:47:48.35Z" },
 ]
 
 [[package]]
-name = "pymediate-example-pipeline-behaviors"
+name = "pymediate-example-040-pipeline-behaviors"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -71,7 +71,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pymediate", specifier = ">=0.5.0" }]
+requires-dist = [{ name = "pymediate", specifier = ">=0.6.0" }]
 
 [package.metadata.requires-dev]
 dev = [

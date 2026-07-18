@@ -1,12 +1,12 @@
 [project]
 name = "pymediate-example-010-basic"
 version = "0.1.0"
-description = "Asynchronous PyMediate example: the send() round trip — a typed request, one handler, a typed response"
+description = "Send one typed request to one asynchronous handler and receive a typed response"
 requires-python = ">=3.12"
 dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the
     # exact release candidate on TestPyPI (scripts/run_examples.py).
-    "pymediate>=0.5.0",
+    "pymediate>=0.6.0",
 ]
 
 [dependency-groups]

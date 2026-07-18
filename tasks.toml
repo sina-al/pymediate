@@ -176,8 +176,9 @@ build.cmd = "uv build"
 "release:wait-index".cmd = "python3 scripts/wait_for_index.py"
 
 # Passthrough to scripts/run_examples.py — `poe examples:test --help` lists its flags
-# (--wheel, or --version + --index). Every examples stage in the release pipeline runs it.
-"examples:test".help = "Run every example project's tests against a build"
+# (--check-contract, --check-repository, --wheel, or --version + --index). Every examples
+# stage in the release pipeline runs it.
+"examples:test".help = "Validate or test every example project"
 "examples:test".cmd = "python3 scripts/run_examples.py"
 
 # ========== PR Helpers ==========

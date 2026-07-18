@@ -11,10 +11,10 @@ from ..stream import StreamRequest
 class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixin[StreamReqT], ABC):
     """Abstract base class for synchronous streaming request handlers.
 
-    The sync mirror of `pymediate.StreamRequestHandler`: a stream handler processes a
-    `StreamRequest` by **yielding** a stream of chunks, consumed lazily via the sync
-    `Mediator.stream()`. It only needs to specify the request type - the chunk type is
-    inferred from the request's `StreamRequest[ChunkT]` declaration.
+    The sync mirror of ``pymediate.StreamRequestHandler`` processes a
+    ``StreamRequest`` by yielding chunks, consumed lazily through the synchronous
+    ``Mediator.stream()``. Its type parameter names the stream request; that
+    request's ``StreamRequest[ChunkT]`` declaration supplies the chunk type.
 
     The handler performs class-definition-time validation via __init_subclass__ to ensure:
     - The __call__ method exists and is a generator (uses `yield`)
@@ -22,8 +22,8 @@ class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixi
       (not a base class or union)
     - The __call__ return type is `Iterator[ChunkT]`, matching the request's chunk type
 
-    This validation happens at class definition time (import time), catching errors
-    early rather than at runtime.
+    Validation runs when Python executes the handler's class body, usually
+    during import and before the handler is instantiated.
 
     Type Parameters:
         StreamReqT: The type of stream request this handler processes. Must inherit
@@ -31,30 +31,21 @@ class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixi
             validates it at class definition time.
 
     Examples:
-        Streaming tokens for a completion request:
+        Streaming an order export:
             ```python
             from collections.abc import Iterator
             from dataclasses import dataclass
+
             from pymediate.sync import StreamRequest, StreamRequestHandler
 
-            @dataclass
-            class StreamCompletion(StreamRequest[str]):
-                prompt: str
+            @dataclass(frozen=True)
+            class ExportOrders(StreamRequest[bytes]):
+                customer_id: int
 
-            class CompletionHandler(StreamRequestHandler[StreamCompletion]):
-                def __call__(self, request: StreamCompletion) -> Iterator[str]:
-                    yield from request.prompt.split()
-            ```
-
-        Stream handler with dependencies:
-            ```python
-            class ExportRowsHandler(StreamRequestHandler[ExportRows]):
-                def __init__(self, database: Database):
-                    self.database = database
-
-                def __call__(self, request: ExportRows) -> Iterator[Row]:
-                    for row in self.database.iter_rows(request.table):
-                        yield row
+            class ExportOrdersHandler(StreamRequestHandler[ExportOrders]):
+                def __call__(self, request: ExportOrders) -> Iterator[bytes]:
+                    yield b"order_id,total_pence"
+                    yield b"42,2500"
             ```
 
     Note:
@@ -64,13 +55,10 @@ class StreamRequestHandler[StreamReqT: StreamRequest[Any]](StreamHandlerBaseMixi
         not wrap `stream()`.
 
     Raises:
-        InvalidStreamRequestTypeError: If the request type doesn't inherit from StreamRequest.
+        InvalidStreamRequestTypeError: If the request type does not declare a chunk type.
         InvalidHandlerSignatureError: If __call__ isn't a correctly typed generator.
+        HandlerAlreadyRegisteredError: If the request type already has a handler class.
 
-    See Also:
-        - StreamRequest: Base streaming request class.
-        - Mediator.stream: Routes stream requests to stream handlers (sync version).
-        - pymediate.StreamRequestHandler: Async stream handler variant.
     """
 
     _is_async = False  # Mark this as a synchronous stream handler

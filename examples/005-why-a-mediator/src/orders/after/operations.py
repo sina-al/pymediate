@@ -1,9 +1,8 @@
-"""One request and one handler per operation — the god service, un-braided.
+"""One request and one handler per order operation.
 
-Each `Request` subclass declares the type it responds with, so `mediator.send(...)` gives
-back that exact type at the call site (Fix #2). Each handler's ``__init__`` takes only the
-collaborators its one operation actually uses — never the whole world (Fix #4). Auditing
-lives in ``wiring.py`` as a single behavior, so no method here repeats it (Fix #3).
+Each `Request` subclass declares its response type, which determines the return type of
+`mediator.send(...)`. Each handler receives only the collaborators used by its operation.
+Successful-request auditing is defined once in ``wiring.py``.
 """
 
 import asyncio

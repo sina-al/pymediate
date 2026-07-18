@@ -1,0 +1,34 @@
+[project]
+name = "pymediate-example-100-dependency-injection"
+version = "0.1.0"
+description = "PyMediate's di extra: Factory, Singleton, and ContextLocalSingleton lifetimes"
+requires-python = ">=3.12"
+dependencies = [
+    # The [di] extra pulls in dependency-injector. Loose lower bound per the examples
+    # contract: the release pipeline re-pins this to the exact release candidate on
+    # TestPyPI (scripts/run_examples.py) — uv keeps the extra when it re-pins.
+    "pymediate[di]>=0.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.0.0",
+]
+
+[tool.uv]
+# An example is an application, not a distributable package: nothing to build or install.
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"

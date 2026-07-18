@@ -1,0 +1,335 @@
+---
+title: Using a mediator to reduce change coupling
+description: How application code becomes harder to change, what separating operations improves, and when a mediator helps.
+date: 2026-07-09
+author: sina-al
+---
+
+A change becomes difficult when completing it requires knowledge of unrelated code, configuration, and tests. The individual functions may still be readable; the difficulty comes from the number of dependencies and decisions a developer must understand before changing one operation.
+
+This article follows a small Shop application from a direct function call to a mediator. Each step answers a specific constraint. Direct calls remain the default while they are clear, and a mediator appears only after repeated operation wiring creates a separate maintenance problem.
+
+The code blocks are focused excerpts from a fictional application. Names imported from application modules stand for code owned by that application; each excerpt identifies the file or role it illustrates.
+
+## Direct calls are a reasonable starting point
+
+The first endpoint places an order directly:
+
+```python title="app.py (excerpt)"
+from flask import Flask, g, jsonify, request
+
+from .db import session
+from .models import Order
+
+app = Flask(__name__)
+
+@app.post("/orders")
+def place_order():
+    order = Order(items=request.json["items"])
+    session.add(order)
+    session.commit()
+    return jsonify(id=order.id), 201
+```
+
+For an application at this stage, the direct route is reasonable. It shows where input arrives, which work runs, and what response leaves the process.
+
+As the Shop adds cancellation, refunds, invoices, and exports, the order operations move into one module so several entry points can reuse them:
+
+```python title="orders/service.py (excerpt)"
+from audit import audit_log
+from currency import exchange_rates
+from db import session
+from documents import pdf_renderer
+from files import file_store
+from inventory import stock_levels
+from mail import mailer
+from payments import payment_client
+
+def place_order(items, customer_id): ...
+def cancel_order(order_id): ...
+def refund_order(order_id, amount): ...
+def invoice_pdf(order_id): ...
+def monthly_statement(customer_id): ...
+def create_order_export(customer_id): ...
+```
+
+Every function concerns orders, but the functions do not use the same dependencies. The first
+import of this module executes every module-level import, even when the caller imports one name.
+That matters when imported modules read configuration, create clients, or otherwise perform
+initialization.
+
+If those imports do no work during import and changes remain local to the relevant operation, no
+further structure is required.
+
+## Separate an operation when it needs another entry point
+
+The Shop later runs order exports from both HTTP and a scheduled worker. The export rules are the same in both places; only the source of the input changes.
+
+Giving the export its own module removes dependencies that belong only to payment, mail, invoices, or inventory:
+
+```python title="orders/export.py (excerpt)"
+from dataclasses import dataclass
+
+from csv_export import render_csv
+from db import session
+from files import file_store
+
+@dataclass(frozen=True)
+class CreateOrderExport:
+    customer_id: int
+
+@dataclass(frozen=True)
+class OrderExport:
+    url: str
+    row_count: int
+
+def create_order_export(request: CreateOrderExport) -> OrderExport:
+    order_rows = session.orders_for(request.customer_id)
+    content = render_csv(order_rows)
+    url = file_store.write(content)
+    return OrderExport(url=url, row_count=len(order_rows))
+```
+
+The HTTP route translates HTTP input and output:
+
+```python title="app.py (excerpt)"
+@app.post("/orders/export")
+def create_order_export_route():
+    result = create_order_export(CreateOrderExport(customer_id=g.current_user.id))
+    return jsonify(url=result.url, row_count=result.row_count), 200
+```
+
+The scheduled worker translates its message format:
+
+```python title="worker.py (excerpt)"
+def handle_export(message):
+    create_order_export(CreateOrderExport(customer_id=message.customer_id))
+```
+
+Both callers use the same operation, but neither imports the other caller's framework. A function in its own module may be the finished design.
+
+Nothing in this step provides background execution. The scheduler or queue remains responsible for invoking the worker. A mediator routes an in-process request; it does not make that request durable or move it to another process.
+
+## Supply dependencies when implementations vary
+
+The worker needs a database connection with a different lifetime from the web request. The Shop may also use a different export destination in another deployment. The current function imports both choices before either caller can supply them.
+
+Passing dependencies as function arguments is one direct solution:
+
+```python title="orders/export.py (excerpt)"
+def create_order_export(request, history, destination):
+    order_rows = history.for_customer(request.customer_id)
+    content = render_csv(order_rows)
+    url = destination.write(content)
+    return OrderExport(url=url, row_count=len(order_rows))
+```
+
+This keeps every dependency visible at the call site. Python protocols can describe the parts of
+those objects that the operation uses:
+
+```python title="orders/export.py (excerpt)"
+from dataclasses import dataclass
+from typing import Protocol
+
+@dataclass(frozen=True)
+class OrderRow:
+    order_id: int
+
+class OrderHistory(Protocol):
+    def for_customer(self, customer_id: int) -> list[OrderRow]: ...
+
+class ExportDestination(Protocol):
+    def write(self, content: bytes) -> str: ...
+```
+
+These protocols support static checking. They do not construct, wrap, or select the dependencies.
+If each caller repeatedly passes the same objects, a callable object can receive them once at
+construction:
+
+```python title="orders/export.py (excerpt)"
+class OrderExporter:
+    def __init__(
+        self,
+        history: OrderHistory,
+        destination: ExportDestination,
+    ) -> None:
+        self._history = history
+        self._destination = destination
+
+    def __call__(self, request: CreateOrderExport) -> OrderExport:
+        order_rows = self._history.for_customer(request.customer_id)
+        content = render_csv(order_rows)
+        url = self._destination.write(content)
+        return OrderExport(url=url, row_count=len(order_rows))
+```
+
+The class stores the two supplied objects between calls. It does not make the operation more
+correct than the function form. Application startup still chooses the concrete objects. In the
+next excerpt, `StoredOrderHistory` and `DownloadFiles` are application adapters;
+`worker_database` and `storage_client` are instances created by startup:
+
+```python title="bootstrap.py (excerpt)"
+create_order_export = OrderExporter(
+    history=StoredOrderHistory(worker_database),
+    destination=DownloadFiles(storage_client),
+)
+```
+
+Dependency injection changes where construction happens. The export still depends on order history and file storage; those choices are now made at startup instead of inside the operation module.
+
+## Keep direct references while the wiring remains clear
+
+The same separation can be applied when another operation needs to move or change independently.
+Over time, startup may construct several focused callables. The following names stand for
+application-defined operations and the dependencies they need:
+
+```python title="bootstrap.py (excerpt)"
+place_order = PlaceOrderHandler(orders, payments, inventory, notifications)
+refund_order = RefundOrderHandler(orders, payments)
+create_invoice = CreateInvoiceHandler(orders, renderer)
+create_order_export = OrderExporter(history, destination)
+```
+
+Passing these objects directly to their callers has useful properties. Dependencies are visible, editor navigation follows ordinary references, and no dispatch mechanism is involved. If each caller needs only a short list, direct references can remain the final design.
+
+Repeated lists become a separate concern when several HTTP routes, command-line commands, workers, and scheduled jobs need overlapping sets of operations. A dictionary can centralize that lookup:
+
+```python title="dispatch.py (excerpt)"
+operations = {
+    PlaceOrder: place_order,
+    RefundOrder: refund_order,
+    CreateInvoice: create_invoice,
+    CreateOrderExport: create_order_export,
+}
+
+def send(request):
+    operation = operations[type(request)]
+    return operation(request)
+```
+
+Callers now hold `send` and construct an input value. Startup still constructs every operation and decides which input maps to it.
+
+This dictionary is a small mediator: a caller describes an operation and one dispatcher selects the callable that performs it.
+
+## A hand-written dispatcher has limits
+
+The dictionary works, but its mixed callable types make the return type of `send()` difficult to express. A type checker cannot derive that `CreateOrderExport` returns `OrderExport`, so the result usually becomes `Any` or `object`.
+
+The dictionary also needs explicit checks if the application wants clearer errors for missing entries, invalid callable signatures, or duplicate registration. Those checks are ordinary code, but they become another component the application owns.
+
+PyMediate provides that dispatch and validation. The request declares its response type:
+
+```python title="orders/export.py (excerpt)"
+from dataclasses import dataclass
+from pymediate.sync import Request
+
+@dataclass(frozen=True)
+class OrderExport:
+    url: str
+    row_count: int
+
+@dataclass(frozen=True)
+class CreateOrderExport(Request[OrderExport]):
+    customer_id: int
+```
+
+The callable declares which request it handles:
+
+```python title="orders/export.py (excerpt)"
+from pymediate.sync import RequestHandler
+
+class CreateOrderExportHandler(RequestHandler[CreateOrderExport]):
+    def __init__(
+        self,
+        history: OrderHistory,
+        destination: ExportDestination,
+    ) -> None:
+        self._history = history
+        self._destination = destination
+
+    def __call__(self, request: CreateOrderExport) -> OrderExport:
+        order_rows = self._history.for_customer(request.customer_id)
+        content = render_csv(order_rows)
+        url = self._destination.write(content)
+        return OrderExport(url=url, row_count=len(order_rows))
+```
+
+Read the declarations as follows:
+
+- `OrderExport` is the response.
+- `CreateOrderExport(Request[OrderExport])` is a request for an `OrderExport`.
+- `CreateOrderExportHandler(RequestHandler[CreateOrderExport])` handles `CreateOrderExport` requests.
+
+When Python defines `CreateOrderExportHandler`, PyMediate records the request-to-handler class mapping
+and validates its annotations. Defining a second handler class for `CreateOrderExport` would raise at
+that point. This process-wide mapping is separate from supplying a handler instance.
+
+Startup constructs the instance and supplies it to the mediator's service provider:
+
+```python title="bootstrap.py (excerpt)"
+from pymediate.sync import Mediator, Services
+
+handler = CreateOrderExportHandler(
+    history=StoredOrderHistory(worker_database),
+    destination=DownloadFiles(storage_client),
+)
+
+mediator = Mediator(Services().add(handler).provider())
+```
+
+`Services.add()` permits repeated service types; the built-in provider returns the first exact
+match when the mediator asks for one handler instance. If no instance is available, dispatch fails
+with a configuration error.
+
+The call site preserves the declared response type:
+
+```python title="caller.py (excerpt)"
+result = mediator.send(CreateOrderExport(customer_id=7))
+# result is inferred as OrderExport
+```
+
+## The coupling changes location
+
+A mediator does not eliminate dependencies. It changes which dependencies appear at each point:
+
+| Part | Direct call | Mediated call |
+| --- | --- | --- |
+| Caller | Imports or receives the concrete operation | Imports the request type and receives a mediator |
+| Handler | Receives its input and operational dependencies | Also implements the mediator's handler contract |
+| Startup | Constructs objects and passes them to callers | Constructs objects, registers handlers, and creates the mediator |
+| Navigation | Follows an ordinary function or object reference | Follows the request type to its registered handler |
+
+This can reduce repeated caller wiring, but it adds an indirect lookup and a registration step. The operation's database, storage, network, and transaction requirements remain unchanged.
+
+## Choose the smallest sufficient mechanism
+
+The three approaches solve different amounts of the problem:
+
+| Approach | Fits when | Cost introduced |
+| --- | --- | --- |
+| Direct call | Callers have short, stable dependency lists | Callers know the operation they invoke |
+| Dictionary dispatcher | Callers benefit from one entry point and an `Any` or `object` result is acceptable | The application owns lookup, checks, and diagnostics |
+| PyMediate | Callers benefit from one entry point and typed responses or handler checks matter | Package dependency, registration, indirect navigation, and runtime dispatch |
+
+Dispatch performs more work than a direct call. The [comparison page](/docs/comparison) publishes
+dated results, the benchmark method, and a script you can run on your own hardware. Measure it if
+the operation is a high-volume in-memory path; external database or network work will usually take
+much longer than dispatch.
+
+CQRS and hexagonal architecture do not follow automatically from choosing a mediator. Requests and handlers can support those designs, but PyMediate does not require them or decide the boundaries of an application.
+
+## Adopt one step at a time
+
+Start with a direct call. Add another boundary only when a current requirement makes the existing one difficult to use:
+
+1. Separate an operation when it must move or change without unrelated code.
+2. Supply a dependency when its implementation or lifetime must vary.
+3. Keep direct operation references while caller wiring remains short.
+4. Add a dictionary when several callers need the same lookup.
+5. Use PyMediate when maintaining typed dispatch and validation is preferable to maintaining that code locally.
+
+Each earlier option remains valid. The mediator is useful only when its common entry point and checks justify its additional indirection.
+
+---
+
+The [introduction](/docs) explains how to read PyMediate's request and handler types. The [quick start](/docs/getting-started/quick-start) runs a complete request flow, and the [hexagonal architecture example](https://github.com/sina-al/pymediate/tree/main/examples/900-hexagonal-architecture) shows the Shop domain with several entry points and infrastructure profiles.

@@ -1,1 +1,1 @@
-"""The pymediate approach: one request and one handler per operation, plus one audit seam."""
+"""The PyMediate implementation: one request handler per operation and shared auditing."""

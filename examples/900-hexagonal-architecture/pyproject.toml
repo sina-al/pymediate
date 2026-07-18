@@ -1,0 +1,92 @@
+[project]
+name = "pymediate-example-900-hexagonal-architecture"
+version = "0.1.0"
+description = "A multi-package shop showing hexagonal architecture with PyMediate"
+requires-python = ">=3.12"
+dependencies = ["pymediate[di]>=0.7.0"]
+
+[project.optional-dependencies]
+default = ["shop-bindings[default]"]
+aws = ["shop-bindings[aws,observability]"]
+azure = ["shop-bindings[azure,observability]"]
+cli = ["shop-adapter-cli"]
+openapi = ["shop-adapter-openapi"]
+worker = ["shop-adapter-worker"]
+observability = ["shop-bindings[observability]"]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.31.0",
+    "boto3-stubs[s3,sqs]>=1.35.0",
+    "cryptography<49",
+    "httpx2>=2.0.0",
+    "jsonschema>=4.23.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.43.0",
+    "opentelemetry-sdk>=1.36.0",
+    "poethepoet>=0.31.1",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.12.0",
+    "shop-adapter-ephemeral",
+    "shop-adapter-common",
+    "shop-adapter-weasyprint",
+    "shop-adapter-aws",
+    "shop-adapter-azure",
+    "shop-adapter-postgres",
+    "shop-adapter-openapi",
+    "shop-adapter-cli",
+    "shop-adapter-worker",
+    "testcontainers[localstack,minio,postgres]>=4.10.0",
+    "types-jsonschema>=4.23.0",
+    "types-pyyaml>=6.0.12",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+pymediate = { path = "../..", editable = true }
+shop-bindings = { workspace = true }
+shop-adapter-cli = { workspace = true }
+shop-adapter-openapi = { workspace = true }
+shop-adapter-worker = { workspace = true }
+shop-application = { workspace = true }
+shop-domain = { workspace = true }
+shop-ports = { workspace = true }
+shop-adapter-ephemeral = { workspace = true }
+shop-adapter-common = { workspace = true }
+shop-adapter-weasyprint = { workspace = true }
+shop-adapter-aws = { workspace = true }
+shop-adapter-azure = { workspace = true }
+shop-adapter-postgres = { workspace = true }
+
+[tool.poe]
+include = ["tasks.toml", "tasks.compose.toml"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "containers: opt-in PostgreSQL, object-storage, and cloud-queue integration tests",
+    "smoke: black-box checks against an already running Docker deployment",
+]
+
+[tool.coverage.run]
+branch = true
+data_file = "/tmp/pymediate-example-900-hexagonal-architecture.coverage"
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+src = ["packages/*/src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
