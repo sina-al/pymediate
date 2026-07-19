@@ -26,11 +26,12 @@ intentional variants (ADR 0008).
   "Docs" below. Site content lives in `docs/content/`; the rest is app code.
   - `docs/adr/` — architecture decision records for nontrivial design changes; see "ADRs"
     below. Deliberately outside `docs/content/`, so they are never published on the site.
-- `examples/` — standalone uv projects demonstrating the package against its *released*
-  PyPI distribution (not the source tree); each satisfies the contract in
-  `examples/README.md`, and the release pipeline runs them all four times via
-  `scripts/run_examples.py` (release-PR wheel, release wheel, TestPyPI, PyPI smoke —
-  see OPERATIONS.md and ADR 0007). Not covered by the library's lint/type/coverage
+- `examples/` — standalone uv projects that depend on the *in-branch* pymediate source by
+  default (each carries `pymediate = { path = "../..", editable = true }`, so `uv sync` runs
+  them against this checkout); each satisfies the contract in `examples/README.md`, and the
+  release pipeline strips that source and re-pins to the built/published package, running them
+  all four times via `scripts/run_examples.py` (release-PR wheel, release wheel, TestPyPI, PyPI
+  smoke — see OPERATIONS.md). Not covered by the library's lint/type/coverage
   scopes — each example carries its own `[tool.ruff]`, `pyrightconfig.json`, and
   `.vscode/settings.json` so it's pleasant opened standalone. **Any work on an example
   (new, restructure, or README edit) goes through the `example` skill** — it owns the
@@ -45,7 +46,7 @@ intentional variants (ADR 0008).
   `README.md`); not part of the package, not built or published.
 - `.github/workflows/` — CI pipelines; see "GitHub Actions workflows" below.
 - `.claude/` — Claude Code config for this repo: `settings.json`, project-specific skills
-  (`adr`, `release`, `update-uv`, `compare`, `example`, `edict`), and `.claude/context/*.md`:
+  (`adr`, `release`, `update-uv`, `compare`, `example`, `edict`, `docket`), and `.claude/context/*.md`:
   `api-signatures.md` is generated and imported into this CLAUDE.md (see "API Signatures"
   below) — regenerate, don't hand-edit; `mediator-survey.md` is the `/compare` skill's
   anonymized competitor knowledge base backing the docs site's comparison page — updated by
@@ -202,11 +203,15 @@ fully known.
 
 ## ADRs
 
-Nontrivial design/API changes get a numbered ADR in `docs/adr/`, following the existing
-template (Context → Investigation/Proposed Solutions → Pros/Cons → Decision → Consequences).
-Existing ADRs (0001, 0002) were authored by Claude and reviewed by @sina-al (repo owner's GitHub
-handle) — continue that pattern for anything touching public API shape, generics design, or
-breaking changes. Use the `/adr` skill to scaffold a new one.
+ADRs are scoped to **the package itself** — public API shape, generics/typing design, runtime
+semantics, breaking changes. CI, release pipelines, and repo/docs tooling do **not** get ADRs;
+their design lives in the operational doc that owns them (`OPERATIONS.md`, `examples/README.md`,
+workflow comments, skill docs). A nontrivial package-design change gets a numbered ADR in
+`docs/adr/`, following the existing template (Context → Investigation/Proposed Solutions →
+Pros/Cons → Decision → Consequences). Existing ADRs (0001, 0002) were authored by Claude and
+reviewed by @sina-al (repo owner's GitHub handle) — continue that pattern for anything touching
+public API shape, generics design, or breaking changes. Use the `/adr` skill to scaffold a new
+one.
 
 ADR 0002 revisits and overturns part of ADR 0001's decision (0001 rejected a single type
 parameter for `PipelineBehavior`; 0002 later adopted one for the narrower case of selective
@@ -215,11 +220,21 @@ behaviors) — read both before assuming either alone reflects the current desig
 ## Issue tracking & the project board
 
 Planning lives in GitHub Issues on `sina-al/pymediate`, mirrored onto the user-level
-GitHub Project board **#2 "pymediate"** (<https://github.com/users/sina-al/projects/2>).
+GitHub Project board **#2 "pymediate"** (<https://github.com/users/sina-al/projects/2>)
+by the Project's own auto-add workflow — nothing in this repo does board plumbing.
 **All issue filing goes through the `edict` skill** — it owns the interview flow, the
-issue template, labels, titles, and the board plumbing (project/field/option IDs).
-Requests like "file an issue", "add this to the roadmap", "track this", or "put it on
-the board" all mean invoking that skill, even for one-liners.
+issue template, labels, titles, and the draft-label review gate (issues are filed with a
+`draft` label and revised in place until the maintainer approves). Requests like "file an
+issue", "add this to the roadmap", "track this", or "put it on the board" all mean
+invoking that skill, even for one-liners.
+
+`edict` and `docket` are the two ends of the issue lifecycle: `edict` is the *in* (an idea
+becomes a filed, implementation-ready issue), `docket` is the *out* (all open issues become
+one recommendation for what to pick up next). `docket` is advisory and read-only — it reads
+issues and reasons out loud, never writing labels or the board. Requests like "what should I
+work on next", "what's next", "pick my next issue", or "what's on the docket" mean invoking
+that skill; it also has an allowance-burn mode for spending a soon-to-expire strong-model
+allowance on the work that most rewards it.
 
 ## Versioning
 

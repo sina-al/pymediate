@@ -45,11 +45,14 @@ uv sync
 uv run pytest
 ```
 
-The release runner owns the PyMediate source and index while testing a candidate. Do not
-check in `[[tool.uv.index]]`. `[tool.uv.sources]` may contain `{ workspace = true }` entries
-for packages inside a multi-package example. The complete architecture example has one
-documented repository-checkout override; the runner validates and removes it before
-re-pinning PyMediate. No other PyMediate source override is allowed.
+Every example depends on the in-branch PyMediate source by default: declare
+`pymediate = { path = "../..", editable = true }` in `[tool.uv.sources]` and commit a
+`uv.lock` that reflects it (run `uv lock` after adding the line), so `uv sync` runs the
+example against this checkout. The release runner strips that line from its temporary copy and
+re-pins PyMediate to the wheel or published version under test, so it owns index resolution:
+do not check in `[[tool.uv.index]]`. `[tool.uv.sources]` may otherwise contain only
+`{ workspace = true }` entries for packages inside a multi-package example — no other
+PyMediate source override is allowed.
 
 Set the lower bound to the earliest known PyMediate release that provides every API used by
 the project. This is a maintainer-reviewed compatibility claim: the contract check validates
