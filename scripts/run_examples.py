@@ -52,6 +52,10 @@ from urllib.parse import unquote, urlsplit
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples"
 STAGING_INDEX_NAME = "release-staging"
+# The `name = "..."` line `uv add --index` writes for the staging index. The runner inserts
+# `explicit = true` right after it — anchoring on the unique name line (rather than the whole
+# block) keeps this independent of uv's field order. See make_staging_index_explicit.
+STAGING_INDEX_NAME_LINE = re.compile(rf'(?m)^(name = "{STAGING_INDEX_NAME}"\n)')
 FLAGSHIP_EXAMPLE = "900-hexagonal-architecture"
 FLAGSHIP_PYMEDIATE_SOURCE = {"path": "../..", "editable": True}
 FLAGSHIP_PYMEDIATE_SOURCE_LINE = 'pymediate = { path = "../..", editable = true }\n'
@@ -543,6 +547,34 @@ def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, env=env)
 
 
+def pymediate_extras(pyproject: Path) -> str:
+    """Return the example's pymediate extras suffix, e.g. ``[di]`` (empty string if none)."""
+    data = tomllib.loads(pyproject.read_text())
+    project = data.get("project", {})
+    dependencies = project.get("dependencies", []) if isinstance(project, dict) else []
+    for dependency in dependencies:
+        if isinstance(dependency, str) and dependency.replace(" ", "").startswith("pymediate"):
+            match = re.match(r"pymediate(\[[A-Za-z0-9_,.-]+\])?", dependency.replace(" ", ""))
+            if match:
+                return match.group(1) or ""
+    return ""
+
+
+def make_staging_index_explicit(pyproject: Path) -> None:
+    """Mark the runner's staging index ``explicit`` so only pymediate resolves from it.
+
+    ``uv add --index`` writes a general index, which uv's first-index strategy then prefers
+    for *every* dependency — pulling stale placeholders (pytest, click, jsonschema, …) off
+    TestPyPI and making resolution unsatisfiable (issue #126). An explicit index is consulted
+    only for packages that name it in ``[tool.uv.sources]``, i.e. pymediate alone.
+    """
+    text = pyproject.read_text()
+    patched, count = STAGING_INDEX_NAME_LINE.subn(lambda m: m.group(1) + "explicit = true\n", text)
+    if count != 1:
+        raise RuntimeError(f"could not mark the {STAGING_INDEX_NAME} index explicit")
+    pyproject.write_text(patched)
+
+
 def run_example(
     example: Path,
     workdir: Path,
@@ -567,20 +599,33 @@ def run_example(
         # source — no index involvement at all.
         pin_cmd = ["uv", "add", str(wheel.resolve())]
     else:
+        # Version mode: pin pymediate to the release candidate on the staging index while
+        # every other dependency keeps resolving from real PyPI. `--frozen` writes the pin
+        # (extras preserved) and the staging-index source without resolving; the follow-up
+        # make_staging_index_explicit call then marks that index `explicit` so only pymediate
+        # is ever fetched from it (see that helper and issue #126).
         pin_cmd = [
             "uv",
             "add",
+            "--frozen",
             "--index",
             f"{STAGING_INDEX_NAME}={index_url}",
-            f"pymediate=={version}",
+            f"pymediate{pymediate_extras(example / 'pyproject.toml')}=={version}",
         ]
 
-    steps = [
-        pin_cmd,
-        ["uv", "sync"],
-        ["uv", "run", "pytest"],
-    ]
-    for cmd in steps:
+    proc = run(pin_cmd, cwd=workspace)
+    sys.stdout.write(proc.stdout)
+    sys.stderr.write(proc.stderr)
+    if proc.returncode != 0:
+        return Result(name, ok=False, detail=f"`{' '.join(pin_cmd)}` exited {proc.returncode}")
+
+    if wheel is None:
+        try:
+            make_staging_index_explicit(workspace / "pyproject.toml")
+        except RuntimeError as error:
+            return Result(name, ok=False, detail=str(error))
+
+    for cmd in (["uv", "sync"], ["uv", "run", "pytest"]):
         proc = run(cmd, cwd=workspace)
         sys.stdout.write(proc.stdout)
         sys.stderr.write(proc.stderr)

@@ -128,7 +128,10 @@ requests to `main` run both static checks and the complete gallery against a whe
 | After PyPI | `--version` with the PyPI index | The published artifact users install passes the same examples before the GitHub Release is created. |
 
 The runner copies each project to a temporary directory, applies the selected PyMediate pin,
-and runs its tests. It never rewrites the checked-out example. See
-[`OPERATIONS.md`](../OPERATIONS.md) and
+and runs its tests. It never rewrites the checked-out example. In `--version` mode the pin is
+an `explicit` uv index, so **only PyMediate** resolves from TestPyPI or PyPI while every other
+dependency still resolves from real PyPI — a general index would let uv's first-index strategy
+pull unrelated dependencies (pytest, click, …) off TestPyPI's stale placeholders and fail the
+resolve. See [`OPERATIONS.md`](../OPERATIONS.md) and
 [ADR 0007](../docs/adr/0007-examples-as-release-verification.md) for the release ordering and
 design rationale.
