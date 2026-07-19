@@ -110,8 +110,9 @@ Override `should_apply()` when selection depends on request data or another cond
 
 ## Registration and order
 
-Register behavior instances in the same `ServiceProvider` as request handlers. The first
-registered applicable behavior is the outermost:
+Register behavior instances in the same `ServiceProvider` as request handlers, then declare the
+pipeline explicitly with `Mediator`'s `behaviors` argument - an ordered sequence of behavior
+classes, first entry outermost:
 
 ```python
 services = Services()
@@ -119,8 +120,12 @@ services.add(LoggingBehavior())
 services.add(TracePlaceOrder())
 services.add(PlaceOrderHandler())
 
-mediator = Mediator(services.provider())
+mediator = Mediator(services.provider(), behaviors=[LoggingBehavior, TracePlaceOrder])
 ```
+
+A behavior registered with the provider but left out of `behaviors` is not part of the pipeline;
+omitting `behaviors` means no behaviors run. See
+[`Mediator`'s constructor](/docs/api/mediator#constructor) for validation details.
 
 Use the asynchronous behavior class with `pymediate.Mediator` and the synchronous class with
 `pymediate.sync.Mediator`.

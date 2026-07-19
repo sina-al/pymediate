@@ -63,6 +63,27 @@ Keep one handler class and vary its dependencies through the constructor. Use di
 request types when the operations have different contracts. Event handlers are different:
 several `EventHandler` classes may subscribe to one event type.
 
+## Construction errors
+
+### `InvalidPipelineBehaviorsError`
+
+`Mediator(services, behaviors=[...])` validates the `behaviors` sequence once, at construction.
+Each entry must be a `PipelineBehavior` subclass of the mediator's variant (asynchronous for
+`pymediate.Mediator`, synchronous for `pymediate.sync.Mediator`), registered with `services`, and
+listed at most once.
+
+Check that:
+
+1. every class in `behaviors` was added to `Services` (or the container behind your custom
+   provider) before building the provider;
+2. `behaviors` mixes only classes from the mediator's own variant - an asynchronous behavior in a
+   synchronous mediator's `behaviors` list, or vice versa, fails the subclass check; and
+3. no class appears twice in the list.
+
+A behavior registered with the provider but left out of `behaviors` does not raise - it is simply
+not part of the pipeline. If a behavior you expect to run does not, check `behaviors` first before
+suspecting `should_apply()`.
+
 ## Definition-time validation errors
 
 PyMediate validates handler declarations when Python executes their class bodies. An error

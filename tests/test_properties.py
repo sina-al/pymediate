@@ -7,7 +7,7 @@ generated inputs:
   resolution, provider-as-snapshot immutability
 - Mediator round-trips: a handler that echoes its request payload returns it
   unchanged through ``send`` (sync and async)
-- Pipeline behaviors: wrap order always matches registration order
+- Pipeline behaviors: wrap order always matches the declared behaviors= order
 """
 
 import asyncio
@@ -151,8 +151,8 @@ def test_async_mediator_send_round_trips_arbitrary_payloads(payload: Any) -> Non
 
 @relaxed
 @given(count=st.integers(min_value=1, max_value=6))
-def test_behaviors_wrap_in_registration_order(count: int) -> None:
-    """N behaviors always nest in registration order around the handler."""
+def test_behaviors_wrap_in_declared_order(count: int) -> None:
+    """N behaviors always nest in the order the behaviors= list declares."""
     log: list[str] = []
 
     @dataclass
@@ -178,11 +178,17 @@ def test_behaviors_wrap_in_registration_order(count: int) -> None:
             log.append(f"after:{self.index}")
             return response
 
+    # behaviors= is a list of classes, resolved one instance per class - so each
+    # position needs its own subclass, distinguishing get()'s exact-type match.
+    behavior_classes = [
+        type(f"OrderBehavior{index}", (OrderBehavior,), {}) for index in range(count)
+    ]
+
     services = Services()
-    for index in range(count):
-        services.add(OrderBehavior(index))
+    for index, behavior_class in enumerate(behavior_classes):
+        services.add(behavior_class(index))
     services.add(OrderHandler())
-    mediator = Mediator(services.provider())
+    mediator = Mediator(services.provider(), behaviors=behavior_classes)
 
     response = mediator.send(OrderRequest(value=count))
 

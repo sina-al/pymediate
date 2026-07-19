@@ -65,7 +65,7 @@ def test_mediator_with_single_behavior() -> None:
     services.add(CreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[LoggingBehavior])
     response = mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -73,8 +73,8 @@ def test_mediator_with_single_behavior() -> None:
     assert log == ["logging:before", "logging:after"]
 
 
-def test_mediator_with_multiple_behaviors_executes_in_order() -> None:
-    """Test that multiple behaviors execute in registration order."""
+def test_mediator_with_multiple_behaviors_executes_in_declared_order() -> None:
+    """Test that multiple behaviors execute in the order the behaviors= list declares."""
 
     @dataclass
     class UserResponse:
@@ -106,12 +106,12 @@ def test_mediator_with_multiple_behaviors_executes_in_order() -> None:
             return response
 
     services = Services()
-    services.add(LoggingBehavior())  # Registered first = outermost
-    services.add(TimingBehavior())  # Registered second
+    services.add(LoggingBehavior())
+    services.add(TimingBehavior())
     services.add(CreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[LoggingBehavior, TimingBehavior])  # Logging outermost
     response = mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -151,7 +151,7 @@ def test_mediator_behaviors_can_modify_response() -> None:
     services.add(CreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ResponseModifyingBehavior])
     response = mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -184,7 +184,7 @@ def test_mediator_behavior_can_short_circuit() -> None:
     services.add(CreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ShortCircuitBehavior])
     response = mediator.send(CreateUserRequest(username="alice"))
 
     # RequestHandler should not be called
@@ -219,7 +219,7 @@ def test_mediator_validation_behavior() -> None:
     services.add(CreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ValidationBehavior])
 
     # Valid request should work
     response = mediator.send(CreateUserRequest(username="alice"))
@@ -260,7 +260,7 @@ def test_mediator_behaviors_are_stateful() -> None:
     services.add(CreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[StatefulBehavior])
 
     # Call multiple times
     mediator.send(CreateUserRequest(username="alice"))
@@ -295,7 +295,7 @@ def test_mediator_behavior_exception_propagates() -> None:
     services.add(CreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ExceptionBehavior])
 
     with pytest.raises(RuntimeError, match="Behavior error"):
         mediator.send(CreateUserRequest(username="alice"))
@@ -330,7 +330,7 @@ def test_mediator_behavior_can_wrap_handler_exception() -> None:
     services.add(FailingHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ExceptionHandlingBehavior])
     response = mediator.send(FailingRequest(username="alice"))
 
     # Exception was caught and handled
@@ -338,8 +338,8 @@ def test_mediator_behavior_can_wrap_handler_exception() -> None:
     assert response.username == "error"
 
 
-def test_mediator_registration_order_matters() -> None:
-    """Test that behavior registration order determines execution order."""
+def test_mediator_behaviors_order_follows_behaviors_list_not_registration() -> None:
+    """Test that the behaviors= list, not registration order, determines execution order."""
 
     @dataclass
     class UserResponse:
@@ -378,33 +378,32 @@ def test_mediator_registration_order_matters() -> None:
             log.append("timing:after")
             return response
 
-    # Order 1: Logging then Timing
+    # Both mediators register in the same order; only the behaviors= list differs.
     services1 = Services()
     services1.add(LoggingBehavior())
     services1.add(TimingBehavior())
     services1.add(Handler1())
     provider1 = services1.provider()
 
-    mediator1 = Mediator(provider1)
+    mediator1 = Mediator(provider1, behaviors=[LoggingBehavior, TimingBehavior])
     log.clear()
     mediator1.send(Request1(username="alice"))
 
     order1 = log.copy()
 
-    # Order 2: Timing then Logging
     services2 = Services()
-    services2.add(TimingBehavior())
     services2.add(LoggingBehavior())
+    services2.add(TimingBehavior())
     services2.add(Handler2())
     provider2 = services2.provider()
 
-    mediator2 = Mediator(provider2)
+    mediator2 = Mediator(provider2, behaviors=[TimingBehavior, LoggingBehavior])
     log.clear()
     mediator2.send(Request2(username="bob"))
 
     order2 = log.copy()
 
-    # Orders should be different
+    # Orders should be different, driven entirely by the behaviors= list.
     assert order1 == [
         "logging:before",
         "timing:before",
@@ -417,3 +416,124 @@ def test_mediator_registration_order_matters() -> None:
         "logging:after",
         "timing:after",
     ]
+
+
+def test_mediator_rejects_behavior_not_registered_with_provider() -> None:
+    """Test that an unregistered class in behaviors= fails at construction."""
+    from pymediate import InvalidPipelineBehaviorsError
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
+        def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    class UnregisteredBehavior(PipelineBehavior[CreateUserRequest]):
+        def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            return next()
+
+    services = Services()
+    services.add(CreateUserHandler())
+    provider = services.provider()
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="not registered"):
+        Mediator(provider, behaviors=[UnregisteredBehavior])
+
+
+def test_mediator_rejects_behavior_entry_not_a_pipeline_behavior_subclass() -> None:
+    """Test that a non-PipelineBehavior entry in behaviors= fails at construction."""
+    from pymediate import InvalidPipelineBehaviorsError
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
+        def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    class NotABehavior:
+        pass
+
+    services = Services()
+    services.add(CreateUserHandler())
+    provider = services.provider()
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="subclass"):
+        Mediator(provider, behaviors=[NotABehavior])  # type: ignore[list-item]
+
+
+def test_mediator_rejects_duplicate_behavior_in_behaviors_list() -> None:
+    """Test that a behavior class listed twice in behaviors= fails at construction."""
+    from pymediate import InvalidPipelineBehaviorsError
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
+        def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
+        def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            return next()
+
+    services = Services()
+    services.add(LoggingBehavior())
+    services.add(CreateUserHandler())
+    provider = services.provider()
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="more than once"):
+        Mediator(provider, behaviors=[LoggingBehavior, LoggingBehavior])
+
+
+def test_mediator_registered_but_unlisted_behavior_does_not_run() -> None:
+    """Test that a registered behavior absent from behaviors= is not part of the pipeline."""
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class CreateUserHandler(RequestHandler[CreateUserRequest]):
+        def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    log: list[str] = []
+
+    class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
+        def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            log.append("logging")
+            return next()
+
+    services = Services()
+    services.add(LoggingBehavior())  # registered...
+    services.add(CreateUserHandler())
+    provider = services.provider()
+
+    mediator = Mediator(provider)  # ...but not listed in behaviors=
+    mediator.send(CreateUserRequest(username="alice"))
+
+    assert log == []

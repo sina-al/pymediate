@@ -60,4 +60,4 @@ def build_mediator(
     services.add(CancelOrderHandler(store))
     services.add(RefundOrderHandler(store, payments))
     services.add(ExportOrdersHandler(store))
-    return Mediator(services.provider())
+    return Mediator(services.provider(), behaviors=[AuditBehavior])

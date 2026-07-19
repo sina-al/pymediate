@@ -11,10 +11,17 @@ and supports three dispatch forms: one response, a stream of chunks, or event pu
     ```python
     from collections.abc import AsyncIterator
 
-    from pymediate import Event, Request, ServiceProvider, StreamRequest
+    from collections.abc import Sequence
+
+    from pymediate import Event, PipelineBehavior, Request, ServiceProvider, StreamRequest
 
     class Mediator:
-        def __init__(self, services: ServiceProvider) -> None: ...
+        def __init__(
+            self,
+            services: ServiceProvider,
+            *,
+            behaviors: Sequence[type[PipelineBehavior]] | None = None,
+        ) -> None: ...
 
         async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT: ...
 
@@ -30,10 +37,17 @@ and supports three dispatch forms: one response, a stream of chunks, or event pu
     ```python
     from collections.abc import Iterator
 
-    from pymediate.sync import Event, Request, ServiceProvider, StreamRequest
+    from collections.abc import Sequence
+
+    from pymediate.sync import Event, PipelineBehavior, Request, ServiceProvider, StreamRequest
 
     class Mediator:
-        def __init__(self, services: ServiceProvider) -> None: ...
+        def __init__(
+            self,
+            services: ServiceProvider,
+            *,
+            behaviors: Sequence[type[PipelineBehavior]] | None = None,
+        ) -> None: ...
 
         def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT: ...
 
@@ -49,15 +63,25 @@ and supports three dispatch forms: one response, a stream of chunks, or event pu
 
 ## Constructor
 
-`Mediator(services)` accepts any object implementing the `ServiceProvider` protocol. The keyword
-name is `services`:
+`Mediator(services, behaviors=None)` accepts any object implementing the `ServiceProvider`
+protocol, plus the ordered `PipelineBehavior` classes that make up the pipeline. `services` and
+`behaviors` are both keyword names:
 
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services=services.provider())
+services = Services().add(RequestLogging()).add(PlaceOrderHandler())
+mediator = Mediator(services=services.provider(), behaviors=[RequestLogging])
 ```
+
+`behaviors` declares the pipeline explicitly: an ordered sequence of behavior classes, first entry
+outermost. A behavior registered with the provider but absent from `behaviors` is not part of the
+pipeline. Omitting `behaviors` (or passing `None`, the default) means no behaviors run.
+
+The mediator validates `behaviors` once, at construction: every entry must be a `PipelineBehavior`
+subclass of the mediator's variant, registered with the provider (checked via `has()`), and listed
+at most once. A violation raises `InvalidPipelineBehaviorsError` immediately, naming the offending
+entry, before any `send()`.
 
 The mediator keeps the provider for later dispatches. Handler and behavior lifetimes are therefore
 determined by that provider.
@@ -67,9 +91,10 @@ determined by that provider.
 `send()` uses the request's exact class to find its registered `RequestHandler` class, resolves a
 handler instance, and calls it. It returns the response type declared by `Request[ResponseT]`.
 
-Before the handler runs, the mediator resolves registered `PipelineBehavior` instances and keeps
-the ones whose `should_apply()` method returns `True`. The first registered applicable behavior is
-the outermost. If none apply, the mediator calls the handler without constructing a behavior chain.
+Before the handler runs, the mediator walks the constructor's `behaviors` sequence in order and
+keeps the entries whose `should_apply()` method returns `True`, resolving each through the
+provider. The first listed applicable behavior is the outermost. If none apply, the mediator calls
+the handler without constructing a behavior chain.
 
 | | |
 | --- | --- |

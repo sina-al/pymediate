@@ -103,6 +103,20 @@ Raised when a second request handler or stream handler is defined for a request 
 the process-wide registry. Its attributes retain the request type, both handler classes, and the
 first registration location when available. Event handlers do not use this one-handler limit.
 
+## Construction-time errors
+
+### `InvalidPipelineBehaviorsError`
+
+```python
+class InvalidPipelineBehaviorsError(PyMediateError):
+    def __init__(self, entry: object, issue: str): ...
+```
+
+`Mediator(services, behaviors=[...])` validates the `behaviors` sequence once, when the mediator is
+constructed. Raised when an entry is not a `PipelineBehavior` subclass of the mediator's variant,
+is not registered with `services`, or is listed more than once. The offending entry and a
+description of the failed check are stored as `entry` and `issue`.
+
 ## Dispatch-time errors
 
 ### `HandlerNotFoundError`
