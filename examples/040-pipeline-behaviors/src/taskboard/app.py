@@ -36,7 +36,7 @@ def build_mediator(
     trace: list[str] | None = None,
     principal: Principal | None = None,
 ) -> Mediator:
-    """Wire a mediator whose behaviors are registered outermost-first.
+    """Wire a mediator whose behaviors= list declares the pipeline outermost-first.
 
     Args:
         store: Task storage; a fresh empty store when omitted.
@@ -53,16 +53,23 @@ def build_mediator(
     principal = principal if principal is not None else Principal("system", can_write=True)
 
     services = Services()
-    # Registration order == execution order: first registered is the outermost wrapper.
-    services.add(LoggingBehavior(trace))  # 1. outermost — every request
-    services.add(AuthorizationBehavior(principal, trace))  # 2. commands only
-    services.add(CachingBehavior(cache, trace))  # 3. queries only; may short-circuit
-    services.add(TransactionBehavior(trace))  # 4. innermost — commands only
+    services.add(LoggingBehavior(trace))
+    services.add(AuthorizationBehavior(principal, trace))
+    services.add(CachingBehavior(cache, trace))
+    services.add(TransactionBehavior(trace))
     services.add(AddTaskHandler(store))
     services.add(CompleteTaskHandler(store))
     services.add(GetTaskHandler(store))
     services.add(ListOpenTasksHandler(store))
-    return Mediator(services.provider())
+    return Mediator(
+        services.provider(),
+        behaviors=[
+            LoggingBehavior,  # 1. outermost — every request
+            AuthorizationBehavior,  # 2. commands only
+            CachingBehavior,  # 3. queries only; may short-circuit
+            TransactionBehavior,  # 4. innermost — commands only
+        ],
+    )
 
 
 async def main() -> None:

@@ -123,8 +123,8 @@ class EditDocument(AuthenticatedRequest, MutatingCommand, Request[Document]):
 class RequireAuthentication(PipelineBehavior[AuthenticatedRequest]):
     """Reject an ``AuthenticatedRequest`` that has no principal.
 
-    Registered outermost, so the role and multifactor-authentication behaviors below can assume
-    a principal exists.
+    Placed outermost in the mediator's behaviors= list, so the role and
+    multifactor-authentication behaviors below can assume a principal exists.
     The injected ``audit`` list records every denial — a behavior can take constructor
     dependencies in the same way as a handler.
     """
@@ -277,10 +277,17 @@ def build_mediator(
     authorizer = DocumentAuthorizer()
 
     services = Services()
-    services.add(RequireAuthentication(audit))  # 1. outermost — every authenticated request
-    services.add(RequireRole(audit))  # 2. role-gated requests only
-    services.add(RequireMfa(audit))  # 3. mutating commands only (should_apply)
+    services.add(RequireAuthentication(audit))
+    services.add(RequireRole(audit))
+    services.add(RequireMfa(audit))
     services.add(ViewDocumentHandler(store))
     services.add(ListAllDocumentsHandler(store))
     services.add(EditDocumentHandler(store, authorizer))
-    return Mediator(services.provider())
+    return Mediator(
+        services.provider(),
+        behaviors=[
+            RequireAuthentication,  # 1. outermost — every authenticated request
+            RequireRole,  # 2. role-gated requests only
+            RequireMfa,  # 3. mutating commands only (should_apply)
+        ],
+    )
