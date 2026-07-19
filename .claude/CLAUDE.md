@@ -45,7 +45,7 @@ intentional variants (ADR 0008).
   `README.md`); not part of the package, not built or published.
 - `.github/workflows/` — CI pipelines; see "GitHub Actions workflows" below.
 - `.claude/` — Claude Code config for this repo: `settings.json`, project-specific skills
-  (`adr`, `release`, `update-uv`, `compare`, `example`, `edict`), and `.claude/context/*.md`:
+  (`adr`, `release`, `update-uv`, `compare`, `example`, `edict`, `docket`), and `.claude/context/*.md`:
   `api-signatures.md` is generated and imported into this CLAUDE.md (see "API Signatures"
   below) — regenerate, don't hand-edit; `mediator-survey.md` is the `/compare` skill's
   anonymized competitor knowledge base backing the docs site's comparison page — updated by
@@ -222,6 +222,14 @@ issue template, labels, titles, and the draft-label review gate (issues are file
 `draft` label and revised in place until the maintainer approves). Requests like "file an
 issue", "add this to the roadmap", "track this", or "put it on the board" all mean
 invoking that skill, even for one-liners.
+
+`edict` and `docket` are the two ends of the issue lifecycle: `edict` is the *in* (an idea
+becomes a filed, implementation-ready issue), `docket` is the *out* (all open issues become
+one recommendation for what to pick up next). `docket` is advisory and read-only — it reads
+issues and reasons out loud, never writing labels or the board. Requests like "what should I
+work on next", "what's next", "pick my next issue", or "what's on the docket" mean invoking
+that skill; it also has an allowance-burn mode for spending a soon-to-expire strong-model
+allowance on the work that most rewards it.
 
 ## Versioning
 
