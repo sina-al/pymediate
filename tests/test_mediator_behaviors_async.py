@@ -5,7 +5,14 @@ from dataclasses import dataclass
 
 import pytest
 
-from pymediate import Mediator, PipelineBehavior, Request, RequestHandler, Services
+from pymediate import (
+    InvalidPipelineBehaviorsError,
+    Mediator,
+    PipelineBehavior,
+    Request,
+    RequestHandler,
+    Services,
+)
 
 
 @pytest.mark.asyncio
@@ -69,7 +76,7 @@ async def test_async_mediator_with_single_behavior() -> None:
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncLoggingBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -79,7 +86,7 @@ async def test_async_mediator_with_single_behavior() -> None:
 
 @pytest.mark.asyncio
 async def test_async_mediator_with_multiple_behaviors() -> None:
-    """Test multiple async behaviors execute in registration order."""
+    """Test multiple async behaviors execute in the order the behaviors= list declares."""
 
     @dataclass
     class UserResponse:
@@ -112,12 +119,12 @@ async def test_async_mediator_with_multiple_behaviors() -> None:
             return response
 
     services = Services()
-    services.add(AsyncLoggingBehavior())  # Outermost
-    services.add(AsyncTimingBehavior())  # Inner
+    services.add(AsyncLoggingBehavior())
+    services.add(AsyncTimingBehavior())
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncLoggingBehavior, AsyncTimingBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -159,7 +166,7 @@ async def test_async_mediator_behaviors_can_modify_response() -> None:
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncResponseModifyingBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -195,7 +202,7 @@ async def test_async_mediator_behavior_can_short_circuit() -> None:
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncShortCircuitBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
 
     # RequestHandler should not be called
@@ -233,7 +240,7 @@ async def test_async_mediator_validation_behavior() -> None:
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncValidationBehavior])
 
     # Valid request should work
     response = await mediator.send(CreateUserRequest(username="alice"))
@@ -277,7 +284,7 @@ async def test_async_mediator_behaviors_are_stateful() -> None:
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncStatefulBehavior])
 
     # Call multiple times
     await mediator.send(CreateUserRequest(username="alice"))
@@ -314,7 +321,7 @@ async def test_async_mediator_behavior_exception_propagates() -> None:
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncExceptionBehavior])
 
     with pytest.raises(RuntimeError, match="Async behavior error"):
         await mediator.send(CreateUserRequest(username="alice"))
@@ -350,7 +357,7 @@ async def test_async_mediator_behavior_can_wrap_handler_exception() -> None:
     services.add(AsyncFailingHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncExceptionHandlingBehavior])
     response = await mediator.send(FailingRequest(username="alice"))
 
     # Exception was caught and handled
@@ -390,7 +397,7 @@ async def test_async_mediator_concurrent_requests_with_behaviors() -> None:
     services.add(AsyncCreateUserHandler())
     provider = services.provider()
 
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncLoggingBehavior])
 
     # Execute multiple requests concurrently
     results = await asyncio.gather(
@@ -406,3 +413,176 @@ async def test_async_mediator_concurrent_requests_with_behaviors() -> None:
     # All requests should have been logged
     assert log.count("logging:before") == 3
     assert log.count("logging:after") == 3
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_behaviors_order_follows_behaviors_list_not_registration() -> None:
+    """Test that the behaviors= list, not registration order, determines execution order."""
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
+        async def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    log: list[str] = []
+
+    class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest]):
+        async def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            log.append("logging:before")
+            response = await next()
+            log.append("logging:after")
+            return response
+
+    class AsyncTimingBehavior(PipelineBehavior[CreateUserRequest]):
+        async def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            log.append("timing:before")
+            response = await next()
+            log.append("timing:after")
+            return response
+
+    services = Services()
+    services.add(AsyncLoggingBehavior())
+    services.add(AsyncTimingBehavior())
+    services.add(AsyncCreateUserHandler())
+    provider = services.provider()
+
+    # Registration order (Logging, Timing) is reversed by behaviors=.
+    mediator = Mediator(provider, behaviors=[AsyncTimingBehavior, AsyncLoggingBehavior])
+    await mediator.send(CreateUserRequest(username="alice"))
+
+    assert log == [
+        "timing:before",
+        "logging:before",
+        "logging:after",
+        "timing:after",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_rejects_behavior_not_registered_with_provider() -> None:
+    """Test that an unregistered class in behaviors= fails at construction."""
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
+        async def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    class AsyncUnregisteredBehavior(PipelineBehavior[CreateUserRequest]):
+        async def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            return await next()
+
+    services = Services()
+    services.add(AsyncCreateUserHandler())
+    provider = services.provider()
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="not registered"):
+        Mediator(provider, behaviors=[AsyncUnregisteredBehavior])
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_rejects_behavior_entry_not_a_pipeline_behavior_subclass() -> None:
+    """Test that a non-PipelineBehavior entry in behaviors= fails at construction."""
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
+        async def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    class NotABehavior:
+        pass
+
+    services = Services()
+    services.add(AsyncCreateUserHandler())
+    provider = services.provider()
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="subclass"):
+        Mediator(provider, behaviors=[NotABehavior])  # type: ignore[list-item]
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_rejects_duplicate_behavior_in_behaviors_list() -> None:
+    """Test that a behavior class listed twice in behaviors= fails at construction."""
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
+        async def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest]):
+        async def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            return await next()
+
+    services = Services()
+    services.add(AsyncLoggingBehavior())
+    services.add(AsyncCreateUserHandler())
+    provider = services.provider()
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="more than once"):
+        Mediator(provider, behaviors=[AsyncLoggingBehavior, AsyncLoggingBehavior])
+
+
+@pytest.mark.asyncio
+async def test_async_mediator_registered_but_unlisted_behavior_does_not_run() -> None:
+    """Test that a registered behavior absent from behaviors= is not part of the pipeline."""
+
+    @dataclass
+    class UserResponse:
+        user_id: int
+        username: str
+
+    @dataclass
+    class CreateUserRequest(Request[UserResponse]):
+        username: str
+
+    class AsyncCreateUserHandler(RequestHandler[CreateUserRequest]):
+        async def __call__(self, request: CreateUserRequest) -> UserResponse:
+            return UserResponse(user_id=1, username=request.username)
+
+    log: list[str] = []
+
+    class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest]):
+        async def __call__(self, request, next):  # type: ignore[no-untyped-def]
+            log.append("logging")
+            return await next()
+
+    services = Services()
+    services.add(AsyncLoggingBehavior())  # registered...
+    services.add(AsyncCreateUserHandler())
+    provider = services.provider()
+
+    mediator = Mediator(provider)  # ...but not listed in behaviors=
+    await mediator.send(CreateUserRequest(username="alice"))
+
+    assert log == []

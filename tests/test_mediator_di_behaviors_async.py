@@ -13,7 +13,13 @@ from typing import Any
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import Mediator, PipelineBehavior, Request, RequestHandler
+from pymediate import (
+    InvalidPipelineBehaviorsError,
+    Mediator,
+    PipelineBehavior,
+    Request,
+    RequestHandler,
+)
 from pymediate.providers import DependencyInjectorServiceProvider
 
 # ============================================================================
@@ -168,7 +174,7 @@ async def test_async_di_mediator_with_single_behavior() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncIncrementBehavior])
 
     response = await mediator.send(AsyncCounterRequest(value=10))
 
@@ -194,7 +200,10 @@ async def test_async_di_mediator_with_multiple_behaviors() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(
+        provider,
+        behaviors=[AsyncIncrementBehavior, AsyncMultiplyBehavior, AsyncLoggingBehavior],
+    )
 
     response = await mediator.send(AsyncCounterRequest(value=10))
 
@@ -251,7 +260,7 @@ async def test_async_di_short_circuit_behavior() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncShortCircuitBehavior, AsyncIncrementBehavior])
 
     # Positive value - no short circuit
     response = await mediator.send(AsyncCounterRequest(value=5))
@@ -271,37 +280,42 @@ async def test_async_di_short_circuit_behavior() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_di_registration_order_matters() -> None:
-    """Test that async behavior registration order determines execution order."""
+async def test_async_di_behaviors_order_follows_behaviors_list_not_registration() -> None:
+    """Test that the behaviors= list, not container declaration order, determines order."""
 
     class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
         async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
 
-    # Container 1: increment then multiply
+    # Both containers declare increment then multiply; only the behaviors= list differs.
     class Container1(containers.DeclarativeContainer):
         increment = providers.Factory(AsyncIncrementBehavior, amount=5)
         multiply = providers.Factory(AsyncMultiplyBehavior, factor=2)
         handler = providers.Factory(AsyncCounterHandler)
 
-    # Container 2: multiply then increment
     class Container2(containers.DeclarativeContainer):
-        multiply = providers.Factory(AsyncMultiplyBehavior, factor=2)
         increment = providers.Factory(AsyncIncrementBehavior, amount=5)
+        multiply = providers.Factory(AsyncMultiplyBehavior, factor=2)
         handler = providers.Factory(AsyncCounterHandler)
 
-    mediator1 = Mediator(DependencyInjectorServiceProvider(Container1()))
-    mediator2 = Mediator(DependencyInjectorServiceProvider(Container2()))
+    mediator1 = Mediator(
+        DependencyInjectorServiceProvider(Container1()),
+        behaviors=[AsyncIncrementBehavior, AsyncMultiplyBehavior],
+    )
+    mediator2 = Mediator(
+        DependencyInjectorServiceProvider(Container2()),
+        behaviors=[AsyncMultiplyBehavior, AsyncIncrementBehavior],
+    )
 
     response1 = await mediator1.send(AsyncCounterRequest(value=10))
     response2 = await mediator2.send(AsyncCounterRequest(value=10))
 
-    # Container1: 10 * 2 = 20, then + 5 = 25
+    # mediator1: Increment outermost -> Multiply innermost: 10 * 2 = 20, then + 5 = 25
     assert response1.value == 25
     assert response1.execution_log == ["AsyncHandler", "AsyncMultiply(*2)", "AsyncIncrement(+5)"]
 
-    # Container2: (10 + 5) * 2 = 30
+    # mediator2: Multiply outermost -> Increment innermost: (10 + 5) * 2 = 30
     assert response2.value == 30
     assert response2.execution_log == ["AsyncHandler", "AsyncIncrement(+5)", "AsyncMultiply(*2)"]
 
@@ -328,7 +342,7 @@ async def test_async_di_singleton_behavior_reused() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncCountingBehavior])
 
     # Send 3 requests
     response1 = await mediator.send(AsyncCounterRequest(value=1))
@@ -361,7 +375,7 @@ async def test_async_di_factory_behavior_fresh_instances() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncCountingBehavior])
 
     # Send 3 requests
     response1 = await mediator.send(AsyncCounterRequest(value=1))
@@ -397,7 +411,7 @@ async def test_async_di_concurrent_requests() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncIncrementBehavior])
     increment_behavior = container.increment()
 
     # Send 10 concurrent requests
@@ -445,7 +459,7 @@ async def test_async_di_concurrent_requests_with_io() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[OverlapBehavior, AsyncIncrementBehavior])
 
     requests = [AsyncCounterRequest(value=i) for i in range(5)]
     responses = await asyncio.gather(*[mediator.send(req) for req in requests])
@@ -486,7 +500,7 @@ async def test_async_di_race_condition_safety() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[UnsafeCounterBehavior])
 
     # Send 10 concurrent requests
     responses = await asyncio.gather(
@@ -539,7 +553,7 @@ async def test_async_di_error_recovery() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncErrorRecoveryBehavior])
 
     # Normal request
     response = await mediator.send(AsyncErrorTestRequest(value=10))
@@ -574,7 +588,7 @@ async def test_async_di_exception_propagation() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncFailingBehavior, AsyncIncrementBehavior])
 
     # Normal request
     response = await mediator.send(AsyncCounterRequest(value=10))
@@ -619,7 +633,17 @@ async def test_async_di_complex_pipeline() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(
+        provider,
+        behaviors=[
+            AsyncValidationBehavior,
+            AsyncShortCircuitBehavior,
+            AsyncLoggingBehavior,
+            AsyncIOBehavior,
+            AsyncIncrementBehavior,
+            AsyncMultiplyBehavior,
+        ],
+    )
 
     # Normal execution
     response = await mediator.send(AsyncCounterRequest(value=20))
@@ -694,7 +718,7 @@ async def test_async_di_real_world_caching() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AsyncCachingBehavior, AsyncIncrementBehavior])
     cache = container.cache()
 
     # First request - cache miss
@@ -740,7 +764,7 @@ async def test_async_di_parallel_pipeline_execution() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[SlowBehavior])
 
     # Send 5 requests in parallel
     import time
@@ -757,6 +781,26 @@ async def test_async_di_parallel_pipeline_execution() -> None:
     assert duration < 0.15  # Allow some overhead
 
 
+def _make_labeled_async_logging_behavior(
+    label: str,
+) -> type[PipelineBehavior[AsyncCounterRequest]]:
+    """Build a distinct AsyncLoggingBehavior-shaped class for a given label.
+
+    ``behaviors=`` lists distinct classes and the DI provider's ``get()`` resolves the
+    first registered instance of an exact type, so ten providers of the *same* class
+    (as in the old registration-order-driven test) would only ever resolve one
+    instance. Ten distinct classes are needed to exercise a ten-behavior pipeline.
+    """
+
+    class _LabeledAsyncLoggingBehavior(PipelineBehavior[AsyncCounterRequest]):
+        async def __call__(self, request: AsyncCounterRequest, next: Any) -> AsyncCounterResponse:
+            response: AsyncCounterResponse = await next()
+            response.execution_log.append(f"AsyncLogging({label})")
+            return response
+
+    return _LabeledAsyncLoggingBehavior
+
+
 @pytest.mark.asyncio
 async def test_async_di_many_behaviors() -> None:
     """Test async mediator with many behaviors."""
@@ -766,25 +810,89 @@ async def test_async_di_many_behaviors() -> None:
             await asyncio.sleep(0.001)
             return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
 
-    class TestContainer(containers.DeclarativeContainer):
-        log1 = providers.Factory(AsyncLoggingBehavior, label="1")
-        log2 = providers.Factory(AsyncLoggingBehavior, label="2")
-        log3 = providers.Factory(AsyncLoggingBehavior, label="3")
-        log4 = providers.Factory(AsyncLoggingBehavior, label="4")
-        log5 = providers.Factory(AsyncLoggingBehavior, label="5")
-        log6 = providers.Factory(AsyncLoggingBehavior, label="6")
-        log7 = providers.Factory(AsyncLoggingBehavior, label="7")
-        log8 = providers.Factory(AsyncLoggingBehavior, label="8")
-        log9 = providers.Factory(AsyncLoggingBehavior, label="9")
-        log10 = providers.Factory(AsyncLoggingBehavior, label="10")
-        handler = providers.Factory(AsyncCounterHandler)
+    behavior_classes = [_make_labeled_async_logging_behavior(str(i)) for i in range(1, 11)]
+
+    namespace: dict[str, Any] = {
+        f"log{i}": providers.Factory(behavior_class)
+        for i, behavior_class in enumerate(behavior_classes)
+    }
+    namespace["handler"] = providers.Factory(AsyncCounterHandler)
+    TestContainer = type("TestContainer", (containers.DeclarativeContainer,), namespace)
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=behavior_classes)
 
     response = await mediator.send(AsyncCounterRequest(value=42))
 
     # All 10 behaviors should execute
     assert len([log for log in response.execution_log if log.startswith("AsyncLogging")]) == 10
     assert response.value == 42
+
+
+# ============================================================================
+# Tests: behaviors= Validation
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_async_di_registered_but_unlisted_behavior_does_not_run() -> None:
+    """Test that a behavior registered in the DI container but absent from behaviors=
+    is not part of the pipeline."""
+
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
+        async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
+            await asyncio.sleep(0.001)
+            return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        increment = providers.Factory(AsyncIncrementBehavior, amount=5)  # registered...
+        handler = providers.Factory(AsyncCounterHandler)
+
+    container = TestContainer()
+    provider = DependencyInjectorServiceProvider(container)
+    mediator = Mediator(provider)  # ...but not listed in behaviors=
+
+    response = await mediator.send(AsyncCounterRequest(value=10))
+
+    assert response.value == 10
+    assert response.execution_log == ["AsyncHandler"]
+
+
+@pytest.mark.asyncio
+async def test_async_di_mediator_rejects_behavior_not_registered_with_provider() -> None:
+    """Test that an unregistered class in behaviors= fails at construction."""
+
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
+        async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
+            await asyncio.sleep(0.001)
+            return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        handler = providers.Factory(AsyncCounterHandler)
+
+    container = TestContainer()
+    provider = DependencyInjectorServiceProvider(container)
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="not registered"):
+        Mediator(provider, behaviors=[AsyncIncrementBehavior])
+
+
+@pytest.mark.asyncio
+async def test_async_di_mediator_rejects_duplicate_behavior_in_behaviors_list() -> None:
+    """Test that a behavior class listed twice in behaviors= fails at construction."""
+
+    class AsyncCounterHandler(RequestHandler[AsyncCounterRequest]):
+        async def __call__(self, request: AsyncCounterRequest) -> AsyncCounterResponse:
+            await asyncio.sleep(0.001)
+            return AsyncCounterResponse(value=request.value, execution_log=["AsyncHandler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        increment = providers.Factory(AsyncIncrementBehavior, amount=5)
+        handler = providers.Factory(AsyncCounterHandler)
+
+    container = TestContainer()
+    provider = DependencyInjectorServiceProvider(container)
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="more than once"):
+        Mediator(provider, behaviors=[AsyncIncrementBehavior, AsyncIncrementBehavior])

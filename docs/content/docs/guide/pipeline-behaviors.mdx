@@ -41,7 +41,8 @@ checking is useful here.
 
 ## Follow the call order
 
-Behaviors form nested calls. The first registered behavior is the outermost:
+Behaviors form nested calls. The first entry in the mediator's `behaviors` sequence is the
+outermost:
 
 ```text
 Request
@@ -137,31 +138,41 @@ The mediator calls `should_apply()` for each registered behavior on every `send(
 
 ## Register and order behaviors
 
-Register behaviors through the same provider as handlers:
+Register behaviors through the same provider as handlers, then declare the pipeline explicitly
+with the mediator's `behaviors` argument - an ordered sequence of behavior classes, first entry
+outermost:
 
 ```python
 from pymediate import Mediator, Services
 
 services = (
     Services()
-    .add(RequestLogging())       # outermost
-    .add(ValidatePlaceOrder())   # runs inside logging
+    .add(RequestLogging())
+    .add(ValidatePlaceOrder())
     .add(PlaceOrderHandler())
 )
-mediator = Mediator(services.provider())
+mediator = Mediator(
+    services.provider(),
+    behaviors=[RequestLogging, ValidatePlaceOrder],  # RequestLogging outermost
+)
 ```
 
-Registration order is the execution order on the way into the handler; it reverses on the way
-out. When no registered behavior accepts a request, the mediator calls the handler directly and
+`behaviors` is the entire pipeline declaration - it does not have to match registration order, and
+a behavior registered with the provider but left out of `behaviors` is simply not part of this
+mediator's pipeline. Omitting `behaviors` (or passing `None`) means no behaviors run, even if some
+are registered. The mediator validates the sequence when it is constructed: every entry must be a
+`PipelineBehavior` subclass of the mediator's variant, registered with the provider, and listed at
+most once - an invalid entry raises `InvalidPipelineBehaviorsError` immediately, before any
+`send()`. When no listed behavior accepts a request, the mediator calls the handler directly and
 does not construct a behavior chain.
 
 Ordering changes semantics. For example, a transaction outside a retry covers every attempt in one
 transaction, while a transaction inside a retry can create one transaction per attempt. Define the
-intended order in application setup and cover it with a mediator-level test.
+intended order in `behaviors` and cover it with a mediator-level test.
 
-The provider controls behavior lifetimes. `Services` reuses the registered instances.
-`DependencyInjectorServiceProvider` can resolve behaviors through `Factory`, `Singleton`, or other
-supported container lifetimes.
+The provider controls behavior lifetimes; `behaviors` only controls which classes run and in what
+order. `Services` reuses the registered instances. `DependencyInjectorServiceProvider` can resolve
+behaviors through `Factory`, `Singleton`, or other supported container lifetimes.
 
 ## Use the synchronous behavior API
 
@@ -207,8 +218,8 @@ receipt = await behavior(
 assert receipt.order_id == 42
 ```
 
-Use a mediator-level test when behavior selection, registration order, or provider lifetimes are
-part of the behavior under test.
+Use a mediator-level test when behavior selection, pipeline order, or provider lifetimes are part
+of the behavior under test.
 
 ## Continue
 
