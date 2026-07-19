@@ -125,17 +125,17 @@ silently emptying the changelog rather than failing.
 
 ### Examples as release verification
 
-Every `examples/<name>/` is a standalone uv project that declares PyMediate as a normal
-dependency (see `examples/README.md` for the contract). The complete architecture example has
-one checkout-only editable source; release runs remove it and re-pin every project to the
-selected wheel or index version. The examples are the release pipeline's **proxy downstream
+Every `examples/<name>/` is a standalone uv project that declares PyMediate with a loose lower
+bound and depends on the in-branch source by default (`pymediate = { path = "../..", editable =
+true }`; see `examples/README.md` for the contract). Release runs strip that source from each
+temp copy and re-pin every project to the selected wheel or index version. The examples are the release pipeline's **proxy downstream
 users** — the only consumers of the package the pipeline can observe before real ones exist.
 The library's own test suite runs against the source tree inside the repo's environment; only
 the examples exercise what a release actually changes — the built artifact, resolved from an
 index, into a fresh environment, driving the public API the way the docs tell people to. The
-design rationale (why standalone uv projects, why outside the library's lint/type/coverage scopes,
-why the loose `>=` bound, why four gates rather than one) is recorded in
-[ADR 0007](docs/adr/0007-examples-as-release-verification.md).
+design rationale — why standalone uv projects, why outside the library's lint/type/coverage
+scopes, why the loose `>=` bound, why four gates rather than one — is summarized here and in
+`examples/README.md`.
 
 The runner has four targets: `--check-contract`, `--check-repository`, `--wheel`, and
 `--version`. Pull requests to `main` that change the library, an example, or the runner use

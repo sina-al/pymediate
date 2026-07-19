@@ -9,6 +9,13 @@ Use this when starting work on a design decision worth recording: changes to pub
 (`__all__`, `RequestHandler`, `Request`, `PipelineBehavior`, resolver protocols), generics/typing
 design, or anything CI's breaking-change checks would flag.
 
+**Scope: the package only.** ADRs record decisions about pymediate *the package* — its public
+API, generics/typing, runtime semantics, and breaking changes. A decision about CI, release
+pipelines, or repo/docs tooling does **not** get an ADR: document it in the operational doc that
+owns that area (`OPERATIONS.md`, `examples/README.md`, the relevant workflow comments, or a skill
+doc) instead. If the request is pipeline- or tooling-shaped, redirect there rather than
+scaffolding a file here.
+
 ## Steps
 
 1. **Determine the next number.** List `docs/adr/*.md`, take the highest `NNNN` prefix, increment
