@@ -98,12 +98,14 @@ these requirements:
    static contract check validates the requirement form, not every historical release.
 3. **Its tests run after the default sync.** Pytest belongs to the `dev` dependency group,
    and `uv sync && uv run pytest` exits with status 0.
-4. **The release runner controls PyMediate resolution.** The project contains no
-   `[[tool.uv.index]]`. `[tool.uv.sources]` may refer to packages inside the same example
-   with `{ workspace = true }`. `900-hexagonal-architecture` has the only PyMediate source
-   exception: an exact repository-relative editable source used for checkout development.
-   The runner validates and removes that entry in its temporary copy before applying a
-   wheel or index pin.
+4. **It depends on the in-branch PyMediate source, and the release runner controls
+   resolution.** Every example declares `pymediate = { path = "../..", editable = true }` in
+   `[tool.uv.sources]`, so `uv sync` in a checkout runs the example against this source tree —
+   including unreleased API on a feature branch. `[tool.uv.sources]` may otherwise only name
+   packages inside the same example with `{ workspace = true }`, and the project contains no
+   `[[tool.uv.index]]`. The runner strips the PyMediate source line from its temporary copy
+   before applying a wheel or index pin, so releases are still verified against the built,
+   published package rather than the checkout.
 5. **The project is isolated.** It does not import another example or rely on another
    example's environment, files, or registered handlers.
 

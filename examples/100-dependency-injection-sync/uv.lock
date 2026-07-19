@@ -67,16 +67,35 @@ wheels = [
 
 [[package]]
 name = "pymediate"
-version = "0.6.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a9/cd/a6ac5f36f6d534dc1593a5c7e374a6c01d53a85a4b05924760116920a94d/pymediate-0.6.0.tar.gz", hash = "sha256:b0768167493ebfd871db58c480f32e614e58c7cec0bd3177d3fa0414e2f39f8e", size = 1244084, upload-time = "2026-07-13T00:47:49.7Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/10/ef8b89d40b2c15b35801d756ad0afcd00086ca00e5d3a419a4be304212fa/pymediate-0.6.0-py3-none-any.whl", hash = "sha256:126f28572259bbbcce8796561945011b3b91d42c814d6a5a880c3b0ff7412aa7", size = 56444, upload-time = "2026-07-13T00:47:48.35Z" },
-]
+source = { editable = "../../" }
 
 [package.optional-dependencies]
 di = [
     { name = "dependency-injector" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "dependency-injector", marker = "extra == 'di'", specifier = ">=4.41.0" }]
+provides-extras = ["di"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "griffelib", specifier = ">=2.1.0" },
+    { name = "mypy", specifier = ">=1.13.0" },
+    { name = "poethepoet", specifier = ">=0.31.1" },
+    { name = "rich", specifier = ">=15.0.0" },
+    { name = "ruff", specifier = ">=0.8.4" },
+    { name = "typer", specifier = ">=0.26.8" },
+]
+test = [
+    { name = "basedpyright", specifier = ">=1.39.9" },
+    { name = "hypothesis", specifier = ">=6.100" },
+    { name = "mypy", specifier = ">=1.13.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-cov", specifier = ">=4.1.0" },
+    { name = "pytest-github-actions-annotate-failures", specifier = ">=0.2.0" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
 ]
 
 [[package]]
@@ -93,7 +112,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pymediate", extras = ["di"], specifier = ">=0.6.0" }]
+requires-dist = [{ name = "pymediate", extras = ["di"], editable = "../../" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.0.0" }]

@@ -57,8 +57,11 @@ STAGING_INDEX_NAME = "release-staging"
 # block) keeps this independent of uv's field order. See make_staging_index_explicit.
 STAGING_INDEX_NAME_LINE = re.compile(rf'(?m)^(name = "{STAGING_INDEX_NAME}"\n)')
 FLAGSHIP_EXAMPLE = "900-hexagonal-architecture"
-FLAGSHIP_PYMEDIATE_SOURCE = {"path": "../..", "editable": True}
-FLAGSHIP_PYMEDIATE_SOURCE_LINE = 'pymediate = { path = "../..", editable = true }\n'
+# Every example depends on the in-branch pymediate source by default, so `uv sync` in a
+# checkout runs against this source tree. The release runner strips this exact line from its
+# temp copy (copy_example_for_release) and re-pins to the wheel or published version under test.
+PYMEDIATE_SOURCE = {"path": "../..", "editable": True}
+PYMEDIATE_SOURCE_LINE = 'pymediate = { path = "../..", editable = true }\n'
 PYMEDIATE_REQUIREMENT = re.compile(r"pymediate(?:\[[A-Za-z0-9_,.-]+\])?>=\d+(?:\.\d+){1,2}")
 EXAMPLE_DIRECTORY = re.compile(r"\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*")
 MARKDOWN_LINK = re.compile(r"!?\[[^]]*\]\(([^)]+)\)")
@@ -141,21 +144,20 @@ def check_contract(pyproject: Path) -> str | None:
     sources = uv.get("sources", {}) if isinstance(uv, dict) else {}
     if not isinstance(sources, dict):
         return "has an invalid [tool.uv.sources] table"
-    invalid_sources = {}
-    for name, source in sources.items():
-        is_flagship_checkout = (
-            example.name == FLAGSHIP_EXAMPLE
-            and name == "pymediate"
-            and source == FLAGSHIP_PYMEDIATE_SOURCE
-            and text.count(FLAGSHIP_PYMEDIATE_SOURCE_LINE) == 1
+    if sources.get("pymediate") != PYMEDIATE_SOURCE or text.count(PYMEDIATE_SOURCE_LINE) != 1:
+        return (
+            "must declare the in-branch pymediate source exactly once as "
+            f"`{PYMEDIATE_SOURCE_LINE.strip()}`; the release runner strips it per example"
         )
-        if not is_flagship_checkout and (name == "pymediate" or source != {"workspace": True}):
-            invalid_sources[name] = source
+    invalid_sources = {
+        name: source
+        for name, source in sources.items()
+        if name != "pymediate" and source != {"workspace": True}
+    }
     if invalid_sources:
         return (
-            "defines a non-workspace [tool.uv.sources] entry; only internal "
-            "{ workspace = true } sources and the flagship's exact local pymediate source "
-            "are allowed"
+            "defines a disallowed [tool.uv.sources] entry; only the in-branch pymediate "
+            "source and internal { workspace = true } sources are allowed"
         )
     return None
 
@@ -521,22 +523,22 @@ def check_repository_quality(examples: list[Path]) -> dict[str, list[str]]:
 
 
 def copy_example_for_release(example: Path, workspace: Path) -> None:
-    """Copy one example and remove the flagship's checkout-only source override."""
+    """Copy one example and remove its checkout-only in-branch pymediate source.
+
+    Every example depends on the source tree via ``[tool.uv.sources]`` for local development;
+    stripping that line lets the runner re-pin the copy to the wheel or published version under
+    test, so releases are verified against the built package rather than the checkout.
+    """
     shutil.copytree(
         example,
         workspace,
         ignore=shutil.ignore_patterns(".venv", "__pycache__", ".pytest_cache"),
     )
-    if example.name != FLAGSHIP_EXAMPLE:
-        return
-
     pyproject = workspace / "pyproject.toml"
     text = pyproject.read_text()
-    if text.count(FLAGSHIP_PYMEDIATE_SOURCE_LINE) != 1:
-        raise RuntimeError(
-            "flagship pymediate source no longer matches the release-runner contract"
-        )
-    pyproject.write_text(text.replace(FLAGSHIP_PYMEDIATE_SOURCE_LINE, ""))
+    if text.count(PYMEDIATE_SOURCE_LINE) != 1:
+        raise RuntimeError("example pymediate source no longer matches the release-runner contract")
+    pyproject.write_text(text.replace(PYMEDIATE_SOURCE_LINE, ""))
 
 
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
