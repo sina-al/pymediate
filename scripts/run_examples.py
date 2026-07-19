@@ -52,9 +52,16 @@ from urllib.parse import unquote, urlsplit
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples"
 STAGING_INDEX_NAME = "release-staging"
+# The `name = "..."` line `uv add --index` writes for the staging index. The runner inserts
+# `explicit = true` right after it — anchoring on the unique name line (rather than the whole
+# block) keeps this independent of uv's field order. See make_staging_index_explicit.
+STAGING_INDEX_NAME_LINE = re.compile(rf'(?m)^(name = "{STAGING_INDEX_NAME}"\n)')
 FLAGSHIP_EXAMPLE = "900-hexagonal-architecture"
-FLAGSHIP_PYMEDIATE_SOURCE = {"path": "../..", "editable": True}
-FLAGSHIP_PYMEDIATE_SOURCE_LINE = 'pymediate = { path = "../..", editable = true }\n'
+# Every example depends on the in-branch pymediate source by default, so `uv sync` in a
+# checkout runs against this source tree. The release runner strips this exact line from its
+# temp copy (copy_example_for_release) and re-pins to the wheel or published version under test.
+PYMEDIATE_SOURCE = {"path": "../..", "editable": True}
+PYMEDIATE_SOURCE_LINE = 'pymediate = { path = "../..", editable = true }\n'
 PYMEDIATE_REQUIREMENT = re.compile(r"pymediate(?:\[[A-Za-z0-9_,.-]+\])?>=\d+(?:\.\d+){1,2}")
 EXAMPLE_DIRECTORY = re.compile(r"\d{3}-[a-z0-9]+(?:-[a-z0-9]+)*")
 MARKDOWN_LINK = re.compile(r"!?\[[^]]*\]\(([^)]+)\)")
@@ -137,21 +144,20 @@ def check_contract(pyproject: Path) -> str | None:
     sources = uv.get("sources", {}) if isinstance(uv, dict) else {}
     if not isinstance(sources, dict):
         return "has an invalid [tool.uv.sources] table"
-    invalid_sources = {}
-    for name, source in sources.items():
-        is_flagship_checkout = (
-            example.name == FLAGSHIP_EXAMPLE
-            and name == "pymediate"
-            and source == FLAGSHIP_PYMEDIATE_SOURCE
-            and text.count(FLAGSHIP_PYMEDIATE_SOURCE_LINE) == 1
+    if sources.get("pymediate") != PYMEDIATE_SOURCE or text.count(PYMEDIATE_SOURCE_LINE) != 1:
+        return (
+            "must declare the in-branch pymediate source exactly once as "
+            f"`{PYMEDIATE_SOURCE_LINE.strip()}`; the release runner strips it per example"
         )
-        if not is_flagship_checkout and (name == "pymediate" or source != {"workspace": True}):
-            invalid_sources[name] = source
+    invalid_sources = {
+        name: source
+        for name, source in sources.items()
+        if name != "pymediate" and source != {"workspace": True}
+    }
     if invalid_sources:
         return (
-            "defines a non-workspace [tool.uv.sources] entry; only internal "
-            "{ workspace = true } sources and the flagship's exact local pymediate source "
-            "are allowed"
+            "defines a disallowed [tool.uv.sources] entry; only the in-branch pymediate "
+            "source and internal { workspace = true } sources are allowed"
         )
     return None
 
@@ -517,22 +523,22 @@ def check_repository_quality(examples: list[Path]) -> dict[str, list[str]]:
 
 
 def copy_example_for_release(example: Path, workspace: Path) -> None:
-    """Copy one example and remove the flagship's checkout-only source override."""
+    """Copy one example and remove its checkout-only in-branch pymediate source.
+
+    Every example depends on the source tree via ``[tool.uv.sources]`` for local development;
+    stripping that line lets the runner re-pin the copy to the wheel or published version under
+    test, so releases are verified against the built package rather than the checkout.
+    """
     shutil.copytree(
         example,
         workspace,
         ignore=shutil.ignore_patterns(".venv", "__pycache__", ".pytest_cache"),
     )
-    if example.name != FLAGSHIP_EXAMPLE:
-        return
-
     pyproject = workspace / "pyproject.toml"
     text = pyproject.read_text()
-    if text.count(FLAGSHIP_PYMEDIATE_SOURCE_LINE) != 1:
-        raise RuntimeError(
-            "flagship pymediate source no longer matches the release-runner contract"
-        )
-    pyproject.write_text(text.replace(FLAGSHIP_PYMEDIATE_SOURCE_LINE, ""))
+    if text.count(PYMEDIATE_SOURCE_LINE) != 1:
+        raise RuntimeError("example pymediate source no longer matches the release-runner contract")
+    pyproject.write_text(text.replace(PYMEDIATE_SOURCE_LINE, ""))
 
 
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -541,6 +547,34 @@ def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     # targets the example workspace's environment, not the caller's.
     env = {key: value for key, value in os.environ.items() if key != "VIRTUAL_ENV"}
     return subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, env=env)
+
+
+def pymediate_extras(pyproject: Path) -> str:
+    """Return the example's pymediate extras suffix, e.g. ``[di]`` (empty string if none)."""
+    data = tomllib.loads(pyproject.read_text())
+    project = data.get("project", {})
+    dependencies = project.get("dependencies", []) if isinstance(project, dict) else []
+    for dependency in dependencies:
+        if isinstance(dependency, str) and dependency.replace(" ", "").startswith("pymediate"):
+            match = re.match(r"pymediate(\[[A-Za-z0-9_,.-]+\])?", dependency.replace(" ", ""))
+            if match:
+                return match.group(1) or ""
+    return ""
+
+
+def make_staging_index_explicit(pyproject: Path) -> None:
+    """Mark the runner's staging index ``explicit`` so only pymediate resolves from it.
+
+    ``uv add --index`` writes a general index, which uv's first-index strategy then prefers
+    for *every* dependency — pulling stale placeholders (pytest, click, jsonschema, …) off
+    TestPyPI and making resolution unsatisfiable (issue #126). An explicit index is consulted
+    only for packages that name it in ``[tool.uv.sources]``, i.e. pymediate alone.
+    """
+    text = pyproject.read_text()
+    patched, count = STAGING_INDEX_NAME_LINE.subn(lambda m: m.group(1) + "explicit = true\n", text)
+    if count != 1:
+        raise RuntimeError(f"could not mark the {STAGING_INDEX_NAME} index explicit")
+    pyproject.write_text(patched)
 
 
 def run_example(
@@ -567,20 +601,33 @@ def run_example(
         # source — no index involvement at all.
         pin_cmd = ["uv", "add", str(wheel.resolve())]
     else:
+        # Version mode: pin pymediate to the release candidate on the staging index while
+        # every other dependency keeps resolving from real PyPI. `--frozen` writes the pin
+        # (extras preserved) and the staging-index source without resolving; the follow-up
+        # make_staging_index_explicit call then marks that index `explicit` so only pymediate
+        # is ever fetched from it (see that helper and issue #126).
         pin_cmd = [
             "uv",
             "add",
+            "--frozen",
             "--index",
             f"{STAGING_INDEX_NAME}={index_url}",
-            f"pymediate=={version}",
+            f"pymediate{pymediate_extras(example / 'pyproject.toml')}=={version}",
         ]
 
-    steps = [
-        pin_cmd,
-        ["uv", "sync"],
-        ["uv", "run", "pytest"],
-    ]
-    for cmd in steps:
+    proc = run(pin_cmd, cwd=workspace)
+    sys.stdout.write(proc.stdout)
+    sys.stderr.write(proc.stderr)
+    if proc.returncode != 0:
+        return Result(name, ok=False, detail=f"`{' '.join(pin_cmd)}` exited {proc.returncode}")
+
+    if wheel is None:
+        try:
+            make_staging_index_explicit(workspace / "pyproject.toml")
+        except RuntimeError as error:
+            return Result(name, ok=False, detail=str(error))
+
+    for cmd in (["uv", "sync"], ["uv", "run", "pytest"]):
         proc = run(cmd, cwd=workspace)
         sys.stdout.write(proc.stdout)
         sys.stderr.write(proc.stderr)
