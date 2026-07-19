@@ -112,6 +112,15 @@ Writing rules:
 
 - Exact names, paths, versions — never "the config" when you mean a specific file.
 - Self-sufficient: no "as discussed", no reference to this conversation.
+- **Never quote the maintainer's chat message.** The request reaches the issue only as a
+  polished, third-person spec — the maintainer's raw words (verbatim, paraphrased-but-attributed,
+  or in quotation marks) never appear anywhere in the body. This is absolute and covers every
+  section, but **Motivation is where it slips**: write the rationale as the project's own
+  reasoning from the evidence (file refs, error output, observed friction), not as "the
+  maintainer said X" or "per the maintainer, …". If a decision's only justification is that the
+  maintainer directed it, state the decision and its consequence — record the directive in the
+  Decisions table as a settled call, without reproducing how it was phrased in chat. The issue
+  should read as though the project authored it, with no trace that a person typed a prompt.
 - Note versioning/process implications the repo defines (see plumbing) — e.g. whether the
   change needs an ADR or lands as minor vs patch.
 

@@ -26,11 +26,12 @@ intentional variants (ADR 0008).
   "Docs" below. Site content lives in `docs/content/`; the rest is app code.
   - `docs/adr/` — architecture decision records for nontrivial design changes; see "ADRs"
     below. Deliberately outside `docs/content/`, so they are never published on the site.
-- `examples/` — standalone uv projects demonstrating the package against its *released*
-  PyPI distribution (not the source tree); each satisfies the contract in
-  `examples/README.md`, and the release pipeline runs them all four times via
-  `scripts/run_examples.py` (release-PR wheel, release wheel, TestPyPI, PyPI smoke —
-  see OPERATIONS.md and ADR 0007). Not covered by the library's lint/type/coverage
+- `examples/` — standalone uv projects that depend on the *in-branch* pymediate source by
+  default (each carries `pymediate = { path = "../..", editable = true }`, so `uv sync` runs
+  them against this checkout); each satisfies the contract in `examples/README.md`, and the
+  release pipeline strips that source and re-pins to the built/published package, running them
+  all four times via `scripts/run_examples.py` (release-PR wheel, release wheel, TestPyPI, PyPI
+  smoke — see OPERATIONS.md). Not covered by the library's lint/type/coverage
   scopes — each example carries its own `[tool.ruff]`, `pyrightconfig.json`, and
   `.vscode/settings.json` so it's pleasant opened standalone. **Any work on an example
   (new, restructure, or README edit) goes through the `example` skill** — it owns the
@@ -202,11 +203,15 @@ fully known.
 
 ## ADRs
 
-Nontrivial design/API changes get a numbered ADR in `docs/adr/`, following the existing
-template (Context → Investigation/Proposed Solutions → Pros/Cons → Decision → Consequences).
-Existing ADRs (0001, 0002) were authored by Claude and reviewed by @sina-al (repo owner's GitHub
-handle) — continue that pattern for anything touching public API shape, generics design, or
-breaking changes. Use the `/adr` skill to scaffold a new one.
+ADRs are scoped to **the package itself** — public API shape, generics/typing design, runtime
+semantics, breaking changes. CI, release pipelines, and repo/docs tooling do **not** get ADRs;
+their design lives in the operational doc that owns them (`OPERATIONS.md`, `examples/README.md`,
+workflow comments, skill docs). A nontrivial package-design change gets a numbered ADR in
+`docs/adr/`, following the existing template (Context → Investigation/Proposed Solutions →
+Pros/Cons → Decision → Consequences). Existing ADRs (0001, 0002) were authored by Claude and
+reviewed by @sina-al (repo owner's GitHub handle) — continue that pattern for anything touching
+public API shape, generics design, or breaking changes. Use the `/adr` skill to scaffold a new
+one.
 
 ADR 0002 revisits and overturns part of ADR 0001's decision (0001 rejected a single type
 parameter for `PipelineBehavior`; 0002 later adopted one for the narrower case of selective

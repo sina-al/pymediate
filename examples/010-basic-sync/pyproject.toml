@@ -18,6 +18,11 @@ dev = [
 # An example is an application, not a distributable package: nothing to build or install.
 package = false
 
+[tool.uv.sources]
+# Depend on the in-branch pymediate source by default; the release runner strips this
+# line in its temp copy and re-pins to the build under test (scripts/run_examples.py).
+pymediate = { path = "../..", editable = true }
+
 [tool.ruff]
 line-length = 100
 

@@ -32,6 +32,11 @@ packages = ["src/catalog"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
+[tool.uv.sources]
+# Depend on the in-branch pymediate source by default; the release runner strips this
+# line in its temp copy and re-pins to the build under test (scripts/run_examples.py).
+pymediate = { path = "../..", editable = true }
+
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]

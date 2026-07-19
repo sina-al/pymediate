@@ -24,6 +24,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/orders"]
 
+[tool.uv.sources]
+# Depend on the in-branch pymediate source by default; the release runner strips this
+# line in its temp copy and re-pins to the build under test (scripts/run_examples.py).
+pymediate = { path = "../..", editable = true }
+
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
