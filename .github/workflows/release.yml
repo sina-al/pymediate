@@ -281,11 +281,13 @@ jobs:
         # Each examples/<name>/ is a standalone uv project re-pinned to the version just
         # published on TestPyPI (only pymediate resolves there; its dependencies come from
         # real PyPI). This validates the publish-and-install path — the code itself already
-        # passed the wheel stage.
+        # passed the wheel stage. Remove the checkout source first so an accidental local
+        # import cannot mask a broken TestPyPI installation.
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          uv run poe examples:test --version "${VERSION_TAG#v}" \
+          rm -rf src/pymediate
+          uv run --no-sync poe examples:test --version "${VERSION_TAG#v}" \
             --index https://test.pypi.org/simple/
 
   publish-pypi:
@@ -345,10 +347,12 @@ jobs:
             --index https://pypi.org/simple/
 
       - name: Run examples suite against the PyPI release
+        # As above, remove the checkout source before testing the artifact users install.
         env:
           VERSION_TAG: ${{ github.ref_name }}
         run: |
-          uv run poe examples:test --version "${VERSION_TAG#v}" \
+          rm -rf src/pymediate
+          uv run --no-sync poe examples:test --version "${VERSION_TAG#v}" \
             --index https://pypi.org/simple/
 
   create-release:
