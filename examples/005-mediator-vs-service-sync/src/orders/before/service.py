@@ -4,7 +4,7 @@ Every operation is a typed method. The class also exposes an optional string-bas
 `dispatch` method for dynamic callers. That method demonstrates properties of string
 routing; those properties do not apply to callers that use the typed methods directly.
 
-This is the synchronous mirror of `examples/005-why-a-mediator/`.
+This is the synchronous mirror of `examples/005-mediator-vs-service/`.
 """
 
 from typing import Any

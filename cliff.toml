@@ -6,11 +6,20 @@
 # OPERATIONS.md § "Release notes"). git-cliff is invoked in exactly two places, both on a
 # single release's commits:
 #
-#   1. prepare-release.yml — `--unreleased --tag vX.Y.Z --strip all` into the release PR body
-#      (the "## Changelog" section). `--strip all` drops the footer because the compare link
-#      would point at a tag that does not exist yet (the release isn't tagged until merge).
-#   2. release:notes poe task — `--current --strip header` into the GitHub Release body.
-#      Keeps the footer, whose compare link is valid because the tag now exists.
+#   1. prepare-release.yml — `<last-released-tag>.. --tag vX.Y.Z --strip all` into the
+#      release PR body (the "## Changelog" section). `--strip all` drops the footer because
+#      the compare link would point at a tag that does not exist yet (the release isn't
+#      tagged until merge).
+#   2. release:notes poe task — `<last-released-tag>.. --tag vX.Y.Z --strip header` into the
+#      GitHub Release body. Keeps the footer, whose compare link is valid because the tag now
+#      exists.
+#
+# Both anchor the range on the last tag with a *published* GitHub Release (queried via `gh
+# release list`), not simply the last git tag: tag-release.yml tags a release's merge commit
+# before release.yml runs, so a version that reaches TestPyPI (burning it) and then fails
+# downstream leaves a real tag with no Release. Basing the range on that raw tag would
+# silently drop its content from every future release's changelog (this shipped once as
+# v0.7.1's empty notes, when nothing since burned v0.7.0 touched src/pymediate/).
 #
 # Both invocations pass `--include-path 'src/pymediate/**'` (QUOTED — an unquoted glob is
 # expanded by the caller's shell / poethepoet into absolute paths that match no commit,

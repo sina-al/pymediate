@@ -1,10 +1,10 @@
-# 005-why-a-mediator-sync
+# 005-mediator-vs-service
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F005-why-a-mediator-sync%2Fdevcontainer.json)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F005-mediator-vs-service%2Fdevcontainer.json)
 
-This optional orientation compares two synchronous implementations of the same orders
-feature: one `OrderService` and one request handler per operation. Start with
-[010-basic-sync](../010-basic-sync/) for the first synchronous implementation lesson.
+This optional orientation compares two implementations of the same orders feature: one
+`OrderService` and one request handler per operation. Start with
+[010-basic](../010-basic/) for the first PyMediate implementation lesson.
 
 ## Run
 
@@ -32,13 +32,13 @@ happens when dynamic callers route operations by string:
 class OrderService:
     def __init__(self, store, payments, mailer, inventory, audit): ...
 
-    def place_order(self, customer_id: int, items: list[str]) -> Order: ...
-    def refund(self, order_id: int, amount: int) -> Order: ...
-    def export_orders(self, customer_id: int, fmt: str = "csv") -> ExportResult: ...
+    async def place_order(self, customer_id: int, items: list[str]) -> Order: ...
+    async def refund(self, order_id: int, amount: int) -> Order: ...
+    async def export_orders(self, customer_id: int, fmt: str = "csv") -> ExportResult: ...
 
-    def dispatch(self, action: str, payload: dict[str, Any]) -> Any:
+    async def dispatch(self, action: str, payload: dict[str, Any]) -> Any:
         if action == "place_order":
-            return self.place_order(payload["customer_id"], payload["items"])
+            return await self.place_order(payload["customer_id"], payload["items"])
         ...
 ```
 
@@ -72,15 +72,15 @@ class RefundOrderHandler(RequestHandler[RefundOrder]):
         self._store = store
         self._payments = payments
 
-    def __call__(self, request: RefundOrder) -> Order:
+    async def __call__(self, request: RefundOrder) -> Order:
         ...
 
-order = mediator.send(RefundOrder(order_id=1, amount=10))   # order is an Order — typed
+order = await mediator.send(RefundOrder(order_id=1, amount=10))   # order is an Order — typed
 ```
 
-Everything imports from `pymediate.sync` and `send` returns directly. Auditing moves to one
-`AuditBehavior` in [`wiring.py`](src/orders/after/wiring.py). It records every request that
-completes successfully, so individual handlers do not repeat that call. See
+Auditing moves to one `AuditBehavior` in
+[`wiring.py`](src/orders/after/wiring.py). It records every request that completes
+successfully, so individual handlers do not repeat that call. See
 [`src/orders/after/operations.py`](src/orders/after/operations.py).
 
 ## Compare the results
@@ -120,16 +120,16 @@ In suggested reading order:
 
 - This example compares dispatch typing, audit placement, and constructor dependencies. It
   does not cover dependency injection containers or events.
-- This is the synchronous mirror of [005-why-a-mediator](../005-why-a-mediator/).
-  `RequestHandler`, `Mediator`, and `PipelineBehavior` have synchronous implementations;
-  `Request` and `Services` are shared by both APIs.
+- Async is the default here. [005-mediator-vs-service-sync](../005-mediator-vs-service-sync/) uses
+  synchronous handlers and removes `async` and `await`.
 - Everything is in memory, so each test starts from an empty store.
 
 ## Where next
 
-- [010-basic-sync](../010-basic-sync/) — the first synchronous implementation lesson: one
-  request, one handler, and one `send()` call.
-- [005-why-a-mediator](../005-why-a-mediator/) — this orientation on the asynchronous API.
+- [010-basic](../010-basic/) — the first implementation lesson: one request, one handler,
+  and one `send()` call.
+- [005-mediator-vs-service-sync](../005-mediator-vs-service-sync/) — this orientation on
+  `pymediate.sync`.
 - The essay this example makes runnable:
   [*Using a mediator to reduce change coupling*](https://pymediate.sina-al.uk/articles/using-a-mediator-to-reduce-change-coupling).
 - The docs: [core concepts](https://pymediate.sina-al.uk/docs/getting-started/concepts) ·

@@ -84,8 +84,10 @@ commit, running the same poe tasks as CI. Local hooks only, so tool versions com
 ## GitHub Actions workflows
 
 zizmor owns the security bar for `.github/workflows/**` — run `uv run poe actions:lint`
-after any edit; `checks.yml` enforces it in CI, so a finding you don't fix or explicitly
-ignore (with a justification comment) will fail the PR. Its audits mechanically cover
+after any edit; `zizmor.yaml` enforces it in CI with the official, commit-pinned action.
+Its audit job is path-scoped, while an always-reporting summary keeps the required check from
+hanging unrelated PRs. A finding you don't fix or explicitly ignore (with a justification
+comment) will fail the PR. Its audits mechanically cover
 action pinning, template injection, permissions, dangerous triggers, and trusted
 publishing. The judgment calls it can't lint — trigger scoping (`paths:`/`branches:` +
 concurrency), `workflow_run` privilege separation over `pull_request_target`, whether a
