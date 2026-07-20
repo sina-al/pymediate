@@ -117,21 +117,45 @@ jobs:
             echo "last_tag=${LAST_TAG}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Determine last released tag
+        id: last-released
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        # Distinct from LAST_TAG above (which stays the raw last git tag - correct for
+        # version arithmetic and for "this PR's diff is everything since X" below, since both
+        # are about main's code history, tag-published-or-not). This one is the base for the
+        # *changelog* narrative: a tag can exist without a published Release if a previous
+        # release.yml run tagged it, reached TestPyPI (burning the version), then failed
+        # before create-release. Using the raw last tag as the changelog base would silently
+        # drop that burned tag's content from every future release's notes (this happened:
+        # v0.7.0 burned, and v0.7.1's notes came out empty because nothing since v0.7.0
+        # touched src/pymediate/).
+        run: |
+          LAST_RELEASED_TAG=$(gh release list --exclude-drafts --exclude-pre-releases \
+            --limit 1 --json tagName --jq '.[0].tagName // empty' --repo "$GITHUB_REPOSITORY")
+          echo "last_released_tag=${LAST_RELEASED_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Last published release: ${LAST_RELEASED_TAG:-<none>}"
+
       - name: Render changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          LAST_TAG: ${{ steps.version.outputs.last_tag }}
-        # The explicit `LAST_TAG..` range replaces --unreleased: cliff's "unreleased" means
-        # "since the last tag on this history", and release tags aren't on main's history
-        # (see the version step). The range works because the tagged merge commit contains
-        # main up to the cut. --tag labels the commits as the proposed release. Same
+          LAST_RELEASED_TAG: ${{ steps.last-released.outputs.last_released_tag }}
+        # The explicit `LAST_RELEASED_TAG..` range replaces --unreleased: cliff's "unreleased"
+        # means "since the last tag on this history", and release tags aren't on main's
+        # history (see the version step). The range works because the tagged merge commit
+        # contains main up to the cut. --tag labels the commits as the proposed release. Same
         # commit-type and src/pymediate/** path filtering as the release notes (cliff.toml +
         # release:notes task). --strip all drops both the header and the footer: the
         # footer's compare link targets vX.Y.Z, which isn't tagged until this PR merges, so
         # it would 404 in the PR body (the GitHub Release notes keep it — the tag exists there).
         run: |
-          uvx git-cliff "${LAST_TAG}.." --tag "v${VERSION}" \
-            --include-path 'src/pymediate/**' --strip all -o changelog.md
+          if [ -n "$LAST_RELEASED_TAG" ]; then
+            uvx git-cliff "${LAST_RELEASED_TAG}.." --tag "v${VERSION}" \
+              --include-path 'src/pymediate/**' --strip all -o changelog.md
+          else
+            uvx git-cliff --tag "v${VERSION}" \
+              --include-path 'src/pymediate/**' --strip all -o changelog.md
+          fi
           cat changelog.md
 
       - name: Close superseded release PRs
