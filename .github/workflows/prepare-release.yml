@@ -26,6 +26,12 @@ on:
 permissions:
   contents: read
 
+# Release preparation mutates one shared cut branch/PR at a time. Do not cancel an active
+# run midway through those mutations; a later dispatch waits and then reconciles state.
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
 jobs:
   prepare:
     name: Open release PR
@@ -39,7 +45,9 @@ jobs:
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.PYMEDIATE_RELEASER_CLIENT_ID }}
-          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
+          # This repository secret authenticates the release App. It intentionally is not
+          # tied to an approval environment: workflow_dispatch authorization is the gate.
+          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }} # zizmor: ignore[secrets-outside-env]
           # Push the cut branch (contents) and open/close PRs (pull-requests). Nothing else.
           permission-contents: write
           permission-pull-requests: write

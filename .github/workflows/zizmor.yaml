@@ -1,0 +1,109 @@
+name: Zizmor
+
+# Security-lint every GitHub Actions workflow whenever that attack surface changes.
+# There is intentionally no schedule: action and scanner upgrades arrive through the
+# existing weekly Dependabot github-actions updates, and each resulting PR reruns this gate.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+  # Required workflows cannot use a pull_request paths filter: GitHub leaves the required
+  # check pending forever when the filter skips a PR. This event therefore starts a tiny
+  # path-detection/summary pair on every PR; the audit job itself still runs only when a
+  # workflow file changes.
+  pull_request:
+    branches: [main, stable]
+
+# The audit needs repository contents; path detection reads the PR's changed-file list.
+# All write permissions remain disabled by least privilege.
+permissions:
+  contents: read
+  pull-requests: read # Read the PR file list for workflow-only audit gating.
+
+# A newer workflow edit supersedes an older audit for the same PR or branch.
+concurrency:
+  group: "zizmor-${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect workflow changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    outputs:
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            workflows:
+              - ".github/workflows/**"
+
+  audit:
+    name: Audit workflows
+    runs-on: ubuntu-latest
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.workflows == 'true')
+    steps:
+      - name: Checkout workflows
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Audit workflows
+        # The action is pinned to the immutable commit for v0.6.0. Dependabot's existing
+        # github-actions updater follows new releases and rewrites both this SHA and tag
+        # comment. The action itself pins the zizmor binary associated with its release,
+        # so leaving its `version` input at the action-managed default keeps that binary
+        # reproducible while allowing Dependabot action upgrades to carry scanner upgrades.
+        uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
+        with:
+          inputs: ./.github/workflows
+          # Restrict collection to workflow definitions; this job intentionally does not
+          # own composite-action or Dependabot-file linting.
+          collect: workflows
+          min-severity: informational
+          persona: auditor
+          # Online audits validate pinned action references and known action advisories.
+          online-audits: true
+          # SARIF mode deliberately exits zero even when it finds issues. Console mode plus
+          # annotations preserves zizmor's nonzero exit so findings fail this required job.
+          advanced-security: false
+          annotations: true
+          # Treat a bad path or future collection regression as a failure, not a green no-op.
+          fail-on-no-inputs: true
+
+  zizmor:
+    # This always-reporting summary is the required status-check context. It succeeds when
+    # the audit was intentionally skipped for a PR with no workflow changes, but propagates
+    # detector/audit failures and cancellations. Keep this name stable in both rulesets.
+    name: Zizmor
+    runs-on: ubuntu-latest
+    needs: [changes, audit]
+    if: always()
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+      WORKFLOWS_CHANGED: ${{ needs.changes.outputs.workflows }}
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      AUDIT_RESULT: ${{ needs.audit.result }}
+    steps:
+      - name: Require a successful workflow audit when applicable
+        run: |
+          if [[ "$CHANGES_RESULT" == "failure" || "$CHANGES_RESULT" == "cancelled" || \
+                "$AUDIT_RESULT" == "failure" || "$AUDIT_RESULT" == "cancelled" ]]; then
+            echo "Workflow path detection or the zizmor audit failed"
+            exit 1
+          fi
+
+          if [[ "$EVENT_NAME" == "pull_request" && "$WORKFLOWS_CHANGED" == "true" && \
+                "$AUDIT_RESULT" != "success" ]]; then
+            echo "A workflow changed, but its zizmor audit did not complete successfully"
+            exit 1
+          fi
+
+          echo "Zizmor passed (or was skipped: no workflow changes)"

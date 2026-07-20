@@ -115,9 +115,9 @@ uv export --extra di --no-dev --no-emit-project --quiet --output-file "$reqs" &&
 uv run --with pip-audit pip-audit --requirement "$reqs" --require-hashes --disable-pip --format markdown
 """
 
-# CI passes --format github for inline PR annotations.
+# CI uses the official action with equivalent auditor/informational settings and annotations.
 "actions:lint".help = "Lint GitHub workflows for security issues (zizmor)"
-"actions:lint".cmd = "uvx zizmor==1.26.1 .github/workflows/"
+"actions:lint".cmd = "uvx zizmor==1.27.0 --min-severity=informational --persona=auditor ./.github/workflows"
 
 # ========== Documentation ==========
 

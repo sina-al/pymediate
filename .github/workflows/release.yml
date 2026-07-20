@@ -33,6 +33,12 @@ on:
 permissions:
   contents: read
 
+# A tag identifies one immutable release. Serializing by tag prevents duplicate publishes;
+# never cancel an in-flight release because index uploads cannot be rolled back.
+concurrency:
+  group: "release-${{ github.ref_name }}"
+  cancel-in-progress: false
+
 jobs:
   validate-release:
     name: Validate Release
@@ -111,8 +117,8 @@ jobs:
       contents: read
       # Sign build provenance attestations (verifiable with `gh attestation verify`):
       # cryptographic proof that these artifacts were built by this workflow in this repo.
-      id-token: write
-      attestations: write
+      id-token: write # Obtain the OIDC identity used to sign the build provenance.
+      attestations: write # Store provenance attestations for the built distributions.
 
     steps:
       - name: Checkout code
@@ -231,7 +237,7 @@ jobs:
       url: https://test.pypi.org/p/pymediate/
     permissions:
       contents: read
-      id-token: write
+      id-token: write # Authenticate the TestPyPI trusted-publishing upload via OIDC.
 
     steps:
       - name: Download artifacts
@@ -299,7 +305,7 @@ jobs:
       url: https://pypi.org/p/pymediate/
     permissions:
       contents: read
-      id-token: write
+      id-token: write # Authenticate the PyPI trusted-publishing upload via OIDC.
 
     steps:
       - name: Download artifacts
@@ -363,7 +369,7 @@ jobs:
     # before the pypi gate is retractable-by-design.
     needs: examples-pypi
     permissions:
-      contents: write
+      contents: write # Create the GitHub Release and upload its distribution assets.
 
     steps:
       - name: Checkout code

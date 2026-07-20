@@ -120,14 +120,6 @@ jobs:
         run: |
           uv run poe context:check
 
-      - name: Lint workflows (zizmor)
-        # GH_TOKEN enables zizmor's online audits (e.g. checking action pins against
-        # published releases); --format github annotates findings inline on the PR.
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          uv run poe actions:lint --format github
-
   examples:
     name: Run Examples
     runs-on: ubuntu-latest
@@ -179,15 +171,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes, check, examples]
     if: always()
+    env:
+      CHANGES_RESULT: ${{ needs.changes.result }}
+      CHECK_RESULT: ${{ needs.check.result }}
+      EXAMPLES_RESULT: ${{ needs.examples.result }}
     steps:
       - name: Check result
         run: |
-          if [[ "${{ needs.changes.result }}" == "failure" || \
-                "${{ needs.changes.result }}" == "cancelled" || \
-                "${{ needs.check.result }}" == "failure" || \
-                "${{ needs.check.result }}" == "cancelled" || \
-                "${{ needs.examples.result }}" == "failure" || \
-                "${{ needs.examples.result }}" == "cancelled" ]]; then
+          if [[ "$CHANGES_RESULT" == "failure" || "$CHANGES_RESULT" == "cancelled" || \
+                "$CHECK_RESULT" == "failure" || "$CHECK_RESULT" == "cancelled" || \
+                "$EXAMPLES_RESULT" == "failure" || "$EXAMPLES_RESULT" == "cancelled" ]]; then
             echo "One or more required checks failed"
             exit 1
           fi
