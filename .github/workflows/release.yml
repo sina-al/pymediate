@@ -63,7 +63,7 @@ jobs:
           echo "Running on tag ${REF_NAME}."
 
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -122,7 +122,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # hatch-vcs derives the version from git tags; a shallow checkout would build a
           # bogus dev version instead of the release version.
@@ -208,7 +208,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -261,7 +261,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -331,7 +331,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -373,7 +373,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -393,7 +393,37 @@ jobs:
           path: dist/
 
       - name: Generate release notes
-        run: uv run poe release:notes
+        # Base the changelog on the last tag with a *published* Release, not simply the last
+        # git tag: tag-release.yml tags the merge commit before this workflow runs, so a
+        # version that reaches TestPyPI (burning it) and then fails downstream leaves a real
+        # tag with no Release. Using that raw tag as the base would silently drop its content
+        # from every future release's notes (this happened: v0.7.0 burned, and v0.7.1's notes
+        # came out empty because nothing since v0.7.0 touched src/pymediate/).
+        #
+        # A burned tag still inside the range also needs --ignore-tags: git-cliff treats every
+        # tag it finds as a release boundary regardless of where the range starts, so it would
+        # split the burned tag's commits into their own group and point the footer's compare
+        # link at it instead of at this tag.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          LAST_RELEASED_TAG=$(gh release list --exclude-drafts --exclude-pre-releases \
+            --limit 1 --json tagName --jq '.[0].tagName // empty' --repo "$GITHUB_REPOSITORY")
+          BURNED_TAGS=$(git tag --list 'v[0-9]*' --sort=-v:refname | awk -v last="$LAST_RELEASED_TAG" -v cur="$TAG" '
+            $0 == cur { seen = 1; next }
+            seen && $0 == last { exit }
+            seen { print }
+          ')
+          args=(--tag "$TAG")
+          if [ -n "$LAST_RELEASED_TAG" ]; then
+            args=("${LAST_RELEASED_TAG}.." "${args[@]}")
+          fi
+          if [ -n "$BURNED_TAGS" ]; then
+            PATTERN="^($(echo "$BURNED_TAGS" | sed 's/\./\\./g' | paste -sd'|' -))\$"
+            args+=(--ignore-tags "$PATTERN")
+          fi
+          uv run poe release:notes "${args[@]}"
 
       - name: Attach provenance bundles to the release assets
         # build-package attested these artifacts; fetch each one's Sigstore bundle from the

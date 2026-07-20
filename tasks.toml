@@ -166,8 +166,16 @@ build.cmd = "uv build"
 # Used by release.yml to fill in the GitHub Release body. The glob MUST stay quoted: poe
 # expands an unquoted cmd-glob into absolute paths that match no commit, which silently
 # empties the changelog (this shipped as v0.1.5's blank notes).
-"release:notes".help = "Generate release notes for the current tag"
-"release:notes".cmd = "uvx git-cliff --current --include-path 'src/pymediate/**' --strip header -o RELEASE_NOTES.md"
+#
+# No --current: that resolves its base to the immediately preceding *git tag*, which can be a
+# burned release (tag-release.yml tags the merge commit before release.yml runs, so a version
+# that reaches TestPyPI and then fails has a real tag but no published Release) - the burned
+# tag's changelog content would then never appear in any public release notes (this shipped as
+# v0.7.1's blank notes, empty because nothing since burned v0.7.0 touched src/pymediate/). The
+# caller passes the range explicitly instead, anchored on the last *published* release tag
+# (from the GitHub Releases API), same fix as prepare-release.yml's changelog step.
+"release:notes".help = "Generate release notes: pass '<last-released-tag>.. --tag vX.Y.Z'"
+"release:notes".cmd = "uvx git-cliff --include-path 'src/pymediate/**' --strip header -o RELEASE_NOTES.md"
 
 # Passthrough to scripts/wait_for_index.py — `poe release:wait-index --help` lists its flags
 # (--version, --index, --attempts, --interval). release.yml runs it before each index-mode
