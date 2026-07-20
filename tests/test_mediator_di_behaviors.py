@@ -1311,8 +1311,8 @@ def test_di_provider_get_raises_service_not_found() -> None:
     assert CounterHandler in exc_info.value.available_types
 
 
-def test_di_provider_has_get_all_types_and_len() -> None:
-    """Exercise has(), get_all_types(), and __len__() directly on the DI provider."""
+def test_di_provider_has_and_len() -> None:
+    """Exercise has() and __len__() directly on the DI provider."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
@@ -1325,8 +1325,8 @@ def test_di_provider_has_get_all_types_and_len() -> None:
     provider = DependencyInjectorServiceProvider(TestContainer())
 
     assert provider.has(CounterHandler) is True
+    assert provider.has(IncrementBehavior) is True
     assert provider.has(MultiplyBehavior) is False
-    assert set(provider.get_all_types()) == {IncrementBehavior, CounterHandler}
     assert len(provider) == 2
 
 

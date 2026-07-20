@@ -15,7 +15,7 @@ from pymediate.sync import RequestHandler as SyncRequestHandler
 
 
 class Service:
-    """Base service used to verify inheritance-aware resolution order."""
+    """Base service used across the discovery tests."""
 
 
 class FirstService(Service):
@@ -46,7 +46,9 @@ def test_nested_container_services_are_all_discovered() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert set(services.get_all_types()) == {FirstService, SecondService, ThirdService}
+    assert services.has(FirstService)
+    assert services.has(SecondService)
+    assert services.has(ThirdService)
     assert isinstance(services.get(FirstService), FirstService)
     assert isinstance(services.get(SecondService), SecondService)
     assert isinstance(services.get(ThirdService), ThirdService)
@@ -74,7 +76,9 @@ def test_injection_only_provider_is_indexed_via_traverse() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert set(services.get_all_types()) == {Repo, Hidden}
+    assert services.has(Repo)
+    assert services.has(Hidden)
+    assert len(services) == 2
     assert isinstance(services.get(Hidden), Hidden)
 
 
@@ -121,8 +125,8 @@ def test_annotated_factory_is_indexed_without_being_resolved() -> None:
     assert constructed == 1
 
 
-def test_opaque_factory_is_rejected_without_being_called() -> None:
-    """An unannotated factory fails clearly instead of being resolved to learn its type."""
+def test_opaque_factory_is_skipped_without_being_called() -> None:
+    """An unannotated factory is skipped, not resolved to learn its type."""
     constructed = 0
 
     def build_service() -> Any:
@@ -133,9 +137,12 @@ def test_opaque_factory_is_rejected_without_being_called() -> None:
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Factory(build_service)
 
-    with pytest.raises(TypeError, match="cannot determine.*provider 'build_service'"):
-        DependencyInjectorServiceProvider(RootContainer())
+    services = DependencyInjectorServiceProvider(RootContainer())
 
+    # The factory could not be typed without resolving it, so it never became a
+    # service - and it was not called to find out.
+    assert not services.has(FirstService)
+    assert len(services) == 0
     assert constructed == 0
 
 
@@ -163,7 +170,8 @@ def test_bound_child_dependency_placeholder_is_skipped() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert set(services.get_all_types()) == {Database, Handler}
+    assert services.has(Database)
+    assert services.has(Handler)
     assert len(services) == 2
 
 
@@ -186,8 +194,8 @@ def test_object_and_collection_providers_have_intrinsic_types() -> None:
     assert services.get(dict) == {"answer": 42}
 
 
-def test_opaque_selector_is_rejected() -> None:
-    """Dynamic provider kinds fail clearly instead of being resolved to learn their type."""
+def test_opaque_selector_is_skipped() -> None:
+    """A dynamic ``Selector`` cannot be typed without resolving it, so it is skipped."""
 
     class RootContainer(containers.DeclarativeContainer):
         selected = providers.Selector(
@@ -195,8 +203,10 @@ def test_opaque_selector_is_rejected() -> None:
             first=providers.Factory(FirstService),
         )
 
-    with pytest.raises(TypeError, match="cannot determine the service type"):
-        DependencyInjectorServiceProvider(RootContainer())
+    services = DependencyInjectorServiceProvider(RootContainer())
+
+    # The Selector itself is not indexed; its class-backed branch still is.
+    assert services.has(FirstService)
 
 
 def test_type_changing_override_is_seen_after_rebuilding_the_index() -> None:
@@ -234,8 +244,8 @@ async def test_asynchronous_provider_resolution_is_rejected() -> None:
         services.get(FirstService)
 
 
-def test_coroutine_provider_is_rejected_during_indexing() -> None:
-    """A provider that always returns an awaitable cannot be a synchronous service source."""
+def test_coroutine_provider_is_skipped_during_indexing() -> None:
+    """A coroutine provider cannot be a synchronous service source, so it is skipped."""
 
     async def build_service() -> FirstService:
         return FirstService()
@@ -243,8 +253,10 @@ def test_coroutine_provider_is_rejected_during_indexing() -> None:
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Coroutine(build_service)
 
-    with pytest.raises(TypeError, match="provider 'build_service' is asynchronous"):
-        DependencyInjectorServiceProvider(RootContainer())
+    services = DependencyInjectorServiceProvider(RootContainer())
+
+    assert not services.has(FirstService)
+    assert len(services) == 0
 
 
 @pytest.mark.asyncio
@@ -268,8 +280,8 @@ async def test_coroutine_result_is_closed_when_resolution_is_rejected() -> None:
     assert cast(Any, coroutine).cr_frame is None
 
 
-def test_resource_provider_is_rejected_without_initializing() -> None:
-    """A resource provider fails clearly and is never started during indexing."""
+def test_resource_provider_is_skipped_without_initializing() -> None:
+    """A resource provider is skipped and never started during indexing."""
     constructed = 0
 
     def build_service() -> FirstService:
@@ -280,9 +292,9 @@ def test_resource_provider_is_rejected_without_initializing() -> None:
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Resource(build_service)
 
-    with pytest.raises(TypeError, match="cannot determine.*provider 'build_service'"):
-        DependencyInjectorServiceProvider(RootContainer())
+    services = DependencyInjectorServiceProvider(RootContainer())
 
+    assert not services.has(FirstService)
     assert constructed == 0
 
 
@@ -302,7 +314,7 @@ def test_nested_container_cycle_is_handled_without_recursing() -> None:
     services = DependencyInjectorServiceProvider(root)
 
     # No services are declared in either container, and the cycle does not recurse.
-    assert services.get_all_types() == ()
+    assert len(services) == 0
 
 
 def test_sync_mediator_can_be_composed_inside_the_scanned_container() -> None:

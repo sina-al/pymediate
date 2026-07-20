@@ -60,7 +60,7 @@ class ServiceProvider(Protocol):
     ``Services.provider()`` returns the built-in implementation.
     ``DependencyInjectorServiceProvider`` adapts a Dependency Injector container.
     A custom provider can use another resolution and lifetime policy while
-    implementing the same four operations.
+    implementing the same three operations.
 
     Note:
         The protocol is read-only. Thread-safety and mutation behavior depend on
@@ -94,14 +94,6 @@ class ServiceProvider(Protocol):
 
         Returns:
             True if at least one instance of the exact type is registered.
-        """
-        ...
-
-    def get_all_types(self) -> tuple[type, ...]:
-        """Get every exact type that has at least one registered instance.
-
-        Returns:
-            All registered service types, in no particular order.
         """
         ...
 
@@ -197,7 +189,7 @@ class Services:
         return f"Services(services={type_counts}, total={len(self)})"
 
 
-class _Provider:
+class _Provider(ServiceProvider):
     """Immutable ServiceProvider implementation returned by Services.provider().
 
     Takes a snapshot of a Services collection's registrations at construction time;
@@ -242,14 +234,6 @@ class _Provider:
             True if at least one instance of the exact type is registered.
         """
         return service_type in self._services
-
-    def get_all_types(self) -> tuple[type, ...]:
-        """Get every exact type that has at least one registered instance.
-
-        Returns:
-            All registered service types, in no particular order.
-        """
-        return tuple(self._services.keys())
 
     def __len__(self) -> int:
         """Return the total number of registered service instances."""

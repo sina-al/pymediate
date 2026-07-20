@@ -1,8 +1,8 @@
 """Tests for Services and the built-in ServiceProvider.
 
 The provider resolves by exact type: ``get()`` returns the first-registered instance
-of exactly the requested type, ``has()`` tests for it, ``get_all_types()`` lists the
-registered types, and ``len()`` counts every registration.
+of exactly the requested type, ``has()`` tests for it, and ``len()`` counts every
+registration.
 """
 
 import threading
@@ -137,7 +137,6 @@ def test_provider() -> None:
 
     assert hasattr(provider, "get")
     assert hasattr(provider, "has")
-    assert hasattr(provider, "get_all_types")
     assert len(provider) == 1
 
 
@@ -218,19 +217,6 @@ def test_has_unregistered_type() -> None:
     assert provider.has(ServiceB) is False
 
 
-def test_get_all_types() -> None:
-    """Test get_all_types() returns every registered exact type."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceB("test"))
-    services.add(ServiceA(2))  # Second instance of an existing type
-
-    provider = services.provider()
-    all_types = provider.get_all_types()
-
-    assert set(all_types) == {ServiceA, ServiceB}
-
-
 def test_provider_len() -> None:
     """Test len() on provider returns the total instance count."""
     services = Services()
@@ -294,7 +280,6 @@ def test_empty_collection_provider() -> None:
     provider = services.provider()
 
     assert len(provider) == 0
-    assert provider.get_all_types() == ()
     assert not provider.has(ServiceA)
 
 
@@ -324,10 +309,12 @@ def test_provider_snapshot_isolation() -> None:
     provider2 = services.provider()
 
     assert len(provider1) == 1
-    assert set(provider1.get_all_types()) == {ServiceA}
+    assert provider1.has(ServiceA)
+    assert not provider1.has(ServiceB)
 
     assert len(provider2) == 3
-    assert set(provider2.get_all_types()) == {ServiceA, ServiceB}
+    assert provider2.has(ServiceA)
+    assert provider2.has(ServiceB)
 
 
 def test_clear_does_not_affect_existing_providers() -> None:
@@ -538,8 +525,8 @@ def test_many_different_types() -> None:
 
     provider = services.provider()
 
+    # 100 distinct types, one instance each.
     assert len(provider) == 100
-    assert len(provider.get_all_types()) == 100
 
 
 # ==================== Thread Safety ====================
@@ -559,7 +546,6 @@ def test_provider_concurrent_reads() -> None:
         try:
             for _ in range(10):
                 assert len(provider) == 100
-                assert len(provider.get_all_types()) == 100
         except Exception as e:  # pragma: no cover - only on failure
             errors.append(e)
 

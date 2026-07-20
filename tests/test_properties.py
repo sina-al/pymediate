@@ -67,7 +67,7 @@ def test_get_returns_first_registered_of_a_type(values: list[int]) -> None:
 @relaxed
 @given(ints=st.lists(st.integers(), max_size=5), strs=st.lists(st.text(), max_size=5))
 def test_provider_reflects_exactly_what_was_registered(ints: list[int], strs: list[str]) -> None:
-    """has/get_all_types/len agree with each other and with what was added."""
+    """has/len agree with each other and with what was added."""
     services = Services()
     for i in ints:
         services.add(IntBox(i))
@@ -77,8 +77,6 @@ def test_provider_reflects_exactly_what_was_registered(ints: list[int], strs: li
 
     assert provider.has(IntBox) == bool(ints)
     assert provider.has(StrBox) == bool(strs)
-    expected_types = {t for t, added in ((IntBox, ints), (StrBox, strs)) if added}
-    assert set(provider.get_all_types()) == expected_types
     assert len(provider) == len(ints) + len(strs)
 
 

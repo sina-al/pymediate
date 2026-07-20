@@ -1,25 +1,19 @@
 """Dependency Injector integration for PyMediate service resolution."""
 
+from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass
 from inspect import Signature, isawaitable, iscoroutine, signature
 from types import NoneType, UnionType
 from typing import Annotated, Any, cast, get_args, get_origin, get_type_hints
 
 from dependency_injector import containers, providers
 
-from ..service import ServiceNotFoundError
+from ..service import ServiceNotFoundError, ServiceProvider
 
 type _Provider = providers.Provider[Any]
 
 
-@dataclass(frozen=True, slots=True)
-class _Registration:
-    service_type: type[Any]
-    provider: _Provider
-
-
-class DependencyInjectorServiceProvider:
+class DependencyInjectorServiceProvider(ServiceProvider):
     """ServiceProvider backed by a Dependency Injector container.
 
     Indexes services from the container without resolving them, then delegates each
@@ -29,7 +23,10 @@ class DependencyInjectorServiceProvider:
 
     The whole provider graph is walked with ``Container.traverse()`` - nested
     ``providers.Container`` children and providers reachable only through injection
-    are all indexed. ``get()`` returns the first provider found for an exact type.
+    are all visited. A provider whose output type cannot be inferred without resolving
+    it (an unannotated factory, ``Selector``, ``Resource``, or coroutine provider) is
+    skipped, not indexed, so infrastructure providers do not have to be
+    PyMediate-resolvable. ``get()`` returns the first provider found for an exact type.
 
     Examples:
         ```python
@@ -69,15 +66,13 @@ class DependencyInjectorServiceProvider:
             container: A ``DeclarativeContainer`` or ``DynamicContainer`` instance.
 
         Raises:
-            TypeError: If ``container`` is not a Dependency Injector container, or a
-                service provider's output type cannot be determined without
-                resolving it.
+            TypeError: If ``container`` is not a Dependency Injector container.
         """
         if not isinstance(container, containers.Container):
             raise TypeError("container must be a dependency_injector.containers.Container")
 
         self._container = container
-        self._type_providers: dict[type[Any], list[_Registration]] = {}
+        self._type_providers: defaultdict[type[Any], list[_Provider]] = defaultdict(list)
 
         # traverse() walks the whole provider graph - nested containers, and providers
         # reachable only through injection - and is cycle-safe, so no manual recursion
@@ -88,11 +83,11 @@ class DependencyInjectorServiceProvider:
             effective: _Provider = provider.last_overriding or provider
             service_type = self._service_type(provider, effective)
             if service_type is not None:
-                self._type_providers.setdefault(service_type, []).append(
-                    _Registration(service_type, provider)
-                )
+                self._type_providers[service_type].append(provider)
 
     def _service_type(self, provider: _Provider, effective: _Provider) -> type[Any] | None:
+        # Composition-only providers, and providers whose output type can't be inferred
+        # without resolving them, are skipped - they never become services.
         if isinstance(
             provider,
             (
@@ -104,9 +99,6 @@ class DependencyInjectorServiceProvider:
         ):
             return None
 
-        if isinstance(effective, providers.Container):
-            return None
-
         if isinstance(effective, providers.Object):
             return type(effective.provides)
 
@@ -116,28 +108,22 @@ class DependencyInjectorServiceProvider:
         if isinstance(effective, providers.Dict):
             return dict
 
-        if isinstance(effective, providers.Coroutine):
-            raise TypeError(
-                f"provider '{_provider_label(provider)}' is asynchronous; PyMediate "
-                "service resolution is synchronous even when handlers are asynchronous"
-            )
+        if isinstance(
+            effective,
+            (providers.Container, providers.Coroutine, providers.BaseResource),
+        ):
+            return None
 
         if isinstance(
             effective,
             (providers.Factory, providers.BaseSingleton, providers.Callable),
         ):
-            service_type = _callable_return_type(effective.provides)
-            if service_type is not None:
-                return service_type
-            raise TypeError(_opaque_provider_message(provider))
+            return _callable_return_type(effective.provides)
 
-        if isinstance(effective, providers.BaseResource):
-            raise TypeError(_opaque_provider_message(provider))
+        return None
 
-        raise TypeError(_opaque_provider_message(provider))
-
-    def _resolve(self, registration: _Registration) -> Any:
-        instance = registration.provider()
+    def _resolve(self, service_type: type[Any], provider: _Provider) -> Any:
+        instance = provider()
         if isawaitable(instance):
             if iscoroutine(instance):
                 instance.close()
@@ -145,15 +131,13 @@ class DependencyInjectorServiceProvider:
             if callable(cancel):
                 cancel()
             raise TypeError(
-                f"provider '{_provider_label(registration.provider)}' resolved "
-                "asynchronously; PyMediate service providers must construct services "
-                "synchronously"
+                f"provider '{_provider_label(provider)}' resolved asynchronously; "
+                "PyMediate service providers must construct services synchronously"
             )
-        if not isinstance(instance, registration.service_type):
+        if not isinstance(instance, service_type):
             raise TypeError(
-                f"provider '{_provider_label(registration.provider)}' produced "
-                f"{type(instance).__name__}, not its indexed service type "
-                f"{registration.service_type.__name__}; rebuild the "
+                f"provider '{_provider_label(provider)}' produced {type(instance).__name__}, "
+                f"not its indexed service type {service_type.__name__}; rebuild the "
                 "DependencyInjectorServiceProvider after a type-changing override"
             )
         return instance
@@ -172,10 +156,10 @@ class DependencyInjectorServiceProvider:
             TypeError: If the matching provider resolves asynchronously or returns
                 a value that does not match its indexed service type.
         """
-        registrations = self._type_providers.get(service_type)
-        if registrations is None:
+        matches = self._type_providers.get(service_type)
+        if not matches:
             raise ServiceNotFoundError(service_type, list(self._type_providers))
-        return cast(ServiceT, self._resolve(registrations[0]))
+        return cast(ServiceT, self._resolve(service_type, matches[0]))
 
     def has(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered.
@@ -188,17 +172,9 @@ class DependencyInjectorServiceProvider:
         """
         return service_type in self._type_providers
 
-    def get_all_types(self) -> tuple[type[Any], ...]:
-        """Get every exact type that has at least one registered instance.
-
-        Returns:
-            All registered service types, in no particular order.
-        """
-        return tuple(self._type_providers)
-
     def __len__(self) -> int:
         """Return the total number of indexed service providers."""
-        return sum(len(registrations) for registrations in self._type_providers.values())
+        return sum(len(matches) for matches in self._type_providers.values())
 
 
 def _provider_label(provider: _Provider) -> str:
@@ -237,11 +213,3 @@ def _callable_return_type(provided: Callable[..., Any] | None) -> type[Any] | No
         annotation = origin
 
     return annotation if isinstance(annotation, type) else None
-
-
-def _opaque_provider_message(provider: _Provider) -> str:
-    return (
-        f"cannot determine the service type for provider '{_provider_label(provider)}' "
-        "without resolving it; use a class-backed provider or add a concrete return "
-        "annotation"
-    )

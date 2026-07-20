@@ -97,9 +97,6 @@ class ServiceProvider(Protocol):
     def has(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered."""
         ...
-    def get_all_types(self) -> tuple[type, ...]:
-        """Get every exact type that has at least one registered instance."""
-        ...
 
 class Services:
     """Mutable collection for registering service instances."""
@@ -178,7 +175,7 @@ class InvalidPipelineBehaviorsError(PyMediateError):
 ### `pymediate.providers.dependency_injector`
 
 ```python
-class DependencyInjectorServiceProvider:
+class DependencyInjectorServiceProvider(ServiceProvider):
     """ServiceProvider backed by a Dependency Injector container."""
     def __init__(self, container: containers.Container) -> None:
         """Index services declared by a Dependency Injector container."""
@@ -188,9 +185,6 @@ class DependencyInjectorServiceProvider:
         ...
     def has(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered."""
-        ...
-    def get_all_types(self) -> tuple[type[Any], ...]:
-        """Get every exact type that has at least one registered instance."""
         ...
 ```
 

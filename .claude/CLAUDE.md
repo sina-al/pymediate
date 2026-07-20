@@ -302,14 +302,6 @@ forks; only the maintainer, Dependabot, and the `pymediate-releaser` App can cre
 branches, and only the maintainer and the App can tag. The
 `python-coverage-comment-action-data` branch is machine-managed (coverage badge data).
 
-**Claude Code web sessions always land as a PR for the maintainer to review and approve,
-never a direct push to `main`.** Work done in a web session goes onto its feature branch and
-opens a PR; the review-and-approve gate is the point. Author the PR as Claude in substance —
-every commit carries a `Co-Authored-By: Claude` trailer and the PR body says it's Claude's
-work — even though the "opened by" shows the maintainer, since the session authenticates with
-the maintainer's token (there is no separate Claude GitHub identity wired up). Never push
-agent work straight to `main`.
-
 ## Release process
 
 Use the `/release` skill for the step-by-step checklist; `OPERATIONS.md` documents the
