@@ -1,6 +1,8 @@
 # ADR 0012: Dependency Injector container discovery
 
-**Status:** Accepted
+**Status:** Partially superseded by [ADR 0016](0016-shrink-service-provider-and-adopt-traverse.md)
+(2026-07-20) — the "Ordered recursive declaration scan" decision is replaced by
+`Container.traverse()`. The type-inference and resolution-delegation decisions still stand.
 **Date:** 2026-07-17
 **Author:** Codex
 **Reviewers:** @sina-al

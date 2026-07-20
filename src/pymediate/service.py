@@ -1,9 +1,8 @@
 """Service collection and provider for dependency injection.
 
 Register service instances with ``Services``, then build an immutable ``ServiceProvider``
-from it to resolve them. Multiple instances of the same type can be registered, and
-``get_all()`` resolves by inheritance, so a base type or runtime-checkable protocol
-matches registered instances that satisfy it.
+from it to resolve them. Multiple instances of the same type can be registered; ``get()``
+returns the first registered instance of an exact type.
 
 Examples:
     ```python
@@ -18,11 +17,9 @@ Examples:
     provider = services.provider()
 
     assert provider.get(Cache) is cache
-    assert provider.get_all(Cache) == (cache,)
     ```
 """
 
-from collections.abc import Sequence
 from typing import Any, Protocol, TypeVar, cast
 
 ServiceT = TypeVar("ServiceT")
@@ -58,14 +55,12 @@ class ServiceNotFoundError(Exception):
 class ServiceProvider(Protocol):
     """Protocol for resolving registered service instances.
 
-    ``get()`` matches an exact registered type. ``get_all()`` also matches
-    subclasses and runtime-checkable protocols, returning all matches in an
-    unspecified order.
+    ``get()`` matches an exact registered type.
 
     ``Services.provider()`` returns the built-in implementation.
     ``DependencyInjectorServiceProvider`` adapts a Dependency Injector container.
     A custom provider can use another resolution and lifetime policy while
-    implementing the same five operations.
+    implementing the same four operations.
 
     Note:
         The protocol is read-only. Thread-safety and mutation behavior depend on
@@ -76,7 +71,7 @@ class ServiceProvider(Protocol):
         """Get the first registered instance of the exact type.
 
         Uses exact type matching only - a request for a base class doesn't match a
-        registered subclass. Use `get_all()` for inheritance-aware resolution.
+        registered subclass.
 
         Args:
             service_type: The exact type of service to get.
@@ -89,31 +84,10 @@ class ServiceProvider(Protocol):
         """
         ...
 
-    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
-        """Get all instances of the type, including subclasses.
-
-        Matches using ``isinstance()``, so a base class, abstract class, or
-        runtime-checkable protocol resolves registered instances that satisfy it.
-
-        Args:
-            service_type: The type (or base type) of services to resolve.
-
-        Returns:
-            All matching instances, in an unspecified order. Empty if none match -
-            unlike `get()`, this never raises for zero results.
-
-        Note:
-            The order of the returned instances is unspecified. Implementations
-            are deterministic in practice, but no implementation - built-in or
-            custom - promises registration or any other particular order.
-        """
-        ...
-
     def has(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered.
 
-        Like `get()`, this uses exact type matching only. To check for subclasses
-        too, use `len(provider.get_all(base_type)) > 0` instead.
+        Like `get()`, this uses exact type matching only.
 
         Args:
             service_type: The exact type to check for.
@@ -157,8 +131,7 @@ class Services:
     def __init__(self) -> None:
         """Create an empty service collection."""
         # Maps each concrete type to its registered instances, in the order they were
-        # registered for that type. get() returns the first entry; get_all() flattens
-        # these lists in an unspecified (grouped-by-type) order.
+        # registered for that type. get() returns the first entry.
         self._services: dict[type, list[Any]] = {}
 
     def add(self, instance: object) -> "Services":
@@ -241,9 +214,6 @@ class _Provider:
             service_type: tuple(instances)
             for service_type, instances in collection._services.items()
         }
-        # get_all() results per requested type. The provider is an immutable
-        # snapshot, so entries can never go stale.
-        self._get_all_cache: dict[type, tuple[Any, ...]] = {}
 
     def get(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
@@ -261,31 +231,6 @@ class _Provider:
             raise ServiceNotFoundError(service_type, list(self._services.keys()))
 
         return cast(ServiceT, self._services[service_type][0])
-
-    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
-        """Get all instances of the type, including subclasses, in an unspecified order.
-
-        The result is computed once per requested type and cached - the provider
-        is an immutable snapshot, so repeated calls are a dict lookup. Instances of
-        the same concrete type keep their relative registration order, but the order
-        across different matching types is unspecified.
-
-        Args:
-            service_type: The type (or base type) of services to resolve.
-
-        Returns:
-            All matching instances in an unspecified order, or an empty tuple.
-        """
-        cached = self._get_all_cache.get(service_type)
-        if cached is None:
-            cached = tuple(
-                instance
-                for instances in self._services.values()
-                for instance in instances
-                if isinstance(instance, service_type)
-            )
-            self._get_all_cache[service_type] = cached
-        return cached
 
     def has(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered.

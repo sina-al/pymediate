@@ -104,9 +104,10 @@ composition inputs rather than exposed services, so the adapter skips them durin
 
 ## Use nested containers
 
-Declared `providers.Container` children are indexed recursively, so their services are discovered
-alongside the root container's. Pipeline-behavior order does not depend on this - it is fixed by
-the mediator's `behaviors=` sequence, not by how the container resolves them:
+The adapter walks the whole provider graph with `Container.traverse()`, so services in nested
+`providers.Container` children are discovered alongside the root container's. Pipeline-behavior
+order does not depend on this - it is fixed by the mediator's `behaviors=` sequence, not by how the
+container resolves them:
 
 ```python
 class OrdersContainer(containers.DeclarativeContainer):
@@ -126,9 +127,9 @@ class ApplicationContainer(containers.DeclarativeContainer):
     )
 ```
 
-The adapter descends only into declared child containers. It does not expose every provider passed
-as an argument to another provider. A cycle between child containers raises `ValueError` and names
-the path at which the cycle was found.
+`traverse()` is cycle-safe, so a cycle between child containers is walked without error. Because it
+follows the whole graph, a provider reachable only as an injected argument is indexed as a service
+too - resolvable by its exact type like any other.
 
 ## Choose provider lifetimes
 

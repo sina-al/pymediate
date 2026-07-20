@@ -94,9 +94,6 @@ class ServiceProvider(Protocol):
     def get(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type."""
         ...
-    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
-        """Get all instances of the type, including subclasses."""
-        ...
     def has(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered."""
         ...
@@ -188,9 +185,6 @@ class DependencyInjectorServiceProvider:
         ...
     def get(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type."""
-        ...
-    def get_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Get all instances of the type, including subclasses, in an unspecified order."""
         ...
     def has(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered."""

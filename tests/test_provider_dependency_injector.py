@@ -1,7 +1,7 @@
 """Focused tests for the optional Dependency Injector service provider."""
 
 from dataclasses import dataclass
-from typing import Any, Protocol, assert_type, cast, runtime_checkable
+from typing import Any, assert_type, cast
 
 import pytest
 from dependency_injector import containers, providers
@@ -31,11 +31,7 @@ class ThirdService(Service):
 
 
 def test_nested_container_services_are_all_discovered() -> None:
-    """Services declared in nested containers are all indexed and resolvable.
-
-    The order in which ``get_all()`` returns matches is unspecified, so this pins
-    only that every nested service is discovered.
-    """
+    """Services declared in nested containers are all indexed via ``traverse()``."""
 
     class FirstContainer(containers.DeclarativeContainer):
         first = providers.Factory(FirstService)
@@ -50,21 +46,18 @@ def test_nested_container_services_are_all_discovered() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    resolved = services.get_all(Service)
-
-    assert {type(service) for service in resolved} == {
-        FirstService,
-        SecondService,
-        ThirdService,
-    }
+    assert set(services.get_all_types()) == {FirstService, SecondService, ThirdService}
+    assert isinstance(services.get(FirstService), FirstService)
+    assert isinstance(services.get(SecondService), SecondService)
+    assert isinstance(services.get(ThirdService), ThirdService)
 
 
-def test_injection_only_provider_is_not_registered_as_a_service() -> None:
-    """A provider reachable only through injection is deliberately not indexed.
+def test_injection_only_provider_is_indexed_via_traverse() -> None:
+    """A provider reachable only through injection is indexed.
 
-    Discovery walks each container's declared attributes (recursing into declared
-    child containers); a provider used solely as an injected dependency, never
-    declared as a container attribute, does not become a PyMediate service.
+    ``traverse()`` walks the whole provider graph, so a provider used solely as an
+    injected dependency - never declared as a container attribute - is discovered
+    and resolvable like any other service.
     """
 
     class Hidden:
@@ -81,9 +74,8 @@ def test_injection_only_provider_is_not_registered_as_a_service() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert services.get_all_types() == (Repo,)
-    assert not services.has(Hidden)
-    assert services.get_all(Hidden) == []
+    assert set(services.get_all_types()) == {Repo, Hidden}
+    assert isinstance(services.get(Hidden), Hidden)
 
 
 def test_indexing_does_not_resolve_factories_or_unrelated_services() -> None:
@@ -106,7 +98,7 @@ def test_indexing_does_not_resolve_factories_or_unrelated_services() -> None:
 
     assert constructed == []
 
-    assert [type(service) for service in services.get_all(Service)] == [UsedService]
+    assert isinstance(services.get(UsedService), UsedService)
     assert constructed == ["used"]
 
 
@@ -141,14 +133,18 @@ def test_opaque_factory_is_rejected_without_being_called() -> None:
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Factory(build_service)
 
-    with pytest.raises(TypeError, match="cannot determine.*provider 'service'"):
+    with pytest.raises(TypeError, match="cannot determine.*provider 'build_service'"):
         DependencyInjectorServiceProvider(RootContainer())
 
     assert constructed == 0
 
 
-def test_bound_child_dependencies_are_not_registered_as_services() -> None:
-    """Composition dependencies are skipped even after a child container binds them."""
+def test_bound_child_dependency_placeholder_is_skipped() -> None:
+    """A ``providers.Dependency`` placeholder is composition-only, not a service.
+
+    The root ``Singleton`` that binds it is a real declared service; the child's
+    ``Dependency`` placeholder is skipped.
+    """
 
     class Database:
         pass
@@ -167,7 +163,7 @@ def test_bound_child_dependencies_are_not_registered_as_services() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert services.get_all_types() == (Database, Handler)
+    assert set(services.get_all_types()) == {Database, Handler}
     assert len(services) == 2
 
 
@@ -199,7 +195,7 @@ def test_opaque_selector_is_rejected() -> None:
             first=providers.Factory(FirstService),
         )
 
-    with pytest.raises(TypeError, match="cannot determine.*provider 'selected'"):
+    with pytest.raises(TypeError, match="cannot determine the service type"):
         DependencyInjectorServiceProvider(RootContainer())
 
 
@@ -234,7 +230,7 @@ async def test_asynchronous_provider_resolution_is_rejected() -> None:
     container.service.enable_async_mode()
     services = DependencyInjectorServiceProvider(container)
 
-    with pytest.raises(TypeError, match="provider 'service' resolved asynchronously"):
+    with pytest.raises(TypeError, match="resolved asynchronously"):
         services.get(FirstService)
 
 
@@ -247,7 +243,7 @@ def test_coroutine_provider_is_rejected_during_indexing() -> None:
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Coroutine(build_service)
 
-    with pytest.raises(TypeError, match="provider 'service' is asynchronous"):
+    with pytest.raises(TypeError, match="provider 'build_service' is asynchronous"):
         DependencyInjectorServiceProvider(RootContainer())
 
 
@@ -266,7 +262,7 @@ async def test_coroutine_result_is_closed_when_resolution_is_rejected() -> None:
     services = DependencyInjectorServiceProvider(RootContainer())
     coroutine_type = cast("type[Any]", type(coroutine))
 
-    with pytest.raises(TypeError, match="provider 'service' resolved asynchronously"):
+    with pytest.raises(TypeError, match="resolved asynchronously"):
         services.get(coroutine_type)
 
     assert cast(Any, coroutine).cr_frame is None
@@ -284,14 +280,14 @@ def test_resource_provider_is_rejected_without_initializing() -> None:
     class RootContainer(containers.DeclarativeContainer):
         service = providers.Resource(build_service)
 
-    with pytest.raises(TypeError, match="cannot determine.*provider 'service'"):
+    with pytest.raises(TypeError, match="cannot determine.*provider 'build_service'"):
         DependencyInjectorServiceProvider(RootContainer())
 
     assert constructed == 0
 
 
-def test_nested_container_cycle_is_reported_with_its_path() -> None:
-    """A true child-container cycle fails clearly instead of recursing."""
+def test_nested_container_cycle_is_handled_without_recursing() -> None:
+    """``traverse()`` is cycle-safe, so a child-container cycle indexes without error."""
     root = containers.DynamicContainer()
     child = containers.DynamicContainer()
     root.set_provider(
@@ -303,38 +299,10 @@ def test_nested_container_cycle_is_reported_with_its_path() -> None:
         providers.Container(containers.DynamicContainer, container=root),
     )
 
-    with pytest.raises(ValueError, match="container cycle at 'child.root'"):
-        DependencyInjectorServiceProvider(root)
+    services = DependencyInjectorServiceProvider(root)
 
-
-def test_runtime_checkable_data_protocol_uses_instance_matching() -> None:
-    """Data protocols retain ServiceProvider's structural isinstance semantics."""
-    constructed: list[str] = []
-
-    @runtime_checkable
-    class Named(Protocol):
-        name: str
-
-    class NamedService:
-        def __init__(self) -> None:
-            constructed.append("named")
-            self.name = "service"
-
-    class UnrelatedService:
-        def __init__(self) -> None:
-            constructed.append("unrelated")
-
-    class RootContainer(containers.DeclarativeContainer):
-        named = providers.Factory(NamedService)
-        unrelated = providers.Factory(UnrelatedService)
-
-    services = DependencyInjectorServiceProvider(RootContainer())
-
-    resolved = services.get_all(Named)
-
-    assert len(resolved) == 1
-    assert isinstance(resolved[0], NamedService)
-    assert constructed == ["named", "unrelated"]
+    # No services are declared in either container, and the cycle does not recurse.
+    assert services.get_all_types() == ()
 
 
 def test_sync_mediator_can_be_composed_inside_the_scanned_container() -> None:
