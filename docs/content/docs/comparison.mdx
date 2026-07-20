@@ -29,7 +29,7 @@ is material to a library decision.
 | Handler signature checks | The request parameter and response annotation are checked when Python defines the handler class. | None checked these signatures at class-definition time; mismatches surfaced during dispatch. |
 | Duplicate request handlers | Defining a second handler for one request raises an error. | Registration either replaced the existing handler or ignored the new one without raising. |
 | Synchronous use | The top-level package is async; `pymediate.sync` provides the corresponding synchronous API. | Almost all were async-only. |
-| Event publishing | `EventHandler[OrderPlaced]` is typed and checked. Sync handlers run sequentially; async handlers run concurrently. Ordinary failures are grouped after delivery; fatal base exceptions can interrupt it. | Five supported publishing. Each surveyed implementation was type-erased or async-only. |
+| Notification publishing | `NotificationHandler[OrderPlaced]` is typed and checked. Sync handlers run sequentially; async handlers run concurrently. Ordinary failures are grouped after delivery; fatal base exceptions can interrupt it. | Five supported publishing. Each surveyed implementation was type-erased or async-only. |
 | Streaming responses | `StreamRequest[ChunkT]` and `StreamRequestHandler[StreamReqT]` produce a lazy `Iterator[ChunkT]` or `AsyncIterator[ChunkT]`. | One supported streaming, without a typed chunk relationship. |
 | Required runtime dependencies | The core package has no runtime dependencies. Integration with `dependency-injector` is optional. | Requirements varied; several required a serialization framework or dependency-injection container. |
 
@@ -53,12 +53,12 @@ little work so that dispatch remains visible in the result.
 | Sync: `handler(request)` — direct call | 0.98 µs | Baseline |
 | Sync: `mediator.send(request)` | 3.1 µs | 3.2x |
 | Sync: `send()` plus one pipeline behavior | 3.6 µs | 3.7x |
-| Sync: `handler(event)` — direct call | 0.25 µs | Baseline |
-| Sync: `mediator.publish(event)` — one subscriber | 1.1 µs | 4.5x |
+| Sync: `handler(notification)` — direct call | 0.25 µs | Baseline |
+| Sync: `mediator.publish(notification)` — one subscriber | 1.1 µs | 4.5x |
 | Async: `await handler(request)` — direct call | 0.92 µs | Baseline |
 | Async: `await mediator.send(request)` | 2.3 µs | 2.5x |
-| Async: `await handler(event)` — direct call | 0.85 µs | Baseline |
-| Async: `await mediator.publish(event)` — one subscriber | 247 µs | 290x |
+| Async: `await handler(notification)` — direct call | 0.85 µs | Baseline |
+| Async: `await mediator.publish(notification)` — one subscriber | 247 µs | 290x |
 
 On this run, synchronous `send()` added about 2.1 microseconds to a direct request-handler
 call, and asynchronous `send()` added about 1.4 microseconds. Absolute values vary with the
@@ -68,7 +68,7 @@ value in another application.
 The async publish result includes the cost of scheduling and awaiting subscribers
 concurrently with `asyncio.gather`. That fixed cost is visible because the benchmark handler
 does no I/O. In an application, compare it with the work each subscriber performs and with
-the event rate.
+the notification rate.
 
 <Callout type="warn" title="Read scripts before you run them">
   This applies to any script fetched from a URL, including this one. The source is committed

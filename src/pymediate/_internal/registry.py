@@ -23,7 +23,7 @@ from dataclasses import dataclass
 # Module-level locks for thread safety
 _request_lock = threading.RLock()
 _handler_lock = threading.RLock()
-_event_lock = threading.RLock()
+_notification_lock = threading.RLock()
 
 
 @dataclass(frozen=True)
@@ -50,11 +50,11 @@ _REQUEST_REGISTRY: dict[type, type] = {}
 # Example: {CreateUserRequest: HandlerRegistration(CreateUserHandler, "/path/file.py:42")}
 _HANDLER_REGISTRY: dict[type, HandlerRegistration] = {}
 
-# Maps event types to every handler class registered for them, in registration order.
+# Maps notification types to every handler class registered for them, in registration order.
 # Values are immutable tuples replaced wholesale on registration, so single-key reads
 # are safe without a lock (same design as the other hot-path lookups above).
 # Example: {OrderPlaced: (SendConfirmation, UpdateAnalytics)}
-_EVENT_HANDLER_REGISTRY: dict[type, tuple[type, ...]] = {}
+_NOTIFICATION_HANDLER_REGISTRY: dict[type, tuple[type, ...]] = {}
 
 
 # ============================================================================
@@ -337,91 +337,91 @@ def get_all_handler_request_types() -> list[type]:
 
 
 # ============================================================================
-# Event-RequestHandler Registry API
+# Notification-RequestHandler Registry API
 # ============================================================================
 
 
-def register_event_handler(event_type: type, handler_class: type) -> None:
-    """Register an event handler class for an event type.
+def register_notification_handler(notification_type: type, handler_class: type) -> None:
+    """Register a notification handler class for a notification type.
 
-    This function is called automatically when an EventHandler[EventT] subclass
+    This function is called automatically when a NotificationHandler[NotificationT] subclass
     is defined via __init_subclass__. Unlike request handlers, any number of
-    handlers may register for the same event type; they are stored in
+    handlers may register for the same notification type; they are stored in
     registration order, which is the order publish() invokes them in.
 
     Thread-safe: Uses a lock to prevent race conditions in multi-threaded environments.
 
     Args:
-        event_type: The event class this handler subscribes to.
-        handler_class: The handler class to append to the event's handler list.
+        notification_type: The notification class this handler subscribes to.
+        handler_class: The handler class to append to the notification's handler list.
 
     Examples:
         ```python
-        # This is called automatically by EventHandler.__init_subclass__
+        # This is called automatically by NotificationHandler.__init_subclass__
         # You typically don't call this directly
-        register_event_handler(OrderPlaced, SendConfirmation)
+        register_notification_handler(OrderPlaced, SendConfirmation)
         ```
 
     Note:
         This is an internal API for PyMediate developers. Package consumers
         should not call this function directly - it's handled automatically
-        by the EventHandler base class.
+        by the NotificationHandler base class.
     """
-    with _event_lock:
-        existing = _EVENT_HANDLER_REGISTRY.get(event_type, ())
-        _EVENT_HANDLER_REGISTRY[event_type] = (*existing, handler_class)
+    with _notification_lock:
+        existing = _NOTIFICATION_HANDLER_REGISTRY.get(notification_type, ())
+        _NOTIFICATION_HANDLER_REGISTRY[notification_type] = (*existing, handler_class)
 
 
-def get_event_handler_classes(event_type: type) -> tuple[type, ...]:
-    """Get every handler class registered for an event type, in registration order.
+def get_notification_handler_classes(notification_type: type) -> tuple[type, ...]:
+    """Get every handler class registered for a notification type, in registration order.
 
     Thread-safe without a lock: values are immutable tuples replaced wholesale on
     registration, and a single-key dict read is atomic in CPython - this sits on
     the per-publish hot path.
 
     Args:
-        event_type: The event class to look up.
+        notification_type: The notification class to look up.
 
     Returns:
-        The handler classes registered for this event type, empty if none.
+        The handler classes registered for this notification type, empty if none.
 
     Note:
         This is an internal API for PyMediate developers.
     """
-    return _EVENT_HANDLER_REGISTRY.get(event_type, ())
+    return _NOTIFICATION_HANDLER_REGISTRY.get(notification_type, ())
 
 
-def has_event_handlers(event_type: type) -> bool:
-    """Check if any handler is registered for an event type.
+def has_notification_handlers(notification_type: type) -> bool:
+    """Check if any handler is registered for a notification type.
 
     Thread-safe without a lock: a single-key dict read is atomic in CPython.
 
     Args:
-        event_type: The event class to check.
+        notification_type: The notification class to check.
 
     Returns:
-        True if at least one handler is registered for this event type.
+        True if at least one handler is registered for this notification type.
 
     Note:
         This is an internal API for PyMediate developers.
     """
-    return event_type in _EVENT_HANDLER_REGISTRY
+    return notification_type in _NOTIFICATION_HANDLER_REGISTRY
 
 
-def get_all_event_types() -> list[type]:
-    """Get all event types that have registered handlers.
+def get_all_notification_types() -> list[type]:
+    """Get all notification types that have registered handlers.
 
     Thread-safe: Returns a snapshot of the current registry state.
 
     Returns:
-        A list of all event types with at least one registered handler.
+        A list of all notification types with at least one registered handler.
 
     Note:
         This is an internal API for PyMediate developers, primarily used
         for debugging and testing.
     """
-    with _event_lock:
-        return list(_EVENT_HANDLER_REGISTRY.keys())
+    with _notification_lock:
+        return list(_NOTIFICATION_HANDLER_REGISTRY.keys())
 
 
 # ============================================================================
@@ -430,9 +430,9 @@ def get_all_event_types() -> list[type]:
 
 
 def clear_handler_registry() -> None:
-    """Clear handler registrations, request and event alike (for testing purposes only).
+    """Clear handler registrations, request and notification alike (for testing purposes only).
 
-    This function clears request-handler and event-handler registrations while
+    This function clears request-handler and notification-handler registrations while
     preserving request-response type mappings. This is useful for test isolation
     where you want to clear dynamic handler registrations but keep static type
     relationships.
@@ -455,8 +455,8 @@ def clear_handler_registry() -> None:
     """
     with _handler_lock:
         _HANDLER_REGISTRY.clear()
-    with _event_lock:
-        _EVENT_HANDLER_REGISTRY.clear()
+    with _notification_lock:
+        _NOTIFICATION_HANDLER_REGISTRY.clear()
 
 
 def clear_all_registries() -> None:
@@ -486,10 +486,10 @@ def clear_all_registries() -> None:
     """
     with _request_lock:
         with _handler_lock:
-            with _event_lock:
+            with _notification_lock:
                 _REQUEST_REGISTRY.clear()
                 _HANDLER_REGISTRY.clear()
-                _EVENT_HANDLER_REGISTRY.clear()
+                _NOTIFICATION_HANDLER_REGISTRY.clear()
 
 
 def get_registry_stats() -> dict[str, int]:
@@ -514,9 +514,9 @@ def get_registry_stats() -> dict[str, int]:
     """
     with _request_lock:
         with _handler_lock:
-            with _event_lock:
+            with _notification_lock:
                 return {
                     "request_count": len(_REQUEST_REGISTRY),
                     "handler_count": len(_HANDLER_REGISTRY),
-                    "event_handler_count": len(_EVENT_HANDLER_REGISTRY),
+                    "notification_handler_count": len(_NOTIFICATION_HANDLER_REGISTRY),
                 }

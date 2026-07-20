@@ -35,7 +35,7 @@ class InvalidHandlerSignatureError(PyMediateError):
     def __init__(self, handler_type: type, issue: str): ...
 ```
 
-Raised when a request, stream, or event handler's `__call__` has the wrong number of parameters,
+Raised when a request, stream, or notification handler's `__call__` has the wrong number of parameters,
 annotations, or synchronous/asynchronous form. Stream handlers also raise it when `__call__` is not
 the required generator form. The `handler_type` and `issue` attributes describe the failed
 declaration.
@@ -50,15 +50,15 @@ class InvalidRequestTypeError(PyMediateError):
 Raised when `RequestHandler[...]` is parameterized with a type that has no recorded
 `Request[ResponseT]` relationship. The rejected type is available as `request_type`.
 
-### `InvalidEventTypeError`
+### `InvalidNotificationTypeError`
 
 ```python
-class InvalidEventTypeError(PyMediateError):
-    def __init__(self, event_type: type): ...
+class InvalidNotificationTypeError(PyMediateError):
+    def __init__(self, notification_type: type): ...
 ```
 
-Raised when `EventHandler[...]` is parameterized with a type that is not an `Event` subclass. The
-rejected type is available as `event_type`.
+Raised when `NotificationHandler[...]` is parameterized with a type that is not a `Notification` subclass. The
+rejected type is available as `notification_type`.
 
 ### `InvalidStreamRequestTypeError`
 
@@ -101,7 +101,7 @@ class HandlerAlreadyRegisteredError(PyMediateError):
 
 Raised when a second request handler or stream handler is defined for a request type already in
 the process-wide registry. Its attributes retain the request type, both handler classes, and the
-first registration location when available. Event handlers do not use this one-handler limit.
+first registration location when available. Notification handlers do not use this one-handler limit.
 
 ## Construction-time errors
 
@@ -147,7 +147,7 @@ class ServiceNotFoundError(Exception):
 
 `ServiceProvider.get()` raises this error when no instance is registered for the exact requested
 type. During mediator dispatch, that can occur while resolving a request handler, stream handler,
-or event handler. The arguments are stored as `service_type` and `available_types`.
+or notification handler. The arguments are stored as `service_type` and `available_types`.
 
 Because `ServiceNotFoundError` is not a `PyMediateError`, catching `PyMediateError` alone does not
 catch all mediator configuration failures.

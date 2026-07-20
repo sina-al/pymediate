@@ -33,7 +33,7 @@ SRC = ROOT / "src"
 MODULES = [
     "pymediate",
     "pymediate.request",
-    "pymediate.event",
+    "pymediate.notification",
     "pymediate.handler",
     "pymediate.mediator",
     "pymediate.pipeline",
@@ -41,7 +41,7 @@ MODULES = [
     "pymediate.errors",
     "pymediate.providers.dependency_injector",
     "pymediate.sync",
-    "pymediate.sync.event",
+    "pymediate.sync.notification",
     "pymediate.sync.handler",
     "pymediate.sync.mediator",
     "pymediate.sync.pipeline",

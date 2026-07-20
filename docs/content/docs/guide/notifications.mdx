@@ -1,14 +1,14 @@
 ---
-title: Events
-description: Publish an event to zero or more handlers, including delivery order, failures, and the difference from requests.
+title: Notifications
+description: Publish a notification to zero or more handlers, including delivery order, failures, and the difference from requests.
 ---
 
-Events notify zero or more handlers that something has happened. The publisher receives no
+A notification tells zero or more handlers that something has happened. The publisher receives no
 response and does not select a handler.
 
-## Requests and events have different contracts
+## Requests and notifications have different contracts
 
-| | `send(request)` | `publish(event)` |
+| | `send(request)` | `publish(notification)` |
 | --- | --- | --- |
 | Handler count | Exactly one | Zero or more |
 | Result | The type declared by `Request[ResponseT]` | `None` |
@@ -17,37 +17,37 @@ response and does not select a handler.
 | Handler failures | Propagated from the handler | Ordinary failures are grouped; fatal base exceptions can interrupt delivery |
 | Pipeline behaviors | Applied | Not applied |
 
-Use a request when the caller needs one operation to produce a result. Use an event when the
+Use a request when the caller needs one operation to produce a result. Use a notification when the
 publisher only needs to report a completed fact, such as `OrderPlaced`, and subscribers can
 act independently.
 
-## Define and publish an event
+## Define and publish a notification
 
-An event inherits from `Event`. Its handlers inherit from `EventHandler[EventType]`, accept
-that exact event type, and return `None`:
+A notification inherits from `Notification`. Its handlers inherit from `NotificationHandler[NotificationType]`, accept
+that exact notification type, and return `None`:
 
 ```python
 import asyncio
 from dataclasses import dataclass
 
-from pymediate import Event, EventHandler, Mediator, Services
+from pymediate import Notification, NotificationHandler, Mediator, Services
 
 
 @dataclass(frozen=True)
-class OrderPlaced(Event):
+class OrderPlaced(Notification):
     order_id: int
     item: str
 
 
-class RecordOrder(EventHandler[OrderPlaced]):
-    async def __call__(self, event: OrderPlaced) -> None:
-        print(f"recorded {event.order_id}")
+class RecordOrder(NotificationHandler[OrderPlaced]):
+    async def __call__(self, notification: OrderPlaced) -> None:
+        print(f"recorded {notification.order_id}")
 
 
-class NotifyWarehouse(EventHandler[OrderPlaced]):
-    async def __call__(self, event: OrderPlaced) -> None:
+class NotifyWarehouse(NotificationHandler[OrderPlaced]):
+    async def __call__(self, notification: OrderPlaced) -> None:
         await asyncio.sleep(0)
-        print(f"warehouse notified about {event.item}")
+        print(f"warehouse notified about {notification.item}")
 
 
 async def main() -> None:
@@ -62,19 +62,19 @@ asyncio.run(main())
 ```
 
 Defining each handler class registers its subscription. Adding a handler instance to
-`Services` makes that instance available when an event is published. Build the provider
+`Services` makes that instance available when a notification is published. Build the provider
 after adding every required instance because `Services.provider()` returns a snapshot.
 
 The asynchronous and synchronous APIs share this process-wide subscription list. All handlers
-for one exact event type must therefore use the same form: either `async def` handlers from
-`pymediate.EventHandler` or `def` handlers from `pymediate.sync.EventHandler`. Mixing the forms for
-one event gives a mediator subscribers it cannot invoke correctly. Use distinct event types or
+for one exact notification type must therefore use the same form: either `async def` handlers from
+`pymediate.NotificationHandler` or `def` handlers from `pymediate.sync.NotificationHandler`. Mixing the forms for
+one notification gives a mediator subscribers it cannot invoke correctly. Use distinct notification types or
 separate processes when both forms are required.
 
-Dispatch uses the event instance's exact class. A handler for a base event class does not
-receive instances of a derived event class. The parameter annotation must also match the
-event type in `EventHandler[...]` exactly. See the
-[`EventHandler` validation rules](/docs/api/event-handler#definition-time-validation).
+Dispatch uses the notification instance's exact class. A handler for a base notification class does not
+receive instances of a derived notification class. The parameter annotation must also match the
+notification type in `NotificationHandler[...]` exactly. See the
+[`NotificationHandler` validation rules](/docs/api/notification-handler#definition-time-validation).
 
 ## Delivery and failures
 
@@ -98,36 +98,36 @@ behave the same in both versions, but subscriber failures differ slightly:
 Python's `except*` syntax can handle selected exception types from either group. It does not turn a
 directly propagated `KeyboardInterrupt` or `SystemExit` into a group.
 
-Handlers for one event should therefore not depend on each other's completion order. Put
+Handlers for one notification should therefore not depend on each other's completion order. Put
 ordered work in one handler, or model the dependent operation as a request.
 
-## Events are in-process dispatch
+## Notifications are in-process dispatch
 
 `publish()` calls handlers in the current process and does not return until they finish. It
-does not persist events, retry failed delivery, or send work to another process. Use a message
-broker or durable job system when those properties are required. An event handler can publish
+does not persist notifications, retry failed delivery, or send work to another process. Use a message
+broker or durable job system when those properties are required. A notification handler can publish
 to such a system as part of an application's integration code.
 
 ## Definition-time validation
 
-PyMediate validates an event handler when Python defines its class. It requires:
+PyMediate validates a notification handler when Python defines its class. It requires:
 
-- an event type that inherits from `Event`;
+- a notification type that inherits from `Notification`;
 - an exact parameter annotation;
 - a `None` return annotation; and
-- `async def` for `pymediate.EventHandler`, or `def` for
-  `pymediate.sync.EventHandler`.
+- `async def` for `pymediate.NotificationHandler`, or `def` for
+  `pymediate.sync.NotificationHandler`.
 
-The corresponding errors are `InvalidEventTypeError` and
+The corresponding errors are `InvalidNotificationTypeError` and
 `InvalidHandlerSignatureError`. Pipeline behaviors wrap `send()` only, so they do not run
-for published events.
+for published notifications.
 
 ## Testing
 
-Call an event handler directly when testing its own behavior. Use `publish()` in the smaller
-set of tests that need to verify subscriber wiring, concurrency, or grouped failures. Event
+Call a notification handler directly when testing its own behavior. Use `publish()` in the smaller
+set of tests that need to verify subscriber wiring, concurrency, or grouped failures. Notification
 subscriptions are registered at class definition and remain process-wide, so define shared
-test event and handler classes once. The [testing guide](/docs/guide/testing) describes this
+test notification and handler classes once. The [testing guide](/docs/guide/testing) describes this
 constraint in more detail.
 
 ## Continue

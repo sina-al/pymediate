@@ -34,7 +34,7 @@ def _validate_stream_call_signature(
     return as ``Iterator[ChunkT]`` (sync) or ``AsyncIterator[ChunkT]`` (async), where
     ``ChunkT`` is the chunk type declared on the ``StreamRequest``. The request
     parameter is held to ADR 0004's exact-annotation contract, same as request and
-    event handlers.
+    notification handlers.
 
     Args:
         cls: The stream handler class to validate.

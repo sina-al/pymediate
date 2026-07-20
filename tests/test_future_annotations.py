@@ -14,8 +14,8 @@ from dataclasses import dataclass
 import pytest
 
 from pymediate import (
-    Event,
     InvalidHandlerSignatureError,
+    Notification,
     Request,
     ResponseTypeMismatchError,
 )
@@ -84,18 +84,18 @@ def test_wrong_return_type_still_rejected_under_future_annotations() -> None:
 
 
 @dataclass
-class UserRegistered(Event):
+class UserRegistered(Notification):
     user_id: int
 
 
-def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
-    from pymediate.sync import EventHandler, Mediator
+def test_notification_handler_defines_and_publishes_under_future_annotations() -> None:
+    from pymediate.sync import Mediator, NotificationHandler
 
     calls: list[int] = []
 
-    class WelcomeSubscriber(EventHandler[UserRegistered]):
-        def __call__(self, event: UserRegistered) -> None:
-            calls.append(event.user_id)
+    class WelcomeSubscriber(NotificationHandler[UserRegistered]):
+        def __call__(self, notification: UserRegistered) -> None:
+            calls.append(notification.user_id)
 
     services = Services()
     services.add(WelcomeSubscriber())
@@ -105,11 +105,11 @@ def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
     assert calls == [7]
 
 
-def test_event_handler_wrong_return_still_rejected_under_future_annotations() -> None:
-    from pymediate.sync import EventHandler
+def test_notification_handler_wrong_return_still_rejected_under_future_annotations() -> None:
+    from pymediate.sync import NotificationHandler
 
     with pytest.raises(InvalidHandlerSignatureError, match="must be annotated to return None"):
 
-        class BadSubscriber(EventHandler[UserRegistered]):
-            def __call__(self, event: UserRegistered) -> int:
+        class BadSubscriber(NotificationHandler[UserRegistered]):
+            def __call__(self, notification: UserRegistered) -> int:
                 return 1

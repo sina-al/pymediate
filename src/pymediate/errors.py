@@ -74,7 +74,7 @@ class HandlerNotFoundError(PyMediateError):
 class InvalidHandlerSignatureError(PyMediateError):
     """Raised when a handler has an invalid __call__ signature.
 
-    Request, event, and stream handlers each validate the parameter annotation,
+    Request, notification, and stream handlers each validate the parameter annotation,
     return annotation, and synchronous, asynchronous, or generator form required
     by their handler base class. ``issue`` describes the failed part of that
     contract.
@@ -134,40 +134,40 @@ class InvalidRequestTypeError(PyMediateError):
 
         super().__init__(
             message,
-            docs_path="docs/guide/troubleshooting#invalid-request-event-or-stream-types",
+            docs_path="docs/guide/troubleshooting#invalid-request-notification-or-stream-types",
         )
 
 
-class InvalidEventTypeError(PyMediateError):
-    """Raised when an event handler's type parameter doesn't inherit from Event.
+class InvalidNotificationTypeError(PyMediateError):
+    """Raised when a notification handler's type parameter doesn't inherit from Notification.
 
-    All event classes must inherit from Event so they can be published via
+    All notification classes must inherit from Notification so they can be published via
     Mediator.publish().
     """
 
-    def __init__(self, event_type: type):
-        """Initialize the error for a type parameter that isn't an Event subclass.
+    def __init__(self, notification_type: type):
+        """Initialize the error for a type parameter that isn't a Notification subclass.
 
         Args:
-            event_type: The type that doesn't inherit from Event
+            notification_type: The type that doesn't inherit from Notification
         """
-        self.event_type = event_type
+        self.notification_type = notification_type
 
-        name = getattr(event_type, "__name__", str(event_type))
+        name = getattr(notification_type, "__name__", str(notification_type))
         message = (
-            f"Event type '{name}' must inherit from Event\n\n"
-            "Expected event definition:\n"
+            f"Notification type '{name}' must inherit from Notification\n\n"
+            "Expected notification definition:\n"
             "  @dataclass\n"
-            f"  class {name}(Event):\n"
+            f"  class {name}(Notification):\n"
             "      field1: str\n"
             "      field2: int\n\n"
-            "An Event subclass can be passed to mediator.publish() and named in\n"
-            "EventHandler[...]."
+            "A Notification subclass can be passed to mediator.publish() and named in\n"
+            "NotificationHandler[...]."
         )
 
         super().__init__(
             message,
-            docs_path="docs/guide/troubleshooting#invalid-request-event-or-stream-types",
+            docs_path="docs/guide/troubleshooting#invalid-request-notification-or-stream-types",
         )
 
 
@@ -200,7 +200,7 @@ class InvalidStreamRequestTypeError(PyMediateError):
 
         super().__init__(
             message,
-            docs_path="docs/guide/troubleshooting#invalid-request-event-or-stream-types",
+            docs_path="docs/guide/troubleshooting#invalid-request-notification-or-stream-types",
         )
 
 
@@ -246,8 +246,8 @@ class HandlerAlreadyRegisteredError(PyMediateError):
     """Raised when a second request or stream handler targets one request type.
 
     The process-wide registry stores one request or stream handler class for each
-    exact request type. Event handlers use a separate registry and may have several
-    subscribers for one event type.
+    exact request type. Notification handlers use a separate registry and may have several
+    subscribers for one notification type.
     """
 
     def __init__(

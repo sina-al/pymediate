@@ -1,7 +1,7 @@
-"""Typed request dispatch, streaming, and event publication for Python 3.12+.
+"""Typed request dispatch, streaming, and notification publication for Python 3.12+.
 
 The top-level package provides the asynchronous API. Synchronous
-``RequestHandler``, ``EventHandler``, ``StreamRequestHandler``, ``Mediator``, and
+``RequestHandler``, ``NotificationHandler``, ``StreamRequestHandler``, ``Mediator``, and
 ``PipelineBehavior`` variants live in ``pymediate.sync``; message types,
 services, and errors are shared between the two namespaces.
 
@@ -56,17 +56,17 @@ from importlib.metadata import PackageNotFoundError, version
 from .errors import (
     HandlerAlreadyRegisteredError,
     HandlerNotFoundError,
-    InvalidEventTypeError,
     InvalidHandlerSignatureError,
+    InvalidNotificationTypeError,
     InvalidPipelineBehaviorsError,
     InvalidRequestTypeError,
     InvalidStreamRequestTypeError,
     PyMediateError,
     ResponseTypeMismatchError,
 )
-from .event import Event, EventHandler
 from .handler import RequestHandler
 from .mediator import Mediator
+from .notification import Notification, NotificationHandler
 from .pipeline import Next, PipelineBehavior
 from .request import Request
 from .service import ServiceNotFoundError, ServiceProvider, Services
@@ -76,9 +76,9 @@ __all__ = [
     "Request",
     "RequestHandler",
     "Mediator",
-    # Events
-    "Event",
-    "EventHandler",
+    # Notifications
+    "Notification",
+    "NotificationHandler",
     # Streaming
     "StreamRequest",
     "StreamRequestHandler",
@@ -96,7 +96,7 @@ __all__ = [
     "InvalidHandlerSignatureError",
     "InvalidPipelineBehaviorsError",
     "InvalidRequestTypeError",
-    "InvalidEventTypeError",
+    "InvalidNotificationTypeError",
     "InvalidStreamRequestTypeError",
     "ResponseTypeMismatchError",
 ]

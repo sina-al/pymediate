@@ -111,14 +111,14 @@ when the mapping is only for that framework.
 
 ## Understand definition-time errors
 
-Request, event, and stream handlers are validated when Python defines their classes. These errors
+Request, notification, and stream handlers are validated when Python defines their classes. These errors
 normally stop module import and indicate a declaration that needs to be corrected:
 
 | Exception | Meaning |
 | --- | --- |
-| `InvalidHandlerSignatureError` | A request, event, or stream handler has the wrong call shape, annotations, sync form, or generator form. |
+| `InvalidHandlerSignatureError` | A request, notification, or stream handler has the wrong call shape, annotations, sync form, or generator form. |
 | `InvalidRequestTypeError` | A request handler's type argument is not a registered `Request[ResponseType]` subclass. |
-| `InvalidEventTypeError` | An event handler's type argument is not an `Event` subclass. |
+| `InvalidNotificationTypeError` | A notification handler's type argument is not a `Notification` subclass. |
 | `InvalidStreamRequestTypeError` | A stream handler's type argument is not a `StreamRequest[ChunkType]` subclass, or the chunk type is absent. |
 | `ResponseTypeMismatchError` | A request handler's return annotation does not match its request's declared response type. |
 | `HandlerAlreadyRegisteredError` | A second request or stream-handler class was declared for the same request type. |
@@ -146,7 +146,7 @@ not imported during startup.
 ### `ServiceNotFoundError`
 
 Once a handler class is known, the mediator asks the service provider for an instance of that exact
-class. If the provider does not contain one, it raises `ServiceNotFoundError`. Event publication
+class. If the provider does not contain one, it raises `ServiceNotFoundError`. Notification publication
 raises the same error when a declared subscriber has no service instance; all subscriber instances
 are resolved before any subscriber runs.
 
@@ -169,8 +169,8 @@ Each dispatch form propagates user-code failures at a different point:
 | `await mediator.send(request)` | Handler and behavior exceptions propagate unchanged from the call. |
 | `mediator.stream(request)` | Handler resolution errors occur at this call. |
 | Iterating a stream | Exceptions from the generator body propagate when the relevant chunk is requested. |
-| `await mediator.publish(event)` | Asynchronous subscribers run concurrently; ordinary failures are grouped after all finish. `KeyboardInterrupt` and `SystemExit` propagate directly. |
-| `mediator.publish(event)` | Synchronous subscribers run in order; ordinary `Exception` failures are grouped after all subscribers have been called. |
+| `await mediator.publish(notification)` | Asynchronous subscribers run concurrently; ordinary failures are grouped after all finish. `KeyboardInterrupt` and `SystemExit` propagate directly. |
+| `mediator.publish(notification)` | Synchronous subscribers run in order; ordinary `Exception` failures are grouped after all subscribers have been called. |
 
 For asynchronous publication, ordinary exceptions produce an `ExceptionGroup`. Other collected
 failures derived directly from `BaseException` produce a `BaseExceptionGroup`. `KeyboardInterrupt`
@@ -188,7 +188,7 @@ except* ConnectionError as group:
         print(f"subscriber unavailable: {error}")
 ```
 
-The [events guide](/docs/guide/events#delivery-and-failures) covers subscriber
+The [notifications guide](/docs/guide/notifications#delivery-and-failures) covers subscriber
 resolution, concurrency, and grouping in more detail.
 
 ## Continue

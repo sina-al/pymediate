@@ -8,9 +8,9 @@ response in memory.
 
 ## Compare the dispatch methods
 
-| | `send(request)` | `stream(request)` | `publish(event)` |
+| | `send(request)` | `stream(request)` | `publish(notification)` |
 | --- | --- | --- | --- |
-| Input base class | `Request[ResponseT]` | `StreamRequest[ChunkT]` | `Event` |
+| Input base class | `Request[ResponseT]` | `StreamRequest[ChunkT]` | `Notification` |
 | Handler count | Exactly one | Exactly one | Zero or more |
 | Handler result | One response | An iterator of chunks | `None` |
 | Caller syntax | `await` or direct call | `async for` or `for` | `await` or direct call |
@@ -137,6 +137,6 @@ to another process; PyMediate streams are in-process iterators.
 
 ## Continue
 
-- [Events](/docs/guide/events) covers zero-or-more subscriber dispatch.
+- [Notifications](/docs/guide/notifications) covers zero-or-more subscriber dispatch.
 - [Async and sync](/docs/guide/async-sync) compares the iterator forms.
 - [StreamRequestHandler](/docs/api/stream-request-handler) is the API reference.

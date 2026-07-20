@@ -6,10 +6,10 @@ from typing import Any, assert_type, cast
 import pytest
 from dependency_injector import containers, providers
 
-from pymediate import Event, EventHandler, Mediator, Request, RequestHandler
+from pymediate import Mediator, Notification, NotificationHandler, Request, RequestHandler
 from pymediate.providers import DependencyInjectorServiceProvider
-from pymediate.sync import EventHandler as SyncEventHandler
 from pymediate.sync import Mediator as SyncMediator
+from pymediate.sync import NotificationHandler as SyncNotificationHandler
 from pymediate.sync import Request as SyncRequest
 from pymediate.sync import RequestHandler as SyncRequestHandler
 
@@ -384,7 +384,7 @@ def test_nested_sync_handler_can_publish_through_the_injected_mediator() -> None
     """A child-container handler can publish to other container-resolved handlers."""
 
     @dataclass
-    class OrderPlaced(Event):
+    class OrderPlaced(Notification):
         order_id: int
 
     @dataclass
@@ -403,12 +403,12 @@ def test_nested_sync_handler_can_publish_through_the_injected_mediator() -> None
             self._mediator.publish(OrderPlaced(order_id=request.order_id))
             return PlaceOrderResponse(order_id=request.order_id)
 
-    class RecordOrderPlaced(SyncEventHandler[OrderPlaced]):
+    class RecordOrderPlaced(SyncNotificationHandler[OrderPlaced]):
         def __init__(self, notifications: list[OrderPlaced]) -> None:
             self._notifications = notifications
 
-        def __call__(self, event: OrderPlaced) -> None:
-            self._notifications.append(event)
+        def __call__(self, notification: OrderPlaced) -> None:
+            self._notifications.append(notification)
 
     class OrdersContainer(containers.DeclarativeContainer):
         mediator = providers.Dependency(instance_of=SyncMediator)
@@ -448,7 +448,7 @@ async def test_nested_async_handler_can_publish_through_the_injected_mediator() 
     """The async mediator can close the same root-to-child notification loop."""
 
     @dataclass
-    class RefundApproved(Event):
+    class RefundApproved(Notification):
         refund_id: int
 
     @dataclass
@@ -470,12 +470,12 @@ async def test_nested_async_handler_can_publish_through_the_injected_mediator() 
             await self._mediator.publish(RefundApproved(refund_id=request.refund_id))
             return ApproveRefundResponse(refund_id=request.refund_id)
 
-    class RecordRefundApproval(EventHandler[RefundApproved]):
+    class RecordRefundApproval(NotificationHandler[RefundApproved]):
         def __init__(self, notifications: list[RefundApproved]) -> None:
             self._notifications = notifications
 
-        async def __call__(self, event: RefundApproved) -> None:
-            self._notifications.append(event)
+        async def __call__(self, notification: RefundApproved) -> None:
+            self._notifications.append(notification)
 
     class RefundsContainer(containers.DeclarativeContainer):
         mediator = providers.Dependency(instance_of=Mediator)

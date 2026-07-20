@@ -7,8 +7,8 @@
     "mediator",
     "stream-request",
     "stream-request-handler",
-    "event",
-    "event-handler",
+    "notification",
+    "notification-handler",
     "pipeline",
     "service-provider",
     "errors"

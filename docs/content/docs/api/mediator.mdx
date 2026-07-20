@@ -4,7 +4,7 @@ description: API reference for the asynchronous and synchronous Mediator classes
 ---
 
 `Mediator` resolves handler instances through a [`ServiceProvider`](/docs/api/service-provider)
-and supports three dispatch forms: one response, a stream of chunks, or event publication.
+and supports three dispatch forms: one response, a stream of chunks, or notification publication.
 
 <Tabs items={['Async', 'Sync']}>
   <Tab value="Async">
@@ -13,7 +13,7 @@ and supports three dispatch forms: one response, a stream of chunks, or event pu
 
     from collections.abc import Sequence
 
-    from pymediate import Event, PipelineBehavior, Request, ServiceProvider, StreamRequest
+    from pymediate import Notification, PipelineBehavior, Request, ServiceProvider, StreamRequest
 
     class Mediator:
         def __init__(
@@ -30,7 +30,7 @@ and supports three dispatch forms: one response, a stream of chunks, or event pu
             request: StreamRequest[ChunkT],
         ) -> AsyncIterator[ChunkT]: ...
 
-        async def publish(self, event: Event) -> None: ...
+        async def publish(self, notification: Notification) -> None: ...
     ```
   </Tab>
   <Tab value="Sync">
@@ -39,7 +39,7 @@ and supports three dispatch forms: one response, a stream of chunks, or event pu
 
     from collections.abc import Sequence
 
-    from pymediate.sync import Event, PipelineBehavior, Request, ServiceProvider, StreamRequest
+    from pymediate.sync import Notification, PipelineBehavior, Request, ServiceProvider, StreamRequest
 
     class Mediator:
         def __init__(
@@ -56,7 +56,7 @@ and supports three dispatch forms: one response, a stream of chunks, or event pu
             request: StreamRequest[ChunkT],
         ) -> Iterator[ChunkT]: ...
 
-        def publish(self, event: Event) -> None: ...
+        def publish(self, notification: Notification) -> None: ...
     ```
   </Tab>
 </Tabs>
@@ -135,7 +135,7 @@ Do not await the asynchronous `stream()` call itself; use `async for` on its res
 
 ## `publish()`
 
-`publish()` resolves every `EventHandler` registered for the event's exact class. Publishing with
+`publish()` resolves every `NotificationHandler` registered for the notification's exact class. Publishing with
 no registered handlers returns `None` without error. Pipeline behaviors do not wrap publication.
 
 The mediator resolves every handler instance before invoking any of them. A missing instance thus
@@ -159,6 +159,6 @@ await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 
 - [RequestHandler](/docs/api/request-handler) — the `send()` handler
 - [StreamRequestHandler](/docs/api/stream-request-handler) — the `stream()` handler
-- [EventHandler](/docs/api/event-handler) — a `publish()` subscriber
+- [NotificationHandler](/docs/api/notification-handler) — a `publish()` subscriber
 - [PipelineBehavior and Next](/docs/api/pipeline) — request middleware
 - [Errors](/docs/api/errors) — dispatch and publication failures

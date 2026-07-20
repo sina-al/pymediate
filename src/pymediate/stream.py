@@ -11,7 +11,7 @@ from ._internal.stream import StreamHandlerBaseMixin
 class StreamRequest[ChunkT]:
     """Base class for requests answered by a stream of typed chunks.
 
-    Where a `Request[ResponseT]` is answered by exactly one response and an `Event`
+    Where a `Request[ResponseT]` is answered by exactly one response and an `Notification`
     is published to zero or more handlers, a `StreamRequest[ChunkT]` is answered by
     exactly one handler that yields a stream of ``ChunkT`` values, consumed lazily
     through ``Mediator.stream()``. Inherit from ``StreamRequest[ChunkT]`` to

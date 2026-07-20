@@ -141,7 +141,7 @@ Dependency Injector retains control of each registered lifetime:
 - `ContextLocalSingleton` follows Dependency Injector's context-local lifetime.
 
 The mediator resolves a request or stream handler for each dispatch. It resolves applicable
-pipeline behaviors for each `send()`, and resolves event subscribers for each `publish()`. Choose a
+pipeline behaviors for each `send()`, and resolves notification subscribers for each `publish()`. Choose a
 lifetime that matches the state and concurrency rules of that service rather than relying on a
 handler-wide default.
 
