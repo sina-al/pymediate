@@ -28,9 +28,10 @@ class DependencyInjectorServiceProvider:
     factories and singletons, object providers, and factories with concrete return
     annotations are discovered automatically.
 
-    Child ``providers.Container`` providers are indexed recursively in declaration
-    order. Other provider dependencies are not traversed, so providers reachable only
-    through injection are not accidentally exposed as PyMediate services.
+    Child ``providers.Container`` providers are indexed recursively. Other provider
+    dependencies are not traversed, so providers reachable only through injection are
+    not accidentally exposed as PyMediate services. The order in which ``get_all()``
+    returns matches is unspecified.
 
     Examples:
         ```python
@@ -80,7 +81,6 @@ class DependencyInjectorServiceProvider:
 
         self._container = container
         self._type_providers: dict[type[Any], list[_Registration]] = {}
-        self._registration_order: list[_Registration] = []
 
         self._scan_container(container, path="", active_containers=set())
 
@@ -168,7 +168,6 @@ class DependencyInjectorServiceProvider:
     def _register(self, service_type: type[Any], provider: _Provider, path: str) -> None:
         registration = _Registration(service_type, provider, path)
         self._type_providers.setdefault(service_type, []).append(registration)
-        self._registration_order.append(registration)
 
     def _resolve(self, registration: _Registration) -> Any:
         instance = registration.provider()
@@ -210,30 +209,31 @@ class DependencyInjectorServiceProvider:
         return cast(ServiceT, self._resolve(registrations[0]))
 
     def get_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Get all instances of the type, including subclasses, in declaration order.
+        """Get all instances of the type, including subclasses, in an unspecified order.
 
         Args:
             service_type: The type, abstract base, or runtime-checkable protocol to
                 resolve.
 
         Returns:
-            All matching instances in declaration order, or an empty sequence.
+            All matching instances in an unspecified order, or an empty sequence.
 
         Raises:
             TypeError: If a matching provider resolves asynchronously or returns
                 a value that does not match its indexed service type.
         """
         result: list[Any] = []
-        for registration in self._registration_order:
-            try:
-                matches = issubclass(registration.service_type, service_type)
-            except TypeError:
-                instance = self._resolve(registration)
-                if isinstance(instance, service_type):
-                    result.append(instance)
-            else:
-                if matches:
-                    result.append(self._resolve(registration))
+        for registrations in self._type_providers.values():
+            for registration in registrations:
+                try:
+                    matches = issubclass(registration.service_type, service_type)
+                except TypeError:
+                    instance = self._resolve(registration)
+                    if isinstance(instance, service_type):
+                        result.append(instance)
+                else:
+                    if matches:
+                        result.append(self._resolve(registration))
         return result
 
     def has(self, service_type: type[Any]) -> bool:
@@ -251,13 +251,13 @@ class DependencyInjectorServiceProvider:
         """Get every exact type that has at least one registered instance.
 
         Returns:
-            All registered service types in first-declaration order.
+            All registered service types, in no particular order.
         """
         return tuple(self._type_providers)
 
     def __len__(self) -> int:
         """Return the total number of indexed service providers."""
-        return len(self._registration_order)
+        return sum(len(registrations) for registrations in self._type_providers.values())
 
 
 def _callable_return_type(provided: Callable[..., Any] | None) -> type[Any] | None:

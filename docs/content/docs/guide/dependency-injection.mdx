@@ -104,8 +104,9 @@ composition inputs rather than exposed services, so the adapter skips them durin
 
 ## Use nested containers
 
-Declared `providers.Container` children are indexed recursively. Their services retain their
-position in root declaration order, which also preserves pipeline-behavior ordering:
+Declared `providers.Container` children are indexed recursively, so their services are discovered
+alongside the root container's. Pipeline-behavior order does not depend on this - it is fixed by
+the mediator's `behaviors=` sequence, not by how the container resolves them:
 
 ```python
 class OrdersContainer(containers.DeclarativeContainer):

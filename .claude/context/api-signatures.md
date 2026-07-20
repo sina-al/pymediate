@@ -190,7 +190,7 @@ class DependencyInjectorServiceProvider:
         """Get the first registered instance of the exact type."""
         ...
     def get_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Get all instances of the type, including subclasses, in declaration order."""
+        """Get all instances of the type, including subclasses, in an unspecified order."""
         ...
     def has(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered."""

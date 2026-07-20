@@ -30,8 +30,12 @@ class ThirdService(Service):
     """Last nested service."""
 
 
-def test_nested_containers_are_indexed_in_declaration_order() -> None:
-    """Nested container providers retain the root declaration order."""
+def test_nested_container_services_are_all_discovered() -> None:
+    """Services declared in nested containers are all indexed and resolvable.
+
+    The order in which ``get_all()`` returns matches is unspecified, so this pins
+    only that every nested service is discovered.
+    """
 
     class FirstContainer(containers.DeclarativeContainer):
         first = providers.Factory(FirstService)
@@ -48,11 +52,38 @@ def test_nested_containers_are_indexed_in_declaration_order() -> None:
 
     resolved = services.get_all(Service)
 
-    assert [type(service) for service in resolved] == [
+    assert {type(service) for service in resolved} == {
         FirstService,
         SecondService,
         ThirdService,
-    ]
+    }
+
+
+def test_injection_only_provider_is_not_registered_as_a_service() -> None:
+    """A provider reachable only through injection is deliberately not indexed.
+
+    Discovery walks each container's declared attributes (recursing into declared
+    child containers); a provider used solely as an injected dependency, never
+    declared as a container attribute, does not become a PyMediate service.
+    """
+
+    class Hidden:
+        pass
+
+    class Repo(Service):
+        def __init__(self, hidden: Hidden) -> None:
+            self.hidden = hidden
+
+    hidden_provider = providers.Singleton(Hidden)
+
+    class RootContainer(containers.DeclarativeContainer):
+        repo = providers.Factory(Repo, hidden=hidden_provider)
+
+    services = DependencyInjectorServiceProvider(RootContainer())
+
+    assert services.get_all_types() == (Repo,)
+    assert not services.has(Hidden)
+    assert services.get_all(Hidden) == []
 
 
 def test_indexing_does_not_resolve_factories_or_unrelated_services() -> None:
