@@ -4,7 +4,7 @@ Each `Request` subclass declares its response type, which determines the return 
 `mediator.send(...)`. Each handler receives only the collaborators used by its operation.
 Successful-request auditing is defined once in ``wiring.py``.
 
-This is the synchronous mirror of `examples/005-why-a-mediator/`, built on ``pymediate.sync``.
+This is the synchronous mirror of `examples/005-mediator-vs-service/`, built on ``pymediate.sync``.
 """
 
 from dataclasses import dataclass

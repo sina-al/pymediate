@@ -1,5 +1,5 @@
 [project]
-name = "pymediate-example-005-why-a-mediator-sync"
+name = "pymediate-example-005-mediator-vs-service-sync"
 version = "0.1.0"
 description = "Compare one order service with one synchronous PyMediate handler per operation"
 requires-python = ">=3.12"

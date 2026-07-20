@@ -76,7 +76,7 @@ test = [
 ]
 
 [[package]]
-name = "pymediate-example-005-why-a-mediator"
+name = "pymediate-example-005-mediator-vs-service"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

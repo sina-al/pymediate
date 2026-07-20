@@ -1,12 +1,12 @@
 {
   "folders": [
     {
-      "name": "examples/005-why-a-mediator",
-      "path": "examples/005-why-a-mediator"
+      "name": "examples/005-mediator-vs-service",
+      "path": "examples/005-mediator-vs-service"
     },
     {
-      "name": "examples/005-why-a-mediator-sync",
-      "path": "examples/005-why-a-mediator-sync"
+      "name": "examples/005-mediator-vs-service-sync",
+      "path": "examples/005-mediator-vs-service-sync"
     },
     {
       "name": "examples/010-basic",
