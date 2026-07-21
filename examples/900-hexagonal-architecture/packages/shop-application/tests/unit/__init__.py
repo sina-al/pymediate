@@ -1,1 +1,0 @@
-"""Direct application unit tests."""
