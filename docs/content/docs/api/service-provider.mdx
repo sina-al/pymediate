@@ -8,7 +8,8 @@ The mediator obtains handlers and pipeline behaviors from a `ServiceProvider`. P
 
 ## ServiceProvider (protocol)
 
-`ServiceProvider` is a structural protocol. It is read-only and describes three operations:
+`ServiceProvider` is a structural protocol. It is read-only and describes the two operations the
+mediator uses to resolve handlers and behaviors:
 
 ```python
 from typing import Protocol, TypeVar
@@ -18,19 +19,18 @@ ServiceT = TypeVar("ServiceT")
 class ServiceProvider(Protocol):
     def get(self, service_type: type[ServiceT]) -> ServiceT: ...
     def has(self, service_type: type) -> bool: ...
-    def __len__(self) -> int: ...
 ```
 
 | Operation | Contract |
 | --- | --- |
 | `get(service_type)` | Return the first instance registered with that exact type; raise `ServiceNotFoundError` if absent |
 | `has(service_type)` | Test for an exact registered type |
-| `len(provider)` | Return the total number of registered instances, counting duplicates |
 
 The mediator accepts custom implementations of this protocol through its `services` constructor
-parameter. Because it is a structural protocol, a class conforms just by defining these
+parameter. Because it is a structural protocol, a class conforms just by defining these two
 operations — inheriting from `ServiceProvider` is optional. The built-in providers do inherit it
-so a static type checker verifies conformance at their definition.
+so a static type checker verifies conformance at their definition. They also offer `len()` as a
+convenience for inspection and testing; it is not part of the protocol the mediator requires.
 
 ## `Services`
 
@@ -111,8 +111,9 @@ mediator = Mediator(services=services)
 ```
 
 The adapter indexes the container's providers without resolving them, then delegates each
-resolution to the original Dependency Injector provider. It implements the three `ServiceProvider`
-operations; `len(services)` is the number of indexed providers.
+resolution to the original Dependency Injector provider. It implements the two `ServiceProvider`
+operations and, like the built-in provider, offers `len()` — `len(services)` is the number of
+indexed providers.
 
 It can infer service types from class-backed factories and singletons, object providers, list and
 dictionary providers, and callables with a concrete return annotation. The whole provider graph is

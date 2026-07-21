@@ -60,7 +60,7 @@ class ServiceProvider(Protocol):
     ``Services.provider()`` returns the built-in implementation.
     ``DependencyInjectorServiceProvider`` adapts a Dependency Injector container.
     A custom provider can use another resolution and lifetime policy while
-    implementing the same three operations.
+    implementing the same two operations.
 
     Note:
         The protocol is read-only. Thread-safety and mutation behavior depend on
@@ -94,15 +94,6 @@ class ServiceProvider(Protocol):
 
         Returns:
             True if at least one instance of the exact type is registered.
-        """
-        ...
-
-    def __len__(self) -> int:
-        """Return how many service instances are registered in total.
-
-        Returns:
-            The total instance count across all types. An instance registered
-            twice counts twice.
         """
         ...
 

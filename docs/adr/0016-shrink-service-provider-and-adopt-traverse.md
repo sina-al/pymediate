@@ -33,11 +33,17 @@ resolves handlers and behaviors by exact class through `get()`.
 
 **Remove `get_all()` and `get_all_types()`** from the `ServiceProvider` protocol, the
 built-in `_Provider`, and `DependencyInjectorServiceProvider`. Neither has a non-test caller
-in the package (`get()`/`has()`/`__len__` cover every internal need: the mediator resolves
+in the package (`get()` and `has()` cover every internal need: the mediator resolves
 by exact class through `get()` and validates behaviors with `has()`; `ServiceNotFoundError`
-lists available types from provider internals directly). The protocol shrinks to three
-operations: `get`, `has`, `__len__`. `get()` keeps exact-type, first-registered semantics.
-`has()` stays because the mediator's behavior validation calls it.
+lists available types from provider internals directly). The protocol shrinks to the two
+operations the mediator actually uses: `get` and `has`. `get()` keeps exact-type,
+first-registered semantics. `has()` stays because the mediator's behavior validation calls it.
+
+**`__len__` leaves the protocol too.** It had no caller in the dispatch path — the mediator
+never counts a provider, only `get()`s and `has()`es it — so it is not part of the contract a
+custom provider must satisfy. The built-in `_Provider`, `Services`, and
+`DependencyInjectorServiceProvider` keep a concrete `__len__` as an inspection/testing
+convenience (their `__repr__` uses it), but it is no longer a protocol requirement.
 
 **Both built-in providers now inherit `ServiceProvider` explicitly.** Conformance was only
 verified structurally at call sites; inheriting makes a static checker verify it at the class
@@ -76,7 +82,7 @@ resolution-delegation decisions still stand.
 
 ### Positive
 
-- The protocol a custom provider must satisfy is smaller (three methods, none with an
+- The protocol a custom provider must satisfy is smaller (two methods, none with an
   ordering or inheritance-resolution obligation) — a better story for the `120-custom-provider`
   example and anyone implementing `ServiceProvider`.
 - The DI adapter drops its recursion and cycle-detection code and uses the library's own
