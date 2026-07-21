@@ -18,9 +18,9 @@
 | src/pymediate/mediator.py                       |       30 |        0 |    100.00% |           |
 | src/pymediate/pipeline.py                       |       44 |        0 |    100.00% |           |
 | src/pymediate/providers/\_\_init\_\_.py         |        2 |        0 |    100.00% |           |
-| src/pymediate/providers/dependency\_injector.py |      120 |       10 |     91.67% |267, 272-276, 283-284, 286, 288 |
+| src/pymediate/providers/dependency\_injector.py |       83 |       11 |     86.75% |185, 192, 197-201, 208-209, 211, 213 |
 | src/pymediate/request.py                        |       12 |        0 |    100.00% |           |
-| src/pymediate/service.py                        |       51 |        0 |    100.00% |           |
+| src/pymediate/service.py                        |       37 |        0 |    100.00% |           |
 | src/pymediate/stream.py                         |       17 |        0 |    100.00% |           |
 | src/pymediate/sync/\_\_init\_\_.py              |       11 |        0 |    100.00% |           |
 | src/pymediate/sync/event.py                     |        5 |        0 |    100.00% |           |
@@ -28,7 +28,7 @@
 | src/pymediate/sync/mediator.py                  |       33 |        0 |    100.00% |           |
 | src/pymediate/sync/pipeline.py                  |       44 |        0 |    100.00% |           |
 | src/pymediate/sync/stream.py                    |        7 |        0 |    100.00% |           |
-| **TOTAL**                                       |  **783** |   **18** | **97.70%** |           |
+| **TOTAL**                                       |  **732** |   **19** | **97.40%** |           |
 
 
 ## Setup coverage badge
