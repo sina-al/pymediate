@@ -1,4 +1,4 @@
-# ADR 0016: Rename `Event`/`EventHandler` to `Notification`/`NotificationHandler`
+# ADR 0017: Rename `Event`/`EventHandler` to `Notification`/`NotificationHandler`
 
 **Status:** Proposed
 **Date:** 2026-07-19
