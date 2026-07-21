@@ -290,3 +290,37 @@ class HandlerAlreadyRegisteredError(PyMediateError):
         super().__init__(
             message, docs_path="docs/guide/troubleshooting#handleralreadyregisterederror"
         )
+
+
+class InvalidPipelineBehaviorsError(PyMediateError):
+    """Raised when a mediator's ``behaviors`` sequence is invalid at construction.
+
+    The mediator validates the sequence once, when it is constructed: every entry
+    must be a ``PipelineBehavior`` subclass of the mediator's variant (synchronous
+    or asynchronous), must be registered with the service provider, and may be
+    listed only once. ``issue`` describes the failed part of that contract.
+    """
+
+    def __init__(self, entry: object, issue: str):
+        """Initialize the error for one invalid ``behaviors`` entry.
+
+        Args:
+            entry: The offending entry from the ``behaviors`` sequence.
+            issue: Description of what's wrong with the entry.
+        """
+        self.entry = entry
+        self.issue = issue
+
+        message = (
+            f"Invalid behaviors entry '{_type_name(entry)}': {issue}\n\n"
+            "The behaviors sequence passed to Mediator(...) declares the pipeline:\n"
+            "  - each entry is a PipelineBehavior subclass (a class, not an instance)\n"
+            "  - of the mediator's variant (synchronous or asynchronous)\n"
+            "  - registered with the service provider\n"
+            "  - listed at most once\n\n"
+            "Execution order is the sequence order - the first entry is outermost."
+        )
+
+        super().__init__(
+            message, docs_path="docs/guide/troubleshooting#invalidpipelinebehaviorserror"
+        )

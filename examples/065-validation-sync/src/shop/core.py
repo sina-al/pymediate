@@ -166,4 +166,4 @@ def build_mediator() -> Mediator:
     services.add(ValidationBehavior(validators))  # registered first → outermost
     services.add(SubscribeHandler())
     services.add(PlaceOrderHandler())
-    return Mediator(services.provider())
+    return Mediator(services.provider(), behaviors=[ValidationBehavior])

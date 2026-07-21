@@ -4,7 +4,7 @@ These standalone projects form a learning path from the first typed request to a
 multi-package application. Each project has its own dependencies, tests, editor settings,
 and README.
 
-Read `005-why-a-mediator` if you are deciding whether request handlers fit your application.
+Read `005-mediator-vs-service` if you are deciding whether request handlers fit your application.
 Start with `010-basic` to write one complete request-and-handler round trip.
 
 ## Run an example
@@ -12,7 +12,7 @@ Start with `010-basic` to write one complete request-and-handler round trip.
 From the repository root:
 
 ```bash
-cd examples/005-why-a-mediator
+cd examples/005-mediator-vs-service
 uv sync
 uv run pytest
 ```
@@ -40,7 +40,7 @@ application at the end.
 
 | Position | Topic | Async | Sync | What you learn |
 | --- | --- | --- | --- | --- |
-| 005 | Why use a mediator? | [005-why-a-mediator](005-why-a-mediator/) | [005-why-a-mediator-sync](005-why-a-mediator-sync/) | Compare a multi-operation service with per-request handlers, including the trade-offs of adding a generic dispatch entry point. |
+| 005 | Mediator vs service | [005-mediator-vs-service](005-mediator-vs-service/) | [005-mediator-vs-service-sync](005-mediator-vs-service-sync/) | Compare a multi-operation service with per-request handlers, including the trade-offs of adding a generic dispatch entry point. |
 | 010 | Requests and responses | [010-basic](010-basic/) | [010-basic-sync](010-basic-sync/) | Define a typed request, register one handler, and call `send()`. This is the first implementation lesson. |
 | 020 | Events | [020-events](020-events/) | [020-events-sync](020-events-sync/) | Publish one event to several handlers; async delivery is concurrent and sync delivery is sequential. |
 | 030 | Streaming | [030-streaming](030-streaming/) | [030-streaming-sync](030-streaming-sync/) | Return typed chunks lazily with `stream()` and stop production when the consumer stops. |

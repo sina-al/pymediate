@@ -3,7 +3,7 @@
 `AuditBehavior` records requests after their handlers return successfully. Individual
 handlers in ``operations.py`` therefore do not contain audit calls.
 
-This is the synchronous mirror of `examples/005-why-a-mediator/`, built on ``pymediate.sync``.
+This is the synchronous mirror of `examples/005-mediator-vs-service/`, built on ``pymediate.sync``.
 """
 
 from collections.abc import Callable
@@ -60,4 +60,4 @@ def build_mediator(
     services.add(CancelOrderHandler(store))
     services.add(RefundOrderHandler(store, payments))
     services.add(ExportOrdersHandler(store))
-    return Mediator(services.provider())
+    return Mediator(services.provider(), behaviors=[AuditBehavior])

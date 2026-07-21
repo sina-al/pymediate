@@ -146,7 +146,10 @@ class AppContainer(containers.DeclarativeContainer):
 def build_mediator(container: AppContainer | None = None) -> Mediator:
     """Wrap a container in a ServiceProvider and hand it to the mediator."""
     container = container if container is not None else AppContainer()
-    return Mediator(DependencyInjectorServiceProvider(container))
+    return Mediator(
+        DependencyInjectorServiceProvider(container),
+        behaviors=[TransactionLoggingBehavior],
+    )
 
 
 async def main() -> None:

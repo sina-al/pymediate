@@ -14,19 +14,22 @@ on:
 permissions:
   contents: read
 
+# Only the latest score for a ref matters; superseded rescans can be cancelled safely.
+concurrency:
+  group: "scorecard-${{ github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
-      # Upload SARIF to code scanning.
-      security-events: write
-      # Publish results with OIDC verification (required for publish_results: true).
-      id-token: write
+      security-events: write # Upload Scorecard SARIF results to GitHub code scanning.
+      id-token: write # Publish signed Scorecard results to the OpenSSF API via OIDC.
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 

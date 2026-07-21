@@ -96,16 +96,19 @@ place_order = providers.Factory(
 ```
 
 An unannotated factory, `Selector`, `Resource`, or another provider whose output type is opaque is
-rejected with `TypeError` when `DependencyInjectorServiceProvider` is constructed. The provider is
-not called to discover its type.
+skipped — it never becomes a service, and the provider is not called to discover its type. That
+lets a container mix PyMediate handlers with infrastructure providers (a database `Resource`, a
+dynamic `Selector`) freely; only the providers whose type can be inferred are indexed.
 
 Configuration, dependency placeholders, dependency containers, and `providers.Self()` are
-composition inputs rather than exposed services, so the adapter skips them during indexing.
+composition inputs rather than exposed services, so the adapter skips them too.
 
 ## Use nested containers
 
-Declared `providers.Container` children are indexed recursively. Their services retain their
-position in root declaration order, which also preserves pipeline-behavior ordering:
+The adapter walks the whole provider graph with `Container.traverse()`, so services in nested
+`providers.Container` children are discovered alongside the root container's. Pipeline-behavior
+order does not depend on this - it is fixed by the mediator's `behaviors=` sequence, not by how the
+container resolves them:
 
 ```python
 class OrdersContainer(containers.DeclarativeContainer):
@@ -125,9 +128,9 @@ class ApplicationContainer(containers.DeclarativeContainer):
     )
 ```
 
-The adapter descends only into declared child containers. It does not expose every provider passed
-as an argument to another provider. A cycle between child containers raises `ValueError` and names
-the path at which the cycle was found.
+`traverse()` is cycle-safe, so a cycle between child containers is walked without error. Because it
+follows the whole graph, a provider reachable only as an injected argument is indexed as a service
+too - resolvable by its exact type like any other.
 
 ## Choose provider lifetimes
 

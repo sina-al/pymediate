@@ -9,7 +9,7 @@ Signatures-only blueprint of pymediate's public API. Full docstrings, guides, an
 ### `pymediate`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.request`
@@ -51,6 +51,9 @@ class RequestHandler(HandlerBaseMixin[RequestT], ABC):
 ```python
 class Mediator(MediatorMixin):
     """Routes requests to their async handlers using a service provider."""
+    def __init__(self, services: ServiceProvider, *, behaviors: Sequence[type[PipelineBehavior[Any]]] | None = None) -> None:
+        """Initialize the mediator with a service provider and its pipeline."""
+        ...
     async def send(self, request: Request[ResponseT]) -> ResponseT:
         """Send a request and await the typed response from its handler."""
         ...
@@ -91,14 +94,8 @@ class ServiceProvider(Protocol):
     def get(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type."""
         ...
-    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]:
-        """Get all instances of the type, including subclasses."""
-        ...
     def has(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered."""
-        ...
-    def get_all_types(self) -> tuple[type, ...]:
-        """Get every exact type that has at least one registered instance."""
         ...
 
 class Services:
@@ -167,12 +164,18 @@ class HandlerAlreadyRegisteredError(PyMediateError):
     def __init__(self, request_type: type, existing_handler: type, new_handler: type, existing_location: str | None = None):
         """Initialize handler already registered error."""
         ...
+
+class InvalidPipelineBehaviorsError(PyMediateError):
+    """Raised when a mediator's ``behaviors`` sequence is invalid at construction."""
+    def __init__(self, entry: object, issue: str):
+        """Initialize the error for one invalid ``behaviors`` entry."""
+        ...
 ```
 
 ### `pymediate.providers.dependency_injector`
 
 ```python
-class DependencyInjectorServiceProvider:
+class DependencyInjectorServiceProvider(ServiceProvider):
     """ServiceProvider backed by a Dependency Injector container."""
     def __init__(self, container: containers.Container) -> None:
         """Index services declared by a Dependency Injector container."""
@@ -180,21 +183,15 @@ class DependencyInjectorServiceProvider:
     def get(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type."""
         ...
-    def get_all(self, service_type: type[Any]) -> Sequence[Any]:
-        """Get all instances of the type, including subclasses, in declaration order."""
-        ...
     def has(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered."""
-        ...
-    def get_all_types(self) -> tuple[type[Any], ...]:
-        """Get every exact type that has at least one registered instance."""
         ...
 ```
 
 ### `pymediate.sync`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.sync.event`
@@ -224,6 +221,9 @@ class RequestHandler(HandlerBaseMixin[RequestT], ABC):
 ```python
 class Mediator(MediatorMixin):
     """Routes requests to their handlers using a service provider."""
+    def __init__(self, services: ServiceProvider, *, behaviors: Sequence[type[PipelineBehavior[Any]]] | None = None) -> None:
+        """Initialize the mediator with a service provider and its pipeline."""
+        ...
     def send(self, request: Request[ResponseT]) -> ResponseT:
         """Send a request and get the typed response from its handler."""
         ...

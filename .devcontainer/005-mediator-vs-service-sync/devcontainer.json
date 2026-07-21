@@ -1,7 +1,7 @@
 {
-    "name": "pymediate example: 005-why-a-mediator-sync",
+    "name": "pymediate example: 005-mediator-vs-service-sync",
     "image": "mcr.microsoft.com/devcontainers/python:3.12",
-    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/005-why-a-mediator-sync",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/examples/005-mediator-vs-service-sync",
     "features": {
         "ghcr.io/jsburckhardt/devcontainer-features/uv:1": {}
     },

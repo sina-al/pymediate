@@ -1,13 +1,15 @@
 """Asynchronous mediator implementation for routing requests to handlers."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
+from typing import Any
 
 from ._internal.mediator import MediatorMixin
 from ._internal.pipeline import compose_async
 from .event import Event
 from .pipeline import PipelineBehavior
 from .request import Request
+from .service import ServiceProvider
 from .stream import StreamRequest
 
 
@@ -17,7 +19,8 @@ class Mediator(MediatorMixin):
     ``send()`` returns one typed response, ``stream()`` returns an asynchronous
     iterator of typed chunks, and ``publish()`` notifies every handler subscribed
     to an event's exact type. The mediator uses a ``ServiceProvider`` to resolve
-    handler and pipeline-behavior instances.
+    handler and pipeline-behavior instances, and the ``behaviors`` sequence
+    passed at construction to determine which behaviors run and in what order.
 
     Static type checkers infer the result of ``send()`` from
     ``Request[ResponseT]`` and the chunks from ``StreamRequest[ChunkT]``.
@@ -64,12 +67,44 @@ class Mediator(MediatorMixin):
         Use ``pymediate.sync.Mediator`` for synchronous dispatch.
     """
 
+    def __init__(
+        self,
+        services: ServiceProvider,
+        *,
+        behaviors: Sequence[type[PipelineBehavior[Any]]] | None = None,
+    ) -> None:
+        """Initialize the mediator with a service provider and its pipeline.
+
+        The ``behaviors`` sequence declares the pipeline: which behavior classes
+        wrap ``send()`` and in what order, the first entry outermost. Behaviors
+        registered with the provider but not listed are not part of this
+        mediator's pipeline. The sequence is validated here, eagerly, so a
+        misdeclared pipeline fails at construction rather than at a dispatch.
+
+        Args:
+            services: An object implementing ``ServiceProvider``. The keyword
+                name is ``services``.
+            behaviors: Ordered asynchronous ``PipelineBehavior`` subclasses
+                declaring the pipeline. Omitted or None means no behaviors run.
+
+        Raises:
+            InvalidPipelineBehaviorsError: If a ``behaviors`` entry is not an
+                asynchronous ``PipelineBehavior`` subclass, is not registered
+                with the provider, or is listed more than once.
+
+        Note:
+            The mediator retains this provider for later dispatches. Handler and
+            behavior lifetimes therefore follow the provider's policy.
+        """
+        super().__init__(services, behaviors, PipelineBehavior)
+
     async def send[ResponseT](self, request: Request[ResponseT]) -> ResponseT:
         """Send a request and await the typed response from its handler.
 
         The mediator finds the handler class registered for the request's exact
-        type, resolves its instance, and awaits it. Applicable asynchronous
-        ``PipelineBehavior`` instances wrap that call. The first registered
+        type, resolves its instance, and awaits it. Behaviors from the
+        construction-time ``behaviors`` sequence whose ``should_apply()`` accepts
+        the request wrap that call, in sequence order - the first listed
         applicable behavior is the outermost.
 
         Args:
@@ -80,14 +115,15 @@ class Mediator(MediatorMixin):
 
         Raises:
             HandlerNotFoundError: If no handler is registered for the request type.
-            ServiceNotFoundError: If the service provider cannot resolve the handler.
+            ServiceNotFoundError: If the service provider cannot resolve the handler
+                or an applicable behavior.
 
         Note:
             If no behavior applies, the handler is awaited directly and no behavior
             chain is constructed. Handler and behavior exceptions propagate unchanged.
         """
         handler = self._resolve_handler(request)
-        behaviors = self._resolve_behaviors(request, PipelineBehavior)
+        behaviors = self._resolve_behaviors(request)
 
         # Fast path: no applicable behaviors means no chain construction at all.
         if not behaviors:

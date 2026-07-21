@@ -23,6 +23,11 @@ on:
 permissions:
   contents: read
 
+# A release PR can close only once. Never cancel an in-flight tagging or cleanup mutation.
+concurrency:
+  group: "tag-release-${{ github.event.pull_request.number }}"
+  cancel-in-progress: false
+
 jobs:
   tag:
     name: Tag merged release
@@ -36,7 +41,9 @@ jobs:
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.PYMEDIATE_RELEASER_CLIENT_ID }}
-          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
+          # The release-App credential cannot use an approval environment: this event is
+          # the automatic continuation of an already reviewed and merged release PR.
+          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }} # zizmor: ignore[secrets-outside-env]
           # Scope the token to only what tagging needs: create the tag ref (contents).
           permission-contents: write
 
@@ -68,7 +75,9 @@ jobs:
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.PYMEDIATE_RELEASER_CLIENT_ID }}
-          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }}
+          # Cleanup must also remain automatic when a release PR is rejected; the App is
+          # scoped below to contents so it can delete only the abandoned cut branch.
+          private-key: ${{ secrets.PYMEDIATE_RELEASER_PRIVATE_KEY }} # zizmor: ignore[secrets-outside-env]
           # Scope the token to only what cleanup needs: delete the branch ref (contents).
           permission-contents: write
 

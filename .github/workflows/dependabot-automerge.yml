@@ -18,14 +18,19 @@ on: pull_request
 permissions:
   contents: read
 
+# Keep only the newest decision for a Dependabot PR when it rebases or is recreated.
+concurrency:
+  group: "dependabot-automerge-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
 jobs:
   automerge:
     name: Auto-merge patch updates
     runs-on: ubuntu-latest
     if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'sina-al/pymediate'
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write # Enable the repository's squash auto-merge operation.
+      pull-requests: write # Approve the Dependabot PR and enable auto-merge.
     steps:
       - name: Fetch Dependabot metadata
         id: metadata

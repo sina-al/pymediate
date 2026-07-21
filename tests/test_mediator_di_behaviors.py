@@ -13,7 +13,14 @@ import pytest
 from dependency_injector import containers, providers
 
 from pymediate.providers import DependencyInjectorServiceProvider
-from pymediate.sync import Mediator, PipelineBehavior, Request, RequestHandler, ServiceNotFoundError
+from pymediate.sync import (
+    InvalidPipelineBehaviorsError,
+    Mediator,
+    PipelineBehavior,
+    Request,
+    RequestHandler,
+    ServiceNotFoundError,
+)
 
 # ============================================================================
 # Test Fixtures - Requests and Responses
@@ -289,7 +296,7 @@ def test_di_mediator_with_single_behavior() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[IncrementBehavior])
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -313,7 +320,7 @@ def test_di_mediator_with_multiple_behaviors() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[IncrementBehavior, MultiplyBehavior, LoggingBehavior])
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -366,7 +373,7 @@ def test_di_short_circuit_behavior() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ShortCircuitBehavior, IncrementBehavior])
 
     # Positive value - no short circuit
     response = mediator.send(CounterRequest(value=5))
@@ -394,7 +401,7 @@ def test_di_conditional_behavior() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ConditionalBehavior, IncrementBehavior])
 
     # Below threshold
     response = mediator.send(CounterRequest(value=10))
@@ -412,49 +419,55 @@ def test_di_conditional_behavior() -> None:
 # ============================================================================
 
 
-def test_di_registration_order_matters() -> None:
-    """Test that behavior registration order determines execution order."""
+def test_di_behaviors_order_follows_behaviors_list_not_registration() -> None:
+    """Test that the behaviors= list, not container declaration order, determines order."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
             return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
-    # Container 1: increment then multiply
+    # Both containers declare increment then multiply; only the behaviors= list differs.
     class Container1(containers.DeclarativeContainer):
         increment = providers.Factory(IncrementBehavior, amount=5)
         multiply = providers.Factory(MultiplyBehavior, factor=2)
         handler = providers.Factory(CounterHandler)
 
-    # Container 2: multiply then increment
     class Container2(containers.DeclarativeContainer):
-        multiply = providers.Factory(MultiplyBehavior, factor=2)
         increment = providers.Factory(IncrementBehavior, amount=5)
+        multiply = providers.Factory(MultiplyBehavior, factor=2)
         handler = providers.Factory(CounterHandler)
 
-    mediator1 = Mediator(DependencyInjectorServiceProvider(Container1()))
-    mediator2 = Mediator(DependencyInjectorServiceProvider(Container2()))
+    mediator1 = Mediator(
+        DependencyInjectorServiceProvider(Container1()),
+        behaviors=[IncrementBehavior, MultiplyBehavior],
+    )
+    mediator2 = Mediator(
+        DependencyInjectorServiceProvider(Container2()),
+        behaviors=[MultiplyBehavior, IncrementBehavior],
+    )
 
     response1 = mediator1.send(CounterRequest(value=10))
     response2 = mediator2.send(CounterRequest(value=10))
 
-    # Container1: 10 * 2 = 20, then + 5 = 25
+    # mediator1: Increment outermost -> Multiply innermost: 10 * 2 = 20, then + 5 = 25
     assert response1.value == 25
     assert response1.execution_log == ["RequestHandler", "Multiply(*2)", "Increment(+5)"]
 
-    # Container2: (10 + 5) * 2 = 30
+    # mediator2: Multiply outermost -> Increment innermost: (10 + 5) * 2 = 30
     assert response2.value == 30
     assert response2.execution_log == ["RequestHandler", "Increment(+5)", "Multiply(*2)"]
 
 
-def test_di_complex_registration_order() -> None:
-    """Test complex registration order with many behaviors."""
+def test_di_complex_behaviors_list_order() -> None:
+    """Test that the behaviors= list order drives a complex multi-behavior chain."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
             return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
     class TestContainer(containers.DeclarativeContainer):
-        # Behaviors registered in specific order
+        # Container declaration order is now cosmetic - the behaviors= list below is
+        # what determines the pipeline order.
         log1 = providers.Factory(LoggingBehavior, label="first")
         increment = providers.Factory(IncrementBehavior, amount=2)
         log2 = providers.Factory(LoggingBehavior, label="second")
@@ -464,22 +477,25 @@ def test_di_complex_registration_order() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(
+        provider,
+        behaviors=[
+            LoggingBehavior,
+            IncrementBehavior,
+            MultiplyBehavior,
+        ],
+    )
 
     response = mediator.send(CounterRequest(value=10))
 
     # Value: 10 * 3 = 30, + 2 = 32
     assert response.value == 32
 
-    # Logs should be in reverse registration order (unwinding)
-    assert response.execution_log == [
-        "RequestHandler",
-        "Logging(third)",
-        "Multiply(*3)",
-        "Logging(second)",
-        "Increment(+2)",
-        "Logging(first)",
-    ]
+    # Log order follows the behaviors= list (outermost first, unwinding inward). Which
+    # of the three LoggingBehavior instances resolves for the single LoggingBehavior
+    # entry is unspecified, so match only the concern, not the label.
+    assert response.execution_log[:3] == ["RequestHandler", "Multiply(*3)", "Increment(+2)"]
+    assert response.execution_log[3].startswith("Logging(")
 
 
 # ============================================================================
@@ -517,7 +533,7 @@ def test_di_nested_containers() -> None:
     container.feature()
 
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[LoggingBehavior, IncrementBehavior])
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -552,7 +568,10 @@ def test_di_flat_container_composition() -> None:
 
     container = AppContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(
+        provider,
+        behaviors=[LoggingBehavior, IncrementBehavior, MultiplyBehavior],
+    )
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -583,7 +602,10 @@ def test_di_behavior_inheritance() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(
+        provider,
+        behaviors=[BaseBehavior, DerivedBehaviorA, DerivedBehaviorB],
+    )
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -594,7 +616,7 @@ def test_di_behavior_inheritance() -> None:
 
 
 def test_di_behavior_polymorphism() -> None:
-    """Test that behavior subclasses are treated as PipelineBehavior instances."""
+    """Test that behavior subclasses are each resolvable by their exact type."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
@@ -609,10 +631,9 @@ def test_di_behavior_polymorphism() -> None:
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
 
-    # All should be resolvable as PipelineBehavior
-    behaviors = provider.get_all(PipelineBehavior)
-    assert len(behaviors) == 3
-    assert all(isinstance(b, PipelineBehavior) for b in behaviors)
+    # Each behavior resolves by its exact type as a PipelineBehavior instance.
+    for behavior_type in (BaseBehavior, DerivedBehaviorA, DerivedBehaviorB):
+        assert isinstance(provider.get(behavior_type), PipelineBehavior)
 
 
 # ============================================================================
@@ -634,7 +655,7 @@ def test_di_behavior_with_audit_mixin() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[AuditedBehavior, IncrementBehavior])
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -655,7 +676,7 @@ def test_di_behavior_with_metrics_mixin() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[MetricsBehavior, IncrementBehavior])
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -675,7 +696,7 @@ def test_di_behavior_with_multiple_mixins() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[CombinedMixinBehavior])
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -702,7 +723,16 @@ def test_di_combination_of_behaviors_with_and_without_mixins() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(
+        provider,
+        behaviors=[
+            IncrementBehavior,
+            MultiplyBehavior,
+            AuditedBehavior,
+            MetricsBehavior,
+            CombinedMixinBehavior,
+        ],
+    )
 
     response = mediator.send(CounterRequest(value=10))
 
@@ -741,7 +771,7 @@ def test_di_singleton_behavior_reused() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[CountingBehavior])
 
     # Send 3 requests
     response1 = mediator.send(CounterRequest(value=1))
@@ -773,7 +803,7 @@ def test_di_factory_behavior_fresh_instances() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[CountingBehavior])
 
     # Send 3 requests
     response1 = mediator.send(CounterRequest(value=1))
@@ -804,7 +834,7 @@ def test_di_mixed_scopes() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[LoggingBehavior, IncrementBehavior])
 
     # Get the singleton instance to check call count
     logging_behavior = container.logging()
@@ -840,7 +870,7 @@ def test_di_behavior_with_injected_dependency() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[DatabaseLoggingBehavior, IncrementBehavior])
     database = container.database()
 
     # Send requests
@@ -883,7 +913,7 @@ def test_di_behavior_with_shared_dependency() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[DatabaseLoggingBehavior, AnotherDBBehavior])
     database = container.database()
 
     mediator.send(CounterRequest(value=10))
@@ -927,7 +957,18 @@ def test_di_complex_behavior_pipeline() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(
+        provider,
+        behaviors=[
+            ValidationBehavior,
+            ShortCircuitBehavior,
+            ConditionalBehavior,
+            LoggingBehavior,
+            IncrementBehavior,
+            MultiplyBehavior,
+            AuditedBehavior,
+        ],
+    )
 
     # Normal execution
     response = mediator.send(CounterRequest(value=20))
@@ -999,7 +1040,8 @@ def test_di_real_world_scenario() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    pipeline = [AuthenticationBehavior, CachingBehavior, LoggingBehavior, IncrementBehavior]
+    mediator = Mediator(provider, behaviors=pipeline)
 
     # First request - cache miss
     response1 = mediator.send(CounterRequest(value=10))
@@ -1014,7 +1056,7 @@ def test_di_real_world_scenario() -> None:
 
     # Change user to non-admin
     container.user.override(providers.Singleton(User, id=2, role="user"))
-    mediator2 = Mediator(DependencyInjectorServiceProvider(container))
+    mediator2 = Mediator(DependencyInjectorServiceProvider(container), behaviors=pipeline)
 
     with pytest.raises(PermissionError, match="Admin only"):
         mediator2.send(CounterRequest(value=10))
@@ -1058,7 +1100,7 @@ def test_di_error_handling_in_behaviors() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[ErrorRecoveryBehavior, IncrementBehavior])
 
     # Positive value - normal execution
     response = mediator.send(ErrorTestRequest(value=10))
@@ -1101,7 +1143,7 @@ def test_di_behaviors_only_apply_to_matching_requests() -> None:
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=[CounterOnlyBehavior])
 
     # CounterRequest - behavior applies
     counter_response = mediator.send(CounterRequest(value=10))
@@ -1117,6 +1159,24 @@ def test_di_behaviors_only_apply_to_matching_requests() -> None:
 # ============================================================================
 
 
+def _make_labeled_logging_behavior(label: str) -> type[PipelineBehavior[CounterRequest]]:
+    """Build a distinct LoggingBehavior-shaped class for a given label.
+
+    ``behaviors=`` lists distinct classes and the DI provider's ``get()`` resolves the
+    first registered instance of an exact type, so ten providers of the *same* class
+    (as in the old registration-order-driven test) would only ever resolve one
+    instance. Ten distinct classes are needed to exercise a ten-behavior pipeline.
+    """
+
+    class _LabeledLoggingBehavior(PipelineBehavior[CounterRequest]):
+        def __call__(self, request: CounterRequest, next: Any) -> CounterResponse:
+            response: CounterResponse = next()
+            response.execution_log.append(f"Logging({label})")
+            return response
+
+    return _LabeledLoggingBehavior
+
+
 def test_di_many_behaviors() -> None:
     """Test mediator with many behaviors."""
 
@@ -1124,23 +1184,18 @@ def test_di_many_behaviors() -> None:
         def __call__(self, request: CounterRequest) -> CounterResponse:
             return CounterResponse(value=request.value, execution_log=["RequestHandler"])
 
-    class TestContainer(containers.DeclarativeContainer):
-        # Create 10 behaviors
-        log1 = providers.Factory(LoggingBehavior, label="1")
-        log2 = providers.Factory(LoggingBehavior, label="2")
-        log3 = providers.Factory(LoggingBehavior, label="3")
-        log4 = providers.Factory(LoggingBehavior, label="4")
-        log5 = providers.Factory(LoggingBehavior, label="5")
-        log6 = providers.Factory(LoggingBehavior, label="6")
-        log7 = providers.Factory(LoggingBehavior, label="7")
-        log8 = providers.Factory(LoggingBehavior, label="8")
-        log9 = providers.Factory(LoggingBehavior, label="9")
-        log10 = providers.Factory(LoggingBehavior, label="10")
-        handler = providers.Factory(CounterHandler)
+    behavior_classes = [_make_labeled_logging_behavior(str(i)) for i in range(1, 11)]
+
+    namespace: dict[str, Any] = {
+        f"log{i}": providers.Factory(behavior_class)
+        for i, behavior_class in enumerate(behavior_classes)
+    }
+    namespace["handler"] = providers.Factory(CounterHandler)
+    TestContainer = type("TestContainer", (containers.DeclarativeContainer,), namespace)
 
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
-    mediator = Mediator(provider)
+    mediator = Mediator(provider, behaviors=behavior_classes)
 
     response = mediator.send(CounterRequest(value=42))
 
@@ -1170,6 +1225,68 @@ def test_di_no_behaviors_registered() -> None:
 
 
 # ============================================================================
+# Tests: behaviors= Validation
+# ============================================================================
+
+
+def test_di_registered_but_unlisted_behavior_does_not_run() -> None:
+    """Test that a behavior registered in the DI container but absent from behaviors=
+    is not part of the pipeline."""
+
+    class CounterHandler(RequestHandler[CounterRequest]):
+        def __call__(self, request: CounterRequest) -> CounterResponse:
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        increment = providers.Factory(IncrementBehavior, amount=5)  # registered...
+        handler = providers.Factory(CounterHandler)
+
+    container = TestContainer()
+    provider = DependencyInjectorServiceProvider(container)
+    mediator = Mediator(provider)  # ...but not listed in behaviors=
+
+    response = mediator.send(CounterRequest(value=10))
+
+    assert response.value == 10
+    assert response.execution_log == ["RequestHandler"]
+
+
+def test_di_mediator_rejects_behavior_not_registered_with_provider() -> None:
+    """Test that an unregistered class in behaviors= fails at construction."""
+
+    class CounterHandler(RequestHandler[CounterRequest]):
+        def __call__(self, request: CounterRequest) -> CounterResponse:
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        handler = providers.Factory(CounterHandler)
+
+    container = TestContainer()
+    provider = DependencyInjectorServiceProvider(container)
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="not registered"):
+        Mediator(provider, behaviors=[IncrementBehavior])
+
+
+def test_di_mediator_rejects_duplicate_behavior_in_behaviors_list() -> None:
+    """Test that a behavior class listed twice in behaviors= fails at construction."""
+
+    class CounterHandler(RequestHandler[CounterRequest]):
+        def __call__(self, request: CounterRequest) -> CounterResponse:
+            return CounterResponse(value=request.value, execution_log=["RequestHandler"])
+
+    class TestContainer(containers.DeclarativeContainer):
+        increment = providers.Factory(IncrementBehavior, amount=5)
+        handler = providers.Factory(CounterHandler)
+
+    container = TestContainer()
+    provider = DependencyInjectorServiceProvider(container)
+
+    with pytest.raises(InvalidPipelineBehaviorsError, match="more than once"):
+        Mediator(provider, behaviors=[IncrementBehavior, IncrementBehavior])
+
+
+# ============================================================================
 # Tests: DependencyInjectorServiceProvider direct API
 # ============================================================================
 
@@ -1194,8 +1311,8 @@ def test_di_provider_get_raises_service_not_found() -> None:
     assert CounterHandler in exc_info.value.available_types
 
 
-def test_di_provider_has_get_all_types_and_len() -> None:
-    """Exercise has(), get_all_types(), and __len__() directly on the DI provider."""
+def test_di_provider_has_and_len() -> None:
+    """Exercise has() and __len__() directly on the DI provider."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
@@ -1208,8 +1325,8 @@ def test_di_provider_has_get_all_types_and_len() -> None:
     provider = DependencyInjectorServiceProvider(TestContainer())
 
     assert provider.has(CounterHandler) is True
+    assert provider.has(IncrementBehavior) is True
     assert provider.has(MultiplyBehavior) is False
-    assert set(provider.get_all_types()) == {IncrementBehavior, CounterHandler}
     assert len(provider) == 2
 
 

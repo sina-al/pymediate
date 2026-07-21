@@ -58,4 +58,4 @@ def build_mediator(
     services = Services()
     services.add(RateLimitBehavior(limiter))
     services.add(AddTaskHandler(store))
-    return Mediator(services.provider())
+    return Mediator(services.provider(), behaviors=[RateLimitBehavior])
