@@ -17,9 +17,9 @@ handler.
 | Stream result | `AsyncIterator[T]` | `Iterator[T]` |
 | Publish | Handlers run concurrently | Handlers run sequentially |
 
-The two namespaces share `Request`, `StreamRequest`, `Event`, `Services`,
+The two namespaces share `Request`, `StreamRequest`, `Notification`, `Services`,
 `ServiceProvider`, and the exception classes. They define separate versions of
-`RequestHandler`, `EventHandler`, `StreamRequestHandler`, `Mediator`, `PipelineBehavior`,
+`RequestHandler`, `NotificationHandler`, `StreamRequestHandler`, `Mediator`, `PipelineBehavior`,
 and `Next`.
 
 ## Use the asynchronous API for asynchronous dependencies
@@ -126,13 +126,13 @@ A process can use both APIs, but their handler registries are shared. Request an
 classes register by exact request type, so a process cannot define asynchronous and synchronous
 handlers for the same request or stream request type.
 
-Event subscriptions are also shared. Several handlers may subscribe to one event, but every
-handler for that exact event type must use the same API: all asynchronous or all synchronous. Each
+Notification subscriptions are also shared. Several handlers may subscribe to one notification, but every
+handler for that exact notification type must use the same API: all asynchronous or all synchronous. Each
 mediator assumes that the registered subscribers match its own execution model. Use distinct
 message types when both forms must coexist, or place them in separate processes.
 
 ## Continue
 
 - [FastAPI integration](/docs/guide/fastapi) shows an asynchronous HTTP entry point.
-- [Events](/docs/guide/events) explains concurrent and sequential event delivery.
+- [Notifications](/docs/guide/notifications) explains concurrent and sequential notification delivery.
 - [Streaming](/docs/guide/streaming) covers asynchronous and synchronous iterator forms.

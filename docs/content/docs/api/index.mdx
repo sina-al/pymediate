@@ -21,13 +21,13 @@ This reference describes PyMediate's public classes, methods, type parameters, a
 | [`StreamRequestHandler[StreamReqT]`](/docs/api/stream-request-handler) | Yields chunks for one stream-request type |
 | [`Mediator.stream()`](/docs/api/mediator#stream) | Routes a stream request and returns an iterator |
 
-## Events
+## Notifications
 
 | API | Role |
 | --- | --- |
-| [`Event`](/docs/api/event) | Base class for a fact published without a response |
-| [`EventHandler[EventT]`](/docs/api/event-handler) | Handles one event type; several handlers may subscribe |
-| [`Mediator.publish()`](/docs/api/mediator#publish) | Delivers an event to its registered subscribers |
+| [`Notification`](/docs/api/notification) | Base class for a fact published without a response |
+| [`NotificationHandler[NotificationT]`](/docs/api/notification-handler) | Handles one notification type; several handlers may subscribe |
+| [`Mediator.publish()`](/docs/api/mediator#publish) | Delivers a notification to its registered subscribers |
 
 ## Request pipelines
 

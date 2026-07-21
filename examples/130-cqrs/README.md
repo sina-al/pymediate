@@ -7,7 +7,7 @@ operations that read state. PyMediate does not add a second dispatch API for CQR
 and queries are both `Request` types sent through one mediator. The separation is in their
 handlers, data models, and stores.
 
-It builds on the request, event, dependency, and testing patterns from the preceding examples.
+It builds on the request, notification, dependency, and testing patterns from the preceding examples.
 
 This example uses:
 
@@ -65,8 +65,8 @@ the normal delay of eventual consistency.
 
 ## The projection path
 
-Command handlers publish `OutboxAppended` after the SQLite transaction commits. The event only
-wakes the worker; it is not the durable record:
+Command handlers publish `OutboxAppended` after the SQLite transaction commits. The notification
+only wakes the worker; it is not the durable record:
 
 ```python
 class AdjustStockHandler(RequestHandler[AdjustStock]):
@@ -80,8 +80,8 @@ class AdjustStockHandler(RequestHandler[AdjustStock]):
         )
 
 
-class WakeProjector(EventHandler[OutboxAppended]):
-    async def __call__(self, event: OutboxAppended) -> None:
+class WakeProjector(NotificationHandler[OutboxAppended]):
+    async def __call__(self, notification: OutboxAppended) -> None:
         self._worker.wake()
 ```
 

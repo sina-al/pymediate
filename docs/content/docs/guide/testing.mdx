@@ -99,28 +99,28 @@ Use the smallest boundary that covers the behavior under test:
 | --- | --- | --- |
 | Request handler | Call the handler and await its response | Await `send()` |
 | Stream handler | Iterate the handler's async or sync generator | Iterate `stream()` |
-| Event handler | Call one subscriber directly | Call `publish()` to test all subscribers |
+| Notification handler | Call one subscriber directly | Call `publish()` to test all subscribers |
 | Pipeline behavior | Call it with a fake `Next` function | Use `send()` to test discovery and order |
 
-For event publishing, assert against injected fakes instead of handler completion order. Async
-event handlers run concurrently. For streams, consume only as many chunks as the test needs
+For notification publishing, assert against injected fakes instead of handler completion order. Async
+notification handlers run concurrently. For streams, consume only as many chunks as the test needs
 when laziness is part of the contract.
 
 ## Keep definitions stable across tests
 
-Request, stream, and event handler classes register when Python defines the class. The
+Request, stream, and notification handler classes register when Python defines the class. The
 registries are process-wide, not attached to a `Services` instance.
 
 This has two consequences for a test suite:
 
 - Defining a second request or stream handler class for the same request type raises
   `HandlerAlreadyRegisteredError`, even when the definitions are in different test files.
-- Event subscribers accumulate. Publishing an event attempts to resolve every subscriber
-  class registered for that exact event type. A subscriber instance omitted from the test's
+- Notification subscribers accumulate. Publishing a notification attempts to resolve every subscriber
+  class registered for that exact notification type. A subscriber instance omitted from the test's
   service provider causes `ServiceNotFoundError` before any subscriber runs.
 
-Define each test request, event, and handler class once in a module or fixture support module.
-Vary behavior through constructor dependencies. Use a distinct request or event type when a
+Define each test request, notification, and handler class once in a module or fixture support module.
+Vary behavior through constructor dependencies. Use a distinct request or notification type when a
 test genuinely needs a different handler definition. The registry-reset functions under
 `pymediate._internal` are test infrastructure for PyMediate itself, not public application
 API.
@@ -131,12 +131,12 @@ the mediator.
 
 ## Test the API you import
 
-Async tests await request and event dispatch and use `async for` for streams. Sync tests call
+Async tests await request and notification dispatch and use `async for` for streams. Sync tests call
 the corresponding methods directly and use `for` for streams.
 
 The namespaces intentionally define six different async and sync objects:
-`RequestHandler`, `EventHandler`, `StreamRequestHandler`, `Mediator`, `PipelineBehavior`, and
-`Next`. Shared types such as `Request`, `StreamRequest`, `Event`, `Services`,
+`RequestHandler`, `NotificationHandler`, `StreamRequestHandler`, `Mediator`, `PipelineBehavior`, and
+`Next`. Shared types such as `Request`, `StreamRequest`, `Notification`, `Services`,
 `ServiceProvider`, and the exception classes are identical objects in both namespaces.
 
 ## Continue

@@ -42,7 +42,7 @@ application at the end.
 | --- | --- | --- | --- | --- |
 | 005 | Mediator vs service | [005-mediator-vs-service](005-mediator-vs-service/) | [005-mediator-vs-service-sync](005-mediator-vs-service-sync/) | Compare a multi-operation service with per-request handlers, including the trade-offs of adding a generic dispatch entry point. |
 | 010 | Requests and responses | [010-basic](010-basic/) | [010-basic-sync](010-basic-sync/) | Define a typed request, register one handler, and call `send()`. This is the first implementation lesson. |
-| 020 | Events | [020-events](020-events/) | [020-events-sync](020-events-sync/) | Publish one event to several handlers; async delivery is concurrent and sync delivery is sequential. |
+| 020 | Notifications | [020-events](020-events/) | [020-events-sync](020-events-sync/) | Publish one notification to several handlers; async delivery is concurrent and sync delivery is sequential. |
 | 030 | Streaming | [030-streaming](030-streaming/) | [030-streaming-sync](030-streaming-sync/) | Return typed chunks lazily with `stream()` and stop production when the consumer stops. |
 
 ### Composition and message design

@@ -1,22 +1,22 @@
-"""Publish one event to several handlers with PyMediate's asynchronous API.
+"""Publish one notification to several handlers with PyMediate's asynchronous API.
 
 ``send`` asks one handler a question and awaits its answer. ``publish`` reports that
-something happened and lets any number of event handlers react. Completing a task publishes
-one ``TaskCompleted`` event to a notifier, statistics counter, and audit log. The
-asynchronous mediator runs them concurrently. Publishing an event with no matching handlers
+something happened and lets any number of notification handlers react. Completing a task publishes
+one ``TaskCompleted`` notification to a notifier, statistics counter, and audit log. The
+asynchronous mediator runs them concurrently. Publishing a notification with no matching handlers
 also succeeds. The synchronous mirror is 020-events-sync.
 """
 
 import asyncio
 from dataclasses import dataclass, field
 
-from pymediate import Event, EventHandler, Mediator, Services
+from pymediate import Mediator, Notification, NotificationHandler, Services
 
-# ---- Events: past-tense facts, broadcast to whoever cares ----
+# ---- Notifications: past-tense facts, broadcast to whoever cares ----
 
 
 @dataclass
-class TaskCompleted(Event):
+class TaskCompleted(Notification):
     """Announces that a task was finished; delivered to every subscriber."""
 
     task_id: int
@@ -24,7 +24,7 @@ class TaskCompleted(Event):
 
 
 @dataclass
-class TaskArchived(Event):
+class TaskArchived(Notification):
     """Announces that a task was archived. Nothing subscribes to it — yet."""
 
     task_id: int
@@ -46,28 +46,30 @@ class Dashboard:
     completed: int = 0
 
 
-# ---- Subscribers: any number may react to one event, none aware of the others ----
+# ---- Subscribers: any number may react to one notification, none aware of the others ----
 
 
-class Notifier(EventHandler[TaskCompleted]):
+class Notifier(NotificationHandler[TaskCompleted]):
     """Tells the user their task is done."""
 
     def __init__(self, dashboard: Dashboard) -> None:
         self._dashboard = dashboard
 
-    async def __call__(self, event: TaskCompleted) -> None:
+    async def __call__(self, notification: TaskCompleted) -> None:
         self._dashboard.feed.append("notify  started")
         await asyncio.sleep(0.03)  # stand-in for an async send (email, push, ...)
-        self._dashboard.feed.append(f"notify  done    (queued task completion for {event.title})")
+        self._dashboard.feed.append(
+            f"notify  done    (queued task completion for {notification.title})"
+        )
 
 
-class StatsCounter(EventHandler[TaskCompleted]):
+class StatsCounter(NotificationHandler[TaskCompleted]):
     """Counts completions for a dashboard tile."""
 
     def __init__(self, dashboard: Dashboard) -> None:
         self._dashboard = dashboard
 
-    async def __call__(self, event: TaskCompleted) -> None:
+    async def __call__(self, notification: TaskCompleted) -> None:
         self._dashboard.feed.append("stats   started")
         await asyncio.sleep(0.02)
         self._dashboard.completed += 1
@@ -75,16 +77,16 @@ class StatsCounter(EventHandler[TaskCompleted]):
         self._dashboard.feed.append(f"stats   done    (completions now {total})")
 
 
-class AuditLog(EventHandler[TaskCompleted]):
+class AuditLog(NotificationHandler[TaskCompleted]):
     """Records every completion in an append-only audit trail."""
 
     def __init__(self, dashboard: Dashboard) -> None:
         self._dashboard = dashboard
 
-    async def __call__(self, event: TaskCompleted) -> None:
+    async def __call__(self, notification: TaskCompleted) -> None:
         self._dashboard.feed.append("audit   started")
         await asyncio.sleep(0.01)
-        self._dashboard.feed.append(f"audit   done    (task {event.task_id} logged)")
+        self._dashboard.feed.append(f"audit   done    (task {notification.task_id} logged)")
 
 
 def build_mediator(dashboard: Dashboard | None = None) -> Mediator:
@@ -101,7 +103,7 @@ def build_mediator(dashboard: Dashboard | None = None) -> Mediator:
 
 
 async def main() -> None:
-    """Publish one event to three concurrent subscribers, then one to nobody."""
+    """Publish one notification to three concurrent subscribers, then one to nobody."""
     dashboard = Dashboard()
     mediator = build_mediator(dashboard)
 
@@ -109,7 +111,7 @@ async def main() -> None:
     await mediator.publish(TaskCompleted(task_id=1, title="Buy groceries"))
     for line in dashboard.feed:
         print(f"  {line}")
-    print("All event handlers started before any finished; asynchronous publish was concurrent.\n")
+    print("All notification handlers started before any finished; async publish was concurrent.\n")
 
     print("Archiving task 1 (no handlers registered for TaskArchived):")
     await mediator.publish(TaskArchived(task_id=1))

@@ -1,9 +1,9 @@
-"""Publishing something that isn't an Event - should fail mypy."""
+"""Publishing something that isn't a Notification - should fail mypy."""
 
 from dataclasses import dataclass
 from typing import override
 
-from pymediate.sync import Event, EventHandler, Mediator, Request, Services
+from pymediate.sync import Mediator, Notification, NotificationHandler, Request, Services
 
 
 @dataclass
@@ -17,18 +17,18 @@ class GetUserRequest(Request[UserResponse]):
 
 
 @dataclass
-class OrderPlaced(Event):
+class OrderPlaced(Notification):
     order_id: int
 
 
-class SendConfirmation(EventHandler[OrderPlaced]):
+class SendConfirmation(NotificationHandler[OrderPlaced]):
     @override
-    def __call__(self, event: OrderPlaced) -> None:
+    def __call__(self, notification: OrderPlaced) -> None:
         pass
 
 
 provider = Services().add(SendConfirmation()).provider()
 mediator = Mediator(provider)
 
-# ERROR: publish takes an Event; a Request is not publishable
+# ERROR: publish takes a Notification; a Request is not publishable
 mediator.publish(GetUserRequest(user_id=1))

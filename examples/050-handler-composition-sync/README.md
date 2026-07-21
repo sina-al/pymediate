@@ -3,7 +3,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F050-handler-composition-sync%2Fdevcontainer.json)
 
 `PlaceOrderHandler` reserves stock, charges a card, and publishes `OrderPlaced` by dispatching
-through a synchronous mediator. It depends on request and event types rather than concrete
+through a synchronous mediator. It depends on request and notification types rather than concrete
 handler classes.
 
 ## Run

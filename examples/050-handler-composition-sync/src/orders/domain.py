@@ -11,7 +11,7 @@ is in ``handlers.py``: with no event loop, the sub-requests run one after anothe
 from dataclasses import dataclass, field
 from typing import Protocol, TypeVar
 
-from pymediate.sync import Event, Mediator, Request
+from pymediate.sync import Mediator, Notification, Request
 
 ResponseT = TypeVar("ResponseT")
 
@@ -73,11 +73,11 @@ class ChargePayment(Request[Receipt]):
     amount_cents: int
 
 
-# ---- Event: the "announce" side of composition ----
+# ---- Notification: the "announce" side of composition ----
 
 
 @dataclass
-class OrderPlaced(Event):
+class OrderPlaced(Notification):
     """Announce a completed order to subscribers before publication returns."""
 
     order_id: int
@@ -129,8 +129,8 @@ class Sender(Protocol):
         """Dispatch a request to its handler and return the typed response."""
         ...
 
-    def publish(self, event: Event) -> None:
-        """Publish an event to every subscribed handler."""
+    def publish(self, notification: Notification) -> None:
+        """Publish a notification to every subscribed handler."""
         ...
 
 
@@ -158,6 +158,6 @@ class LateBoundSender:
         """Forward a request to the bound mediator and return its response."""
         return self._require().send(request)
 
-    def publish(self, event: Event) -> None:
-        """Forward an event to the bound mediator."""
-        self._require().publish(event)
+    def publish(self, notification: Notification) -> None:
+        """Forward a notification to the bound mediator."""
+        self._require().publish(notification)

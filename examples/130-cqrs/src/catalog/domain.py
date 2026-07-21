@@ -11,8 +11,8 @@ only the domain vocabulary:
 - the **value types** (``Product`` for the write side, ``ProductView`` for the read side,
   ``TierSummary`` for the analytical rollup) and the ``project`` function between them;
 - the **outbox vocabulary** — ``OutboxEvent`` (a row read back off the SQLite outbox) and the
-  two event-type constants — plus ``OutboxAppended``, the one PyMediate ``Event`` this example
-  publishes, used only to notify the projection worker.
+  two event-type constants — plus ``OutboxAppended``, the one PyMediate ``Notification`` this
+  example publishes, used only to notify the projection worker.
 
 The stores, worker, and handlers are defined in separate modules. Start with the README's file
 table.
@@ -21,7 +21,7 @@ table.
 from dataclasses import dataclass
 from typing import Any
 
-from pymediate import Event, Mediator, Request
+from pymediate import Mediator, Notification, Request
 
 # ---- Value types: the write-side record, the read-side view, the rollup ----
 
@@ -108,7 +108,7 @@ class OutboxEvent:
 
 
 @dataclass
-class OutboxAppended(Event):
+class OutboxAppended(Notification):
     """Published after a command commits, to notify the projection worker.
 
     This is a *latency optimisation only* — the durable record is the outbox row, and the
@@ -134,11 +134,11 @@ class LateBoundPublisher:
         """Attach the mediator that publishes will forward to."""
         self._mediator = mediator
 
-    async def publish(self, event: Event) -> None:
-        """Forward an event to the bound mediator."""
+    async def publish(self, notification: Notification) -> None:
+        """Forward a notification to the bound mediator."""
         if self._mediator is None:
             raise RuntimeError("LateBoundPublisher.publish called before bind()")
-        await self._mediator.publish(event)
+        await self._mediator.publish(notification)
 
 
 # ---- Commands: change state, return the minimum the caller needs ----

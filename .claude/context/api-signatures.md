@@ -9,7 +9,7 @@ Signatures-only blueprint of pymediate's public API. Full docstrings, guides, an
 ### `pymediate`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Notification, NotificationHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidNotificationTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.request`
@@ -20,18 +20,18 @@ class Request:
     ...
 ```
 
-### `pymediate.event`
+### `pymediate.notification`
 
 ```python
-class Event:
-    """Base class for events published to zero or more handlers."""
+class Notification:
+    """Base class for notifications published to zero or more handlers."""
     ...
 
-class EventHandler(EventHandlerBaseMixin[EventT], ABC):
-    """Abstract base class for asynchronous event handlers."""
+class NotificationHandler(NotificationHandlerBaseMixin[NotificationT], ABC):
+    """Abstract base class for asynchronous notification handlers."""
     @abstractmethod
-    async def __call__(self, event: EventT) -> None:
-        """Handle the published event asynchronously."""
+    async def __call__(self, notification: NotificationT) -> None:
+        """Handle the published notification asynchronously."""
         ...
 ```
 
@@ -60,8 +60,8 @@ class Mediator(MediatorMixin):
     def stream(self, request: StreamRequest[ChunkT]) -> AsyncIterator[ChunkT]:
         """Route a stream request to its handler and return the async chunk stream."""
         ...
-    async def publish(self, event: Event) -> None:
-        """Publish an event to every async handler subscribed to its type."""
+    async def publish(self, notification: Notification) -> None:
+        """Publish a notification to every async handler subscribed to its type."""
         ...
 ```
 
@@ -141,10 +141,10 @@ class InvalidRequestTypeError(PyMediateError):
         """Initialize invalid request type error."""
         ...
 
-class InvalidEventTypeError(PyMediateError):
-    """Raised when an event handler's type parameter doesn't inherit from Event."""
-    def __init__(self, event_type: type):
-        """Initialize the error for a type parameter that isn't an Event subclass."""
+class InvalidNotificationTypeError(PyMediateError):
+    """Raised when a notification handler's type parameter doesn't inherit from Notification."""
+    def __init__(self, notification_type: type):
+        """Initialize the error for a type parameter that isn't a Notification subclass."""
         ...
 
 class InvalidStreamRequestTypeError(PyMediateError):
@@ -191,17 +191,17 @@ class DependencyInjectorServiceProvider(ServiceProvider):
 ### `pymediate.sync`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Notification, NotificationHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidNotificationTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
-### `pymediate.sync.event`
+### `pymediate.sync.notification`
 
 ```python
-class EventHandler(EventHandlerBaseMixin[EventT], ABC):
-    """Abstract base class for synchronous event handlers."""
+class NotificationHandler(NotificationHandlerBaseMixin[NotificationT], ABC):
+    """Abstract base class for synchronous notification handlers."""
     @abstractmethod
-    def __call__(self, event: EventT) -> None:
-        """Handle the published event."""
+    def __call__(self, notification: NotificationT) -> None:
+        """Handle the published notification."""
         ...
 ```
 
@@ -230,8 +230,8 @@ class Mediator(MediatorMixin):
     def stream(self, request: StreamRequest[ChunkT]) -> Iterator[ChunkT]:
         """Route a stream request to its handler and return the chunk stream."""
         ...
-    def publish(self, event: Event) -> None:
-        """Publish an event to every handler subscribed to its type."""
+    def publish(self, notification: Notification) -> None:
+        """Publish a notification to every handler subscribed to its type."""
         ...
 ```
 

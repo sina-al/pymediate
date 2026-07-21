@@ -107,17 +107,17 @@ def test_async_handler_rejects_sync_call() -> None:
                 return Resp()
 
 
-def test_async_event_handler_rejects_sync_call() -> None:
-    """Test that the async EventHandler rejects a sync __call__."""
-    from pymediate import Event, EventHandler
+def test_async_notification_handler_rejects_sync_call() -> None:
+    """Test that the async NotificationHandler rejects a sync __call__."""
+    from pymediate import Notification, NotificationHandler
 
-    class Ping(Event):
+    class Ping(Notification):
         pass
 
     with pytest.raises(InvalidHandlerSignatureError, match="__call__ must be async"):
 
-        class Bad(EventHandler[Ping]):
-            def __call__(self, event: Ping) -> None:
+        class Bad(NotificationHandler[Ping]):
+            def __call__(self, notification: Ping) -> None:
                 pass
 
 
@@ -127,26 +127,26 @@ async def test_async_publish_runs_handlers_concurrently_and_aggregates() -> None
     import asyncio
     from dataclasses import dataclass
 
-    from pymediate import Event, EventHandler
     from pymediate import Mediator as AioMediator
+    from pymediate import Notification, NotificationHandler
 
     @dataclass
-    class Ping(Event):
+    class Ping(Notification):
         pass
 
     completed: list[str] = []
 
-    class SlowSubscriber(EventHandler[Ping]):
-        async def __call__(self, event: Ping) -> None:
+    class SlowSubscriber(NotificationHandler[Ping]):
+        async def __call__(self, notification: Ping) -> None:
             await asyncio.sleep(0.05)
             completed.append("slow")
 
-    class FastSubscriber(EventHandler[Ping]):
-        async def __call__(self, event: Ping) -> None:
+    class FastSubscriber(NotificationHandler[Ping]):
+        async def __call__(self, notification: Ping) -> None:
             completed.append("fast")
 
-    class FailingSubscriber(EventHandler[Ping]):
-        async def __call__(self, event: Ping) -> None:
+    class FailingSubscriber(NotificationHandler[Ping]):
+        async def __call__(self, notification: Ping) -> None:
             raise ValueError("async boom")
 
     services = Services()
@@ -159,17 +159,17 @@ async def test_async_publish_runs_handlers_concurrently_and_aggregates() -> None
     # Every handler ran; the fast one finished before the slow one despite
     # registering after it - proof the fan-out is concurrent, not sequential.
     assert completed == ["fast", "slow"]
-    assert "1 of 3 event handlers raised while publishing Ping" in str(excinfo.value)
+    assert "1 of 3 notification handlers raised while publishing Ping" in str(excinfo.value)
     assert {type(exc) for exc in excinfo.value.exceptions} == {ValueError}
 
 
 @pytest.mark.asyncio
 async def test_async_publish_with_zero_handlers_is_a_no_op() -> None:
     """Test that async publish with no subscribers succeeds silently."""
-    from pymediate import Event
     from pymediate import Mediator as AioMediator
+    from pymediate import Notification
 
-    class NobodyListens(Event):
+    class NobodyListens(Notification):
         pass
 
     mediator = AioMediator(Services().provider())

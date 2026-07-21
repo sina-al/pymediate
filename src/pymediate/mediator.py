@@ -6,7 +6,7 @@ from typing import Any
 
 from ._internal.mediator import MediatorMixin
 from ._internal.pipeline import compose_async
-from .event import Event
+from .notification import Notification
 from .pipeline import PipelineBehavior
 from .request import Request
 from .service import ServiceProvider
@@ -18,7 +18,7 @@ class Mediator(MediatorMixin):
 
     ``send()`` returns one typed response, ``stream()`` returns an asynchronous
     iterator of typed chunks, and ``publish()`` notifies every handler subscribed
-    to an event's exact type. The mediator uses a ``ServiceProvider`` to resolve
+    to a notification's exact type. The mediator uses a ``ServiceProvider`` to resolve
     handler and pipeline-behavior instances, and the ``behaviors`` sequence
     passed at construction to determine which behaviors run and in what order.
 
@@ -155,10 +155,10 @@ class Mediator(MediatorMixin):
         handler = self._resolve_handler(request)
         return handler(request)  # type: ignore[no-any-return]
 
-    async def publish(self, event: Event) -> None:
-        """Publish an event to every async handler subscribed to its type.
+    async def publish(self, notification: Notification) -> None:
+        """Publish a notification to every async handler subscribed to its type.
 
-        The mediator resolves every ``EventHandler`` registered for the event's
+        The mediator resolves every ``NotificationHandler`` registered for the notification's
         exact class before invoking any of them. It then runs the handlers
         concurrently. Publishing with no subscribers returns without error.
 
@@ -169,7 +169,7 @@ class Mediator(MediatorMixin):
         of being grouped and can cancel unfinished sibling handlers.
 
         Args:
-            event: The event instance to publish.
+            notification: The notification instance to publish.
 
         Raises:
             ServiceNotFoundError: If a subscribed handler class has no
@@ -181,23 +181,23 @@ class Mediator(MediatorMixin):
             SystemExit: If a handler raises ``SystemExit``.
 
         Note:
-            Publishing dispatches on the event's exact class. Pipeline behaviors
-            do not wrap event publication. Event subscriptions are shared with
-            the synchronous API, so every handler for this exact event type must
+            Publishing dispatches on the notification's exact class. Pipeline behaviors
+            do not wrap notification publication. Notification subscriptions are shared with
+            the synchronous API, so every handler for this exact notification type must
             be asynchronous.
         """
-        handlers = self._resolve_event_handlers(event)
+        handlers = self._resolve_notification_handlers(notification)
         if not handlers:
             return
 
         results = await asyncio.gather(
-            *(handler(event) for handler in handlers), return_exceptions=True
+            *(handler(notification) for handler in handlers), return_exceptions=True
         )
         exceptions = [result for result in results if isinstance(result, BaseException)]
 
         if exceptions:
             raise BaseExceptionGroup(
-                f"{len(exceptions)} of {len(handlers)} event handlers raised while "
-                f"publishing {type(event).__name__}",
+                f"{len(exceptions)} of {len(handlers)} notification handlers raised while "
+                f"publishing {type(notification).__name__}",
                 exceptions,
             )

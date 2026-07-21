@@ -46,7 +46,7 @@ def _require_call_method(cls: type) -> Any:
 def _resolve_call_annotations(cls: type, call_method: Any) -> tuple[Any, Any]:
     """Validate __call__'s parameter shape and return its resolved annotations.
 
-    Enforces the structural contract shared by request, event, and stream handlers:
+    Enforces the structural contract shared by request, notification, and stream handlers:
     exactly one parameter besides ``self``, both it and the return annotated. String
     (PEP 563) annotations are resolved via ``get_type_hints``; if resolution fails,
     the raw annotations are returned so the caller's comparison reports the mismatch.
@@ -106,7 +106,7 @@ def _validate_request_annotation(
         cls: The handler class (named in error messages).
         request_annotation: The resolved parameter annotation.
         expected_request_type: The exact class the parameter must annotate.
-        kind: What the parameter is called in error messages ("request" or "event").
+        kind: What the parameter is called in error messages ("request" or "notification").
         declaration_name: The generic base class named in error messages.
 
     Raises:
@@ -145,7 +145,7 @@ def _validate_call_signature(
         expected_request_type: The expected request parameter type
         expected_response_type: The expected return type
         is_async: Whether to expect async def __call__ or sync def __call__
-        kind: What the parameter is called in error messages ("request" or "event")
+        kind: What the parameter is called in error messages ("request" or "notification")
         declaration_name: The generic base class named in error messages
 
     Raises:

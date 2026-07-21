@@ -64,16 +64,16 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from pymediate import Event, Request, Services
+from pymediate import Notification, Request, Services
 
 # The script is unpinned (it measures the latest release), so on rare occasions it can
 # land in an environment holding an older pymediate. The 0.5.0 async-first inversion
 # rehomed every class measured here; older layouts get an explanation, not a compat shim.
 try:
-    from pymediate import EventHandler as AsyncEventHandler
     from pymediate import Mediator as AsyncMediator
+    from pymediate import NotificationHandler as AsyncNotificationHandler
     from pymediate import RequestHandler as AsyncHandler
-    from pymediate.sync import EventHandler, Mediator, PipelineBehavior, RequestHandler
+    from pymediate.sync import Mediator, NotificationHandler, PipelineBehavior, RequestHandler
 except ImportError as exc:  # pymediate < 0.5.0: pre-inversion layout
     Console(stderr=True).print(
         Panel.fit(
@@ -133,24 +133,24 @@ class AsyncPingHandler(AsyncHandler[AsyncPing]):
 
 
 # publish() scenarios use one subscriber so every row stays one-unit-of-work
-# against the direct-call baseline; each event type is dedicated to its group.
+# against the direct-call baseline; each notification type is dedicated to its group.
 @dataclass(frozen=True)
-class Pinged(Event):
+class Pinged(Notification):
     value: int
 
 
-class PingedHandler(EventHandler[Pinged]):
-    def __call__(self, event: Pinged) -> None:
+class PingedHandler(NotificationHandler[Pinged]):
+    def __call__(self, notification: Pinged) -> None:
         return None
 
 
 @dataclass(frozen=True)
-class AsyncPinged(Event):
+class AsyncPinged(Notification):
     value: int
 
 
-class AsyncPingedHandler(AsyncEventHandler[AsyncPinged]):
-    async def __call__(self, event: AsyncPinged) -> None:
+class AsyncPingedHandler(AsyncNotificationHandler[AsyncPinged]):
+    async def __call__(self, notification: AsyncPinged) -> None:
         return None
 
 
@@ -202,7 +202,7 @@ class Scenario:
     name: str
     # "sync" | "async" | "sync-publish" | "async-publish" — ratios are computed within a
     # group, so publish() is measured against a direct call to its own (None-returning)
-    # event handler, not against the request handler's baseline.
+    # notification handler, not against the request handler's baseline.
     group: str
     is_baseline: bool
     run: Callable[[Callable[[], None]], list[float]]
@@ -239,8 +239,8 @@ def build_scenarios(
 ) -> list[Scenario]:
     request = Ping(value=1)
     async_request = AsyncPing(value=1)
-    event = Pinged(value=1)
-    async_event = AsyncPinged(value=1)
+    notification = Pinged(value=1)
+    async_notification = AsyncPinged(value=1)
 
     sync_handler = PingHandler()
     sync_mediator = Mediator(Services().add(PingHandler()).provider())
@@ -248,12 +248,12 @@ def build_scenarios(
     for _ in range(behaviors):
         behavior_services.add(NoOpBehavior())
     behavior_mediator = Mediator(behavior_services.provider())
-    event_handler = PingedHandler()
+    notification_handler = PingedHandler()
     publish_mediator = Mediator(Services().add(PingedHandler()).provider())
 
     async_handler = AsyncPingHandler()
     async_mediator = AsyncMediator(Services().add(AsyncPingHandler()).provider())
-    async_event_handler = AsyncPingedHandler()
+    async_notification_handler = AsyncPingedHandler()
     async_publish_mediator = AsyncMediator(Services().add(AsyncPingedHandler()).provider())
 
     kwargs = {"number": number, "repeat": repeat, "warmup": warmup}
@@ -280,17 +280,19 @@ def build_scenarios(
             ),
         ),
         Scenario(
-            "sync: handler(event) — direct call",
+            "sync: handler(notification) — direct call",
             "sync-publish",
             True,
-            lambda tick: bench_sync(lambda: event_handler(event), on_sample=tick, **kwargs),
+            lambda tick: bench_sync(
+                lambda: notification_handler(notification), on_sample=tick, **kwargs
+            ),
         ),
         Scenario(
-            "sync: mediator.publish(event) — 1 subscriber",
+            "sync: mediator.publish(notification) — 1 subscriber",
             "sync-publish",
             False,
             lambda tick: bench_sync(
-                lambda: publish_mediator.publish(event), on_sample=tick, **kwargs
+                lambda: publish_mediator.publish(notification), on_sample=tick, **kwargs
             ),
         ),
         Scenario(
@@ -310,19 +312,19 @@ def build_scenarios(
             ),
         ),
         Scenario(
-            "async: await handler(event) — direct call",
+            "async: await handler(notification) — direct call",
             "async-publish",
             True,
             lambda tick: bench_async(
-                lambda: async_event_handler(async_event), on_sample=tick, **kwargs
+                lambda: async_notification_handler(async_notification), on_sample=tick, **kwargs
             ),
         ),
         Scenario(
-            "async: await mediator.publish(event) — 1 subscriber",
+            "async: await mediator.publish(notification) — 1 subscriber",
             "async-publish",
             False,
             lambda tick: bench_async(
-                lambda: async_publish_mediator.publish(async_event), on_sample=tick, **kwargs
+                lambda: async_publish_mediator.publish(async_notification), on_sample=tick, **kwargs
             ),
         ),
     ]
@@ -464,7 +466,7 @@ def main(
     Runs each scenario as a tight loop of NUMBER calls, REPEAT times, and reports
     the median — dispatch overhead, not handler work, dominates every loop. The
     publish scenarios use a single subscriber and their own direct-call baseline
-    (the event handler returns None, so it does less work than the request
+    (the notification handler returns None, so it does less work than the request
     handler), keeping every ratio one unit of work against its own baseline.
     The defaults match the methodology quoted in the docs; results always print
     the exact pymediate version they measured.

@@ -7,7 +7,7 @@ from .. import errors
 from . import registry
 
 if TYPE_CHECKING:
-    from ..event import Event
+    from ..notification import Notification
     from ..request import Request
     from ..service import ServiceProvider
 
@@ -125,24 +125,24 @@ class MediatorMixin:
         # Get handler instance
         return self._services.get(handler_class)
 
-    def _resolve_event_handlers(self, event: "Event") -> list[Any]:
-        """Resolve every handler instance subscribed to an event.
+    def _resolve_notification_handlers(self, notification: "Notification") -> list[Any]:
+        """Resolve every handler instance subscribed to a notification.
 
         Resolves all handler instances before any handler runs, so a resolution
         failure (a subscriber class with no registered instance) propagates
         immediately and never causes partial delivery.
 
         Args:
-            event: The event instance to publish
+            notification: The notification instance to publish
 
         Returns:
-            EventHandler instances in registration order, empty if none subscribed
+            NotificationHandler instances in registration order, empty if none subscribed
 
         Raises:
             ServiceNotFoundError: If a subscribed handler class has no
                 registered instance in the service provider
         """
-        handler_classes = registry.get_event_handler_classes(type(event))
+        handler_classes = registry.get_notification_handler_classes(type(notification))
         return [self._services.get(handler_class) for handler_class in handler_classes]
 
     def _resolve_behaviors(self, request: "Request[Any]") -> list[Any]:
