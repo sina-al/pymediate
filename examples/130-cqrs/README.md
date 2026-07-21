@@ -153,7 +153,5 @@ retention, records that repeatedly fail projection, monitoring, and deployment o
 
 ## Where next
 
-- Continue with [`900-hexagonal-architecture`](../900-hexagonal-architecture/) to see commands,
-  queries, events, adapters, dependency injection, and background work in one application.
 - Review [`110-testing`](../110-testing/) for the test boundaries used in this example.
 - Read about [requests, responses, and optional CQRS conventions](https://pymediate.sina-al.uk/docs/guide/requests-responses#commands-and-queries-are-optional-conventions).

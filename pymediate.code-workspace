@@ -117,10 +117,6 @@
       "path": "examples/130-cqrs"
     },
     {
-      "name": "examples/900-hexagonal-architecture",
-      "path": "examples/900-hexagonal-architecture"
-    },
-    {
       "name": "src",
       "path": "src"
     },
