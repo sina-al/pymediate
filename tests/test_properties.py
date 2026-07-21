@@ -3,8 +3,8 @@
 Rather than fixed examples, these tests assert laws that must hold for
 generated inputs:
 
-- Services/ServiceProvider: registration order preservation, exact-type
-  resolution, provider-as-snapshot immutability
+- Services/ServiceProvider: exact-type resolution, provider-as-snapshot
+  immutability
 - Mediator round-trips: a handler that echoes its request payload returns it
   unchanged through ``send`` (sync and async)
 - Pipeline behaviors: wrap order always matches the declared behaviors= order
@@ -53,21 +53,21 @@ class StrBox:
 
 @relaxed
 @given(values=st.lists(st.integers(), min_size=1, max_size=10))
-def test_get_all_preserves_registration_order(values: list[int]) -> None:
-    """get_all returns instances in exact registration order; get returns the first."""
+def test_get_returns_first_registered_of_a_type(values: list[int]) -> None:
+    """get returns the first-registered instance of an exact type; len counts all."""
     services = Services()
     for value in values:
         services.add(IntBox(value))
     provider = services.provider()
 
-    assert [box.value for box in provider.get_all(IntBox)] == values
     assert provider.get(IntBox).value == values[0]
+    assert len(provider) == len(values)
 
 
 @relaxed
 @given(ints=st.lists(st.integers(), max_size=5), strs=st.lists(st.text(), max_size=5))
 def test_provider_reflects_exactly_what_was_registered(ints: list[int], strs: list[str]) -> None:
-    """has/get_all/get_all_types agree with each other and with what was added."""
+    """has/len agree with each other and with what was added."""
     services = Services()
     for i in ints:
         services.add(IntBox(i))
@@ -77,10 +77,7 @@ def test_provider_reflects_exactly_what_was_registered(ints: list[int], strs: li
 
     assert provider.has(IntBox) == bool(ints)
     assert provider.has(StrBox) == bool(strs)
-    expected_types = {t for t, added in ((IntBox, ints), (StrBox, strs)) if added}
-    assert set(provider.get_all_types()) == expected_types
-    assert [box.value for box in provider.get_all(IntBox)] == ints
-    assert [box.value for box in provider.get_all(StrBox)] == strs
+    assert len(provider) == len(ints) + len(strs)
 
 
 @relaxed
@@ -97,7 +94,8 @@ def test_provider_is_a_snapshot_of_registration_time(before: list[int], after: l
     for value in after:
         services.add(IntBox(value))
 
-    assert [box.value for box in provider.get_all(IntBox)] == before
+    assert len(provider) == len(before)
+    assert provider.get(IntBox).value == before[0]
 
 
 # ==================== Mediator round-trip properties ====================

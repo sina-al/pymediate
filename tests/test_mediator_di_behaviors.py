@@ -491,13 +491,11 @@ def test_di_complex_behaviors_list_order() -> None:
     # Value: 10 * 3 = 30, + 2 = 32
     assert response.value == 32
 
-    # Log order follows the behaviors= list (outermost first, unwinding inward).
-    assert response.execution_log == [
-        "RequestHandler",
-        "Multiply(*3)",
-        "Increment(+2)",
-        "Logging(first)",
-    ]
+    # Log order follows the behaviors= list (outermost first, unwinding inward). Which
+    # of the three LoggingBehavior instances resolves for the single LoggingBehavior
+    # entry is unspecified, so match only the concern, not the label.
+    assert response.execution_log[:3] == ["RequestHandler", "Multiply(*3)", "Increment(+2)"]
+    assert response.execution_log[3].startswith("Logging(")
 
 
 # ============================================================================
@@ -618,7 +616,7 @@ def test_di_behavior_inheritance() -> None:
 
 
 def test_di_behavior_polymorphism() -> None:
-    """Test that behavior subclasses are treated as PipelineBehavior instances."""
+    """Test that behavior subclasses are each resolvable by their exact type."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
@@ -633,10 +631,9 @@ def test_di_behavior_polymorphism() -> None:
     container = TestContainer()
     provider = DependencyInjectorServiceProvider(container)
 
-    # All should be resolvable as PipelineBehavior
-    behaviors = provider.get_all(PipelineBehavior)
-    assert len(behaviors) == 3
-    assert all(isinstance(b, PipelineBehavior) for b in behaviors)
+    # Each behavior resolves by its exact type as a PipelineBehavior instance.
+    for behavior_type in (BaseBehavior, DerivedBehaviorA, DerivedBehaviorB):
+        assert isinstance(provider.get(behavior_type), PipelineBehavior)
 
 
 # ============================================================================
@@ -1314,8 +1311,8 @@ def test_di_provider_get_raises_service_not_found() -> None:
     assert CounterHandler in exc_info.value.available_types
 
 
-def test_di_provider_has_get_all_types_and_len() -> None:
-    """Exercise has(), get_all_types(), and __len__() directly on the DI provider."""
+def test_di_provider_has_and_len() -> None:
+    """Exercise has() and __len__() directly on the DI provider."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
@@ -1328,8 +1325,8 @@ def test_di_provider_has_get_all_types_and_len() -> None:
     provider = DependencyInjectorServiceProvider(TestContainer())
 
     assert provider.has(CounterHandler) is True
+    assert provider.has(IncrementBehavior) is True
     assert provider.has(MultiplyBehavior) is False
-    assert set(provider.get_all_types()) == {IncrementBehavior, CounterHandler}
     assert len(provider) == 2
 
 

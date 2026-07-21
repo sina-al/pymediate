@@ -139,8 +139,28 @@ conventions erode — check `tasks.toml` first, not the neighboring job.
 - PR titles must follow Conventional Commits (`feat:`, `fix:`, `docs:`, etc.) — enforced by
   `pr.yml`, will hard-fail otherwise.
 - CI flags diffs to `__all__` in `__init__.py`, the `RequestHandler` class, or the `ServiceProvider`
-  protocol as potential breaking changes — treat those as places requiring extra care and,
-  likely, an ADR. These are also the surfaces "Versioning" below uses to decide minor vs. patch.
+  protocol as potential breaking changes — treat those as places to get the *design* right and
+  write it down (usually an ADR). "Extra care" means think it through, not avoid the change. These
+  are also the surfaces "Versioning" below uses to decide minor vs. patch.
+
+## Design philosophy — simplify
+
+**Bias hard toward simplification.** Where there is an option to make the code simpler — fewer
+moving parts, fewer methods, less machinery — take it. Do not resist an earnest attempt at
+simplification unless it causes a *significant* problem (a real correctness bug, a lost capability
+users actually depend on, a security or data-loss risk). "It's a breaking change" and "it changes
+behavior" are, on their own, **not** significant problems here: this package is ZeroVer (major
+stays `0`), has a tiny user base, and every release may change anything. The cost of breaking is
+low; the cost of carrying complexity forever is high.
+
+- Prefer deleting a guarantee, method, or abstraction that nothing depends on over preserving it
+  "just in case." Unused public surface is still a maintenance and comprehension cost.
+- When an option is designed for the job (a stdlib/library primitive that does what a hand-rolled
+  helper does), use it, even if adopting it changes behavior at the edges.
+- ADRs and records document decisions; they do **not** veto simplification. A prior ADR that
+  argued against a change is context, not a lock — supersede it when the trade-offs shift.
+- Verify the simpler version still works (tests, `poe pr`), then ship it. Don't gold-plate the
+  guardrails around a change whose blast radius is a handful of downloads.
 
 ## Docstrings
 

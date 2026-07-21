@@ -8,32 +8,29 @@ The mediator obtains handlers and pipeline behaviors from a `ServiceProvider`. P
 
 ## ServiceProvider (protocol)
 
-`ServiceProvider` is a structural protocol. It is read-only and describes five operations:
+`ServiceProvider` is a structural protocol. It is read-only and describes the two operations the
+mediator uses to resolve handlers and behaviors:
 
 ```python
-from collections.abc import Sequence
 from typing import Protocol, TypeVar
 
 ServiceT = TypeVar("ServiceT")
 
 class ServiceProvider(Protocol):
     def get(self, service_type: type[ServiceT]) -> ServiceT: ...
-    def get_all(self, service_type: type[ServiceT]) -> Sequence[ServiceT]: ...
     def has(self, service_type: type) -> bool: ...
-    def get_all_types(self) -> tuple[type, ...]: ...
-    def __len__(self) -> int: ...
 ```
 
 | Operation | Contract |
 | --- | --- |
 | `get(service_type)` | Return the first instance registered with that exact type; raise `ServiceNotFoundError` if absent |
-| `get_all(service_type)` | Return every matching instance, including subclasses, in registration order; return an empty sequence if absent |
 | `has(service_type)` | Test for an exact registered type |
-| `get_all_types()` | Return every exact type with at least one registration |
-| `len(provider)` | Return the total number of registered instances, counting duplicates |
 
 The mediator accepts custom implementations of this protocol through its `services` constructor
-parameter.
+parameter. Because it is a structural protocol, a class conforms just by defining these two
+operations — inheriting from `ServiceProvider` is optional. The built-in providers do inherit it
+so a static type checker verifies conformance at their definition. They also offer `len()` as a
+convenience for inspection and testing; it is not part of the protocol the mediator requires.
 
 ## `Services`
 
@@ -68,8 +65,7 @@ mediator = Mediator(services=services.provider())
 `provider()` returns an immutable snapshot of the collection. Later calls to `add()` or `clear()`
 do not change an existing provider. Call `provider()` again to create a new snapshot.
 
-The built-in provider implements `get_all()` with `isinstance()` and returns matches in overall
-registration order, even when several concrete types match the requested base class.
+`get()` resolves by exact type and returns the first instance registered under it.
 
 ### `clear()`
 
@@ -79,17 +75,16 @@ unchanged.
 ## `DependencyInjectorServiceProvider`
 
 ```python
-from collections.abc import Sequence
 from typing import Any
 
 from dependency_injector import containers
 
-class DependencyInjectorServiceProvider:
+from pymediate import ServiceProvider
+
+class DependencyInjectorServiceProvider(ServiceProvider):
     def __init__(self, container: containers.Container) -> None: ...
     def get[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
-    def get_all(self, service_type: type[Any]) -> Sequence[Any]: ...
     def has(self, service_type: type[Any]) -> bool: ...
-    def get_all_types(self) -> tuple[type[Any], ...]: ...
     def __len__(self) -> int: ...
 ```
 
@@ -115,21 +110,24 @@ services = DependencyInjectorServiceProvider(container)
 mediator = Mediator(services=services)
 ```
 
-The adapter indexes declared providers without resolving them, then delegates each resolution to
-the original Dependency Injector provider. It implements the five `ServiceProvider` operations;
-`len(services)` is the number of indexed providers.
+The adapter indexes the container's providers without resolving them, then delegates each
+resolution to the original Dependency Injector provider. It implements the two `ServiceProvider`
+operations and, like the built-in provider, offers `len()` — `len(services)` is the number of
+indexed providers.
 
 It can infer service types from class-backed factories and singletons, object providers, list and
-dictionary providers, and callables with a concrete return annotation. Nested
-`providers.Container` declarations are scanned recursively in declaration order. Providers used
-only as injected dependencies are not separately indexed.
+dictionary providers, and callables with a concrete return annotation. The whole provider graph is
+walked with `Container.traverse()` — nested `providers.Container` children and providers reachable
+only through injection are all visited. A provider whose output type cannot be inferred without
+resolving it (an unannotated factory, `Selector`, `Resource`, or coroutine provider) is skipped,
+not indexed, so infrastructure providers need not be PyMediate-resolvable. `get()` returns the
+first provider found for an exact type.
 
 | Condition | Result |
 | --- | --- |
 | The argument is not a Dependency Injector container | `TypeError` during construction |
-| A provider's output type cannot be inferred without resolving it | `TypeError` during construction |
-| A declared provider is asynchronous | `TypeError` during construction or resolution |
-| Nested containers form a cycle | `ValueError` during construction |
+| A provider's output type cannot be inferred without resolving it | Skipped — not indexed as a service |
+| An indexed provider resolves asynchronously | `TypeError` during resolution |
 | A type-changing override produces a value different from the indexed type | `TypeError` during resolution; rebuild the adapter after the override |
 
 The indexed provider graph and output types form a construction-time snapshot. Overrides that
