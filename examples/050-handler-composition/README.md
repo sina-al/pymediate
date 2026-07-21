@@ -3,7 +3,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sina-al/pymediate?devcontainer_path=.devcontainer%2F050-handler-composition%2Fdevcontainer.json)
 
 `PlaceOrderHandler` reserves stock, charges a card, and publishes `OrderPlaced` by dispatching
-through the mediator. It depends on request and event types rather than concrete handler classes.
+through the mediator. It depends on request and notification types rather than concrete handler classes.
 
 ## Run
 
@@ -34,7 +34,7 @@ Journal (top to bottom = order of execution):
   place:done
 ```
 
-Both subrequests start before either finishes. After they complete, `publish` runs the event
+Both subrequests start before either finishes. After they complete, `publish` runs the notification
 subscribers and waits for all of them before returning.
 
 ## Compose through the mediator

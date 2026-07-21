@@ -1,10 +1,10 @@
 """Handlers for the order-composition example.
 
-``PlaceOrderHandler`` dispatches two subrequests and publishes one event through a ``Sender``.
-The demo starts the reservation and payment concurrently to make scheduling visible. These
-operations still belong to one business process: if either fails, the other may already have
-changed state. Production code must choose suitable ordering, idempotency, transactions, or
-compensation.
+``PlaceOrderHandler`` dispatches two subrequests and publishes one notification through a
+``Sender``. The demo starts the reservation and payment concurrently to make scheduling
+visible. These operations still belong to one business process: if either fails, the other
+may already have changed state. Production code must choose suitable ordering, idempotency,
+transactions, or compensation.
 
 Every handler appends to a shared ``journal`` so the ordering — including the overlap of
 the two concurrent sub-requests — is visible in the demo and asserted in the tests.
@@ -13,7 +13,7 @@ the two concurrent sub-requests — is visible in the demo and asserted in the t
 import asyncio
 from itertools import count
 
-from pymediate import EventHandler, RequestHandler
+from pymediate import NotificationHandler, RequestHandler
 
 from .domain import (
     ChargePayment,
@@ -102,21 +102,21 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 # ---- Subscribers: the "announce" side, each reacting independently ----
 
 
-class OrderConfirmation(EventHandler[OrderPlaced]):
+class OrderConfirmation(NotificationHandler[OrderPlaced]):
     """Email the customer. One of several reactions to a placed order."""
 
     def __init__(self, journal: list[str]) -> None:
         self._journal = journal
 
-    async def __call__(self, event: OrderPlaced) -> None:
-        self._journal.append(f"email:sent {event.customer_id}")
+    async def __call__(self, notification: OrderPlaced) -> None:
+        self._journal.append(f"email:sent {notification.customer_id}")
 
 
-class SalesAnalytics(EventHandler[OrderPlaced]):
-    """Record the sale for reporting. Reacts to the same event, unaware of the emailer."""
+class SalesAnalytics(NotificationHandler[OrderPlaced]):
+    """Record the sale for reporting. Reacts to the same notification, unaware of the emailer."""
 
     def __init__(self, journal: list[str]) -> None:
         self._journal = journal
 
-    async def __call__(self, event: OrderPlaced) -> None:
-        self._journal.append(f"analytics:recorded {event.order_id}")
+    async def __call__(self, notification: OrderPlaced) -> None:
+        self._journal.append(f"analytics:recorded {notification.order_id}")

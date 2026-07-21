@@ -1,6 +1,7 @@
 """Handlers for the synchronous order-composition example.
 
-``PlaceOrderHandler`` dispatches two subrequests and publishes one event through a ``Sender``.
+``PlaceOrderHandler`` dispatches two subrequests and publishes one notification through a
+``Sender``.
 
 This is the synchronous mirror of ``050-handler-composition``. The difference is here: with
 no event loop, the two sub-requests run **one after another** rather than concurrently. The
@@ -12,7 +13,7 @@ asserted in the tests.
 
 from itertools import count
 
-from pymediate.sync import EventHandler, RequestHandler
+from pymediate.sync import NotificationHandler, RequestHandler
 
 from .domain import (
     ChargePayment,
@@ -99,21 +100,21 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 # ---- Subscribers: the "announce" side, each reacting independently ----
 
 
-class OrderConfirmation(EventHandler[OrderPlaced]):
+class OrderConfirmation(NotificationHandler[OrderPlaced]):
     """Email the customer. One of several reactions to a placed order."""
 
     def __init__(self, journal: list[str]) -> None:
         self._journal = journal
 
-    def __call__(self, event: OrderPlaced) -> None:
-        self._journal.append(f"email:sent {event.customer_id}")
+    def __call__(self, notification: OrderPlaced) -> None:
+        self._journal.append(f"email:sent {notification.customer_id}")
 
 
-class SalesAnalytics(EventHandler[OrderPlaced]):
-    """Record the sale for reporting. Reacts to the same event, unaware of the emailer."""
+class SalesAnalytics(NotificationHandler[OrderPlaced]):
+    """Record the sale for reporting. Reacts to the same notification, unaware of the emailer."""
 
     def __init__(self, journal: list[str]) -> None:
         self._journal = journal
 
-    def __call__(self, event: OrderPlaced) -> None:
-        self._journal.append(f"analytics:recorded {event.order_id}")
+    def __call__(self, notification: OrderPlaced) -> None:
+        self._journal.append(f"analytics:recorded {notification.order_id}")
