@@ -145,7 +145,7 @@ class ServiceNotFoundError(Exception):
     ) -> None: ...
 ```
 
-`ServiceProvider.get()` raises this error when no instance is registered for the exact requested
+`ServiceProvider.__getitem__` raises this error when no instance is registered for the exact requested
 type. During mediator dispatch, that can occur while resolving a request handler, stream handler,
 or event handler. The arguments are stored as `service_type` and `available_types`.
 

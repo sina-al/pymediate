@@ -1,8 +1,8 @@
 """Service collection and provider for dependency injection.
 
 Register service instances with ``Services``, then build an immutable ``ServiceProvider``
-from it to resolve them. Multiple instances of the same type can be registered; ``get()``
-returns the first registered instance of an exact type.
+from it to resolve them. Multiple instances of the same type can be registered;
+``provider[Type]`` returns the first registered instance of an exact type.
 
 Examples:
     ```python
@@ -16,7 +16,7 @@ Examples:
 
     provider = services.provider()
 
-    assert provider.get(Cache) is cache
+    assert provider[Cache] is cache
     ```
 """
 
@@ -55,7 +55,7 @@ class ServiceNotFoundError(Exception):
 class ServiceProvider(Protocol):
     """Protocol for resolving registered service instances.
 
-    ``get()`` matches an exact registered type.
+    ``provider[Type]`` matches an exact registered type.
 
     ``Services.provider()`` returns the built-in implementation.
     ``DependencyInjectorServiceProvider`` adapts a Dependency Injector container.
@@ -67,7 +67,7 @@ class ServiceProvider(Protocol):
         the implementation.
     """
 
-    def get(self, service_type: type[ServiceT]) -> ServiceT:
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
 
         Uses exact type matching only - a request for a base class doesn't match a
@@ -84,10 +84,10 @@ class ServiceProvider(Protocol):
         """
         ...
 
-    def has(self, service_type: type) -> bool:
+    def __contains__(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered.
 
-        Like `get()`, this uses exact type matching only.
+        Like `__getitem__`, this uses exact type matching only.
 
         Args:
             service_type: The exact type to check for.
@@ -114,7 +114,7 @@ class Services:
     def __init__(self) -> None:
         """Create an empty service collection."""
         # Maps each concrete type to its registered instances, in the order they were
-        # registered for that type. get() returns the first entry.
+        # registered for that type. __getitem__ returns the first entry.
         self._services: dict[type, list[Any]] = {}
 
     def add(self, instance: object) -> "Services":
@@ -122,7 +122,7 @@ class Services:
 
         Instances are registered by their concrete type (`type(instance)`). Multiple
         instances of the same type - including the same instance registered more than
-        once - are all kept, and `get()` returns the first registered.
+        once - are all kept, and `provider[Type]` returns the first registered.
 
         Args:
             instance: The service instance to register. Cannot be None.
@@ -198,7 +198,7 @@ class _Provider(ServiceProvider):
             for service_type, instances in collection._services.items()
         }
 
-    def get(self, service_type: type[ServiceT]) -> ServiceT:
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
 
         Args:
@@ -215,7 +215,7 @@ class _Provider(ServiceProvider):
 
         return cast(ServiceT, self._services[service_type][0])
 
-    def has(self, service_type: type) -> bool:
+    def __contains__(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered.
 
         Args:

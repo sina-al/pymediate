@@ -48,7 +48,7 @@ MODULES = [
 ]
 
 # Dunder methods worth showing on a class even though they're "private" by name.
-PUBLIC_DUNDERS = {"__init__", "__call__"}
+PUBLIC_DUNDERS = {"__init__", "__call__", "__getitem__", "__contains__"}
 
 
 def is_public(name: str) -> bool:

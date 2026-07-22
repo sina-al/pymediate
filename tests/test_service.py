@@ -1,8 +1,8 @@
 """Tests for Services and the built-in ServiceProvider.
 
-The provider resolves by exact type: ``get()`` returns the first-registered instance
-of exactly the requested type, ``has()`` tests for it, and ``len()`` counts every
-registration.
+The provider resolves by exact type: ``provider[Type]`` returns the first-registered
+instance of exactly the requested type, ``Type in provider`` tests for it, and
+``len()`` counts every registration.
 """
 
 import threading
@@ -135,8 +135,8 @@ def test_provider() -> None:
 
     provider = services.provider()
 
-    assert hasattr(provider, "get")
-    assert hasattr(provider, "has")
+    assert hasattr(provider, "__getitem__")
+    assert hasattr(provider, "__contains__")
     assert len(provider) == 1
 
 
@@ -152,7 +152,7 @@ def test_provider_immutability() -> None:
 
     # Provider should not reflect the change
     assert len(provider) == 1
-    assert not provider.has(ServiceB)
+    assert ServiceB not in provider
 
 
 def test_resolve_single_service() -> None:
@@ -162,14 +162,14 @@ def test_resolve_single_service() -> None:
     services.add(service_a)
 
     provider = services.provider()
-    resolved = provider.get(ServiceA)
+    resolved = provider[ServiceA]
 
     assert resolved is service_a
     assert resolved.value == 42
 
 
 def test_resolve_first_of_multiple() -> None:
-    """Test that get() returns the first-registered instance of an exact type."""
+    """Test that __getitem__ returns the first-registered instance of an exact type."""
     services = Services()
     first = ServiceA(1)
     services.add(first)
@@ -178,8 +178,8 @@ def test_resolve_first_of_multiple() -> None:
 
     provider = services.provider()
 
-    assert provider.get(ServiceA) is first
-    assert provider.get(ServiceA).value == 1
+    assert provider[ServiceA] is first
+    assert provider[ServiceA].value == 1
 
 
 def test_resolve_nonexistent_raises_error() -> None:
@@ -190,31 +190,31 @@ def test_resolve_nonexistent_raises_error() -> None:
     provider = services.provider()
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.get(ServiceB)
+        provider[ServiceB]
 
     assert exc_info.value.service_type == ServiceB
     assert ServiceA in exc_info.value.available_types
     assert "ServiceB" in str(exc_info.value)
 
 
-def test_has_registered_type() -> None:
-    """Test has() returns True for a registered type."""
+def test_contains_registered_type() -> None:
+    """Test __contains__ returns True for a registered type."""
     services = Services()
     services.add(ServiceA(1))
 
     provider = services.provider()
 
-    assert provider.has(ServiceA) is True
+    assert ServiceA in provider
 
 
-def test_has_unregistered_type() -> None:
-    """Test has() returns False for an unregistered type."""
+def test_contains_unregistered_type() -> None:
+    """Test __contains__ returns False for an unregistered type."""
     services = Services()
     services.add(ServiceA(1))
 
     provider = services.provider()
 
-    assert provider.has(ServiceB) is False
+    assert ServiceB not in provider
 
 
 def test_provider_len() -> None:
@@ -247,28 +247,28 @@ def test_provider_repr() -> None:
 
 
 def test_resolve_exact_type_no_inheritance() -> None:
-    """Test that get() matches the exact type only, not a registered subclass."""
+    """Test that __getitem__ matches the exact type only, not a registered subclass."""
     services = Services()
     services.add(ConcreteService(1))
 
     provider = services.provider()
 
-    # get() looks for the exact type only, so a base-class request misses a subclass.
+    # __getitem__ looks for the exact type only, so a base-class request misses a subclass.
     with pytest.raises(ServiceNotFoundError):
-        provider.get(BaseService)
+        provider[BaseService]
 
-    assert provider.get(ConcreteService).id == 1
+    assert provider[ConcreteService].id == 1
 
 
-def test_has_exact_type_no_inheritance() -> None:
-    """Test that has() checks the exact type only, not subclasses."""
+def test_contains_exact_type_no_inheritance() -> None:
+    """Test that __contains__ checks the exact type only, not subclasses."""
     services = Services()
     services.add(ConcreteService(1))
 
     provider = services.provider()
 
-    assert provider.has(ConcreteService) is True
-    assert provider.has(BaseService) is False
+    assert ConcreteService in provider
+    assert BaseService not in provider
 
 
 # ==================== Edge Cases and Error Handling ====================
@@ -280,7 +280,7 @@ def test_empty_collection_provider() -> None:
     provider = services.provider()
 
     assert len(provider) == 0
-    assert not provider.has(ServiceA)
+    assert ServiceA not in provider
 
 
 def test_multiple_providers_from_same_collection() -> None:
@@ -291,8 +291,8 @@ def test_multiple_providers_from_same_collection() -> None:
     provider1 = services.provider()
     provider2 = services.provider()
 
-    assert provider1.get(ServiceA).value == 1
-    assert provider2.get(ServiceA).value == 1
+    assert provider1[ServiceA].value == 1
+    assert provider2[ServiceA].value == 1
     assert provider1 is not provider2
 
 
@@ -309,12 +309,12 @@ def test_provider_snapshot_isolation() -> None:
     provider2 = services.provider()
 
     assert len(provider1) == 1
-    assert provider1.has(ServiceA)
-    assert not provider1.has(ServiceB)
+    assert ServiceA in provider1
+    assert ServiceB not in provider1
 
     assert len(provider2) == 3
-    assert provider2.has(ServiceA)
-    assert provider2.has(ServiceB)
+    assert ServiceA in provider2
+    assert ServiceB in provider2
 
 
 def test_clear_does_not_affect_existing_providers() -> None:
@@ -327,7 +327,7 @@ def test_clear_does_not_affect_existing_providers() -> None:
     services.clear()
 
     assert len(provider) == 1
-    assert provider.has(ServiceA)
+    assert ServiceA in provider
 
 
 def test_service_not_found_error_attributes() -> None:
@@ -339,7 +339,7 @@ def test_service_not_found_error_attributes() -> None:
     provider = services.provider()
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.get(ConcreteService)
+        provider[ConcreteService]
 
     error = exc_info.value
     assert error.service_type == ConcreteService
@@ -355,7 +355,7 @@ def test_error_message_clarity() -> None:
     provider = services.provider()
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.get(ConcreteService)
+        provider[ConcreteService]
 
     message = str(exc_info.value)
     assert "ConcreteService" in message
@@ -370,10 +370,10 @@ def test_type_with_no_instances() -> None:
 
     provider = services.provider()
 
-    assert not provider.has(ServiceB)
+    assert ServiceB not in provider
 
     with pytest.raises(ServiceNotFoundError):
-        provider.get(ServiceB)
+        provider[ServiceB]
 
 
 def test_none_type_handling() -> None:
@@ -412,23 +412,23 @@ def test_clear_and_rebuild() -> None:
 
     provider2 = services.provider()
 
-    assert provider1.has(ServiceA)
-    assert not provider1.has(ServiceB)
+    assert ServiceA in provider1
+    assert ServiceB not in provider1
 
-    assert not provider2.has(ServiceA)
-    assert provider2.has(ServiceB)
+    assert ServiceA not in provider2
+    assert ServiceB in provider2
 
 
 # ==================== Type Safety ====================
 
 
 def test_resolve_returns_correct_type() -> None:
-    """Test that get() returns a correctly typed instance."""
+    """Test that __getitem__ returns a correctly typed instance."""
     services = Services()
     services.add(ServiceA(42))
 
     provider = services.provider()
-    resolved: ServiceA = provider.get(ServiceA)
+    resolved: ServiceA = provider[ServiceA]
 
     assert isinstance(resolved, ServiceA)
     assert resolved.value == 42
@@ -449,12 +449,12 @@ def test_primitive_types() -> None:
 
     provider = services.provider()
 
-    assert provider.get(int) == 42
-    assert provider.get(float) == 3.14
-    assert provider.get(str) == "hello"
-    assert provider.get(bool) is True  # bool is a distinct exact type from int
-    assert provider.get(list) == [1, 2, 3]
-    assert provider.get(dict) == {"key": "value"}
+    assert provider[int] == 42
+    assert provider[float] == 3.14
+    assert provider[str] == "hello"
+    assert provider[bool] is True  # bool is a distinct exact type from int
+    assert provider[list] == [1, 2, 3]
+    assert provider[dict] == {"key": "value"}
 
 
 def test_multiple_primitives_same_type() -> None:
@@ -466,7 +466,7 @@ def test_multiple_primitives_same_type() -> None:
 
     provider = services.provider()
 
-    assert provider.get(int) == 1  # First registered
+    assert provider[int] == 1  # First registered
     assert len(provider) == 3
 
 
@@ -485,7 +485,7 @@ def test_same_instance_registered_twice() -> None:
     provider = services.provider()
 
     assert len(provider) == 3
-    assert provider.get(ServiceA) is singleton
+    assert provider[ServiceA] is singleton
 
 
 def test_same_instance_identity_preserved() -> None:
@@ -496,7 +496,7 @@ def test_same_instance_identity_preserved() -> None:
     services.add(singleton)
     provider = services.provider()
 
-    assert provider.get(ServiceA) is singleton  # Same object, not a copy
+    assert provider[ServiceA] is singleton  # Same object, not a copy
 
 
 # ==================== Scale ====================
@@ -512,7 +512,7 @@ def test_large_number_of_services() -> None:
     provider = services.provider()
 
     assert len(provider) == 1000
-    assert provider.get(ServiceA).value == 0  # First registered
+    assert provider[ServiceA].value == 0  # First registered
 
 
 def test_many_different_types() -> None:
