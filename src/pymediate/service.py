@@ -25,8 +25,14 @@ from typing import Any, Protocol, TypeVar, cast
 ServiceT = TypeVar("ServiceT")
 
 
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     """Raised when a requested service type is not registered.
+
+    Subclasses ``KeyError`` because a provider is a read-only mapping of type to
+    instance, and ``provider[service_type]`` is its subscript: a missing type is a
+    missing key. ``except KeyError`` therefore catches a failed lookup, while
+    ``str(error)`` still renders the full multi-line message (``KeyError``'s own
+    ``__str__`` would ``repr()`` it instead).
 
     Attributes:
         service_type: The type that was requested but not found.
@@ -46,10 +52,15 @@ class ServiceNotFoundError(Exception):
         type_names = [t.__name__ for t in available_types]
         available_str = ", ".join(type_names) if type_names else "none"
 
-        super().__init__(
+        self._message = (
             f"No service of type '{service_type.__name__}' is registered.\n"
             f"Available service types: {available_str}"
         )
+        super().__init__(self._message)
+
+    def __str__(self) -> str:
+        """Return the full message, bypassing ``KeyError``'s ``repr``-wrapping ``__str__``."""
+        return self._message
 
 
 class ServiceProvider(Protocol):

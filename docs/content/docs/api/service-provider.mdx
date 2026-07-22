@@ -136,7 +136,7 @@ preserve output types continue to resolve through the original provider.
 ## `ServiceNotFoundError`
 
 ```python
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     def __init__(
         self,
         service_type: type,
@@ -146,7 +146,8 @@ class ServiceNotFoundError(Exception):
 
 `provider[Type]` raises `ServiceNotFoundError` when the exact requested type is absent. Its
 `service_type` and `available_types` attributes retain the constructor arguments. This exception
-inherits directly from `Exception`, not from `PyMediateError`.
+inherits from `KeyError` — the miss surfaces through the `provider[Type]` subscript, so `except
+KeyError` catches it — not from `PyMediateError`.
 
 ## See also
 

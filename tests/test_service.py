@@ -363,6 +363,31 @@ def test_error_message_clarity() -> None:
     assert "ServiceB" in message
 
 
+def test_missing_service_is_catchable_as_key_error() -> None:
+    """A miss on the provider subscript is a KeyError, matching mapping idiom."""
+    provider = Services().add(ServiceA(1)).provider()
+
+    assert issubclass(ServiceNotFoundError, KeyError)
+
+    with pytest.raises(KeyError):
+        provider[ServiceB]
+
+
+def test_error_str_is_not_key_error_repr_wrapped() -> None:
+    """str() renders the plain multi-line message, not KeyError's repr-wrapped form."""
+    provider = Services().add(ServiceA(1)).provider()
+
+    with pytest.raises(ServiceNotFoundError) as exc_info:
+        provider[ServiceB]
+
+    message = str(exc_info.value)
+    # KeyError.__str__ would repr() the argument: surrounding quotes, escaped newline.
+    assert not message.startswith('"')
+    assert not message.startswith("'")
+    assert "\\n" not in message
+    assert message.startswith("No service of type 'ServiceB' is registered.\n")
+
+
 def test_type_with_no_instances() -> None:
     """Test exact-type checks when no instances exist for that type."""
     services = Services()

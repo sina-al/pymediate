@@ -60,9 +60,9 @@ form.
 **Cons:**
 - Breaking change: every internal call site, test, and hand-written docs page that spells
   resolution as `.get(...)`/`.has(...)` needs updating in the same change.
-- `__getitem__` raising a domain-specific `ServiceNotFoundError` rather than `KeyError` is a
-  half-step away from full `Mapping` idiom (a `try: provider[Foo] except KeyError` reflex
-  won't catch it) — accepted as a deliberate choice, not an oversight (see Decision).
+- To make `__getitem__` fully idiomatic, the exception it raises on a miss should be a
+  `KeyError` (that is what `Mapping.__getitem__` raises), which means changing
+  `ServiceNotFoundError`'s base class — resolved in the Decision below.
 
 ### Option B — Add dunders alongside `get`/`has` (rejected)
 
@@ -86,15 +86,20 @@ write the same thing, forever.
   `DependencyInjectorServiceProvider` in `src/pymediate/providers/dependency_injector.py`) —
   not kept alongside the new dunders. No deprecation shim: a clean break in one release,
   consistent with this package's ZeroVer stance that the cost of breaking is low here.
-- `provider[Type]` raises `ServiceNotFoundError`, unchanged — same class, same message, same
-  `service_type`/`available_types` attributes `get()` raises today.
-  `ServiceNotFoundError`'s class hierarchy is untouched (stays `Exception`-based; it does
-  **not** also inherit `KeyError`). The richer, PyMediate-specific error (naming what *is*
-  registered) is judged more useful than matching the `Mapping` protocol's exact exception
-  type, and changing a public exception's base class is a separate, larger decision than
-  this ADR's scope.
+- `provider[Type]` raises `ServiceNotFoundError` on a miss, keeping the same message and
+  `service_type`/`available_types` attributes `get()` raised. **`ServiceNotFoundError` now
+  subclasses `KeyError`** (it previously subclassed `Exception` directly): a provider is a
+  read-only `Mapping[type, object]` and `provider[Type]` is its subscript, so a missing type
+  is a missing key, and a reflexive `except KeyError` catches it — completing the mapping
+  idiom this ADR adopts rather than half-adopting it. `ServiceNotFoundError` still does **not**
+  inherit `PyMediateError` (that separation is unchanged). One consequence handled: `KeyError`'s
+  own `__str__` returns `repr(self.args[0])`, which would quote-wrap the multi-line message and
+  escape its newline; `ServiceNotFoundError` overrides `__str__` to return the plain message, so
+  the human-facing rendering is unchanged. The richer, PyMediate-specific error (naming what
+  *is* registered) is preserved on top of the `KeyError` base, not traded away for it.
 - `__len__` and other non-protocol conveniences on the built-in providers are unaffected —
-  this ADR only touches the two protocol operations ADR 0016 left in place.
+  this ADR touches the two protocol operations ADR 0016 left in place plus the base class of
+  the exception their `__getitem__` raises.
 
 ## Consequences
 
@@ -107,16 +112,24 @@ write the same thing, forever.
   already know how to implement correctly, rather than two arbitrarily-named methods.
 - No type-safety regression: verified with both project-mandated checkers before
   implementation.
+- The mapping idiom is complete, not half-adopted: `except KeyError` catches a miss on
+  `provider[Type]`, matching every other subscript in Python, while `str(error)` still renders
+  the full message.
 
 ### Negative
 
 - **Breaking:** every caller of `provider.get(Type)`/`provider.has(Type)` — internal
   (`src/pymediate/_internal/mediator.py`), test, and documentation — must switch to
   `provider[Type]`/`Type in provider` in the same change. ZeroVer minor release.
-- `provider[Type]` raising `ServiceNotFoundError` rather than `KeyError` means code written
-  against the `Mapping` idiom's usual exception type won't catch a miss without knowing
-  PyMediate's specific exception — a readability win (indexing syntax) traded against a
-  smaller idiom mismatch (exception type) than doing both would have cost.
+- `ServiceNotFoundError`'s base class changes from `Exception` to `KeyError`. This is
+  additive for existing `except ServiceNotFoundError` / `except Exception` handlers, but code
+  that deliberately relied on it *not* being a `KeyError` (e.g. a bare `except KeyError` around
+  a `provider[Type]` call that meant to catch only dict misses) would now also catch a
+  service-resolution miss. Judged acceptable — that is precisely the mapping semantics being
+  adopted.
+- The `__str__` override is a small piece of machinery on an otherwise-minimal exception,
+  carried solely to neutralise `KeyError`'s `repr`-wrapping `__str__`. A regression test pins
+  the rendered form so the override cannot rot silently.
 - `examples/` are not updated by this ADR's implementation — they pin against the *released*
   package and are migrated as a post-release follow-up via the `example` skill, per
   CLAUDE.md's `examples/` contract.
@@ -130,4 +143,7 @@ Breaking change, shipped in a **minor** release (ZeroVer):
 - A custom `ServiceProvider` implementation must rename its `get`/`has` methods to
   `__getitem__`/`__contains__` to keep satisfying the protocol (structural — no inheritance
   required, same as before).
+- No action needed to keep catching a missing service: `except ServiceNotFoundError` still
+  works, and `except KeyError` now works too. Only code that specifically depended on the
+  error *not* being a `KeyError` needs review.
 - `examples/` migrate post-release via the `example` skill.

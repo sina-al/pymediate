@@ -83,7 +83,7 @@ class PipelineBehavior(ABC):
 ### `pymediate.service`
 
 ```python
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     """Raised when a requested service type is not registered."""
     def __init__(self, service_type: type, available_types: list[type]) -> None:
         """Create the error for a service type that has no registered instance."""
