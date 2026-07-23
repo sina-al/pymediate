@@ -1,6 +1,6 @@
 # ADR 0017: Replace `ServiceProvider.get()`/`has()` with `__getitem__`/`__contains__`
 
-**Status:** Proposed
+**Status:** Accepted (2026-07-23, @sina-al)
 **Date:** 2026-07-22
 **Author:** Claude
 **Reviewers:** @sina-al
