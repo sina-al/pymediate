@@ -48,7 +48,7 @@ Pipeline behaviors do not wrap `stream()` or `publish()`.
 
 ## Exceptions
 
-The [errors reference](/docs/api/errors) separates handler validation, dispatch, and service-resolution failures. Most PyMediate validation and dispatch exceptions inherit from `PyMediateError`; `ServiceNotFoundError` is a separate `Exception` raised by service resolution.
+The [errors reference](/docs/api/errors) separates handler validation, dispatch, and service-resolution failures. Most PyMediate validation and dispatch exceptions inherit from `PyMediateError`; `ServiceNotFoundError` is separate, subclassing `KeyError` (a provider is a type-keyed mapping), and raised by service resolution.
 
 ## Asynchronous and synchronous definitions
 

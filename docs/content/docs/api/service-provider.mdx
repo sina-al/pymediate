@@ -17,14 +17,14 @@ from typing import Protocol, TypeVar
 ServiceT = TypeVar("ServiceT")
 
 class ServiceProvider(Protocol):
-    def get(self, service_type: type[ServiceT]) -> ServiceT: ...
-    def has(self, service_type: type) -> bool: ...
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT: ...
+    def __contains__(self, service_type: type) -> bool: ...
 ```
 
 | Operation | Contract |
 | --- | --- |
-| `get(service_type)` | Return the first instance registered with that exact type; raise `ServiceNotFoundError` if absent |
-| `has(service_type)` | Test for an exact registered type |
+| `provider[service_type]` | Return the first instance registered with that exact type; raise `ServiceNotFoundError` if absent |
+| `service_type in provider` | Test for an exact registered type |
 
 The mediator accepts custom implementations of this protocol through its `services` constructor
 parameter. Because it is a structural protocol, a class conforms just by defining these two
@@ -65,7 +65,7 @@ mediator = Mediator(services=services.provider())
 `provider()` returns an immutable snapshot of the collection. Later calls to `add()` or `clear()`
 do not change an existing provider. Call `provider()` again to create a new snapshot.
 
-`get()` resolves by exact type and returns the first instance registered under it.
+`provider[Type]` resolves by exact type and returns the first instance registered under it.
 
 ### `clear()`
 
@@ -83,8 +83,8 @@ from pymediate import ServiceProvider
 
 class DependencyInjectorServiceProvider(ServiceProvider):
     def __init__(self, container: containers.Container) -> None: ...
-    def get[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
-    def has(self, service_type: type[Any]) -> bool: ...
+    def __getitem__[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
+    def __contains__(self, service_type: type[Any]) -> bool: ...
     def __len__(self) -> int: ...
 ```
 
@@ -120,8 +120,8 @@ dictionary providers, and callables with a concrete return annotation. The whole
 walked with `Container.traverse()` — nested `providers.Container` children and providers reachable
 only through injection are all visited. A provider whose output type cannot be inferred without
 resolving it (an unannotated factory, `Selector`, `Resource`, or coroutine provider) is skipped,
-not indexed, so infrastructure providers need not be PyMediate-resolvable. `get()` returns the
-first provider found for an exact type.
+not indexed, so infrastructure providers need not be PyMediate-resolvable. `provider[Type]`
+returns the first provider found for an exact type.
 
 | Condition | Result |
 | --- | --- |
@@ -136,7 +136,7 @@ preserve output types continue to resolve through the original provider.
 ## `ServiceNotFoundError`
 
 ```python
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     def __init__(
         self,
         service_type: type,
@@ -144,9 +144,10 @@ class ServiceNotFoundError(Exception):
     ) -> None: ...
 ```
 
-`get()` raises `ServiceNotFoundError` when the exact requested type is absent. Its
+`provider[Type]` raises `ServiceNotFoundError` when the exact requested type is absent. Its
 `service_type` and `available_types` attributes retain the constructor arguments. This exception
-inherits directly from `Exception`, not from `PyMediateError`.
+inherits from `KeyError` — the miss surfaces through the `provider[Type]` subscript, so `except
+KeyError` catches it — not from `PyMediateError`.
 
 ## See also
 

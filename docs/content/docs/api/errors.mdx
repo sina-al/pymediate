@@ -4,8 +4,9 @@ description: API reference for validation, registration, dispatch, and service-r
 ---
 
 Most validation and dispatch errors inherit from `PyMediateError`. Service resolution uses the
-separate `ServiceNotFoundError`, which inherits directly from `Exception`. Subscriber failures from
-`publish()` use Python's built-in exception groups.
+separate `ServiceNotFoundError`, which inherits from `KeyError` — a provider is a type-keyed
+mapping, so a missing service is a missing key. Subscriber failures from `publish()` use Python's
+built-in exception groups.
 
 ## `PyMediateError`
 
@@ -137,7 +138,7 @@ handler *instance* is instead a service-resolution error.
 ### `ServiceNotFoundError`
 
 ```python
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     def __init__(
         self,
         service_type: type,
@@ -145,9 +146,13 @@ class ServiceNotFoundError(Exception):
     ) -> None: ...
 ```
 
-`ServiceProvider.get()` raises this error when no instance is registered for the exact requested
+`ServiceProvider.__getitem__` raises this error when no instance is registered for the exact requested
 type. During mediator dispatch, that can occur while resolving a request handler, stream handler,
 or event handler. The arguments are stored as `service_type` and `available_types`.
+
+It subclasses `KeyError`, mirroring the subscript that raises it (`provider[service_type]`), so a
+missing service can be caught with `except KeyError`. `str(error)` still renders the full multi-line
+message rather than `KeyError`'s `repr`-wrapped form.
 
 Because `ServiceNotFoundError` is not a `PyMediateError`, catching `PyMediateError` alone does not
 catch all mediator configuration failures.

@@ -1,8 +1,8 @@
 """Service collection and provider for dependency injection.
 
 Register service instances with ``Services``, then build an immutable ``ServiceProvider``
-from it to resolve them. Multiple instances of the same type can be registered; ``get()``
-returns the first registered instance of an exact type.
+from it to resolve them. Multiple instances of the same type can be registered;
+``provider[Type]`` returns the first registered instance of an exact type.
 
 Examples:
     ```python
@@ -16,7 +16,7 @@ Examples:
 
     provider = services.provider()
 
-    assert provider.get(Cache) is cache
+    assert provider[Cache] is cache
     ```
 """
 
@@ -25,8 +25,14 @@ from typing import Any, Protocol, TypeVar, cast
 ServiceT = TypeVar("ServiceT")
 
 
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     """Raised when a requested service type is not registered.
+
+    Subclasses ``KeyError`` because a provider is a read-only mapping of type to
+    instance, and ``provider[service_type]`` is its subscript: a missing type is a
+    missing key. ``except KeyError`` therefore catches a failed lookup, while
+    ``str(error)`` still renders the full multi-line message (``KeyError``'s own
+    ``__str__`` would ``repr()`` it instead).
 
     Attributes:
         service_type: The type that was requested but not found.
@@ -46,16 +52,21 @@ class ServiceNotFoundError(Exception):
         type_names = [t.__name__ for t in available_types]
         available_str = ", ".join(type_names) if type_names else "none"
 
-        super().__init__(
+        self._message = (
             f"No service of type '{service_type.__name__}' is registered.\n"
             f"Available service types: {available_str}"
         )
+        super().__init__(self._message)
+
+    def __str__(self) -> str:
+        """Return the full message, bypassing ``KeyError``'s ``repr``-wrapping ``__str__``."""
+        return self._message
 
 
 class ServiceProvider(Protocol):
     """Protocol for resolving registered service instances.
 
-    ``get()`` matches an exact registered type.
+    ``provider[Type]`` matches an exact registered type.
 
     ``Services.provider()`` returns the built-in implementation.
     ``DependencyInjectorServiceProvider`` adapts a Dependency Injector container.
@@ -67,7 +78,7 @@ class ServiceProvider(Protocol):
         the implementation.
     """
 
-    def get(self, service_type: type[ServiceT]) -> ServiceT:
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
 
         Uses exact type matching only - a request for a base class doesn't match a
@@ -84,10 +95,10 @@ class ServiceProvider(Protocol):
         """
         ...
 
-    def has(self, service_type: type) -> bool:
+    def __contains__(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered.
 
-        Like `get()`, this uses exact type matching only.
+        Like `__getitem__`, this uses exact type matching only.
 
         Args:
             service_type: The exact type to check for.
@@ -114,7 +125,7 @@ class Services:
     def __init__(self) -> None:
         """Create an empty service collection."""
         # Maps each concrete type to its registered instances, in the order they were
-        # registered for that type. get() returns the first entry.
+        # registered for that type. __getitem__ returns the first entry.
         self._services: dict[type, list[Any]] = {}
 
     def add(self, instance: object) -> "Services":
@@ -122,7 +133,7 @@ class Services:
 
         Instances are registered by their concrete type (`type(instance)`). Multiple
         instances of the same type - including the same instance registered more than
-        once - are all kept, and `get()` returns the first registered.
+        once - are all kept, and `provider[Type]` returns the first registered.
 
         Args:
             instance: The service instance to register. Cannot be None.
@@ -198,7 +209,7 @@ class _Provider(ServiceProvider):
             for service_type, instances in collection._services.items()
         }
 
-    def get(self, service_type: type[ServiceT]) -> ServiceT:
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
 
         Args:
@@ -215,7 +226,7 @@ class _Provider(ServiceProvider):
 
         return cast(ServiceT, self._services[service_type][0])
 
-    def has(self, service_type: type) -> bool:
+    def __contains__(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered.
 
         Args:

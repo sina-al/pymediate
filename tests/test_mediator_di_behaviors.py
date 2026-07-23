@@ -633,7 +633,7 @@ def test_di_behavior_polymorphism() -> None:
 
     # Each behavior resolves by its exact type as a PipelineBehavior instance.
     for behavior_type in (BaseBehavior, DerivedBehaviorA, DerivedBehaviorB):
-        assert isinstance(provider.get(behavior_type), PipelineBehavior)
+        assert isinstance(provider[behavior_type], PipelineBehavior)
 
 
 # ============================================================================
@@ -1291,8 +1291,8 @@ def test_di_mediator_rejects_duplicate_behavior_in_behaviors_list() -> None:
 # ============================================================================
 
 
-def test_di_provider_get_raises_service_not_found() -> None:
-    """DependencyInjectorServiceProvider.get() raises ServiceNotFoundError for an
+def test_di_provider_getitem_raises_service_not_found() -> None:
+    """DependencyInjectorServiceProvider.__getitem__ raises ServiceNotFoundError for an
     unregistered type, listing whatever service types *are* registered."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
@@ -1305,14 +1305,14 @@ def test_di_provider_get_raises_service_not_found() -> None:
     provider = DependencyInjectorServiceProvider(TestContainer())
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.get(IncrementBehavior)
+        provider[IncrementBehavior]
 
     assert exc_info.value.service_type is IncrementBehavior
     assert CounterHandler in exc_info.value.available_types
 
 
-def test_di_provider_has_and_len() -> None:
-    """Exercise has() and __len__() directly on the DI provider."""
+def test_di_provider_contains_and_len() -> None:
+    """Exercise __contains__ and __len__() directly on the DI provider."""
 
     class CounterHandler(RequestHandler[CounterRequest]):
         def __call__(self, request: CounterRequest) -> CounterResponse:
@@ -1324,9 +1324,9 @@ def test_di_provider_has_and_len() -> None:
 
     provider = DependencyInjectorServiceProvider(TestContainer())
 
-    assert provider.has(CounterHandler) is True
-    assert provider.has(IncrementBehavior) is True
-    assert provider.has(MultiplyBehavior) is False
+    assert CounterHandler in provider
+    assert IncrementBehavior in provider
+    assert MultiplyBehavior not in provider
     assert len(provider) == 2
 
 

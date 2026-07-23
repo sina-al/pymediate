@@ -53,21 +53,21 @@ class StrBox:
 
 @relaxed
 @given(values=st.lists(st.integers(), min_size=1, max_size=10))
-def test_get_returns_first_registered_of_a_type(values: list[int]) -> None:
-    """get returns the first-registered instance of an exact type; len counts all."""
+def test_getitem_returns_first_registered_of_a_type(values: list[int]) -> None:
+    """__getitem__ returns the first-registered instance of an exact type; len counts all."""
     services = Services()
     for value in values:
         services.add(IntBox(value))
     provider = services.provider()
 
-    assert provider.get(IntBox).value == values[0]
+    assert provider[IntBox].value == values[0]
     assert len(provider) == len(values)
 
 
 @relaxed
 @given(ints=st.lists(st.integers(), max_size=5), strs=st.lists(st.text(), max_size=5))
 def test_provider_reflects_exactly_what_was_registered(ints: list[int], strs: list[str]) -> None:
-    """has/len agree with each other and with what was added."""
+    """__contains__/len agree with each other and with what was added."""
     services = Services()
     for i in ints:
         services.add(IntBox(i))
@@ -75,8 +75,8 @@ def test_provider_reflects_exactly_what_was_registered(ints: list[int], strs: li
         services.add(StrBox(s))
     provider = services.provider()
 
-    assert provider.has(IntBox) == bool(ints)
-    assert provider.has(StrBox) == bool(strs)
+    assert (IntBox in provider) == bool(ints)
+    assert (StrBox in provider) == bool(strs)
     assert len(provider) == len(ints) + len(strs)
 
 
@@ -95,7 +95,7 @@ def test_provider_is_a_snapshot_of_registration_time(before: list[int], after: l
         services.add(IntBox(value))
 
     assert len(provider) == len(before)
-    assert provider.get(IntBox).value == before[0]
+    assert provider[IntBox].value == before[0]
 
 
 # ==================== Mediator round-trip properties ====================

@@ -59,7 +59,7 @@ class MediatorMixin:
         """Validate the ``behaviors`` sequence once, at mediator construction.
 
         Every entry must be a class subclassing the variant's ``PipelineBehavior``
-        base, must be registered with the service provider (checked via ``has()``),
+        base, must be registered with the service provider (checked via ``in``),
         and may appear only once. Failing any check raises immediately, so a
         misdeclared pipeline never reaches a dispatch.
 
@@ -91,7 +91,7 @@ class MediatorMixin:
                 raise errors.InvalidPipelineBehaviorsError(
                     entry, "listed more than once in the behaviors sequence"
                 )
-            if not self._services.has(entry):
+            if entry not in self._services:
                 raise errors.InvalidPipelineBehaviorsError(
                     entry,
                     "not registered with the service provider - the mediator "
@@ -123,7 +123,7 @@ class MediatorMixin:
             raise errors.HandlerNotFoundError(request_type, [])
 
         # Get handler instance
-        return self._services.get(handler_class)
+        return self._services[handler_class]
 
     def _resolve_event_handlers(self, event: "Event") -> list[Any]:
         """Resolve every handler instance subscribed to an event.
@@ -143,7 +143,7 @@ class MediatorMixin:
                 registered instance in the service provider
         """
         handler_classes = registry.get_event_handler_classes(type(event))
-        return [self._services.get(handler_class) for handler_class in handler_classes]
+        return [self._services[handler_class] for handler_class in handler_classes]
 
     def _resolve_behaviors(self, request: "Request[Any]") -> list[Any]:
         """Resolve applicable behavior instances for a request, in pipeline order.
@@ -160,7 +160,7 @@ class MediatorMixin:
             List of applicable behavior instances, first entry outermost
         """
         return [
-            self._services.get(behavior_class)
+            self._services[behavior_class]
             for behavior_class in self._behaviors
             if behavior_class.should_apply(request)
         ]

@@ -13,9 +13,10 @@ def _type_name(value: object) -> str:
 class PyMediateError(Exception):
     """Base exception for PyMediate validation, registration, and dispatch errors.
 
-    ``ServiceNotFoundError`` is separate and inherits directly from ``Exception``.
-    Subscriber failures from ``publish()`` may use Python exception groups;
-    fatal base exceptions can propagate directly.
+    ``ServiceNotFoundError`` is separate and inherits from ``KeyError`` (a provider
+    is a type-keyed mapping, and a missing service is a missing key). Subscriber
+    failures from ``publish()`` may use Python exception groups; fatal base
+    exceptions can propagate directly.
     """
 
     def __init__(self, message: str, docs_path: str | None = None):
