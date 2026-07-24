@@ -33,8 +33,7 @@ def test_complete_workflow() -> None:
 
     # Set up mediator
     services = Services(CreateUserHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     # Execute request
     request = CreateUserRequest("alice", "alice@example.com")
@@ -86,8 +85,7 @@ def test_multiple_request_types_workflow() -> None:
 
     # Set up
     services = Services(GetUserHandler(), CreateOrderHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     # Execute multiple requests
     user = mediator.send(GetUserRequest(42))
@@ -160,8 +158,7 @@ def test_handler_composition() -> None:
 
     # Set up
     services = Services(CreateUserHandler(), CreatePostHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     # Create user first
     user_response = mediator.send(CreateUserRequest("Bob"))
@@ -217,19 +214,16 @@ def test_resolver_switching() -> None:
         def __call__(self, request: Req) -> Resp:
             return Resp(self.source)
 
-    # Create two service providers with different handler instances
+    # Two collections holding different handler instances for the same request type
     services1 = Services(ReqHandler("handler1"))
-    provider1 = services1
-
     services2 = Services(ReqHandler("handler2"))
-    provider2 = services2
 
-    # Use first service provider
-    mediator1 = Mediator(provider1)
+    # Use the first collection
+    mediator1 = Mediator(services1)
     resp1 = mediator1.send(Req())
     assert resp1.source == "handler1"
 
-    # Use second service provider
-    mediator2 = Mediator(provider2)
+    # Use the second collection
+    mediator2 = Mediator(services2)
     resp2 = mediator2.send(Req())
     assert resp2.source == "handler2"

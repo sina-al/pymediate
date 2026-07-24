@@ -242,8 +242,7 @@ async def test_async_handler_call() -> None:
 async def test_async_mediator_creation() -> None:
     """Test that async Mediator can be created with a resolver."""
     services = Services()
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
     assert mediator is not None
 
 
@@ -265,8 +264,7 @@ async def test_async_mediator_send_request() -> None:
             return GreetingResponse(f"Hello, {request.name}!")
 
     services = Services(GreetingHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     request = GreetingRequest("Alice")
     response = await mediator.send(request)
@@ -287,8 +285,7 @@ async def test_async_mediator_send_unregistered_request() -> None:
             self.data = data
 
     services = Services()
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     with pytest.raises(HandlerNotFoundError):
         await mediator.send(UnhandledReq("test"))
@@ -327,8 +324,7 @@ async def test_async_mediator_with_multiple_handlers() -> None:
             return MultiplyResponse(request.a * request.b)
 
     services = Services(AddHandler(), MultiplyHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     add_result = await mediator.send(AddRequest(5, 3))
     mult_result = await mediator.send(MultiplyRequest(5, 3))
@@ -358,8 +354,8 @@ async def test_async_mediator_with_stateful_handler() -> None:
             return CountResponse(self.count)
 
     handler = CounterHandler()
-    provider = Services(handler)
-    mediator = Mediator(provider)
+    services = Services(handler)
+    mediator = Mediator(services)
 
     resp1 = await mediator.send(CountRequest())
     resp2 = await mediator.send(CountRequest())
@@ -393,8 +389,7 @@ async def test_async_handler_with_actual_async_operations() -> None:
             return FetchResponse(data)
 
     services = Services(FetchHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     response = await mediator.send(FetchRequest("https://example.com"))
     assert response.data == "data from https://example.com"
@@ -416,8 +411,7 @@ async def test_async_mediator_error_propagation() -> None:
             raise RuntimeError("Async handler error")
 
     services = Services(ErrorHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     with pytest.raises(RuntimeError, match="Async handler error"):
         await mediator.send(ErrorRequest())
@@ -442,8 +436,7 @@ async def test_async_mediator_concurrent_requests() -> None:
             return SlowResponse(request.value * 2)
 
     services = Services(SlowHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     # Send three concurrent requests
     results = await asyncio.gather(
@@ -482,8 +475,7 @@ async def test_async_handler_with_complex_async_flow() -> None:
             return ProcessResponse(list(results))
 
     services = Services(ProcessHandler())
-    provider = services
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     response = await mediator.send(ProcessRequest([1, 2, 3, 4, 5]))
     assert response.results == [1, 4, 9, 16, 25]

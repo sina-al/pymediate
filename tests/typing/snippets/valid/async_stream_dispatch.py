@@ -20,8 +20,8 @@ class CompletionHandler(StreamRequestHandler[StreamCompletion]):
 
 
 async def main() -> None:
-    provider = Services(CompletionHandler())
-    mediator = Mediator(provider)
+    services = Services(CompletionHandler())
+    mediator = Mediator(services)
 
     collected: list[str] = []
     # stream() infers the element type as str from StreamRequest[str].

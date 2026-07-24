@@ -23,10 +23,10 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
 
 
 # Setup
-provider = Services(GetUserHandler())
+services = Services(GetUserHandler())
 
 # ServiceProvider should return correctly typed handler
-handler = provider[GetUserHandler]
+handler = services[GetUserHandler]
 
 # Mypy should know handler accepts GetUserRequest and returns UserResponse
 request = GetUserRequest(user_id=1)

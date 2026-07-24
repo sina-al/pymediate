@@ -18,8 +18,8 @@ class CountHandler(StreamRequestHandler[Count]):
         yield from range(request.n)
 
 
-provider = Services(CountHandler())
-mediator = Mediator(provider)
+services = Services(CountHandler())
+mediator = Mediator(services)
 
 for value in mediator.stream(Count(n=3)):
     # ERROR: stream() yields int (from StreamRequest[int]), not str

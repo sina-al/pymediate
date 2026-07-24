@@ -29,8 +29,8 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
         return UserResponse(user_id=1, username="alice")
 
 
-provider = Services(GetUserHandler())
-mediator = Mediator(provider)
+services = Services(GetUserHandler())
+mediator = Mediator(services)
 
 request = GetUserRequest(user_id=1)
 

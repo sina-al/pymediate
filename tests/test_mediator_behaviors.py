@@ -25,9 +25,8 @@ def test_mediator_without_behaviors_calls_handler_directly() -> None:
             return UserResponse(user_id=1, username=request.username)
 
     services = Services(CreateUserHandler())
-    provider = services
 
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
     response = mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -60,9 +59,8 @@ def test_mediator_with_single_behavior() -> None:
             return response
 
     services = Services(LoggingBehavior(), CreateUserHandler())
-    provider = services
 
-    mediator = Mediator(provider, behaviors=[LoggingBehavior])
+    mediator = Mediator(services, behaviors=[LoggingBehavior])
     response = mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -103,9 +101,8 @@ def test_mediator_with_multiple_behaviors_executes_in_declared_order() -> None:
             return response
 
     services = Services(LoggingBehavior(), TimingBehavior(), CreateUserHandler())
-    provider = services
 
-    mediator = Mediator(provider, behaviors=[LoggingBehavior, TimingBehavior])  # Logging outermost
+    mediator = Mediator(services, behaviors=[LoggingBehavior, TimingBehavior])  # Logging outermost
     response = mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -141,9 +138,8 @@ def test_mediator_behaviors_can_modify_response() -> None:
             return response
 
     services = Services(ResponseModifyingBehavior(), CreateUserHandler())
-    provider = services
 
-    mediator = Mediator(provider, behaviors=[ResponseModifyingBehavior])
+    mediator = Mediator(services, behaviors=[ResponseModifyingBehavior])
     response = mediator.send(CreateUserRequest(username="alice"))
 
     assert response.user_id == 1
@@ -172,9 +168,8 @@ def test_mediator_behavior_can_short_circuit() -> None:
             return UserResponse(user_id=-1, username="short-circuited")
 
     services = Services(ShortCircuitBehavior(), CreateUserHandler())
-    provider = services
 
-    mediator = Mediator(provider, behaviors=[ShortCircuitBehavior])
+    mediator = Mediator(services, behaviors=[ShortCircuitBehavior])
     response = mediator.send(CreateUserRequest(username="alice"))
 
     # RequestHandler should not be called
@@ -205,9 +200,8 @@ def test_mediator_validation_behavior() -> None:
             return next()
 
     services = Services(ValidationBehavior(), CreateUserHandler())
-    provider = services
 
-    mediator = Mediator(provider, behaviors=[ValidationBehavior])
+    mediator = Mediator(services, behaviors=[ValidationBehavior])
 
     # Valid request should work
     response = mediator.send(CreateUserRequest(username="alice"))
@@ -243,9 +237,9 @@ def test_mediator_behaviors_are_stateful() -> None:
             return next()
 
     counter = StatefulBehavior()
-    provider = Services(counter, CreateUserHandler())
+    services = Services(counter, CreateUserHandler())
 
-    mediator = Mediator(provider, behaviors=[StatefulBehavior])
+    mediator = Mediator(services, behaviors=[StatefulBehavior])
 
     # Call multiple times
     mediator.send(CreateUserRequest(username="alice"))
@@ -276,9 +270,8 @@ def test_mediator_behavior_exception_propagates() -> None:
             raise RuntimeError("Behavior error")
 
     services = Services(ExceptionBehavior(), CreateUserHandler())
-    provider = services
 
-    mediator = Mediator(provider, behaviors=[ExceptionBehavior])
+    mediator = Mediator(services, behaviors=[ExceptionBehavior])
 
     with pytest.raises(RuntimeError, match="Behavior error"):
         mediator.send(CreateUserRequest(username="alice"))
@@ -309,9 +302,8 @@ def test_mediator_behavior_can_wrap_handler_exception() -> None:
                 return UserResponse(user_id=-1, username="error")
 
     services = Services(ExceptionHandlingBehavior(), FailingHandler())
-    provider = services
 
-    mediator = Mediator(provider, behaviors=[ExceptionHandlingBehavior])
+    mediator = Mediator(services, behaviors=[ExceptionHandlingBehavior])
     response = mediator.send(FailingRequest(username="alice"))
 
     # Exception was caught and handled
@@ -361,18 +353,16 @@ def test_mediator_behaviors_order_follows_behaviors_list_not_registration() -> N
 
     # Both mediators register in the same order; only the behaviors= list differs.
     services1 = Services(LoggingBehavior(), TimingBehavior(), Handler1())
-    provider1 = services1
 
-    mediator1 = Mediator(provider1, behaviors=[LoggingBehavior, TimingBehavior])
+    mediator1 = Mediator(services1, behaviors=[LoggingBehavior, TimingBehavior])
     log.clear()
     mediator1.send(Request1(username="alice"))
 
     order1 = log.copy()
 
     services2 = Services(LoggingBehavior(), TimingBehavior(), Handler2())
-    provider2 = services2
 
-    mediator2 = Mediator(provider2, behaviors=[TimingBehavior, LoggingBehavior])
+    mediator2 = Mediator(services2, behaviors=[TimingBehavior, LoggingBehavior])
     log.clear()
     mediator2.send(Request2(username="bob"))
 
@@ -415,10 +405,9 @@ def test_mediator_rejects_behavior_not_registered_with_provider() -> None:
             return next()
 
     services = Services(CreateUserHandler())
-    provider = services
 
     with pytest.raises(InvalidPipelineBehaviorsError, match="not registered"):
-        Mediator(provider, behaviors=[UnregisteredBehavior])
+        Mediator(services, behaviors=[UnregisteredBehavior])
 
 
 def test_mediator_rejects_behavior_entry_not_a_pipeline_behavior_subclass() -> None:
@@ -442,10 +431,9 @@ def test_mediator_rejects_behavior_entry_not_a_pipeline_behavior_subclass() -> N
         pass
 
     services = Services(CreateUserHandler())
-    provider = services
 
     with pytest.raises(InvalidPipelineBehaviorsError, match="subclass"):
-        Mediator(provider, behaviors=[NotABehavior])  # type: ignore[list-item]
+        Mediator(services, behaviors=[NotABehavior])  # type: ignore[list-item]
 
 
 def test_mediator_rejects_duplicate_behavior_in_behaviors_list() -> None:
@@ -470,10 +458,9 @@ def test_mediator_rejects_duplicate_behavior_in_behaviors_list() -> None:
             return next()
 
     services = Services(LoggingBehavior(), CreateUserHandler())
-    provider = services
 
     with pytest.raises(InvalidPipelineBehaviorsError, match="more than once"):
-        Mediator(provider, behaviors=[LoggingBehavior, LoggingBehavior])
+        Mediator(services, behaviors=[LoggingBehavior, LoggingBehavior])
 
 
 def test_mediator_registered_but_unlisted_behavior_does_not_run() -> None:
@@ -503,9 +490,8 @@ def test_mediator_registered_but_unlisted_behavior_does_not_run() -> None:
         LoggingBehavior(),  # registered...
         CreateUserHandler(),
     )
-    provider = services
 
-    mediator = Mediator(provider)  # ...but not listed in behaviors=
+    mediator = Mediator(services)  # ...but not listed in behaviors=
     mediator.send(CreateUserRequest(username="alice"))
 
     assert log == []

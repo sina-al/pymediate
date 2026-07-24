@@ -39,8 +39,8 @@ class AsyncLoggingBehavior(PipelineBehavior[CreateUserRequest]):
 
 
 async def main() -> None:
-    provider = Services(AsyncLoggingBehavior(), CreateUserHandler())
-    mediator = Mediator(provider, behaviors=[AsyncLoggingBehavior])
+    services = Services(AsyncLoggingBehavior(), CreateUserHandler())
+    mediator = Mediator(services, behaviors=[AsyncLoggingBehavior])
 
     request = CreateUserRequest(username="alice")
     response = await mediator.send(request)

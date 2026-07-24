@@ -39,8 +39,8 @@ class OrderRetry(RetryBehavior[CreateOrder]):
 
 
 async def main() -> None:
-    provider = Services(OrderRetry(), CreateOrderHandler())
-    mediator = Mediator(provider, behaviors=[OrderRetry])
+    services = Services(OrderRetry(), CreateOrderHandler())
+    mediator = Mediator(services, behaviors=[OrderRetry])
     response = await mediator.send(CreateOrder(item="widget"))
     order_id: int = response.order_id
     assert order_id == 1

@@ -35,8 +35,8 @@ class CalculateHandler(RequestHandler[CalculateRequest]):
 
 
 # Usage
-provider = Services(CalculateHandler())
-mediator = Mediator(provider)
+services = Services(CalculateHandler())
+mediator = Mediator(services)
 
 request = CalculateRequest(numerator=10, denominator=2)
 response = mediator.send(request)
