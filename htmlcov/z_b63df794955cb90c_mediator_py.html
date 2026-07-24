@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_b63df794955cb90c_pipeline_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-24 16:32 +0000
+            created at 2026-07-24 19:56 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -134,8 +134,8 @@
     <p class="exc exc2 show_exc"><span class="n"><a id="t52" href="#t52">52</a></span><span class="t"><span class="str">                    )</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t53" href="#t53">53</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t54" href="#t54">54</a></span><span class="t"><span class="str">            async def main() -> None:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t55" href="#t55">55</a></span><span class="t"><span class="str">                services = Services().add(PlaceOrderHandler())</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t56" href="#t56">56</a></span><span class="t"><span class="str">                mediator = Mediator(services=services.provider())</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc exc2 show_exc"><span class="n"><a id="t55" href="#t55">55</a></span><span class="t"><span class="str">                services = Services(PlaceOrderHandler())</span>&nbsp;</span><span class="r"></span></p>
+    <p class="exc exc2 show_exc"><span class="n"><a id="t56" href="#t56">56</a></span><span class="t"><span class="str">                mediator = Mediator(services=services)</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t57" href="#t57">57</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t58" href="#t58">58</a></span><span class="t"><span class="str">                receipt = await mediator.send(</span>&nbsp;</span><span class="r"></span></p>
     <p class="exc exc2 show_exc"><span class="n"><a id="t59" href="#t59">59</a></span><span class="t"><span class="str">                    PlaceOrder(customer_id=7, item="tea", quantity=2),</span>&nbsp;</span><span class="r"></span></p>
@@ -292,7 +292,7 @@
             <a class="nav" href="z_b63df794955cb90c_pipeline_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-24 16:32 +0000
+            created at 2026-07-24 19:56 +0000
         </p>
     </div>
 </footer>
