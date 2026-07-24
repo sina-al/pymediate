@@ -12,19 +12,17 @@ The mediator obtains handlers and pipeline behaviors from a `ServiceProvider`. P
 mediator uses to resolve handlers and behaviors:
 
 ```python
-from typing import Protocol, TypeVar
-
-ServiceT = TypeVar("ServiceT")
+from typing import Protocol
 
 class ServiceProvider(Protocol):
-    def get(self, service_type: type[ServiceT]) -> ServiceT: ...
-    def has(self, service_type: type) -> bool: ...
+    def __getitem__[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
+    def __contains__(self, service_type: type) -> bool: ...
 ```
 
 | Operation | Contract |
 | --- | --- |
-| `get(service_type)` | Return the first instance registered with that exact type; raise `ServiceNotFoundError` if absent |
-| `has(service_type)` | Test for an exact registered type |
+| `provider[service_type]` | Return the instance registered with that exact type; raise `ServiceNotFoundError` if absent |
+| `service_type in provider` | Test for an exact registered type |
 
 The mediator accepts custom implementations of this protocol through its `services` constructor
 parameter. Because it is a structural protocol, a class conforms just by defining these two
@@ -37,40 +35,59 @@ convenience for inspection and testing; it is not part of the protocol the media
 ```python
 from pymediate import ServiceProvider
 
-class Services:
-    def __init__(self) -> None: ...
-    def add(self, instance: object) -> Services: ...
-    def provider(self) -> ServiceProvider: ...
-    def clear(self) -> None: ...
+class Services(ServiceProvider):
+    def __init__(self, *instances: object) -> None: ...
+    def __getitem__[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
+    def __contains__(self, service_type: type) -> bool: ...
+    def __or__(self, other: Services) -> Services: ...
     def __len__(self) -> int: ...
 ```
 
-`Services` is a mutable setup-time collection; it is not itself a `ServiceProvider`.
-
-### `add(instance)`
-
-`add()` registers an instance under its concrete type and returns the collection, so registrations
-can be chained. Passing `None` raises `ValueError`. Repeated types and repeated instances are kept;
-each registration contributes one to `len(services)`.
+`Services` is the built-in `ServiceProvider`. It is constructed from its instances and is immutable
+afterwards, so there is no separate build step — pass it straight to a `Mediator`:
 
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services=services.provider())
+services = Services(PlaceOrderHandler())
+mediator = Mediator(services=services)
 ```
 
-### `provider()`
+### `Services(*instances)`
 
-`provider()` returns an immutable snapshot of the collection. Later calls to `add()` or `clear()`
-do not change an existing provider. Call `provider()` again to create a new snapshot.
+Each instance is registered under its concrete type, `type(instance)`. Passing `None` raises
+`ValueError`. Two instances of the same type raise `ServiceAlreadyRegisteredError`: only one
+instance per type is resolvable, so a repeat is a wiring mistake rather than a preference. Build the
+argument list first when the set of services is computed:
 
-`get()` resolves by exact type and returns the first instance registered under it.
+```python
+services = Services(*handlers, *behaviors)
+```
 
-### `clear()`
+### `services[Type]` and `Type in services`
 
-`clear()` removes all registrations from the mutable collection. Existing provider snapshots are
-unchanged.
+Resolution is by exact type. A request for a base class does not match a registered subclass, and a
+missing type raises `ServiceNotFoundError`. `len(services)` is the number of registered instances.
+
+### `left | right`
+
+Combining two collections returns a new one holding both operands' services, with the right operand
+winning on any shared type. Neither operand is modified. Unlike the constructor, a shared type is
+allowed here — replacing a service is this operator's purpose, which makes swapping a fake into an
+existing wiring explicit:
+
+```python title="tests/test_orders.py (excerpt)"
+from pymediate import Mediator, Services
+
+# The application's own wiring, imported rather than duplicated in the test.
+from myapp.wiring import build_services
+
+for_tests = build_services() | Services(PlaceOrderHandler(FakeOrderStore()))
+mediator = Mediator(for_tests)
+```
+
+Combining with anything that is not a `Services` raises `TypeError`. There is no in-place variant:
+`services |= other` rebinds the name to a new collection, as it does for a tuple.
 
 ## `DependencyInjectorServiceProvider`
 
@@ -83,8 +100,8 @@ from pymediate import ServiceProvider
 
 class DependencyInjectorServiceProvider(ServiceProvider):
     def __init__(self, container: containers.Container) -> None: ...
-    def get[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
-    def has(self, service_type: type[Any]) -> bool: ...
+    def __getitem__[ServiceT](self, service_type: type[ServiceT]) -> ServiceT: ...
+    def __contains__(self, service_type: type[Any]) -> bool: ...
     def __len__(self) -> int: ...
 ```
 
@@ -120,8 +137,8 @@ dictionary providers, and callables with a concrete return annotation. The whole
 walked with `Container.traverse()` — nested `providers.Container` children and providers reachable
 only through injection are all visited. A provider whose output type cannot be inferred without
 resolving it (an unannotated factory, `Selector`, `Resource`, or coroutine provider) is skipped,
-not indexed, so infrastructure providers need not be PyMediate-resolvable. `get()` returns the
-first provider found for an exact type.
+not indexed, so infrastructure providers need not be PyMediate-resolvable. `provider[Type]`
+returns the first provider found for an exact type.
 
 | Condition | Result |
 | --- | --- |
@@ -136,7 +153,7 @@ preserve output types continue to resolve through the original provider.
 ## `ServiceNotFoundError`
 
 ```python
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     def __init__(
         self,
         service_type: type,
@@ -144,9 +161,10 @@ class ServiceNotFoundError(Exception):
     ) -> None: ...
 ```
 
-`get()` raises `ServiceNotFoundError` when the exact requested type is absent. Its
+`provider[Type]` raises `ServiceNotFoundError` when the exact requested type is absent. Its
 `service_type` and `available_types` attributes retain the constructor arguments. This exception
-inherits directly from `Exception`, not from `PyMediateError`.
+inherits from `KeyError` — the miss surfaces through the `provider[Type]` subscript, so `except
+KeyError` catches it — not from `PyMediateError`.
 
 ## See also
 

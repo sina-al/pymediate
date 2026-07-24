@@ -51,9 +51,8 @@ class NotifyWarehouse(EventHandler[OrderPlaced]):
 
 
 async def main() -> None:
-    services = Services()
-    services.add(RecordOrder()).add(NotifyWarehouse())
-    mediator = Mediator(services.provider())
+    services = Services(RecordOrder(), NotifyWarehouse())
+    mediator = Mediator(services)
 
     await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 
@@ -61,9 +60,9 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-Defining each handler class registers its subscription. Adding a handler instance to
-`Services` makes that instance available when an event is published. Build the provider
-after adding every required instance because `Services.provider()` returns a snapshot.
+Defining each handler class registers its subscription. Passing a handler instance to
+`Services` makes that instance available when an event is published, so every subscriber a
+published event needs must be in the collection when it is constructed.
 
 The asynchronous and synchronous APIs share this process-wide subscription list. All handlers
 for one exact event type must therefore use the same form: either `async def` handlers from

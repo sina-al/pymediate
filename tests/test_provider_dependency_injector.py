@@ -46,12 +46,12 @@ def test_nested_container_services_are_all_discovered() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert services.has(FirstService)
-    assert services.has(SecondService)
-    assert services.has(ThirdService)
-    assert isinstance(services.get(FirstService), FirstService)
-    assert isinstance(services.get(SecondService), SecondService)
-    assert isinstance(services.get(ThirdService), ThirdService)
+    assert FirstService in services
+    assert SecondService in services
+    assert ThirdService in services
+    assert isinstance(services[FirstService], FirstService)
+    assert isinstance(services[SecondService], SecondService)
+    assert isinstance(services[ThirdService], ThirdService)
 
 
 def test_injection_only_provider_is_indexed_via_traverse() -> None:
@@ -76,10 +76,10 @@ def test_injection_only_provider_is_indexed_via_traverse() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert services.has(Repo)
-    assert services.has(Hidden)
+    assert Repo in services
+    assert Hidden in services
     assert len(services) == 2
-    assert isinstance(services.get(Hidden), Hidden)
+    assert isinstance(services[Hidden], Hidden)
 
 
 def test_indexing_does_not_resolve_factories_or_unrelated_services() -> None:
@@ -102,7 +102,7 @@ def test_indexing_does_not_resolve_factories_or_unrelated_services() -> None:
 
     assert constructed == []
 
-    assert isinstance(services.get(UsedService), UsedService)
+    assert isinstance(services[UsedService], UsedService)
     assert constructed == ["used"]
 
 
@@ -121,7 +121,7 @@ def test_annotated_factory_is_indexed_without_being_resolved() -> None:
     services = DependencyInjectorServiceProvider(RootContainer())
 
     assert constructed == 0
-    assert isinstance(services.get(FirstService), FirstService)
+    assert isinstance(services[FirstService], FirstService)
     assert constructed == 1
 
 
@@ -141,7 +141,7 @@ def test_opaque_factory_is_skipped_without_being_called() -> None:
 
     # The factory could not be typed without resolving it, so it never became a
     # service - and it was not called to find out.
-    assert not services.has(FirstService)
+    assert FirstService not in services
     assert len(services) == 0
     assert constructed == 0
 
@@ -170,8 +170,8 @@ def test_bound_child_dependency_placeholder_is_skipped() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert services.has(Database)
-    assert services.has(Handler)
+    assert Database in services
+    assert Handler in services
     assert len(services) == 2
 
 
@@ -186,12 +186,12 @@ def test_object_and_collection_providers_have_intrinsic_types() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    service = services.get(FirstService)
+    service = services[FirstService]
 
     assert_type(service, FirstService)
     assert service is instance
-    assert services.get(list) == [1, 2]
-    assert services.get(dict) == {"answer": 42}
+    assert services[list] == [1, 2]
+    assert services[dict] == {"answer": 42}
 
 
 def test_opaque_selector_is_skipped() -> None:
@@ -206,7 +206,7 @@ def test_opaque_selector_is_skipped() -> None:
     services = DependencyInjectorServiceProvider(RootContainer())
 
     # The Selector itself is not indexed; its class-backed branch still is.
-    assert services.has(FirstService)
+    assert FirstService in services
 
 
 def test_type_changing_override_is_seen_after_rebuilding_the_index() -> None:
@@ -221,12 +221,12 @@ def test_type_changing_override_is_seen_after_rebuilding_the_index() -> None:
     container.service.override(providers.Factory(SecondService))
     overridden_services = DependencyInjectorServiceProvider(container)
 
-    assert original_services.has(FirstService)
-    assert not original_services.has(SecondService)
-    assert overridden_services.has(SecondService)
-    assert isinstance(overridden_services.get(SecondService), SecondService)
+    assert FirstService in original_services
+    assert SecondService not in original_services
+    assert SecondService in overridden_services
+    assert isinstance(overridden_services[SecondService], SecondService)
     with pytest.raises(TypeError, match="rebuild.*type-changing override"):
-        original_services.get(FirstService)
+        original_services[FirstService]
 
 
 @pytest.mark.asyncio
@@ -241,7 +241,7 @@ async def test_asynchronous_provider_resolution_is_rejected() -> None:
     services = DependencyInjectorServiceProvider(container)
 
     with pytest.raises(TypeError, match="resolved asynchronously"):
-        services.get(FirstService)
+        services[FirstService]
 
 
 def test_coroutine_provider_is_skipped_during_indexing() -> None:
@@ -255,7 +255,7 @@ def test_coroutine_provider_is_skipped_during_indexing() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert not services.has(FirstService)
+    assert FirstService not in services
     assert len(services) == 0
 
 
@@ -275,7 +275,7 @@ async def test_coroutine_result_is_closed_when_resolution_is_rejected() -> None:
     coroutine_type = cast("type[Any]", type(coroutine))
 
     with pytest.raises(TypeError, match="resolved asynchronously"):
-        services.get(coroutine_type)
+        services[coroutine_type]
 
     assert cast(Any, coroutine).cr_frame is None
 
@@ -294,7 +294,7 @@ def test_resource_provider_is_skipped_without_initializing() -> None:
 
     services = DependencyInjectorServiceProvider(RootContainer())
 
-    assert not services.has(FirstService)
+    assert FirstService not in services
     assert constructed == 0
 
 

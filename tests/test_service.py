@@ -1,14 +1,16 @@
-"""Tests for Services and the built-in ServiceProvider.
+"""Tests for Services, the built-in ServiceProvider.
 
-The provider resolves by exact type: ``get()`` returns the first-registered instance
-of exactly the requested type, ``has()`` tests for it, and ``len()`` counts every
-registration.
+A ``Services`` is constructed from its instances and resolves them by exact type:
+``services[Type]`` returns the instance, ``Type in services`` tests for it, and
+``len()`` counts the registered instances. Two instances of one type in a single
+construction is an error; ``|`` is how a service gets replaced deliberately.
 """
 
 import threading
 
 import pytest
 
+from pymediate.errors import ServiceAlreadyRegisteredError
 from pymediate.service import ServiceNotFoundError, Services
 
 
@@ -41,321 +43,232 @@ class ConcreteService(BaseService):
         self.extra = extra
 
 
-# ==================== Services Tests ====================
+# ==================== Construction ====================
 
 
-def test_collection_initialization() -> None:
-    """Test that Services initializes empty."""
+def test_empty_collection() -> None:
+    """An empty collection is usable and holds nothing."""
     services = Services()
 
     assert len(services) == 0
-    assert repr(services) == "Services(services={}, total=0)"
+    assert ServiceA not in services
+    assert repr(services) == "Services()"
 
 
-def test_add_single_service() -> None:
-    """Test adding a single service instance."""
-    services = Services()
-    result = services.add(ServiceA(42))
+def test_single_instance() -> None:
+    """One instance is registered under its concrete type."""
+    service = ServiceA(42)
+    services = Services(service)
 
-    assert result is services  # Method chaining
     assert len(services) == 1
+    assert services[ServiceA] is service
 
 
-def test_add_multiple_different_services() -> None:
-    """Test adding multiple different service types."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceB("test"))
+def test_multiple_different_types() -> None:
+    """Instances of different types are all registered."""
+    a, b = ServiceA(1), ServiceB("test")
+    services = Services(a, b)
 
     assert len(services) == 2
+    assert services[ServiceA] is a
+    assert services[ServiceB] is b
 
 
-def test_add_multiple_same_type() -> None:
-    """Test adding multiple instances of the same type."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceA(2))
-    services.add(ServiceA(3))
+def test_duplicate_type_raises() -> None:
+    """Two instances of one type in a single construction is a wiring error."""
+    with pytest.raises(ServiceAlreadyRegisteredError) as exc_info:
+        Services(ServiceA(1), ServiceB("b"), ServiceA(2))
 
-    assert len(services) == 3
+    assert exc_info.value.service_type is ServiceA
+    assert "ServiceA" in str(exc_info.value)
 
 
-def test_add_none_raises_error() -> None:
-    """Test that adding None raises ValueError."""
-    services = Services()
+def test_same_instance_twice_raises() -> None:
+    """The same object passed twice is still a repeated type."""
+    singleton = ServiceA(1)
+
+    with pytest.raises(ServiceAlreadyRegisteredError):
+        Services(singleton, singleton)
+
+
+def test_none_raises_value_error() -> None:
+    """None cannot be registered as a service instance."""
+    with pytest.raises(ValueError, match="Cannot register None"):
+        Services(None)
 
     with pytest.raises(ValueError, match="Cannot register None"):
-        services.add(None)
+        Services(ServiceA(1), None)
 
 
-def test_add_method_chaining() -> None:
-    """Test that add() supports method chaining."""
-    services = Services()
-    result = services.add(ServiceA(1)).add(ServiceB("test"))
+def test_repr_is_the_constructor_call() -> None:
+    """repr names the registered types in registration order."""
+    services = Services(ServiceA(1), ServiceB("test"))
 
-    assert result is services
-    assert len(services) == 2
+    assert repr(services) == "Services(ServiceA, ServiceB)"
 
 
-def test_collection_clear() -> None:
-    """Test clearing the collection."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceB("test"))
+def test_iterable_unpacking() -> None:
+    """A computed collection of instances registers via unpacking."""
+    instances = [ServiceA(1), ServiceB("test")]
+    services = Services(*instances)
 
     assert len(services) == 2
-
-    services.clear()
-
-    assert len(services) == 0
+    assert services[ServiceA] is instances[0]
 
 
-def test_collection_repr() -> None:
-    """Test string representation of collection."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceA(2))
-    services.add(ServiceB("test"))
-
-    repr_str = repr(services)
-
-    assert "Services" in repr_str
-    assert "total=3" in repr_str
-    assert "ServiceA" in repr_str
-    assert "ServiceB" in repr_str
+# ==================== Resolution ====================
 
 
-# ==================== ServiceProvider Tests ====================
+def test_resolve_returns_the_registered_instance() -> None:
+    """Resolution returns the exact object registered, not a copy."""
+    service = ServiceA(42)
+    services = Services(service)
 
+    resolved = services[ServiceA]
 
-def test_provider() -> None:
-    """Test building a provider from a collection."""
-    services = Services()
-    services.add(ServiceA(42))
-
-    provider = services.provider()
-
-    assert hasattr(provider, "get")
-    assert hasattr(provider, "has")
-    assert len(provider) == 1
-
-
-def test_provider_immutability() -> None:
-    """Test that provider is immutable and not affected by collection changes."""
-    services = Services()
-    services.add(ServiceA(1))
-
-    provider = services.provider()
-
-    # Modify collection after creating provider
-    services.add(ServiceB("test"))
-
-    # Provider should not reflect the change
-    assert len(provider) == 1
-    assert not provider.has(ServiceB)
-
-
-def test_resolve_single_service() -> None:
-    """Test resolving a single registered service."""
-    services = Services()
-    service_a = ServiceA(42)
-    services.add(service_a)
-
-    provider = services.provider()
-    resolved = provider.get(ServiceA)
-
-    assert resolved is service_a
+    assert resolved is service
     assert resolved.value == 42
 
 
-def test_resolve_first_of_multiple() -> None:
-    """Test that get() returns the first-registered instance of an exact type."""
-    services = Services()
-    first = ServiceA(1)
-    services.add(first)
-    services.add(ServiceA(2))
-    services.add(ServiceA(3))
-
-    provider = services.provider()
-
-    assert provider.get(ServiceA) is first
-    assert provider.get(ServiceA).value == 1
-
-
 def test_resolve_nonexistent_raises_error() -> None:
-    """Test that resolving an unregistered type raises ServiceNotFoundError."""
-    services = Services()
-    services.add(ServiceA(1))
-
-    provider = services.provider()
+    """A miss names the requested type and what is available."""
+    services = Services(ServiceA(1))
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.get(ServiceB)
+        services[ServiceB]
 
-    assert exc_info.value.service_type == ServiceB
-    assert ServiceA in exc_info.value.available_types
+    assert exc_info.value.service_type is ServiceB
     assert "ServiceB" in str(exc_info.value)
 
 
-def test_has_registered_type() -> None:
-    """Test has() returns True for a registered type."""
-    services = Services()
-    services.add(ServiceA(1))
+def test_contains_registered_type() -> None:
+    """A registered type is reported as present."""
+    services = Services(ServiceA(1))
 
-    provider = services.provider()
-
-    assert provider.has(ServiceA) is True
+    assert ServiceA in services
 
 
-def test_has_unregistered_type() -> None:
-    """Test has() returns False for an unregistered type."""
-    services = Services()
-    services.add(ServiceA(1))
+def test_contains_unregistered_type() -> None:
+    """An unregistered type is reported as absent."""
+    services = Services(ServiceA(1))
 
-    provider = services.provider()
-
-    assert provider.has(ServiceB) is False
-
-
-def test_provider_len() -> None:
-    """Test len() on provider returns the total instance count."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceA(2))
-    services.add(ServiceB("test"))
-
-    provider = services.provider()
-
-    assert len(provider) == 3
-
-
-def test_provider_repr() -> None:
-    """Test string representation of provider."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceA(2))
-    services.add(ServiceB("test"))
-
-    provider = services.provider()
-    repr_str = repr(provider)
-
-    assert "ServiceProvider" in repr_str
-    assert "total=3" in repr_str
-
-
-# ==================== Exact-Type Resolution ====================
+    assert ServiceB not in services
 
 
 def test_resolve_exact_type_no_inheritance() -> None:
-    """Test that get() matches the exact type only, not a registered subclass."""
-    services = Services()
-    services.add(ConcreteService(1))
+    """A base class does not match a registered subclass."""
+    services = Services(ConcreteService(1))
 
-    provider = services.provider()
-
-    # get() looks for the exact type only, so a base-class request misses a subclass.
+    assert services[ConcreteService].id == 1
     with pytest.raises(ServiceNotFoundError):
-        provider.get(BaseService)
-
-    assert provider.get(ConcreteService).id == 1
+        services[BaseService]
 
 
-def test_has_exact_type_no_inheritance() -> None:
-    """Test that has() checks the exact type only, not subclasses."""
-    services = Services()
-    services.add(ConcreteService(1))
+def test_contains_exact_type_no_inheritance() -> None:
+    """Membership is exact-type too - a base class is not present."""
+    services = Services(ConcreteService(1))
 
-    provider = services.provider()
-
-    assert provider.has(ConcreteService) is True
-    assert provider.has(BaseService) is False
+    assert ConcreteService in services
+    assert BaseService not in services
 
 
-# ==================== Edge Cases and Error Handling ====================
+def test_resolve_returns_correct_type() -> None:
+    """Each type resolves to an instance of itself."""
+    services = Services(ServiceA(42), ServiceB("test"))
+
+    assert isinstance(services[ServiceA], ServiceA)
+    assert isinstance(services[ServiceB], ServiceB)
 
 
-def test_empty_collection_provider() -> None:
-    """Test creating a provider from an empty collection."""
-    services = Services()
-    provider = services.provider()
-
-    assert len(provider) == 0
-    assert not provider.has(ServiceA)
+# ==================== Combining with | ====================
 
 
-def test_multiple_providers_from_same_collection() -> None:
-    """Test that multiple providers can be created from the same collection."""
-    services = Services()
-    services.add(ServiceA(1))
+def test_or_combines_disjoint_collections() -> None:
+    """Combining disjoint collections keeps every service."""
+    a, b = ServiceA(1), ServiceB("test")
 
-    provider1 = services.provider()
-    provider2 = services.provider()
+    combined = Services(a) | Services(b)
 
-    assert provider1.get(ServiceA).value == 1
-    assert provider2.get(ServiceA).value == 1
-    assert provider1 is not provider2
+    assert len(combined) == 2
+    assert combined[ServiceA] is a
+    assert combined[ServiceB] is b
 
 
-def test_provider_snapshot_isolation() -> None:
-    """Test that providers are true snapshots isolated from the collection."""
-    services = Services()
-    services.add(ServiceA(1))
+def test_or_right_operand_wins() -> None:
+    """On a shared type the right operand's instance is the one resolved."""
+    original, replacement = ServiceA(1), ServiceA(2)
 
-    provider1 = services.provider()
+    combined = Services(original) | Services(replacement)
 
-    services.add(ServiceA(2))
-    services.add(ServiceB("test"))
-
-    provider2 = services.provider()
-
-    assert len(provider1) == 1
-    assert provider1.has(ServiceA)
-    assert not provider1.has(ServiceB)
-
-    assert len(provider2) == 3
-    assert provider2.has(ServiceA)
-    assert provider2.has(ServiceB)
+    assert combined[ServiceA] is replacement
+    assert len(combined) == 1
 
 
-def test_clear_does_not_affect_existing_providers() -> None:
-    """Test that clearing the collection doesn't affect existing providers."""
-    services = Services()
-    services.add(ServiceA(1))
+def test_or_leaves_both_operands_unchanged() -> None:
+    """Combining is non-mutating - both operands keep their own services."""
+    original, replacement = ServiceA(1), ServiceA(2)
+    left, right = Services(original), Services(replacement)
 
-    provider = services.provider()
+    combined = left | right
 
-    services.clear()
+    assert combined is not left
+    assert combined is not right
+    assert left[ServiceA] is original
+    assert right[ServiceA] is replacement
 
-    assert len(provider) == 1
-    assert provider.has(ServiceA)
+
+def test_or_overrides_without_raising() -> None:
+    """Unlike the constructor, a shared type is allowed - that is the point."""
+    production = Services(ServiceA(1), ServiceB("real"))
+    fake = ServiceB("fake")
+
+    for_tests = production | Services(fake)
+
+    assert for_tests[ServiceB] is fake
+    assert for_tests[ServiceA].value == 1
+
+
+def test_or_with_non_services_raises_type_error() -> None:
+    """Combining with an unrelated object is a TypeError, via NotImplemented."""
+    services = Services(ServiceA(1))
+
+    with pytest.raises(TypeError):
+        _ = services | 5  # type: ignore[operator]
+
+
+def test_or_assignment_rebinds() -> None:
+    """`|=` rebinds rather than mutating, since there is no __ior__."""
+    accumulated = Services(ServiceA(1))
+    before = accumulated
+
+    accumulated |= Services(ServiceB("test"))
+
+    assert accumulated is not before
+    assert len(before) == 1
+    assert len(accumulated) == 2
+
+
+# ==================== ServiceNotFoundError ====================
 
 
 def test_service_not_found_error_attributes() -> None:
-    """Test ServiceNotFoundError carries the requested and available types."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceB("test"))
-
-    provider = services.provider()
+    """The error carries the requested type and every available type."""
+    services = Services(ServiceA(1), ServiceB("test"))
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.get(ConcreteService)
+        services[ConcreteService]
 
     error = exc_info.value
-    assert error.service_type == ConcreteService
+    assert error.service_type is ConcreteService
     assert set(error.available_types) == {ServiceA, ServiceB}
 
 
 def test_error_message_clarity() -> None:
-    """Test that error messages name the requested and available types."""
-    services = Services()
-    services.add(ServiceA(1))
-    services.add(ServiceB("test"))
-
-    provider = services.provider()
+    """The message names the requested type and lists what is registered."""
+    services = Services(ServiceA(1), ServiceB("test"))
 
     with pytest.raises(ServiceNotFoundError) as exc_info:
-        provider.get(ConcreteService)
+        services[ConcreteService]
 
     message = str(exc_info.value)
     assert "ConcreteService" in message
@@ -363,189 +276,83 @@ def test_error_message_clarity() -> None:
     assert "ServiceB" in message
 
 
-def test_type_with_no_instances() -> None:
-    """Test exact-type checks when no instances exist for that type."""
-    services = Services()
-    services.add(ServiceA(1))
+def test_empty_collection_error_says_none_available() -> None:
+    """A miss on an empty collection still produces a readable message."""
+    with pytest.raises(ServiceNotFoundError) as exc_info:
+        Services()[ServiceA]
 
-    provider = services.provider()
-
-    assert not provider.has(ServiceB)
-
-    with pytest.raises(ServiceNotFoundError):
-        provider.get(ServiceB)
+    assert "none" in str(exc_info.value)
 
 
-def test_none_type_handling() -> None:
-    """Test that None is rejected at registration."""
-    services = Services()
+def test_missing_service_is_catchable_as_key_error() -> None:
+    """A miss on the subscript is a KeyError, matching mapping idiom (ADR 0017)."""
+    services = Services(ServiceA(1))
 
-    with pytest.raises(ValueError, match="Cannot register None"):
-        services.add(None)
-
-
-def test_multiple_providers_independence() -> None:
-    """Test that providers built at different times are independent snapshots."""
-    services = Services()
-    services.add(ServiceA(1))
-
-    provider1 = services.provider()
-
-    services.add(ServiceA(2))
-
-    provider2 = services.provider()
-
-    assert len(provider1) == 1
-    assert len(provider2) == 2
-    assert provider1 is not provider2
+    assert issubclass(ServiceNotFoundError, KeyError)
+    with pytest.raises(KeyError):
+        services[ServiceB]
 
 
-def test_clear_and_rebuild() -> None:
-    """Test clearing the collection and building a new provider."""
-    services = Services()
-    services.add(ServiceA(1))
+def test_error_str_is_not_key_error_repr_wrapped() -> None:
+    """str() renders the plain multi-line message, not KeyError's repr-wrapped form."""
+    services = Services(ServiceA(1))
 
-    provider1 = services.provider()
+    with pytest.raises(ServiceNotFoundError) as exc_info:
+        services[ServiceB]
 
-    services.clear()
-    services.add(ServiceB("test"))
-
-    provider2 = services.provider()
-
-    assert provider1.has(ServiceA)
-    assert not provider1.has(ServiceB)
-
-    assert not provider2.has(ServiceA)
-    assert provider2.has(ServiceB)
+    message = str(exc_info.value)
+    assert not message.startswith('"')
+    assert not message.startswith("'")
+    assert "\\n" not in message
+    assert message.startswith("No service of type 'ServiceB' is registered.\n")
 
 
-# ==================== Type Safety ====================
-
-
-def test_resolve_returns_correct_type() -> None:
-    """Test that get() returns a correctly typed instance."""
-    services = Services()
-    services.add(ServiceA(42))
-
-    provider = services.provider()
-    resolved: ServiceA = provider.get(ServiceA)
-
-    assert isinstance(resolved, ServiceA)
-    assert resolved.value == 42
-
-
-# ==================== Primitives ====================
+# ==================== Non-class and primitive services ====================
 
 
 def test_primitive_types() -> None:
-    """Test registering and resolving primitive types by exact type."""
-    services = Services()
-    services.add(42)
-    services.add(3.14)
-    services.add("hello")
-    services.add(True)
-    services.add([1, 2, 3])
-    services.add({"key": "value"})
+    """Primitives register under their own types, with bool distinct from int."""
+    services = Services(42, 3.14, "hello", True, [1, 2, 3], {"key": "value"})
 
-    provider = services.provider()
-
-    assert provider.get(int) == 42
-    assert provider.get(float) == 3.14
-    assert provider.get(str) == "hello"
-    assert provider.get(bool) is True  # bool is a distinct exact type from int
-    assert provider.get(list) == [1, 2, 3]
-    assert provider.get(dict) == {"key": "value"}
+    assert services[int] == 42
+    assert services[float] == 3.14
+    assert services[str] == "hello"
+    assert services[bool] is True
+    assert services[list] == [1, 2, 3]
+    assert services[dict] == {"key": "value"}
+    assert len(services) == 6
 
 
-def test_multiple_primitives_same_type() -> None:
-    """Test multiple instances of the same primitive type."""
-    services = Services()
-    services.add(1)
-    services.add(2)
-    services.add(3)
-
-    provider = services.provider()
-
-    assert provider.get(int) == 1  # First registered
-    assert len(provider) == 3
+def test_duplicate_primitive_type_raises() -> None:
+    """Two ints are a repeated type just like two handler instances."""
+    with pytest.raises(ServiceAlreadyRegisteredError):
+        Services(1, 2)
 
 
-# ==================== Same Instance Multiple Registrations ====================
+def test_dynamically_created_types() -> None:
+    """Types created at runtime each get their own registration."""
+    types = [type(f"Service{i}", (), {}) for i in range(100)]
+    services = Services(*(t() for t in types))
+
+    assert len(services) == 100
+    for t in types:
+        assert isinstance(services[t], t)
 
 
-def test_same_instance_registered_twice() -> None:
-    """Test registering the same instance multiple times counts each registration."""
-    services = Services()
-    singleton = ServiceA(42)
-
-    services.add(singleton)
-    services.add(singleton)
-    services.add(singleton)
-
-    provider = services.provider()
-
-    assert len(provider) == 3
-    assert provider.get(ServiceA) is singleton
+# ==================== Thread safety ====================
 
 
-def test_same_instance_identity_preserved() -> None:
-    """Test that instance identity is preserved through resolution."""
-    services = Services()
-    singleton = ServiceA(42)
-
-    services.add(singleton)
-    provider = services.provider()
-
-    assert provider.get(ServiceA) is singleton  # Same object, not a copy
-
-
-# ==================== Scale ====================
-
-
-def test_large_number_of_services() -> None:
-    """Test handling a large number of instances of one type."""
-    services = Services()
-
-    for i in range(1000):
-        services.add(ServiceA(i))
-
-    provider = services.provider()
-
-    assert len(provider) == 1000
-    assert provider.get(ServiceA).value == 0  # First registered
-
-
-def test_many_different_types() -> None:
-    """Test handling many different service types."""
-    services = Services()
-
-    for i in range(100):
-        service_type = type(f"Service{i}", (), {"value": i})
-        services.add(service_type())
-
-    provider = services.provider()
-
-    # 100 distinct types, one instance each.
-    assert len(provider) == 100
-
-
-# ==================== Thread Safety ====================
-
-
-def test_provider_concurrent_reads() -> None:
-    """Test that a provider handles concurrent reads safely."""
-    services = Services()
-    for i in range(100):
-        services.add(type(f"S{i}", (), {})())
-
-    provider = services.provider()
+def test_concurrent_reads() -> None:
+    """An immutable collection is safe to read from many threads."""
+    types = [type(f"S{i}", (), {}) for i in range(100)]
+    services = Services(*(t() for t in types))
 
     errors: list[Exception] = []
 
     def reader() -> None:
         try:
             for _ in range(10):
-                assert len(provider) == 100
+                assert len(services) == 100
         except Exception as e:  # pragma: no cover - only on failure
             errors.append(e)
 
@@ -556,21 +363,3 @@ def test_provider_concurrent_reads() -> None:
         t.join()
 
     assert errors == []
-
-
-def test_collection_mutation_during_provider_use() -> None:
-    """Test that mutating the collection doesn't affect an existing provider."""
-    services = Services()
-    services.add(ServiceA(1))
-
-    provider = services.provider()
-
-    def mutator() -> None:
-        services.add(ServiceA(2))
-        services.add(ServiceB("test"))
-
-    thread = threading.Thread(target=mutator)
-    thread.start()
-    thread.join()
-
-    assert len(provider) == 1

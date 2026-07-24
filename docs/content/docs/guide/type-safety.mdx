@@ -40,8 +40,8 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 
 
 async def main() -> None:
-    services = Services().add(PlaceOrderHandler())
-    mediator = Mediator(services.provider())
+    services = Services(PlaceOrderHandler())
+    mediator = Mediator(services)
 
     receipt = await mediator.send(
         PlaceOrder(customer_id=7, item="tea", quantity=2),

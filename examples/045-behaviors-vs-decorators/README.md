@@ -64,8 +64,7 @@ class RateLimitBehavior(PipelineBehavior[AddTask]):
         self._limiter.check(type(request).__name__)
         return await next()
 
-services.add(RateLimitBehavior(limiter))
-services.add(AddTaskHandler(store))
+services = Services(RateLimitBehavior(limiter), AddTaskHandler(store))
 ```
 
 The behavior runs only during `mediator.send(...)`. Calling `AddTaskHandler` directly bypasses

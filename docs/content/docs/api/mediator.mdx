@@ -70,8 +70,8 @@ protocol, plus the ordered `PipelineBehavior` classes that make up the pipeline.
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(RequestLogging()).add(PlaceOrderHandler())
-mediator = Mediator(services=services.provider(), behaviors=[RequestLogging])
+services = Services(RequestLogging(), PlaceOrderHandler())
+mediator = Mediator(services=services, behaviors=[RequestLogging])
 ```
 
 `behaviors` declares the pipeline explicitly: an ordered sequence of behavior classes, first entry
@@ -79,7 +79,7 @@ outermost. A behavior registered with the provider but absent from `behaviors` i
 pipeline. Omitting `behaviors` (or passing `None`, the default) means no behaviors run.
 
 The mediator validates `behaviors` once, at construction: every entry must be a `PipelineBehavior`
-subclass of the mediator's variant, registered with the provider (checked via `has()`), and listed
+subclass of the mediator's variant, registered with the provider (checked via `in`), and listed
 at most once. A violation raises `InvalidPipelineBehaviorsError` immediately, naming the offending
 entry, before any `send()`.
 

@@ -55,7 +55,5 @@ def build_mediator(
     store = store if store is not None else TaskStore()
     limiter = limiter if limiter is not None else CallCountLimiter(limit=2)
 
-    services = Services()
-    services.add(RateLimitBehavior(limiter))
-    services.add(AddTaskHandler(store))
-    return Mediator(services.provider(), behaviors=[RateLimitBehavior])
+    services = Services(RateLimitBehavior(limiter), AddTaskHandler(store))
+    return Mediator(services, behaviors=[RateLimitBehavior])

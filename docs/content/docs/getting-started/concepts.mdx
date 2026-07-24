@@ -53,8 +53,8 @@ The mediator is the dispatch entry point. It receives a request and returns the 
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler())
+mediator = Mediator(services)
 
 receipt = await mediator.send(
     PlaceOrder(customer_id=7, item="tea", quantity=2),
@@ -66,13 +66,13 @@ The caller imports the request type and receives the response type. It does not 
 
 ## Services and service providers
 
-The mediator needs handler instances. The built-in `Services` collection records instances during application setup, and `provider()` creates a read-only `ServiceProvider`:
+The mediator needs handler instances. The built-in `Services` collection takes them at construction and is itself the read-only `ServiceProvider` the mediator resolves through:
 
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler())
+mediator = Mediator(services)
 ```
 
 `ServiceProvider` is a protocol. Applications can use another implementation, including the optional [`dependency-injector` integration](/docs/guide/dependency-injection), as long as it provides the required methods.

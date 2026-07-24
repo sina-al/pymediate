@@ -68,16 +68,17 @@ def build_app(database_dir: Path | str) -> App:
     worker = ProjectionWorker(projector)
     publisher = LateBoundPublisher()
 
-    services = Services()
-    services.add(CreateProductHandler(write_store, publisher))
-    services.add(AdjustStockHandler(write_store, publisher))
-    services.add(GetProductHandler(read_store))
-    services.add(SearchProductsHandler(read_store))
-    services.add(InventoryReportHandler(read_store))
-    services.add(NaiveInventoryReportHandler(write_store))
-    services.add(WakeProjector(worker))
+    services = Services(
+        CreateProductHandler(write_store, publisher),
+        AdjustStockHandler(write_store, publisher),
+        GetProductHandler(read_store),
+        SearchProductsHandler(read_store),
+        InventoryReportHandler(read_store),
+        NaiveInventoryReportHandler(write_store),
+        WakeProjector(worker),
+    )
 
-    mediator = Mediator(services.provider())
+    mediator = Mediator(services)
     publisher.bind(mediator)  # command handlers can now publish through this mediator
     return App(mediator, worker, write_store, read_store, projector)
 

@@ -57,9 +57,8 @@ class AddTaskHandler(RequestHandler[AddTask]):
 def build_mediator(store: TaskStore | None = None) -> Mediator:
     """Wire a mediator: register the one handler that resolves AddTask."""
     store = store if store is not None else TaskStore()
-    services = Services()
-    services.add(AddTaskHandler(store))
-    return Mediator(services.provider())
+    services = Services(AddTaskHandler(store))
+    return Mediator(services)
 
 
 def main() -> None:

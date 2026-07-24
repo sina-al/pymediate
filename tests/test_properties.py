@@ -3,8 +3,7 @@
 Rather than fixed examples, these tests assert laws that must hold for
 generated inputs:
 
-- Services/ServiceProvider: exact-type resolution, provider-as-snapshot
-  immutability
+- Services: exact-type resolution, one instance per type, right-biased ``|``
 - Mediator round-trips: a handler that echoes its request payload returns it
   unchanged through ``send`` (sync and async)
 - Pipeline behaviors: wrap order always matches the declared behaviors= order
@@ -53,49 +52,49 @@ class StrBox:
 
 @relaxed
 @given(values=st.lists(st.integers(), min_size=1, max_size=10))
-def test_get_returns_first_registered_of_a_type(values: list[int]) -> None:
-    """get returns the first-registered instance of an exact type; len counts all."""
-    services = Services()
-    for value in values:
-        services.add(IntBox(value))
-    provider = services.provider()
+def test_construction_round_trips_one_instance_per_type(values: list[int]) -> None:
+    """Each distinct type resolves back to the instance constructed with it."""
+    boxes = [type(f"Box{i}", (IntBox,), {})(value) for i, value in enumerate(values)]
+    services = Services(*boxes)
 
-    assert provider.get(IntBox).value == values[0]
-    assert len(provider) == len(values)
+    assert len(services) == len(values)
+    for box in boxes:
+        assert services[type(box)] is box
 
 
 @relaxed
 @given(ints=st.lists(st.integers(), max_size=5), strs=st.lists(st.text(), max_size=5))
-def test_provider_reflects_exactly_what_was_registered(ints: list[int], strs: list[str]) -> None:
-    """has/len agree with each other and with what was added."""
-    services = Services()
-    for i in ints:
-        services.add(IntBox(i))
-    for s in strs:
-        services.add(StrBox(s))
-    provider = services.provider()
+def test_membership_and_len_agree_with_construction(ints: list[int], strs: list[str]) -> None:
+    """__contains__/len agree with each other and with what was passed in."""
+    # Only the first of each type can be registered - a repeat is an error, not a miss.
+    instances: list[object] = []
+    if ints:
+        instances.append(IntBox(ints[0]))
+    if strs:
+        instances.append(StrBox(strs[0]))
+    services = Services(*instances)
 
-    assert provider.has(IntBox) == bool(ints)
-    assert provider.has(StrBox) == bool(strs)
-    assert len(provider) == len(ints) + len(strs)
+    assert (IntBox in services) == bool(ints)
+    assert (StrBox in services) == bool(strs)
+    assert len(services) == len(instances)
 
 
 @relaxed
 @given(
-    before=st.lists(st.integers(), min_size=1, max_size=5),
-    after=st.lists(st.integers(), min_size=1, max_size=5),
+    left=st.lists(st.integers(), min_size=1, max_size=5),
+    right=st.lists(st.integers(), min_size=1, max_size=5),
 )
-def test_provider_is_a_snapshot_of_registration_time(before: list[int], after: list[int]) -> None:
-    """A built provider is immutable: later Services.add calls don't leak into it."""
-    services = Services()
-    for value in before:
-        services.add(IntBox(value))
-    provider = services.provider()
-    for value in after:
-        services.add(IntBox(value))
+def test_or_is_right_biased_and_non_mutating(left: list[int], right: list[int]) -> None:
+    """`|` resolves the right operand's instance and leaves both operands intact."""
+    first, second = IntBox(left[0]), IntBox(right[0])
+    a, b = Services(first), Services(second)
 
-    assert len(provider) == len(before)
-    assert provider.get(IntBox).value == before[0]
+    combined = a | b
+
+    assert combined[IntBox] is second
+    assert a[IntBox] is first
+    assert b[IntBox] is second
+    assert len(combined) == 1
 
 
 # ==================== Mediator round-trip properties ====================
@@ -114,9 +113,7 @@ def test_mediator_send_round_trips_arbitrary_payloads(payload: Any) -> None:
         def __call__(self, request: EchoRequest) -> object:
             return request.payload
 
-    services = Services()
-    services.add(EchoHandler())
-    mediator = Mediator(services.provider())
+    mediator = Mediator(Services(EchoHandler()))
 
     assert mediator.send(EchoRequest(payload)) == payload
 
@@ -135,9 +132,7 @@ def test_async_mediator_send_round_trips_arbitrary_payloads(payload: Any) -> Non
             return request.payload
 
     async def main() -> None:
-        services = Services()
-        services.add(EchoHandler())
-        mediator = pymediate.Mediator(services.provider())
+        mediator = pymediate.Mediator(Services(EchoHandler()))
 
         assert await mediator.send(EchoRequest(payload)) == payload
 
@@ -177,16 +172,16 @@ def test_behaviors_wrap_in_declared_order(count: int) -> None:
             return response
 
     # behaviors= is a list of classes, resolved one instance per class - so each
-    # position needs its own subclass, distinguishing get()'s exact-type match.
+    # position needs its own subclass, distinguishing the exact-type match.
     behavior_classes = [
         type(f"OrderBehavior{index}", (OrderBehavior,), {}) for index in range(count)
     ]
 
-    services = Services()
-    for index, behavior_class in enumerate(behavior_classes):
-        services.add(behavior_class(index))
-    services.add(OrderHandler())
-    mediator = Mediator(services.provider(), behaviors=behavior_classes)
+    services = Services(
+        *(behavior_class(index) for index, behavior_class in enumerate(behavior_classes)),
+        OrderHandler(),
+    )
+    mediator = Mediator(services, behaviors=behavior_classes)
 
     response = mediator.send(OrderRequest(value=count))
 

@@ -216,12 +216,13 @@ def build_mediator(
     mailer = mailer if mailer is not None else ConsoleMailer()
     sender = LateBoundSender()
 
-    services = Services()
-    services.add(GetUserHandler(repository))
-    services.add(SendWelcomeEmailHandler(mailer))
-    services.add(RegisterUserHandler(sender, repository))
-    services.add(GreetHandler())
+    services = Services(
+        GetUserHandler(repository),
+        SendWelcomeEmailHandler(mailer),
+        RegisterUserHandler(sender, repository),
+        GreetHandler(),
+    )
 
-    mediator = Mediator(services.provider())
+    mediator = Mediator(services)
     sender.bind(mediator)
     return mediator

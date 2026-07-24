@@ -10,8 +10,7 @@ from pymediate.sync import HandlerNotFoundError, Mediator, Request, RequestHandl
 def test_mediator_creation() -> None:
     """Test that Mediator can be created with a resolver."""
     services = Services()
-    provider = services.provider()
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
     assert mediator is not None
 
 
@@ -30,10 +29,8 @@ def test_mediator_send_request() -> None:
         def __call__(self, request: GreetingRequest) -> GreetingResponse:
             return GreetingResponse(f"Hello, {request.name}!")
 
-    services = Services()
-    services.add(GreetingHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(GreetingHandler())
+    mediator = Mediator(services)
 
     request = GreetingRequest("Alice")
     response = mediator.send(request)
@@ -53,8 +50,7 @@ def test_mediator_send_unregistered_request() -> None:
             self.data = data
 
     services = Services()
-    provider = services.provider()
-    mediator = Mediator(provider)
+    mediator = Mediator(services)
 
     with pytest.raises(HandlerNotFoundError):
         mediator.send(UnhandledReq("test"))
@@ -89,11 +85,8 @@ def test_mediator_with_multiple_handlers() -> None:
         def __call__(self, request: MultiplyRequest) -> MultiplyResponse:
             return MultiplyResponse(request.a * request.b)
 
-    services = Services()
-    services.add(AddHandler())
-    services.add(MultiplyHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(AddHandler(), MultiplyHandler())
+    mediator = Mediator(services)
 
     add_result = mediator.send(AddRequest(5, 3))
     mult_result = mediator.send(MultiplyRequest(5, 3))
@@ -117,10 +110,8 @@ def test_mediator_preserves_request_data() -> None:
         def __call__(self, request: EchoRequest) -> EchoResponse:
             return EchoResponse(request.data.copy())
 
-    services = Services()
-    services.add(EchoHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(EchoHandler())
+    mediator = Mediator(services)
 
     original_data = {"key": "value", "number": 42}
     request = EchoRequest(original_data)
@@ -148,11 +139,9 @@ def test_mediator_with_stateful_handler() -> None:
             self.count += 1
             return CountResponse(self.count)
 
-    services = Services()
     handler = CounterHandler()
-    services.add(handler)
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(handler)
+    mediator = Mediator(services)
 
     resp1 = mediator.send(CountRequest())
     resp2 = mediator.send(CountRequest())
@@ -194,10 +183,8 @@ def test_mediator_with_complex_request_response() -> None:
                 user=user, success=True, message=f"User {user.name} created successfully"
             )
 
-    services = Services()
-    services.add(CreateUserHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(CreateUserHandler())
+    mediator = Mediator(services)
 
     request = CreateUserRequest("John Doe", "john@example.com")
     response = mediator.send(request)
@@ -222,10 +209,8 @@ def test_mediator_error_propagation() -> None:
         def __call__(self, request: ErrorRequest) -> ErrorResponse:
             raise RuntimeError("RequestHandler error")
 
-    services = Services()
-    services.add(ErrorHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(ErrorHandler())
+    mediator = Mediator(services)
 
     with pytest.raises(RuntimeError, match="RequestHandler error"):
         mediator.send(ErrorRequest())
@@ -248,16 +233,12 @@ def test_mediator_with_different_resolvers() -> None:
         def __call__(self, request: Req) -> Resp:
             return Resp(self.value)
 
-    services1 = Services()
-    services1.add(ReqHandler(1))
-    provider1 = services1.provider()
+    services1 = Services(ReqHandler(1))
 
-    services2 = Services()
-    services2.add(ReqHandler(2))
-    provider2 = services2.provider()
+    services2 = Services(ReqHandler(2))
 
-    mediator1 = Mediator(provider1)
-    mediator2 = Mediator(provider2)
+    mediator1 = Mediator(services1)
+    mediator2 = Mediator(services2)
 
     resp1 = mediator1.send(Req())
     resp2 = mediator2.send(Req())

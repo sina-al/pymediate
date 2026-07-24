@@ -1,0 +1,149 @@
+# ADR 0017: Replace `ServiceProvider.get()`/`has()` with `__getitem__`/`__contains__`
+
+**Status:** Accepted (2026-07-23, @sina-al)
+**Date:** 2026-07-22
+**Author:** Claude
+**Reviewers:** @sina-al
+
+## Context
+
+ADR 0016 (2026-07-20) shrank `ServiceProvider` to exactly the two operations the mediator
+uses: `get(service_type)` (exact-type resolution, raising `ServiceNotFoundError` on a miss)
+and `has(service_type)` (exact-type membership test). Both are hand-rolled equivalents of
+Python's built-in mapping vocabulary — `ServiceProvider` already behaves like a read-only
+`Mapping[type, object]` keyed by type:
+
+```python
+provider.get(Cache)     # resolve
+provider.has(Cache)     # test
+```
+
+The idiomatic spelling for "resolve by key" and "test for a key" is indexing and `in`:
+
+```python
+provider[Cache]
+Cache in provider
+```
+
+CLAUDE.md's simplify section calls this out directly: "When an option is designed for the
+job (a stdlib/library primitive that does what a hand-rolled helper does), use it, even if
+adopting it changes behavior at the edges." `__getitem__`/`__contains__` are exactly that
+primitive. The open question was whether the switch could preserve `get()`'s type-safety
+guarantee — that `provider.get(Cache)` is inferred as `Cache`, not `Any` or `object`, via a
+generic method (`def get(self, service_type: type[ServiceT]) -> ServiceT`) — since a dunder
+method is still just a method under the hood, but the guarantee needed verifying before
+committing to the change, not assuming it.
+
+## Proposed Solution(s)
+
+### Option A — Replace `get`/`has` with `__getitem__`/`__contains__` (RECOMMENDED)
+
+```python
+class ServiceProvider(Protocol):
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT: ...
+    def __contains__(self, service_type: type) -> bool: ...
+```
+
+Verified before implementation: a scratch `Protocol` with this shape, checked under both
+`mypy --strict` and `basedpyright`, shows `provider[Foo]` inferred as `Foo` (not `Any`) by
+both checkers, and `wrong: int = provider[Foo]` is flagged as an error by both — the same
+exact-type-preserving inference `get()` has today, carried over losslessly to the dunder
+form.
+
+**Pros:**
+- One way to resolve a service, using vocabulary every Python programmer already knows.
+- No loss of type safety — confirmed empirically, not assumed.
+- Fewer protocol methods for a custom `ServiceProvider` implementation to define is not
+  the win here (the count is unchanged, two methods either way) — the win is that the two
+  methods are the ones Python already gives a meaning to.
+
+**Cons:**
+- Breaking change: every internal call site, test, and hand-written docs page that spells
+  resolution as `.get(...)`/`.has(...)` needs updating in the same change.
+- To make `__getitem__` fully idiomatic, the exception it raises on a miss should be a
+  `KeyError` (that is what `Mapping.__getitem__` raises), which means changing
+  `ServiceNotFoundError`'s base class — resolved in the Decision below.
+
+### Option B — Add dunders alongside `get`/`has` (rejected)
+
+Keep `get()`/`has()` untouched and add `__getitem__`/`__contains__` as new protocol members
+both providers also implement.
+
+**Pros:** No breaking change; smaller diff.
+
+**Cons:** The protocol permanently carries two spellings for the same lookup — exactly the
+"parallel APIs for one operation" CLAUDE.md's simplify section says to avoid. Every future
+custom `ServiceProvider` implementation and every doc example has two equally-valid ways to
+write the same thing, forever.
+
+## Decision
+
+**Option A**, full replacement. Locked with the maintainer (issue #136 Decisions table,
+2026-07-22):
+
+- `get()`/`has()` are removed entirely from `ServiceProvider` and both built-in
+  implementations (`_Provider` in `src/pymediate/service.py`,
+  `DependencyInjectorServiceProvider` in `src/pymediate/providers/dependency_injector.py`) —
+  not kept alongside the new dunders. No deprecation shim: a clean break in one release,
+  consistent with this package's ZeroVer stance that the cost of breaking is low here.
+- `provider[Type]` raises `ServiceNotFoundError` on a miss, keeping the same message and
+  `service_type`/`available_types` attributes `get()` raised. **`ServiceNotFoundError` now
+  subclasses `KeyError`** (it previously subclassed `Exception` directly): a provider is a
+  read-only `Mapping[type, object]` and `provider[Type]` is its subscript, so a missing type
+  is a missing key, and a reflexive `except KeyError` catches it — completing the mapping
+  idiom this ADR adopts rather than half-adopting it. `ServiceNotFoundError` still does **not**
+  inherit `PyMediateError` (that separation is unchanged). One consequence handled: `KeyError`'s
+  own `__str__` returns `repr(self.args[0])`, which would quote-wrap the multi-line message and
+  escape its newline; `ServiceNotFoundError` overrides `__str__` to return the plain message, so
+  the human-facing rendering is unchanged. The richer, PyMediate-specific error (naming what
+  *is* registered) is preserved on top of the `KeyError` base, not traded away for it.
+- `__len__` and other non-protocol conveniences on the built-in providers are unaffected —
+  this ADR touches the two protocol operations ADR 0016 left in place plus the base class of
+  the exception their `__getitem__` raises.
+
+## Consequences
+
+### Positive
+
+- `ServiceProvider` now reads as what it structurally is — a read-only, type-keyed mapping —
+  using the vocabulary Python already has for that.
+- A custom `ServiceProvider` implementation (e.g. the planned `120-custom-provider` example,
+  issue #90) models itself on `__getitem__`/`__contains__`, which most Python developers
+  already know how to implement correctly, rather than two arbitrarily-named methods.
+- No type-safety regression: verified with both project-mandated checkers before
+  implementation.
+- The mapping idiom is complete, not half-adopted: `except KeyError` catches a miss on
+  `provider[Type]`, matching every other subscript in Python, while `str(error)` still renders
+  the full message.
+
+### Negative
+
+- **Breaking:** every caller of `provider.get(Type)`/`provider.has(Type)` — internal
+  (`src/pymediate/_internal/mediator.py`), test, and documentation — must switch to
+  `provider[Type]`/`Type in provider` in the same change. ZeroVer minor release.
+- `ServiceNotFoundError`'s base class changes from `Exception` to `KeyError`. This is
+  additive for existing `except ServiceNotFoundError` / `except Exception` handlers, but code
+  that deliberately relied on it *not* being a `KeyError` (e.g. a bare `except KeyError` around
+  a `provider[Type]` call that meant to catch only dict misses) would now also catch a
+  service-resolution miss. Judged acceptable — that is precisely the mapping semantics being
+  adopted.
+- The `__str__` override is a small piece of machinery on an otherwise-minimal exception,
+  carried solely to neutralise `KeyError`'s `repr`-wrapping `__str__`. A regression test pins
+  the rendered form so the override cannot rot silently.
+- `examples/` are not updated by this ADR's implementation — they pin against the *released*
+  package and are migrated as a post-release follow-up via the `example` skill, per
+  CLAUDE.md's `examples/` contract.
+
+## Migration Path
+
+Breaking change, shipped in a **minor** release (ZeroVer):
+
+- Replace `provider.get(Type)` with `provider[Type]`.
+- Replace `provider.has(Type)` with `Type in provider`.
+- A custom `ServiceProvider` implementation must rename its `get`/`has` methods to
+  `__getitem__`/`__contains__` to keep satisfying the protocol (structural — no inheritance
+  required, same as before).
+- No action needed to keep catching a missing service: `except ServiceNotFoundError` still
+  works, and `except KeyError` now works too. Only code that specifically depended on the
+  error *not* being a `KeyError` needs review.
+- `examples/` migrate post-release via the `example` skill.

@@ -72,8 +72,8 @@ async def test_place_order_handler() -> None:
 @pytest.mark.asyncio
 async def test_place_order_dispatch() -> None:
     store = FakeOrderStore()
-    services = Services().add(PlaceOrderHandler(store))
-    mediator = Mediator(services.provider())
+    services = Services(PlaceOrderHandler(store))
+    mediator = Mediator(services)
 
     receipt = await mediator.send(
         PlaceOrder(customer_id=7, item="tea", quantity=2),
@@ -125,9 +125,22 @@ test genuinely needs a different handler definition. The registry-reset function
 `pymediate._internal` are test infrastructure for PyMediate itself, not public application
 API.
 
-Build a new `Services` collection and provider for tests that need isolated instances.
-`Services.provider()` returns an immutable snapshot, so add every instance before creating
-the mediator.
+Build a new `Services` collection for tests that need isolated instances. A collection is
+immutable once constructed, so tests never leak services into one another. To reuse a production
+wiring with one service swapped, combine it with `|` — the right operand wins:
+
+```python title="tests/test_orders.py (excerpt)"
+from pymediate import Mediator, Services
+
+# The application's own wiring, imported rather than duplicated in the test.
+from myapp.wiring import build_services
+
+fake = FakeOrderStore()
+mediator = Mediator(build_services() | Services(PlaceOrderHandler(fake)))
+
+receipt = await mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
+assert fake.saved == [("tea", 2)]
+```
 
 ## Test the API you import
 

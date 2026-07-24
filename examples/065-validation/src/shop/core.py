@@ -166,8 +166,5 @@ def build_mediator() -> Mediator:
     validators: dict[type[Request[Any]], list[Validator]] = {
         PlaceOrder: [validate_place_order],
     }
-    services = Services()
-    services.add(ValidationBehavior(validators))
-    services.add(SubscribeHandler())
-    services.add(PlaceOrderHandler())
-    return Mediator(services.provider(), behaviors=[ValidationBehavior])
+    services = Services(ValidationBehavior(validators), SubscribeHandler(), PlaceOrderHandler())
+    return Mediator(services, behaviors=[ValidationBehavior])

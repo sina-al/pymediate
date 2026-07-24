@@ -243,18 +243,21 @@ def build_scenarios(
     async_event = AsyncPinged(value=1)
 
     sync_handler = PingHandler()
-    sync_mediator = Mediator(Services().add(PingHandler()).provider())
-    behavior_services = Services().add(PingHandler())
-    for _ in range(behaviors):
-        behavior_services.add(NoOpBehavior())
-    behavior_mediator = Mediator(behavior_services.provider())
+    sync_mediator = Mediator(Services(PingHandler()))
+    # One distinct class per pipeline slot: a mediator resolves each behavior by its
+    # exact class, and `behaviors=` is what puts it in the pipeline at all.
+    behavior_classes: list[type[PipelineBehavior[Ping]]] = [
+        type(f"NoOpBehavior{index}", (NoOpBehavior,), {}) for index in range(behaviors)
+    ]
+    behavior_services = Services(PingHandler(), *(cls() for cls in behavior_classes))
+    behavior_mediator = Mediator(behavior_services, behaviors=behavior_classes)
     event_handler = PingedHandler()
-    publish_mediator = Mediator(Services().add(PingedHandler()).provider())
+    publish_mediator = Mediator(Services(PingedHandler()))
 
     async_handler = AsyncPingHandler()
-    async_mediator = AsyncMediator(Services().add(AsyncPingHandler()).provider())
+    async_mediator = AsyncMediator(Services(AsyncPingHandler()))
     async_event_handler = AsyncPingedHandler()
-    async_publish_mediator = AsyncMediator(Services().add(AsyncPingedHandler()).provider())
+    async_publish_mediator = AsyncMediator(Services(AsyncPingedHandler()))
 
     kwargs = {"number": number, "repeat": repeat, "warmup": warmup}
     plural = "behavior" if behaviors == 1 else "behaviors"

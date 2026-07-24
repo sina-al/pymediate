@@ -26,7 +26,8 @@ class DependencyInjectorServiceProvider(ServiceProvider):
     are all visited. A provider whose output type cannot be inferred without resolving
     it (an unannotated factory, ``Selector``, ``Resource``, or coroutine provider) is
     skipped, not indexed, so infrastructure providers do not have to be
-    PyMediate-resolvable. ``get()`` returns the first provider found for an exact type.
+    PyMediate-resolvable. ``provider[Type]`` returns the first provider found for an
+    exact type.
 
     Examples:
         ```python
@@ -142,7 +143,7 @@ class DependencyInjectorServiceProvider(ServiceProvider):
             )
         return instance
 
-    def get[ServiceT](self, service_type: type[ServiceT]) -> ServiceT:
+    def __getitem__[ServiceT](self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type.
 
         Args:
@@ -161,7 +162,7 @@ class DependencyInjectorServiceProvider(ServiceProvider):
             raise ServiceNotFoundError(service_type, list(self._type_providers))
         return cast(ServiceT, self._resolve(service_type, matches[0]))
 
-    def has(self, service_type: type[Any]) -> bool:
+    def __contains__(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered.
 
         Args:

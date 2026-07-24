@@ -76,12 +76,6 @@ application at the end.
 | --- | --- | --- | --- | --- |
 | 130 | Command and query separation | [130-cqrs](130-cqrs/) | — | Separate write decisions from a projected read model, commit outbox records with writes, and account for eventual consistency. |
 
-### Complete application
-
-| Position | Topic | Example | What you learn |
-| --- | --- | --- | --- |
-| 900 | Hexagonal architecture | [900-hexagonal-architecture](900-hexagonal-architecture/) | Apply the earlier boundaries in a uv workspace with HTTP, CLI, and worker entry points plus replaceable local, AWS-compatible, and Azure-compatible infrastructure. |
-
 ## The examples contract
 
 The release pipeline discovers every direct child matching `examples/*/pyproject.toml` and
