@@ -39,7 +39,7 @@ class OrderRetry(RetryBehavior[CreateOrder]):
 
 
 async def main() -> None:
-    provider = Services().add(OrderRetry()).add(CreateOrderHandler()).provider()
+    provider = Services(OrderRetry(), CreateOrderHandler())
     mediator = Mediator(provider, behaviors=[OrderRetry])
     response = await mediator.send(CreateOrder(item="widget"))
     order_id: int = response.order_id

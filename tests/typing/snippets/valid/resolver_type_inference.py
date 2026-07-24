@@ -23,7 +23,7 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
 
 
 # Setup
-provider = Services().add(GetUserHandler()).provider()
+provider = Services(GetUserHandler())
 
 # ServiceProvider should return correctly typed handler
 handler = provider[GetUserHandler]

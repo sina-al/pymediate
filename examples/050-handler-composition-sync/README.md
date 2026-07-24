@@ -73,8 +73,8 @@ exists and is bound immediately afterward.
 
 ```python
 sender = LateBoundSender()
-services.add(PlaceOrderHandler(sender, journal))
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler(sender, journal))
+mediator = Mediator(services)
 sender.bind(mediator)
 ```
 

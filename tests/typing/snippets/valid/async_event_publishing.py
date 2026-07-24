@@ -31,7 +31,7 @@ class UpdateAnalytics(EventHandler[OrderPlaced]):
 
 async def main() -> None:
     # Setup - N handlers may subscribe to one event type
-    provider = Services().add(SendConfirmation()).add(UpdateAnalytics()).provider()
+    provider = Services(SendConfirmation(), UpdateAnalytics())
     mediator = Mediator(provider)
 
     # publish accepts Event instances, awaits all handlers concurrently

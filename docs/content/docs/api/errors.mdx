@@ -106,6 +106,19 @@ first registration location when available. Event handlers do not use this one-h
 
 ## Construction-time errors
 
+### `ServiceAlreadyRegisteredError`
+
+```python
+class ServiceAlreadyRegisteredError(PyMediateError):
+    def __init__(self, service_type: type): ...
+```
+
+Raised by `Services(...)` when two instances passed to one construction share a concrete type.
+A collection holds one instance per exact type, so only the first could ever be resolved — a
+repeat is a wiring mistake rather than a preference. The repeated type is stored as
+`service_type`. Use `left | right` to replace a service deliberately; the right operand wins and
+a shared type is not an error there.
+
 ### `InvalidPipelineBehaviorsError`
 
 ```python

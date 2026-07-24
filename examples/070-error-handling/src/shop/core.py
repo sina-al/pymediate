@@ -132,7 +132,5 @@ def default_catalog() -> Catalog:
 def build_mediator(catalog: Catalog | None = None) -> Mediator:
     """Wire the handlers over a catalog into a mediator without transport dependencies."""
     catalog = catalog if catalog is not None else default_catalog()
-    services = Services()
-    services.add(GetProductHandler(catalog))
-    services.add(PlaceOrderHandler(catalog))
-    return Mediator(services.provider())
+    services = Services(GetProductHandler(catalog), PlaceOrderHandler(catalog))
+    return Mediator(services)

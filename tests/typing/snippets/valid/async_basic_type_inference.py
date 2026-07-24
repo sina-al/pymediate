@@ -27,7 +27,7 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
 
 async def main() -> None:
     # Setup
-    provider = Services().add(GetUserHandler()).provider()
+    provider = Services(GetUserHandler())
     mediator = Mediator(provider)
 
     # Type inference test: the checker should know response is UserResponse

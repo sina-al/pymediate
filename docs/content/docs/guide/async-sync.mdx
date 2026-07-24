@@ -57,8 +57,8 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 
 
 async def main() -> None:
-    services = Services().add(PlaceOrderHandler())
-    mediator = Mediator(services.provider())
+    services = Services(PlaceOrderHandler())
+    mediator = Mediator(services)
 
     tea, coffee = await asyncio.gather(
         mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2)),
@@ -106,8 +106,8 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
         )
 
 
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler())
+mediator = Mediator(services)
 receipt = mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
 print(receipt.order_id)
 ```

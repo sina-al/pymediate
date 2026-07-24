@@ -22,7 +22,7 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
         return UserResponse(user_id=request.user_id)
 
 
-provider = Services().add(GetUserHandler()).provider()
+provider = Services(GetUserHandler())
 mediator = Mediator(provider)
 
 # ERROR: stream takes a StreamRequest; a Request is dispatched with send()

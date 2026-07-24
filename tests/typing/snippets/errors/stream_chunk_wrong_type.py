@@ -18,7 +18,7 @@ class CountHandler(StreamRequestHandler[Count]):
         yield from range(request.n)
 
 
-provider = Services().add(CountHandler()).provider()
+provider = Services(CountHandler())
 mediator = Mediator(provider)
 
 for value in mediator.stream(Count(n=3)):

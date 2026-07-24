@@ -27,7 +27,7 @@ class SendConfirmation(EventHandler[OrderPlaced]):
         pass
 
 
-provider = Services().add(SendConfirmation()).provider()
+provider = Services(SendConfirmation())
 mediator = Mediator(provider)
 
 # ERROR: publish takes an Event; a Request is not publishable

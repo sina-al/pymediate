@@ -30,7 +30,7 @@ class CalculateHandler(RequestHandler[CalculateRequest]):
         return SuccessResult(value=request.x * 2)
 
 
-provider = Services().add(CalculateHandler()).provider()
+provider = Services(CalculateHandler())
 mediator = Mediator(provider)
 
 request = CalculateRequest(x=5)

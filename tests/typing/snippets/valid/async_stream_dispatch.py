@@ -20,7 +20,7 @@ class CompletionHandler(StreamRequestHandler[StreamCompletion]):
 
 
 async def main() -> None:
-    provider = Services().add(CompletionHandler()).provider()
+    provider = Services(CompletionHandler())
     mediator = Mediator(provider)
 
     collected: list[str] = []

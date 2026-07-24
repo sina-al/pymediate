@@ -19,7 +19,7 @@ class DeleteUserHandler(RequestHandler[DeleteUserRequest]):
 
 
 # Usage
-provider = Services().add(DeleteUserHandler()).provider()
+provider = Services(DeleteUserHandler())
 mediator = Mediator(provider)
 
 request = DeleteUserRequest(user_id=1)

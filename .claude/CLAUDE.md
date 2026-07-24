@@ -207,8 +207,8 @@ error. Adding/removing an errors case means updating both tables in `expectation
 
 `valid/` snippets are held to the opposite bar: they must pass mypy `--strict`, produce
 **zero errors and zero warnings** under basedpyright's recommended mode (use `@override` on
-handler/behavior `__call__` overrides; consume `Services.add(...)` results by chaining into
-`.provider()`), and **execute at runtime** (`test_snippets_runtime.py` — sync snippets run at
+handler/behavior `__call__` overrides), and **execute at runtime** (`test_snippets_runtime.py` —
+sync snippets run at
 module level, async ones define `async def main()` and the harness runs it).
 
 Config isolation: the mypy half runs with `--config-file tests/typing/mypy_snippets.ini`,

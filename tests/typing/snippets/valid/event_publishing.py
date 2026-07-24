@@ -28,7 +28,7 @@ class UpdateAnalytics(EventHandler[OrderPlaced]):
 
 
 # Setup - N handlers may subscribe to one event type
-provider = Services().add(SendConfirmation()).add(UpdateAnalytics()).provider()
+provider = Services(SendConfirmation(), UpdateAnalytics())
 mediator = Mediator(provider)
 
 # publish accepts Event instances and returns None

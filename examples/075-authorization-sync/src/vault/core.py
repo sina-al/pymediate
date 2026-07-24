@@ -276,15 +276,16 @@ def build_mediator(
     audit = audit if audit is not None else []
     authorizer = DocumentAuthorizer()
 
-    services = Services()
-    services.add(RequireAuthentication(audit))
-    services.add(RequireRole(audit))
-    services.add(RequireMfa(audit))
-    services.add(ViewDocumentHandler(store))
-    services.add(ListAllDocumentsHandler(store))
-    services.add(EditDocumentHandler(store, authorizer))
+    services = Services(
+        RequireAuthentication(audit),
+        RequireRole(audit),
+        RequireMfa(audit),
+        ViewDocumentHandler(store),
+        ListAllDocumentsHandler(store),
+        EditDocumentHandler(store, authorizer),
+    )
     return Mediator(
-        services.provider(),
+        services,
         behaviors=[
             RequireAuthentication,  # 1. outermost — every authenticated request
             RequireRole,  # 2. role-gated requests only

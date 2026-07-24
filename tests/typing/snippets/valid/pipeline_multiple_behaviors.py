@@ -61,14 +61,7 @@ class ValidationBehavior(PipelineBehavior[CreateOrderRequest]):
 
 # Register several behaviors; the behaviors= list order determines wrapping,
 # first entry outermost.
-provider = (
-    Services()
-    .add(LoggingBehavior())
-    .add(TimingBehavior())
-    .add(ValidationBehavior())
-    .add(CreateOrderHandler())
-    .provider()
-)
+provider = Services(LoggingBehavior(), TimingBehavior(), ValidationBehavior(), CreateOrderHandler())
 mediator = Mediator(provider, behaviors=[LoggingBehavior, TimingBehavior, ValidationBehavior])
 
 request = CreateOrderRequest(items=["item1", "item2"])

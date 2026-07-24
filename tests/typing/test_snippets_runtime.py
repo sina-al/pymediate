@@ -3,7 +3,7 @@
 "Valid" means more than "typechecks under every checker" - each valid/ snippet
 must also run. This catches the failure mode type checkers can be blind to:
 a snippet calling an API shape that no longer exists at runtime (per-module
-suppressions once masked exactly that for a stale Services.add signature).
+suppressions once masked exactly that for a stale Services registration signature).
 
 Convention: sync snippets execute their scenario at module level; async
 snippets define `async def main()` and leave the event loop to this harness.

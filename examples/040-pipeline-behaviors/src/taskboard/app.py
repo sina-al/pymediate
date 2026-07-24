@@ -52,17 +52,18 @@ def build_mediator(
     trace = trace if trace is not None else []
     principal = principal if principal is not None else Principal("system", can_write=True)
 
-    services = Services()
-    services.add(LoggingBehavior(trace))
-    services.add(AuthorizationBehavior(principal, trace))
-    services.add(CachingBehavior(cache, trace))
-    services.add(TransactionBehavior(trace))
-    services.add(AddTaskHandler(store))
-    services.add(CompleteTaskHandler(store))
-    services.add(GetTaskHandler(store))
-    services.add(ListOpenTasksHandler(store))
+    services = Services(
+        LoggingBehavior(trace),
+        AuthorizationBehavior(principal, trace),
+        CachingBehavior(cache, trace),
+        TransactionBehavior(trace),
+        AddTaskHandler(store),
+        CompleteTaskHandler(store),
+        GetTaskHandler(store),
+        ListOpenTasksHandler(store),
+    )
     return Mediator(
-        services.provider(),
+        services,
         behaviors=[
             LoggingBehavior,  # 1. outermost — every request
             AuthorizationBehavior,  # 2. commands only

@@ -115,9 +115,8 @@ def build_mediator(emitted: list[str] | None = None) -> Mediator:
             exactly what was produced. A fresh list is used when omitted.
     """
     emitted = emitted if emitted is not None else []
-    services = Services()
-    services.add(CompletionHandler(FakeLanguageModel(emitted)))
-    return Mediator(services.provider())
+    services = Services(CompletionHandler(FakeLanguageModel(emitted)))
+    return Mediator(services)
 
 
 async def main() -> None:

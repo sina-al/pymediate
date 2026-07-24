@@ -91,7 +91,7 @@ def test_sync_stream_yields_typed_chunks() -> None:
         def __call__(self, request: Count) -> Iterator[int]:
             yield from range(request.n)
 
-    mediator = pymediate.sync.Mediator(pymediate.sync.Services().add(CountHandler()).provider())
+    mediator = pymediate.sync.Mediator(pymediate.sync.Services(CountHandler()))
 
     assert list(mediator.stream(Count(n=3))) == [0, 1, 2]
 
@@ -111,7 +111,7 @@ def test_sync_stream_is_lazy() -> None:
                 produced.append(i)
                 yield i
 
-    mediator = pymediate.sync.Mediator(pymediate.sync.Services().add(CountHandler()).provider())
+    mediator = pymediate.sync.Mediator(pymediate.sync.Services(CountHandler()))
 
     stream = mediator.stream(Count(n=3))
     assert produced == []  # Nothing produced until iteration starts.
@@ -128,7 +128,7 @@ def test_sync_stream_missing_handler_raises_eagerly() -> None:
     class Unhandled(pymediate.sync.StreamRequest[int]):
         pass
 
-    mediator = pymediate.sync.Mediator(pymediate.sync.Services().provider())
+    mediator = pymediate.sync.Mediator(pymediate.sync.Services())
 
     with pytest.raises(HandlerNotFoundError):
         mediator.stream(Unhandled())
@@ -152,7 +152,7 @@ async def test_async_stream_yields_typed_chunks() -> None:
             for token in request.prompt.split():
                 yield token
 
-    mediator = pymediate.Mediator(pymediate.Services().add(CompletionHandler()).provider())
+    mediator = pymediate.Mediator(pymediate.Services(CompletionHandler()))
 
     chunks = [tok async for tok in mediator.stream(StreamCompletion(prompt="a b c"))]
     assert chunks == ["a", "b", "c"]
@@ -174,7 +174,7 @@ async def test_async_stream_is_lazy() -> None:
                 produced.append(i)
                 yield i
 
-    mediator = pymediate.Mediator(pymediate.Services().add(CountHandler()).provider())
+    mediator = pymediate.Mediator(pymediate.Services(CountHandler()))
 
     stream = mediator.stream(Count(n=3))
     assert produced == []  # Nothing produced until iteration starts.
@@ -189,7 +189,7 @@ def test_async_stream_missing_handler_raises_eagerly() -> None:
     class Unhandled(pymediate.StreamRequest[int]):
         pass
 
-    mediator = pymediate.Mediator(pymediate.Services().provider())
+    mediator = pymediate.Mediator(pymediate.Services())
 
     # No await/iteration - resolution happens synchronously in stream().
     with pytest.raises(HandlerNotFoundError):

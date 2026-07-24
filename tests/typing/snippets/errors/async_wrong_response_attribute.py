@@ -26,7 +26,7 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
 
 
 async def main() -> None:
-    provider = Services().add(GetUserHandler()).provider()
+    provider = Services(GetUserHandler())
     mediator = Mediator(provider)
 
     response = await mediator.send(GetUserRequest(user_id=1))

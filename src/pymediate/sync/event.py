@@ -50,9 +50,8 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
                 def __call__(self, event: OrderPlaced) -> None:
                     print(f"recording order {event.order_id}")
 
-            services = Services()
-            services.add(SendConfirmation()).add(UpdateAnalytics())
-            mediator = Mediator(services.provider())
+            services = Services(SendConfirmation(), UpdateAnalytics())
+            mediator = Mediator(services)
 
             mediator.publish(OrderPlaced(order_id=42, item="tea"))
             # confirming order 42

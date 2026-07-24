@@ -42,7 +42,7 @@ class Handler2(RequestHandler[Request2]):
 
 
 async def main() -> None:
-    provider = Services().add(Handler1()).add(Handler2()).provider()
+    provider = Services(Handler1(), Handler2())
     mediator = Mediator(provider)
 
     # Type inference with asyncio.gather()

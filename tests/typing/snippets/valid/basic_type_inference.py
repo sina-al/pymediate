@@ -24,7 +24,7 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
 
 
 # Setup
-provider = Services().add(GetUserHandler()).provider()
+provider = Services(GetUserHandler())
 mediator = Mediator(provider)
 
 # Type inference test

@@ -29,7 +29,7 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
         return UserResponse(user_id=request.user_id, username="alice")
 
 
-provider = Services().add(GetUserHandler()).provider()
+provider = Services(GetUserHandler())
 mediator = Mediator(provider)
 
 request = GetUserRequest(user_id=1)

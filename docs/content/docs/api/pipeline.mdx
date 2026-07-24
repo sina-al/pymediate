@@ -115,12 +115,9 @@ pipeline explicitly with `Mediator`'s `behaviors` argument - an ordered sequence
 classes, first entry outermost:
 
 ```python
-services = Services()
-services.add(LoggingBehavior())
-services.add(TracePlaceOrder())
-services.add(PlaceOrderHandler())
+services = Services(LoggingBehavior(), TracePlaceOrder(), PlaceOrderHandler())
 
-mediator = Mediator(services.provider(), behaviors=[LoggingBehavior, TracePlaceOrder])
+mediator = Mediator(services, behaviors=[LoggingBehavior, TracePlaceOrder])
 ```
 
 A behavior registered with the provider but left out of `behaviors` is not part of the pipeline;

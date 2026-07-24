@@ -47,14 +47,15 @@ def build_mediator(
 
     sender = LateBoundSender()
 
-    services = Services()
-    services.add(ReserveStockHandler(warehouse, journal))
-    services.add(ChargePaymentHandler(gateway, journal))
-    services.add(OrderConfirmation(journal))
-    services.add(SalesAnalytics(journal))
-    services.add(PlaceOrderHandler(sender, journal))  # depends on the sender, not the mediator
+    services = Services(
+        ReserveStockHandler(warehouse, journal),
+        ChargePaymentHandler(gateway, journal),
+        OrderConfirmation(journal),
+        SalesAnalytics(journal),
+        PlaceOrderHandler(sender, journal),  # depends on the sender, not the mediator
+    )
 
-    mediator = Mediator(services.provider())
+    mediator = Mediator(services)
     sender.bind(mediator)  # subsequent sender calls now forward to this mediator
     return mediator
 

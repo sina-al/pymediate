@@ -131,6 +131,19 @@ Static type checkers catch some of the same mistakes. Definition-time validation
 unchecked Python imports the module. See [type safety](/docs/guide/type-safety) for the boundary
 between those checks.
 
+## Understand wiring-time errors
+
+Two errors report a service collection or pipeline that cannot work, and both raise while the
+application is being wired rather than during a dispatch:
+
+| Exception | Meaning |
+| --- | --- |
+| `ServiceAlreadyRegisteredError` | `Services(...)` received two instances of one concrete type, so only the first could be resolved. Combine collections with `\|` to replace a service deliberately. |
+| `InvalidPipelineBehaviorsError` | A `behaviors=` entry is not a `PipelineBehavior` subclass of the mediator's variant, is not registered with the provider, or is listed twice. |
+
+Both inherit from `PyMediateError`, and both fail before the mediator can be used, so a
+misconfigured wiring never reaches a request.
+
 ## Understand dispatch-time errors
 
 Two public errors describe missing resolution configuration:

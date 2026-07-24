@@ -34,7 +34,7 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
         return next()
 
 
-provider = Services().add(LoggingBehavior()).add(CreateUserHandler()).provider()
+provider = Services(LoggingBehavior(), CreateUserHandler())
 mediator = Mediator(provider, behaviors=[LoggingBehavior])
 
 request = CreateUserRequest(username="alice")

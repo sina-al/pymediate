@@ -48,9 +48,8 @@ def test_sync_handler_defines_and_dispatches_under_future_annotations() -> None:
     assert CreateUserHandler._request_type is CreateUser
     assert CreateUserHandler._response_type is UserCreated
 
-    services = Services()
-    services.add(CreateUserHandler())
-    mediator = Mediator(services.provider())
+    services = Services(CreateUserHandler())
+    mediator = Mediator(services)
 
     assert mediator.send(CreateUser(name="alice")) == UserCreated(user_id=1)
 
@@ -60,9 +59,8 @@ def test_async_handler_defines_and_dispatches_under_future_annotations() -> None
         async def __call__(self, request: CreateUser) -> UserCreated:
             return UserCreated(user_id=2)
 
-    services = Services()
-    services.add(CreateUserHandler())
-    mediator = AsyncMediator(services.provider())
+    services = Services(CreateUserHandler())
+    mediator = AsyncMediator(services)
 
     assert asyncio.run(mediator.send(CreateUser(name="bob"))) == UserCreated(user_id=2)
 
@@ -97,9 +95,8 @@ def test_event_handler_defines_and_publishes_under_future_annotations() -> None:
         def __call__(self, event: UserRegistered) -> None:
             calls.append(event.user_id)
 
-    services = Services()
-    services.add(WelcomeSubscriber())
-    mediator = Mediator(services.provider())
+    services = Services(WelcomeSubscriber())
+    mediator = Mediator(services)
 
     mediator.publish(UserRegistered(user_id=7))
     assert calls == [7]

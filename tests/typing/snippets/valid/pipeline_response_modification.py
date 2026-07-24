@@ -39,7 +39,7 @@ class ProcessingBehavior(PipelineBehavior[ProcessRequest]):
         return response
 
 
-provider = Services().add(ProcessingBehavior()).add(ProcessHandler()).provider()
+provider = Services(ProcessingBehavior(), ProcessHandler())
 mediator = Mediator(provider, behaviors=[ProcessingBehavior])
 
 response = mediator.send(ProcessRequest(data="test"))

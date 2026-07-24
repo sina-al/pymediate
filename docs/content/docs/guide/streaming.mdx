@@ -59,8 +59,8 @@ async def main() -> None:
         OrderLine(order_id=42, item="tea", quantity=2),
         OrderLine(order_id=42, item="coffee", quantity=1),
     )
-    services = Services().add(ReadOrderLinesHandler(rows))
-    mediator = Mediator(services.provider())
+    services = Services(ReadOrderLinesHandler(rows))
+    mediator = Mediator(services)
 
     async for line in mediator.stream(ReadOrderLines(order_id=42)):
         print(line.item, line.quantity)

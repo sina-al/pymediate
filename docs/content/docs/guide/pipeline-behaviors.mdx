@@ -146,13 +146,10 @@ outermost:
 from pymediate import Mediator, Services
 
 services = (
-    Services()
-    .add(RequestLogging())
-    .add(ValidatePlaceOrder())
-    .add(PlaceOrderHandler())
+    Services(RequestLogging(), ValidatePlaceOrder(), PlaceOrderHandler())
 )
 mediator = Mediator(
-    services.provider(),
+    services,
     behaviors=[RequestLogging, ValidatePlaceOrder],  # RequestLogging outermost
 )
 ```

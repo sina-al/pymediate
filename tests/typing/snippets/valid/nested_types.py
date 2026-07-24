@@ -46,7 +46,7 @@ class GetCustomerDetailsHandler(RequestHandler[GetCustomerDetailsRequest]):
 
 
 # Usage
-provider = Services().add(GetCustomerDetailsHandler()).provider()
+provider = Services(GetCustomerDetailsHandler())
 mediator = Mediator(provider)
 
 request = GetCustomerDetailsRequest(customer_id=1)

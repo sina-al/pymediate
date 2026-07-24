@@ -33,9 +33,8 @@ async def test_async_mediator_without_behaviors() -> None:
             await asyncio.sleep(0.001)
             return UserResponse(user_id=1, username=request.username)
 
-    services = Services()
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider)
     response = await mediator.send(CreateUserRequest(username="alice"))
@@ -71,10 +70,8 @@ async def test_async_mediator_with_single_behavior() -> None:
             log.append("logging:after")
             return response
 
-    services = Services()
-    services.add(AsyncLoggingBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncLoggingBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncLoggingBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
@@ -118,11 +115,8 @@ async def test_async_mediator_with_multiple_behaviors() -> None:
             log.append("timing:after")
             return response
 
-    services = Services()
-    services.add(AsyncLoggingBehavior())
-    services.add(AsyncTimingBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncLoggingBehavior(), AsyncTimingBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncLoggingBehavior, AsyncTimingBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
@@ -161,10 +155,8 @@ async def test_async_mediator_behaviors_can_modify_response() -> None:
             response.username = response.username + "_modified"
             return response
 
-    services = Services()
-    services.add(AsyncResponseModifyingBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncResponseModifyingBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncResponseModifyingBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
@@ -197,10 +189,8 @@ async def test_async_mediator_behavior_can_short_circuit() -> None:
             # Don't call next - return early
             return UserResponse(user_id=-1, username="short-circuited")
 
-    services = Services()
-    services.add(AsyncShortCircuitBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncShortCircuitBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncShortCircuitBehavior])
     response = await mediator.send(CreateUserRequest(username="alice"))
@@ -235,10 +225,8 @@ async def test_async_mediator_validation_behavior() -> None:
                 raise ValueError("Username cannot be empty")
             return await next()
 
-    services = Services()
-    services.add(AsyncValidationBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncValidationBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncValidationBehavior])
 
@@ -278,11 +266,8 @@ async def test_async_mediator_behaviors_are_stateful() -> None:
             await asyncio.sleep(0.001)
             return await next()
 
-    services = Services()
     counter = AsyncStatefulBehavior()
-    services.add(counter)
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    provider = Services(counter, AsyncCreateUserHandler())
 
     mediator = Mediator(provider, behaviors=[AsyncStatefulBehavior])
 
@@ -316,10 +301,8 @@ async def test_async_mediator_behavior_exception_propagates() -> None:
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             raise RuntimeError("Async behavior error")
 
-    services = Services()
-    services.add(AsyncExceptionBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncExceptionBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncExceptionBehavior])
 
@@ -352,10 +335,8 @@ async def test_async_mediator_behavior_can_wrap_handler_exception() -> None:
                 # Return fallback response
                 return UserResponse(user_id=-1, username="error")
 
-    services = Services()
-    services.add(AsyncExceptionHandlingBehavior())
-    services.add(AsyncFailingHandler())
-    provider = services.provider()
+    services = Services(AsyncExceptionHandlingBehavior(), AsyncFailingHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncExceptionHandlingBehavior])
     response = await mediator.send(FailingRequest(username="alice"))
@@ -392,10 +373,8 @@ async def test_async_mediator_concurrent_requests_with_behaviors() -> None:
             log.append("logging:after")
             return response
 
-    services = Services()
-    services.add(AsyncLoggingBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncLoggingBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     mediator = Mediator(provider, behaviors=[AsyncLoggingBehavior])
 
@@ -448,11 +427,8 @@ async def test_async_mediator_behaviors_order_follows_behaviors_list_not_registr
             log.append("timing:after")
             return response
 
-    services = Services()
-    services.add(AsyncLoggingBehavior())
-    services.add(AsyncTimingBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncLoggingBehavior(), AsyncTimingBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     # Registration order (Logging, Timing) is reversed by behaviors=.
     mediator = Mediator(provider, behaviors=[AsyncTimingBehavior, AsyncLoggingBehavior])
@@ -487,9 +463,8 @@ async def test_async_mediator_rejects_behavior_not_registered_with_provider() ->
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             return await next()
 
-    services = Services()
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncCreateUserHandler())
+    provider = services
 
     with pytest.raises(InvalidPipelineBehaviorsError, match="not registered"):
         Mediator(provider, behaviors=[AsyncUnregisteredBehavior])
@@ -515,9 +490,8 @@ async def test_async_mediator_rejects_behavior_entry_not_a_pipeline_behavior_sub
     class NotABehavior:
         pass
 
-    services = Services()
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncCreateUserHandler())
+    provider = services
 
     with pytest.raises(InvalidPipelineBehaviorsError, match="subclass"):
         Mediator(provider, behaviors=[NotABehavior])  # type: ignore[list-item]
@@ -544,10 +518,8 @@ async def test_async_mediator_rejects_duplicate_behavior_in_behaviors_list() -> 
         async def __call__(self, request, next):  # type: ignore[no-untyped-def]
             return await next()
 
-    services = Services()
-    services.add(AsyncLoggingBehavior())
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(AsyncLoggingBehavior(), AsyncCreateUserHandler())
+    provider = services
 
     with pytest.raises(InvalidPipelineBehaviorsError, match="more than once"):
         Mediator(provider, behaviors=[AsyncLoggingBehavior, AsyncLoggingBehavior])
@@ -577,10 +549,11 @@ async def test_async_mediator_registered_but_unlisted_behavior_does_not_run() ->
             log.append("logging")
             return await next()
 
-    services = Services()
-    services.add(AsyncLoggingBehavior())  # registered...
-    services.add(AsyncCreateUserHandler())
-    provider = services.provider()
+    services = Services(
+        AsyncLoggingBehavior(),  # registered...
+        AsyncCreateUserHandler(),
+    )
+    provider = services
 
     mediator = Mediator(provider)  # ...but not listed in behaviors=
     await mediator.send(CreateUserRequest(username="alice"))

@@ -77,7 +77,7 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 
 
 async def main() -> None:
-    mediator = Mediator(Services().add(PlaceOrderHandler()).provider())
+    mediator = Mediator(Services(PlaceOrderHandler()))
     receipt = await mediator.send(
         PlaceOrder(customer_id=7, item="tea", quantity=2),
     )
