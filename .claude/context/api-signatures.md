@@ -83,7 +83,7 @@ class PipelineBehavior(ABC):
 ### `pymediate.service`
 
 ```python
-class ServiceNotFoundError(Exception):
+class ServiceNotFoundError(KeyError):
     """Raised when a requested service type is not registered."""
     def __init__(self, service_type: type, available_types: list[type]) -> None:
         """Create the error for a service type that has no registered instance."""
@@ -91,10 +91,10 @@ class ServiceNotFoundError(Exception):
 
 class ServiceProvider(Protocol):
     """Protocol for resolving registered service instances."""
-    def get(self, service_type: type[ServiceT]) -> ServiceT:
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type."""
         ...
-    def has(self, service_type: type) -> bool:
+    def __contains__(self, service_type: type) -> bool:
         """Check whether any instance of the exact type is registered."""
         ...
 
@@ -180,10 +180,10 @@ class DependencyInjectorServiceProvider(ServiceProvider):
     def __init__(self, container: containers.Container) -> None:
         """Index services declared by a Dependency Injector container."""
         ...
-    def get(self, service_type: type[ServiceT]) -> ServiceT:
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
         """Get the first registered instance of the exact type."""
         ...
-    def has(self, service_type: type[Any]) -> bool:
+    def __contains__(self, service_type: type[Any]) -> bool:
         """Check whether any instance of the exact type is registered."""
         ...
 ```

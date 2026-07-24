@@ -1,4 +1,4 @@
-"""ServiceProvider.get() returns correctly typed handler - should pass mypy."""
+"""ServiceProvider.__getitem__ returns correctly typed handler - should pass mypy."""
 
 from dataclasses import dataclass
 from typing import override
@@ -26,7 +26,7 @@ class GetUserHandler(RequestHandler[GetUserRequest]):
 provider = Services().add(GetUserHandler()).provider()
 
 # ServiceProvider should return correctly typed handler
-handler = provider.get(GetUserHandler)
+handler = provider[GetUserHandler]
 
 # Mypy should know handler accepts GetUserRequest and returns UserResponse
 request = GetUserRequest(user_id=1)

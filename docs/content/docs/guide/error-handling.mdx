@@ -150,8 +150,9 @@ class. If the provider does not contain one, it raises `ServiceNotFoundError`. E
 raises the same error when a declared subscriber has no service instance; all subscriber instances
 are resolved before any subscriber runs.
 
-`ServiceNotFoundError` inherits directly from `Exception`, not `PyMediateError`. Catching
-`PyMediateError` therefore does not catch missing services.
+`ServiceNotFoundError` inherits from `KeyError` — the miss surfaces through the `provider[type]`
+subscript, so `except KeyError` catches it — not from `PyMediateError`. Catching `PyMediateError`
+therefore does not catch missing services.
 
 Both errors normally indicate application setup rather than invalid user input. An entry point can
 log them as configuration failures while allowing application errors to use their own mappings.

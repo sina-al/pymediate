@@ -58,8 +58,8 @@ def test_singleton_repository_is_shared(container: AppContainer, mediator: Media
 def test_factory_handlers_share_the_singleton(container: AppContainer) -> None:
     provider = DependencyInjectorServiceProvider(container)
 
-    first = provider.get(RegisterUserHandler)
-    second = provider.get(RegisterUserHandler)
+    first = provider[RegisterUserHandler]
+    second = provider[RegisterUserHandler]
 
     # Factory providers build a fresh handler per resolution...
     assert first is not second
