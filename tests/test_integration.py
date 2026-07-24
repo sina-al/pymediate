@@ -32,10 +32,8 @@ def test_complete_workflow() -> None:
             return UserCreatedResponse(user_id, request.username)
 
     # Set up mediator
-    services = Services()
-    services.add(CreateUserHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(CreateUserHandler())
+    mediator = Mediator(services)
 
     # Execute request
     request = CreateUserRequest("alice", "alice@example.com")
@@ -86,11 +84,8 @@ def test_multiple_request_types_workflow() -> None:
             return OrderResponse(order_id, total)
 
     # Set up
-    services = Services()
-    services.add(GetUserHandler())
-    services.add(CreateOrderHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(GetUserHandler(), CreateOrderHandler())
+    mediator = Mediator(services)
 
     # Execute multiple requests
     user = mediator.send(GetUserRequest(42))
@@ -162,11 +157,8 @@ def test_handler_composition() -> None:
             return PostCreatedResponse(post_id, user_name)
 
     # Set up
-    services = Services()
-    services.add(CreateUserHandler())
-    services.add(CreatePostHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(CreateUserHandler(), CreatePostHandler())
+    mediator = Mediator(services)
 
     # Create user first
     user_response = mediator.send(CreateUserRequest("Bob"))
@@ -222,21 +214,16 @@ def test_resolver_switching() -> None:
         def __call__(self, request: Req) -> Resp:
             return Resp(self.source)
 
-    # Create two service providers with different handler instances
-    services1 = Services()
-    services1.add(ReqHandler("handler1"))
-    provider1 = services1.provider()
+    # Two collections holding different handler instances for the same request type
+    services1 = Services(ReqHandler("handler1"))
+    services2 = Services(ReqHandler("handler2"))
 
-    services2 = Services()
-    services2.add(ReqHandler("handler2"))
-    provider2 = services2.provider()
-
-    # Use first service provider
-    mediator1 = Mediator(provider1)
+    # Use the first collection
+    mediator1 = Mediator(services1)
     resp1 = mediator1.send(Req())
     assert resp1.source == "handler1"
 
-    # Use second service provider
-    mediator2 = Mediator(provider2)
+    # Use the second collection
+    mediator2 = Mediator(services2)
     resp2 = mediator2.send(Req())
     assert resp2.source == "handler2"

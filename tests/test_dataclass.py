@@ -52,10 +52,8 @@ def test_basic_dataclass_with_pymediate() -> None:
             return UserResponse(user_id=user_id, username=request.username, email=request.email)
 
     handler = CreateUserHandler()
-    services = Services()
-    services.add(handler)
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(handler)
+    mediator = Mediator(services)
 
     request = CreateUserRequest(username="alice", email="alice@example.com")
     response = mediator.send(request)
@@ -108,15 +106,11 @@ def test_dataclass_request_inheritance() -> None:
         def __call__(self, request: ExtendedRequest) -> ExtendedResponse:
             return ExtendedResponse(status="ok", data=request.payload)
 
-    services = Services()
     base_handler = BaseHandler()
     extended_handler = ExtendedHandler()
 
-    services.add(base_handler)
-    services.add(extended_handler)
-
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(base_handler, extended_handler)
+    mediator = Mediator(services)
 
     base_response = mediator.send(BaseRequest(action="test"))
     assert base_response.status == "ok"
@@ -161,11 +155,8 @@ def test_multiple_dataclass_requests_same_response() -> None:
         def __call__(self, request: RequestB) -> StatusResponse:
             return StatusResponse(result=f"B:{request.value_b}")
 
-    services = Services()
-    services.add(HandlerA())
-    services.add(HandlerB())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(HandlerA(), HandlerB())
+    mediator = Mediator(services)
 
     resp_a = mediator.send(RequestA(value_a="test"))
     resp_b = mediator.send(RequestB(value_b=42))
@@ -206,10 +197,8 @@ def test_dataclass_with_mixin() -> None:
         def __call__(self, request: TimestampedRequest) -> TimestampedResponse:
             return TimestampedResponse(value=len(request.data), timestamp=request.get_timestamp())
 
-    services = Services()
-    services.add(TimestampedHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(TimestampedHandler())
+    mediator = Mediator(services)
 
     request = TimestampedRequest(data="test")
     response = mediator.send(request)
@@ -292,10 +281,8 @@ def test_empty_dataclasses() -> None:
         def __call__(self, request: EmptyRequest) -> EmptyResponse:
             return EmptyResponse()
 
-    services = Services()
-    services.add(EmptyHandler())
-    provider = services.provider()
-    mediator = Mediator(provider)
+    services = Services(EmptyHandler())
+    mediator = Mediator(services)
 
     response = mediator.send(EmptyRequest())
     assert isinstance(response, EmptyResponse)

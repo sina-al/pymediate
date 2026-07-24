@@ -11,7 +11,7 @@ Check which stage failed before changing the service configuration.
 | Error | Meaning | First check |
 | --- | --- | --- |
 | `HandlerNotFoundError` | No handler class is registered for the exact request type | Was the module that defines the handler imported? |
-| `ServiceNotFoundError` | A handler class is registered, but the provider cannot supply its instance | Was the instance added before `Services.provider()`? |
+| `ServiceNotFoundError` | A handler class is registered, but the provider cannot supply its instance | Was the instance added before `Services`? |
 | `HandlerAlreadyRegisteredError` | A second request or stream handler class was defined for one request type | Search for both class definitions or duplicate imports |
 | `ExceptionGroup` from `publish()` | One or more event handlers raised | Inspect the grouped exceptions with `except*` |
 
@@ -37,11 +37,10 @@ raises `ServiceNotFoundError`, not `HandlerNotFoundError`.
 
 ### `ServiceNotFoundError`
 
-`Services.provider()` returns a snapshot. Add all handler instances to `Services`, then call
-`.provider()`, and then pass that provider to `Mediator`. Instances added to the collection
-after the provider is created are not visible through that provider. With
-`DependencyInjectorServiceProvider`, check that the container declares a provider whose
-resolved type is the exact handler class.
+Pass every handler instance to `Services(...)` and hand that collection to `Mediator`.
+Resolution is by exact type, so a handler registered as a subclass does not satisfy a request
+for its base class. With `DependencyInjectorServiceProvider`, check that the container declares
+a provider whose resolved type is the exact handler class.
 
 Publishing resolves every subscriber instance before any handler runs. One missing event
 handler instance therefore raises `ServiceNotFoundError` and prevents partial delivery.
@@ -64,6 +63,21 @@ request types when the operations have different contracts. Event handlers are d
 several `EventHandler` classes may subscribe to one event type.
 
 ## Construction errors
+
+### `ServiceAlreadyRegisteredError`
+
+`Services(...)` received two instances of the same concrete type. Only one instance per exact type
+is resolvable, so the second could never be reached.
+
+Check that:
+
+1. no handler or behavior instance is passed twice — a `Services(*handlers, *behaviors)` call can
+   repeat one if a class appears in both lists; and
+2. two distinct services really do have distinct types. Two instances of one class configured
+   differently cannot both be resolved; give them separate classes if both must be.
+
+To replace a service on purpose — swapping a fake into a production wiring for a test — combine
+two collections with `|` instead. The right operand wins, and a shared type is not an error there.
 
 ### `InvalidPipelineBehaviorsError`
 

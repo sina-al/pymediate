@@ -37,8 +37,8 @@ Examples:
             )
 
     async def main() -> None:
-        services = Services().add(PlaceOrderHandler())
-        mediator = Mediator(services=services.provider())
+        services = Services(PlaceOrderHandler())
+        mediator = Mediator(services=services)
 
         receipt = await mediator.send(
             PlaceOrder(customer_id=7, item="tea", quantity=2),
@@ -63,6 +63,7 @@ from .errors import (
     InvalidStreamRequestTypeError,
     PyMediateError,
     ResponseTypeMismatchError,
+    ServiceAlreadyRegisteredError,
 )
 from .event import Event, EventHandler
 from .handler import RequestHandler
@@ -93,6 +94,7 @@ __all__ = [
     "PyMediateError",
     "HandlerNotFoundError",
     "HandlerAlreadyRegisteredError",
+    "ServiceAlreadyRegisteredError",
     "InvalidHandlerSignatureError",
     "InvalidPipelineBehaviorsError",
     "InvalidRequestTypeError",

@@ -64,13 +64,19 @@ The mediator selects matching behaviors for each request with `isinstance()`.
 
 ## Control order and stop execution
 
-**Registration order is execution order** — first registered is outermost:
+**The `behaviors=` order is execution order** — the first entry is outermost. Registering an
+instance with `Services` makes it resolvable; `behaviors=` is what puts it in the pipeline:
 
 ```python
-services.add(LoggingBehavior(trace))          # 1. outermost — sees every request
-services.add(AuthorizationBehavior(principal, trace))  # 2. commands only
-services.add(CachingBehavior(cache, trace))   # 3. queries only; may short-circuit
-services.add(TransactionBehavior(trace))      # 4. innermost — commands only
+Mediator(
+    services,
+    behaviors=[
+        LoggingBehavior,        # 1. outermost — sees every request
+        AuthorizationBehavior,  # 2. commands only
+        CachingBehavior,        # 3. queries only; may short-circuit
+        TransactionBehavior,    # 4. innermost — commands only
+    ],
+)
 ```
 
 `next()` is the rest of the pipeline. A behavior that returns **without** calling it

@@ -9,7 +9,7 @@ Signatures-only blueprint of pymediate's public API. Full docstrings, guides, an
 ### `pymediate`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, ServiceAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.request`
@@ -92,25 +92,25 @@ class ServiceNotFoundError(KeyError):
 class ServiceProvider(Protocol):
     """Protocol for resolving registered service instances."""
     def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
-        """Get the first registered instance of the exact type."""
+        """Get the registered instance of the exact type."""
         ...
     def __contains__(self, service_type: type) -> bool:
-        """Check whether any instance of the exact type is registered."""
+        """Check whether an instance of the exact type is registered."""
         ...
 
-class Services:
-    """Mutable collection for registering service instances."""
-    def __init__(self) -> None:
-        """Create an empty service collection."""
+class Services(ServiceProvider):
+    """Immutable collection of service instances, keyed by their exact type."""
+    def __init__(self, *instances: object) -> None:
+        """Create a collection holding the given service instances."""
         ...
-    def add(self, instance: object) -> Services:
-        """Register a service instance."""
+    def __getitem__(self, service_type: type[ServiceT]) -> ServiceT:
+        """Get the registered instance of the exact type."""
         ...
-    def provider(self) -> ServiceProvider:
-        """Build an immutable ServiceProvider from the currently registered services."""
+    def __contains__(self, service_type: type) -> bool:
+        """Check whether an instance of the exact type is registered."""
         ...
-    def clear(self) -> None:
-        """Remove all registered services from this collection."""
+    def __or__(self, other: Services) -> Services:
+        """Combine two collections, letting the right operand win on shared types."""
         ...
 ```
 
@@ -170,6 +170,12 @@ class InvalidPipelineBehaviorsError(PyMediateError):
     def __init__(self, entry: object, issue: str):
         """Initialize the error for one invalid ``behaviors`` entry."""
         ...
+
+class ServiceAlreadyRegisteredError(PyMediateError):
+    """Raised when one ``Services`` construction receives two instances of a type."""
+    def __init__(self, service_type: type):
+        """Initialize the error for a service type passed more than once."""
+        ...
 ```
 
 ### `pymediate.providers.dependency_injector`
@@ -191,7 +197,7 @@ class DependencyInjectorServiceProvider(ServiceProvider):
 ### `pymediate.sync`
 
 ```python
-# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
+# Re-exports: Request, RequestHandler, Mediator, Event, EventHandler, StreamRequest, StreamRequestHandler, ServiceProvider, Services, ServiceNotFoundError, PipelineBehavior, Next, PyMediateError, HandlerNotFoundError, HandlerAlreadyRegisteredError, ServiceAlreadyRegisteredError, InvalidHandlerSignatureError, InvalidPipelineBehaviorsError, InvalidRequestTypeError, InvalidEventTypeError, InvalidStreamRequestTypeError, ResponseTypeMismatchError
 ```
 
 ### `pymediate.sync.event`

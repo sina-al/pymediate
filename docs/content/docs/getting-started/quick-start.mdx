@@ -40,8 +40,8 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
 
 
 async def main() -> None:
-    services = Services().add(PlaceOrderHandler())
-    mediator = Mediator(services.provider())
+    services = Services(PlaceOrderHandler())
+    mediator = Mediator(services)
 
     receipt = await mediator.send(
         PlaceOrder(customer_id=7, item="tea", quantity=2),
@@ -81,11 +81,11 @@ The [introduction's type guide](/docs#how-to-read-the-types) shows these relatio
 These two lines create the mediator:
 
 ```python
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler())
+mediator = Mediator(services)
 ```
 
-`Services` contains the handler instance. Calling `provider()` creates the read-only `ServiceProvider` that the mediator uses for resolution.
+`Services` holds the handler instance and is itself the read-only `ServiceProvider` the mediator uses for resolution, so it is passed straight to `Mediator`.
 
 Sending the request then follows four steps:
 

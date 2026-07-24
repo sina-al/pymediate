@@ -25,8 +25,8 @@ class MyHandler(RequestHandler[MyRequest]):
 
 
 async def main() -> None:
-    provider = Services().add(MyHandler()).provider()
-    mediator = Mediator(provider)
+    services = Services(MyHandler())
+    mediator = Mediator(services)
 
     # ERROR: Missing await - returns coroutine, not Response
     mediator.send(MyRequest(data=10))

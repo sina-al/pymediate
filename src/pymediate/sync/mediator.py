@@ -49,8 +49,8 @@ class Mediator(MediatorMixin):
                         summary=f"{request.quantity} × {request.item}",
                     )
 
-            services = Services().add(PlaceOrderHandler())
-            mediator = Mediator(services=services.provider())
+            services = Services(PlaceOrderHandler())
+            mediator = Mediator(services=services)
 
             receipt = mediator.send(
                 PlaceOrder(customer_id=7, item="tea", quantity=2),

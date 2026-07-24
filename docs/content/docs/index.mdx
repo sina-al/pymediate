@@ -45,8 +45,8 @@ Register a handler instance, create a mediator, and send the request:
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler())
+mediator = Mediator(services)
 
 receipt = await mediator.send(
     PlaceOrder(customer_id=7, item="tea", quantity=2),

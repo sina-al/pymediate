@@ -325,3 +325,34 @@ class InvalidPipelineBehaviorsError(PyMediateError):
         super().__init__(
             message, docs_path="docs/guide/troubleshooting#invalidpipelinebehaviorserror"
         )
+
+
+class ServiceAlreadyRegisteredError(PyMediateError):
+    """Raised when one ``Services`` construction receives two instances of a type.
+
+    ``Services`` holds one instance per exact type, so a repeated type means only
+    the first instance could ever be resolved. Combining two collections with
+    ``|`` is the supported way to replace a service: the right operand wins.
+    """
+
+    def __init__(self, service_type: type):
+        """Initialize the error for a service type passed more than once.
+
+        Args:
+            service_type: The type that was passed more than once.
+        """
+        self.service_type = service_type
+
+        message = (
+            f"Service of type '{service_type.__name__}' was registered more than once\n\n"
+            "Services(...) holds one instance per exact type, so only the first\n"
+            "instance of this type could ever be resolved.\n\n"
+            "Solutions:\n"
+            "  1. Pass one instance of each type\n"
+            "  2. Replace a service deliberately with `left | right` - the right side wins\n"
+            "  3. Use distinct types when both instances need to be resolvable\n"
+        )
+
+        super().__init__(
+            message, docs_path="docs/guide/troubleshooting#servicealreadyregisterederror"
+        )

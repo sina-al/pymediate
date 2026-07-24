@@ -18,8 +18,8 @@ class CountHandler(StreamRequestHandler[Count]):
         yield from range(request.n)
 
 
-provider = Services().add(CountHandler()).provider()
-mediator = Mediator(provider)
+services = Services(CountHandler())
+mediator = Mediator(services)
 
 # ERROR: send takes a Request; a StreamRequest is dispatched with stream()
 mediator.send(Count(n=3))

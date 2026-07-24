@@ -89,5 +89,4 @@ uv run pytest tests/typing/test_basedpyright.py -v
 2. For `errors/`, add its expected diagnostics to both tables in `expectations.py`
    (`TestExpectationsCoverCorpus` fails until you do).
 3. For `valid/`, keep it warning-free under based `recommended` (use `@override` on handler
-   and behavior `__call__` overrides, consume `Services.add(...)` results — chain into
-   `.provider()`) and make sure it actually runs.
+   and behavior `__call__` overrides) and make sure it actually runs.

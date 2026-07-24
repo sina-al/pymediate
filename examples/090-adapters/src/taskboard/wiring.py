@@ -13,8 +13,9 @@ from .handlers import AddTaskHandler, CompleteTaskHandler, ListOpenTasksHandler
 def build_mediator(store: TaskStore | None = None) -> Mediator:
     """Wire a mediator: register one handler instance per request type."""
     store = store if store is not None else TaskStore()
-    services = Services()
-    services.add(AddTaskHandler(store))
-    services.add(CompleteTaskHandler(store))
-    services.add(ListOpenTasksHandler(store))
-    return Mediator(services.provider())
+    services = Services(
+        AddTaskHandler(store),
+        CompleteTaskHandler(store),
+        ListOpenTasksHandler(store),
+    )
+    return Mediator(services)

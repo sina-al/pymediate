@@ -54,9 +54,8 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
         )
 
 
-services = Services()
-services.add(PlaceOrderHandler(prices={"tea": 450, "coffee": 700}))
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler(prices={"tea": 450, "coffee": 700}))
+mediator = Mediator(services)
 
 
 def get_mediator() -> Mediator:
@@ -139,9 +138,9 @@ Handlers that keep mutable state, database sessions, or other request-scoped res
 lifetime appropriate to those dependencies. FastAPI's dependency scopes or lifespan context
 can construct and close those resources.
 
-Add every service before calling `Services.provider()` because the provider is a snapshot. A
-dependency-injection container can replace `Services` when the application already uses one;
-see [dependency injection](/docs/guide/dependency-injection).
+Pass every service to `Services(...)` in one construction; the collection is immutable
+afterwards. A dependency-injection container can replace `Services` when the application already
+uses one; see [dependency injection](/docs/guide/dependency-injection).
 
 ## Synchronous routes
 

@@ -28,10 +28,11 @@ def build_mediator(
     readings = readings if readings is not None else []
     journal = journal if journal is not None else []
 
-    services = Services()
-    services.add(GetForecastHandler(WeatherSource(), cache, journal))
-    services.add(SubmitReadingHandler(readings, journal))
-    return Mediator(services.provider())
+    services = Services(
+        GetForecastHandler(WeatherSource(), cache, journal),
+        SubmitReadingHandler(readings, journal),
+    )
+    return Mediator(services)
 
 
 async def main() -> None:

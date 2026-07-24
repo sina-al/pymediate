@@ -274,12 +274,11 @@ handler = CreateOrderExportHandler(
     destination=DownloadFiles(storage_client),
 )
 
-mediator = Mediator(Services().add(handler).provider())
+mediator = Mediator(Services(handler))
 ```
 
-`Services.add()` permits repeated service types; the built-in provider returns the first exact
-match when the mediator asks for one handler instance. If no instance is available, dispatch fails
-with a configuration error.
+`Services` holds one instance per exact type, and returns that match when the mediator asks
+for one handler instance. If no instance is available, dispatch fails with a configuration error.
 
 The call site preserves the declared response type:
 

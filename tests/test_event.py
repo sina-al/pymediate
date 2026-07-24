@@ -65,9 +65,8 @@ def test_publish_invokes_all_handlers_in_registration_order() -> None:
         def __call__(self, event: OrderPlaced) -> None:
             calls.append(f"analytics:{event.order_id}")
 
-    services = Services()
-    services.add(SendConfirmation()).add(UpdateAnalytics())
-    mediator = Mediator(services.provider())
+    services = Services(SendConfirmation(), UpdateAnalytics())
+    mediator = Mediator(services)
 
     mediator.publish(OrderPlaced(order_id=42))
 
@@ -80,7 +79,7 @@ def test_publish_with_zero_handlers_is_a_no_op() -> None:
     class NobodyListens(Event):
         pass
 
-    mediator = Mediator(Services().provider())
+    mediator = Mediator(Services())
     mediator.publish(NobodyListens())  # Must not raise.
 
 
@@ -101,9 +100,8 @@ def test_publish_dispatches_on_exact_event_type() -> None:
         def __call__(self, event: OrderPlaced) -> None:
             calls.append(event.order_id)
 
-    services = Services()
-    services.add(BaseSubscriber())
-    mediator = Mediator(services.provider())
+    services = Services(BaseSubscriber())
+    mediator = Mediator(services)
 
     mediator.publish(RushOrderPlaced(order_id=1))
 
@@ -132,9 +130,8 @@ def test_publish_runs_all_handlers_and_raises_exception_group() -> None:
             ran.append("third")
             raise ConnectionError("third failed")
 
-    services = Services()
-    services.add(FailsFirst()).add(StillRuns()).add(FailsLast())
-    mediator = Mediator(services.provider())
+    services = Services(FailsFirst(), StillRuns(), FailsLast())
+    mediator = Mediator(services)
 
     with pytest.raises(ExceptionGroup) as excinfo:
         mediator.publish(Boom())
@@ -154,9 +151,8 @@ def test_publish_exception_group_supports_except_star() -> None:
         def __call__(self, event: Boom) -> None:
             raise ValueError("boom")
 
-    services = Services()
-    services.add(Fails())
-    mediator = Mediator(services.provider())
+    services = Services(Fails())
+    mediator = Mediator(services)
 
     caught: list[Exception] = []
     try:
@@ -183,9 +179,10 @@ def test_publish_fails_fast_when_a_handler_instance_is_missing() -> None:
         def __call__(self, event: HalfWired) -> None:
             ran.append("not-wired")
 
-    services = Services()
-    services.add(Wired())  # NotWired instance deliberately not registered.
-    mediator = Mediator(services.provider())
+    services = Services(
+        Wired(),  # NotWired instance deliberately not registered.
+    )
+    mediator = Mediator(services)
 
     with pytest.raises(ServiceNotFoundError):
         mediator.publish(HalfWired())

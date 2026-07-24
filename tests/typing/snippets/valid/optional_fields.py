@@ -28,8 +28,8 @@ class GetUserProfileHandler(RequestHandler[GetUserProfileRequest]):
 
 
 # Usage
-provider = Services().add(GetUserProfileHandler()).provider()
-mediator = Mediator(provider)
+services = Services(GetUserProfileHandler())
+mediator = Mediator(services)
 
 request = GetUserProfileRequest(user_id=1)
 response = mediator.send(request)

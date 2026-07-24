@@ -27,8 +27,8 @@ Examples:
                 summary=f"{request.quantity} × {request.item}",
             )
 
-    services = Services().add(PlaceOrderHandler())
-    mediator = Mediator(services=services.provider())
+    services = Services(PlaceOrderHandler())
+    mediator = Mediator(services=services)
     receipt = mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
     ```
 
@@ -47,6 +47,7 @@ from ..errors import (
     InvalidStreamRequestTypeError,
     PyMediateError,
     ResponseTypeMismatchError,
+    ServiceAlreadyRegisteredError,
 )
 from ..event import Event
 from ..request import Request
@@ -79,6 +80,7 @@ __all__ = [
     "PyMediateError",
     "HandlerNotFoundError",
     "HandlerAlreadyRegisteredError",
+    "ServiceAlreadyRegisteredError",
     "InvalidHandlerSignatureError",
     "InvalidPipelineBehaviorsError",
     "InvalidRequestTypeError",

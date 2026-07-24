@@ -29,8 +29,8 @@ class LoggingBehavior(PipelineBehavior[CreateUserRequest]):
         return next()
 
 
-provider = Services().add(LoggingBehavior()).add(CreateUserHandler()).provider()
-mediator = Mediator(provider, behaviors=[LoggingBehavior])
+services = Services(LoggingBehavior(), CreateUserHandler())
+mediator = Mediator(services, behaviors=[LoggingBehavior])
 
 request = CreateUserRequest(username="alice")
 response = mediator.send(request)

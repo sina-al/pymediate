@@ -91,13 +91,14 @@ def build_mediator(dashboard: Dashboard | None = None) -> Mediator:
     """Wire a mediator: three subscribers for TaskCompleted, none for TaskArchived."""
     dashboard = dashboard if dashboard is not None else Dashboard()
 
-    services = Services()
     # Register order is start order. The differing sleeps above mean they finish in a
     # different order — proof the mediator awaited them together, not one after another.
-    services.add(Notifier(dashboard))
-    services.add(StatsCounter(dashboard))
-    services.add(AuditLog(dashboard))
-    return Mediator(services.provider())
+    services = Services(
+        Notifier(dashboard),
+        StatsCounter(dashboard),
+        AuditLog(dashboard),
+    )
+    return Mediator(services)
 
 
 async def main() -> None:

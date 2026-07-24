@@ -54,10 +54,11 @@ def build_mediator(
     inventory = inventory if inventory is not None else InventoryService()
     audit = audit if audit is not None else AuditLog()
 
-    services = Services()
-    services.add(AuditBehavior(audit))
-    services.add(PlaceOrderHandler(store, payments, mailer, inventory))
-    services.add(CancelOrderHandler(store))
-    services.add(RefundOrderHandler(store, payments))
-    services.add(ExportOrdersHandler(store))
-    return Mediator(services.provider(), behaviors=[AuditBehavior])
+    services = Services(
+        AuditBehavior(audit),
+        PlaceOrderHandler(store, payments, mailer, inventory),
+        CancelOrderHandler(store),
+        RefundOrderHandler(store, payments),
+        ExportOrdersHandler(store),
+    )
+    return Mediator(services, behaviors=[AuditBehavior])

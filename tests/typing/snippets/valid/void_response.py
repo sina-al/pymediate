@@ -19,8 +19,8 @@ class DeleteUserHandler(RequestHandler[DeleteUserRequest]):
 
 
 # Usage
-provider = Services().add(DeleteUserHandler()).provider()
-mediator = Mediator(provider)
+services = Services(DeleteUserHandler())
+mediator = Mediator(services)
 
 request = DeleteUserRequest(user_id=1)
 response = mediator.send(request)

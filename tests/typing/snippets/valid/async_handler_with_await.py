@@ -32,8 +32,8 @@ class ProcessHandler(RequestHandler[ProcessRequest]):
 
 
 async def main() -> None:
-    provider = Services().add(ProcessHandler()).provider()
-    mediator = Mediator(provider)
+    services = Services(ProcessHandler())
+    mediator = Mediator(services)
 
     response = await mediator.send(ProcessRequest(data="test"))
     assert response.result == "TEST"

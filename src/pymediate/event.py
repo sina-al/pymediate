@@ -36,9 +36,8 @@ class Event:
                     print(f"confirming order {event.order_id}")
 
             async def main():
-                services = Services()
-                services.add(SendConfirmation())
-                mediator = Mediator(services.provider())
+                services = Services(SendConfirmation())
+                mediator = Mediator(services)
 
                 await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 
@@ -102,9 +101,8 @@ class EventHandler[EventT: Event](EventHandlerBaseMixin[EventT], ABC):
                     print(f"recording order {event.order_id}")
 
             async def main():
-                services = Services()
-                services.add(SendConfirmation()).add(UpdateAnalytics())
-                mediator = Mediator(services.provider())
+                services = Services(SendConfirmation(), UpdateAnalytics())
+                mediator = Mediator(services)
 
                 await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 

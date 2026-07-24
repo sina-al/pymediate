@@ -38,6 +38,5 @@ class LeakyGetProductHandler(RequestHandler[LeakyGetProduct]):
 
 def build_leaky_mediator() -> Mediator:
     """Build a mediator containing the HTTP-coupled handler."""
-    services = Services()
-    services.add(LeakyGetProductHandler(default_catalog()))
-    return Mediator(services.provider())
+    services = Services(LeakyGetProductHandler(default_catalog()))
+    return Mediator(services)

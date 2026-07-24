@@ -70,8 +70,8 @@ protocol, plus the ordered `PipelineBehavior` classes that make up the pipeline.
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(RequestLogging()).add(PlaceOrderHandler())
-mediator = Mediator(services=services.provider(), behaviors=[RequestLogging])
+services = Services(RequestLogging(), PlaceOrderHandler())
+mediator = Mediator(services=services, behaviors=[RequestLogging])
 ```
 
 `behaviors` declares the pipeline explicitly: an ordered sequence of behavior classes, first entry

@@ -23,16 +23,16 @@ Register handler and behavior instances before constructing the mediator:
 ```python
 from pymediate import Mediator, Services
 
-services = Services().add(PlaceOrderHandler())
-mediator = Mediator(services.provider())
+services = Services(PlaceOrderHandler())
+mediator = Mediator(services)
 
 receipt = await mediator.send(
     PlaceOrder(customer_id=7, item="tea", quantity=2),
 )
 ```
 
-`Services.provider()` returns a read-only snapshot. Later changes to the `Services` collection do
-not affect an existing provider. The mediator constructor also accepts another implementation of
+`Services` is read-only once constructed, so a mediator's resolution can never change
+underneath it. The mediator constructor also accepts another implementation of
 the [`ServiceProvider` protocol](/docs/api/service-provider), such as the optional
 [`dependency-injector` adapter](/docs/guide/dependency-injection).
 
@@ -137,7 +137,7 @@ The blocking API has the same three methods without `await` or asynchronous iter
 ```python
 from pymediate.sync import Mediator, Services
 
-mediator = Mediator(Services().add(PlaceOrderHandler()).provider())
+mediator = Mediator(Services(PlaceOrderHandler()))
 
 receipt = mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
 for chunk in mediator.stream(ExportOrders(customer_id=7)):
