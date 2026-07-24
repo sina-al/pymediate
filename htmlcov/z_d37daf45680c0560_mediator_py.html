@@ -65,7 +65,7 @@
             <a id="nextFileLink" class="nav" href="z_d37daf45680c0560_pipeline_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-21 07:30 +0000
+            created at 2026-07-24 16:32 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -141,7 +141,7 @@
     <p class="pln"><span class="n"><a id="t59" href="#t59">59</a></span><span class="t">        <span class="str">"""Validate the ``behaviors`` sequence once, at mediator construction.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t60" href="#t60">60</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t61" href="#t61">61</a></span><span class="t"><span class="str">        Every entry must be a class subclassing the variant's ``PipelineBehavior``</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t62" href="#t62">62</a></span><span class="t"><span class="str">        base, must be registered with the service provider (checked via ``has()``),</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t62" href="#t62">62</a></span><span class="t"><span class="str">        base, must be registered with the service provider (checked via ``in``),</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t63" href="#t63">63</a></span><span class="t"><span class="str">        and may appear only once. Failing any check raises immediately, so a</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t64" href="#t64">64</a></span><span class="t"><span class="str">        misdeclared pipeline never reaches a dispatch.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t65" href="#t65">65</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
@@ -173,7 +173,7 @@
     <p class="run"><span class="n"><a id="t91" href="#t91">91</a></span><span class="t">                <span class="key">raise</span> <span class="nam">errors</span><span class="op">.</span><span class="nam">InvalidPipelineBehaviorsError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t92" href="#t92">92</a></span><span class="t">                    <span class="nam">entry</span><span class="op">,</span> <span class="str">"listed more than once in the behaviors sequence"</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t93" href="#t93">93</a></span><span class="t">                <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t94" href="#t94">94</a></span><span class="t">            <span class="key">if</span> <span class="key">not</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">.</span><span class="nam">has</span><span class="op">(</span><span class="nam">entry</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t94" href="#t94">94</a></span><span class="t">            <span class="key">if</span> <span class="nam">entry</span> <span class="key">not</span> <span class="key">in</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t95" href="#t95">95</a></span><span class="t">                <span class="key">raise</span> <span class="nam">errors</span><span class="op">.</span><span class="nam">InvalidPipelineBehaviorsError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t96" href="#t96">96</a></span><span class="t">                    <span class="nam">entry</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t97" href="#t97">97</a></span><span class="t">                    <span class="str">"not registered with the service provider - the mediator "</span>&nbsp;</span><span class="r"></span></p>
@@ -205,7 +205,7 @@
     <p class="run"><span class="n"><a id="t123" href="#t123">123</a></span><span class="t">            <span class="key">raise</span> <span class="nam">errors</span><span class="op">.</span><span class="nam">HandlerNotFoundError</span><span class="op">(</span><span class="nam">request_type</span><span class="op">,</span> <span class="op">[</span><span class="op">]</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t124" href="#t124">124</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t125" href="#t125">125</a></span><span class="t">        <span class="com"># Get handler instance</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t126" href="#t126">126</a></span><span class="t">        <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="nam">handler_class</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t126" href="#t126">126</a></span><span class="t">        <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">[</span><span class="nam">handler_class</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t127" href="#t127">127</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t128" href="#t128">128</a></span><span class="t">    <span class="key">def</span> <span class="nam">_resolve_event_handlers</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">event</span><span class="op">:</span> <span class="str">"Event"</span><span class="op">)</span> <span class="op">-></span> <span class="nam">list</span><span class="op">[</span><span class="nam">Any</span><span class="op">]</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t129" href="#t129">129</a></span><span class="t">        <span class="str">"""Resolve every handler instance subscribed to an event.</span>&nbsp;</span><span class="r"></span></p>
@@ -225,7 +225,7 @@
     <p class="pln"><span class="n"><a id="t143" href="#t143">143</a></span><span class="t"><span class="str">                registered instance in the service provider</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t144" href="#t144">144</a></span><span class="t"><span class="str">        """</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t145" href="#t145">145</a></span><span class="t">        <span class="nam">handler_classes</span> <span class="op">=</span> <span class="nam">registry</span><span class="op">.</span><span class="nam">get_event_handler_classes</span><span class="op">(</span><span class="nam">type</span><span class="op">(</span><span class="nam">event</span><span class="op">)</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t146" href="#t146">146</a></span><span class="t">        <span class="key">return</span> <span class="op">[</span><span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="nam">handler_class</span><span class="op">)</span> <span class="key">for</span> <span class="nam">handler_class</span> <span class="key">in</span> <span class="nam">handler_classes</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t146" href="#t146">146</a></span><span class="t">        <span class="key">return</span> <span class="op">[</span><span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">[</span><span class="nam">handler_class</span><span class="op">]</span> <span class="key">for</span> <span class="nam">handler_class</span> <span class="key">in</span> <span class="nam">handler_classes</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t147" href="#t147">147</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t148" href="#t148">148</a></span><span class="t">    <span class="key">def</span> <span class="nam">_resolve_behaviors</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">request</span><span class="op">:</span> <span class="str">"Request[Any]"</span><span class="op">)</span> <span class="op">-></span> <span class="nam">list</span><span class="op">[</span><span class="nam">Any</span><span class="op">]</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t149" href="#t149">149</a></span><span class="t">        <span class="str">"""Resolve applicable behavior instances for a request, in pipeline order.</span>&nbsp;</span><span class="r"></span></p>
@@ -242,7 +242,7 @@
     <p class="pln"><span class="n"><a id="t160" href="#t160">160</a></span><span class="t"><span class="str">            List of applicable behavior instances, first entry outermost</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t161" href="#t161">161</a></span><span class="t"><span class="str">        """</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t162" href="#t162">162</a></span><span class="t">        <span class="key">return</span> <span class="op">[</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run run2"><span class="n"><a id="t163" href="#t163">163</a></span><span class="t">            <span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">.</span><span class="nam">get</span><span class="op">(</span><span class="nam">behavior_class</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t163" href="#t163">163</a></span><span class="t">            <span class="nam">self</span><span class="op">.</span><span class="nam">_services</span><span class="op">[</span><span class="nam">behavior_class</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t164" href="#t164">164</a></span><span class="t">            <span class="key">for</span> <span class="nam">behavior_class</span> <span class="key">in</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_behaviors</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t165" href="#t165">165</a></span><span class="t">            <span class="key">if</span> <span class="nam">behavior_class</span><span class="op">.</span><span class="nam">should_apply</span><span class="op">(</span><span class="nam">request</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run run2"><span class="n"><a id="t166" href="#t166">166</a></span><span class="t">        <span class="op">]</span>&nbsp;</span><span class="r"></span></p>
@@ -255,7 +255,7 @@
             <a class="nav" href="z_d37daf45680c0560_pipeline_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.14.3">coverage.py v7.14.3</a>,
-            created at 2026-07-21 07:30 +0000
+            created at 2026-07-24 16:32 +0000
         </p>
     </div>
 </footer>
