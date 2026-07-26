@@ -25,7 +25,7 @@ has committed. Coordinating them with a distributed transaction adds another pro
 requires both engines to support it.
 
 The old version of this example had a subtler form of the same bug: it projected to DuckDB in
-a *synchronous event handler* that ran inside the command's `send()` call. SQLite was already
+a *synchronous notification handler* that ran inside the command's `send()` call. SQLite was already
 committed by then, so a DuckDB failure left the read side behind with no retry — the second
 write was still inside the command's failure boundary.
 
@@ -83,7 +83,7 @@ many individual writes, so the worker batches pending updates.
 ### The wake-up only reduces latency
 
 After a command commits, its handler publishes `OutboxAppended` through the mediator. A single
-event handler, `WakeProjector`, sets the worker's wake flag. The durable path is the outbox and
+notification handler, `WakeProjector`, sets the worker's wake flag. The durable path is the outbox and
 the poll. If the process crashes and the in-memory notification is lost, the next poll still
 finds the row. Publishing the notification can reduce the delay before the next projection.
 

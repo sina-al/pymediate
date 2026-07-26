@@ -1,6 +1,6 @@
 ---
 name: compare
-description: Refresh PyMediate's library-comparison page (docs/content/docs/comparison.mdx) and its anonymized knowledge base (.claude/context/mediator-survey.md) — re-check roadmap issues, optionally re-survey competitor source and re-run the benchmark. Use when asked to update the comparison, after a release, or when a roadmap item (event publishing, streaming, ...) ships.
+description: Refresh PyMediate's library-comparison page (docs/content/docs/comparison.mdx) and its anonymized knowledge base (.claude/context/mediator-survey.md) — re-check roadmap issues, optionally re-survey competitor source and re-run the benchmark. Use when asked to update the comparison, after a release, or when a roadmap item (notification publishing, streaming, ...) ships.
 ---
 
 # /compare — refresh the library comparison

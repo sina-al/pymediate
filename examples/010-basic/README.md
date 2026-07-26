@@ -60,7 +60,7 @@ checker. The handler still declares `-> Task` so its own implementation can be c
 
 ## Where next
 
-- [020-events](../020-events/) — publish one event to several independent handlers.
+- [020-events](../020-events/) — publish one notification to several independent handlers.
 - [010-basic-sync](../010-basic-sync/) — the same request and response flow on
   `pymediate.sync`.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·

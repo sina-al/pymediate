@@ -53,7 +53,7 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-`StreamRequest[ChunkT]` provides the element type returned by `stream()`. Events have no
+`StreamRequest[ChunkT]` provides the element type returned by `stream()`. Notifications have no
 response type because `publish()` returns `None`.
 
 A bare `Request` or `StreamRequest` discards this relationship and usually introduces `Any`.
@@ -69,8 +69,8 @@ mypy, pyright, and editor type checking can report:
 - passing the wrong request kind to `send()` or `stream()`;
 - treating a response or stream chunk as the wrong type;
 - a handler parameter type that is incompatible with its `RequestHandler[...]`,
-  `EventHandler[...]`, or `StreamRequestHandler[...]` declaration;
-- an invalid generic type argument, such as a non-event type in `EventHandler[...]`; and
+  `NotificationHandler[...]`, or `StreamRequestHandler[...]` declaration;
+- an invalid generic type argument, such as a non-notification type in `NotificationHandler[...]`; and
 - a return statement that conflicts with the method's own return annotation.
 
 Run a checker over application code; PyMediate cannot replace that step. The project itself
@@ -85,12 +85,12 @@ declaration when its class body finishes and checks the contract needed for disp
 | --- | --- |
 | Request | Exact request parameter, matching response annotation, async or sync form |
 | Stream | Exact request parameter, generator form, matching iterator and chunk annotation |
-| Event | Exact event parameter, `None` return annotation, async or sync form |
+| Notification | Exact notification parameter, `None` return annotation, async or sync form |
 
 This validation catches several cases that ordinary override checking does not:
 
 - A base-class parameter annotation is valid contravariance in Python, but PyMediate rejects
-  it because dispatch uses the exact request or event class.
+  it because dispatch uses the exact request or notification class.
 - `RequestHandler.__call__` has an abstract return type of `Any`, so a handler annotation that
   disagrees with `Request[ResponseT]` needs PyMediate's `ResponseTypeMismatchError` check.
 - A stream handler must contain `yield`; returning an iterator from a plain function does not

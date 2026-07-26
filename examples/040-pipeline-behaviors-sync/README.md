@@ -105,8 +105,8 @@ def should_apply(cls, request):
 
 ## Details
 
-- Behaviors wrap `send()` only. `publish()` delivers events directly to event handlers, so
-  event-specific logging or timing belongs in those handlers.
+- Behaviors wrap `send()` only. `publish()` delivers notifications directly to notification
+  handlers, so notification-specific logging or timing belongs in those handlers.
 - `TransactionBehavior` records where a real transaction manager would enter, exit, or see
   an error. It does not change or restore `TaskStore` state.
 - `FakeCache` demonstrates returning a stored response. A production cache also needs

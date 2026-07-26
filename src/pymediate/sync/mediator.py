@@ -5,7 +5,7 @@ from typing import Any
 
 from .._internal.mediator import MediatorMixin
 from .._internal.pipeline import compose
-from ..event import Event
+from ..notification import Notification
 from ..request import Request
 from ..service import ServiceProvider
 from ..stream import StreamRequest
@@ -17,7 +17,7 @@ class Mediator(MediatorMixin):
 
     ``send()`` returns one typed response, ``stream()`` returns an iterator of
     typed chunks, and ``publish()`` notifies every handler subscribed to an
-    event's exact type. The mediator uses a ``ServiceProvider`` to resolve handler
+    notification's exact type. The mediator uses a ``ServiceProvider`` to resolve handler
     and pipeline-behavior instances, and the ``behaviors`` sequence passed at
     construction to determine which behaviors run and in what order.
 
@@ -149,10 +149,10 @@ class Mediator(MediatorMixin):
         handler = self._resolve_handler(request)
         return handler(request)  # type: ignore[no-any-return]
 
-    def publish(self, event: Event) -> None:
-        """Publish an event to every handler subscribed to its type.
+    def publish(self, notification: Notification) -> None:
+        """Publish a notification to every handler subscribed to its type.
 
-        The mediator resolves every ``EventHandler`` registered for the event's
+        The mediator resolves every ``NotificationHandler`` registered for the notification's
         exact class before invoking any of them. It then runs the handlers
         sequentially in registration order. Publishing with no subscribers returns
         without error.
@@ -161,7 +161,7 @@ class Mediator(MediatorMixin):
         Their failures are raised together as an ``ExceptionGroup`` afterward.
 
         Args:
-            event: The event instance to publish.
+            notification: The notification instance to publish.
 
         Raises:
             ServiceNotFoundError: If a subscribed handler class has no
@@ -169,26 +169,26 @@ class Mediator(MediatorMixin):
             ExceptionGroup: If one or more handlers raise an ``Exception``.
 
         Note:
-            Publishing dispatches on the event's exact class. Pipeline behaviors
-            do not wrap event publication. A ``BaseException`` that is not an
-            ``Exception`` propagates immediately. Event subscriptions are shared
-            with the asynchronous API, so every handler for this exact event type
+            Publishing dispatches on the notification's exact class. Pipeline behaviors
+            do not wrap notification publication. A ``BaseException`` that is not an
+            ``Exception`` propagates immediately. Notification subscriptions are shared
+            with the asynchronous API, so every handler for this exact notification type
             must be synchronous.
         """
-        handlers = self._resolve_event_handlers(event)
+        handlers = self._resolve_notification_handlers(notification)
         if not handlers:
             return
 
         exceptions: list[Exception] = []
         for handler in handlers:
             try:
-                handler(event)
+                handler(notification)
             except Exception as exc:
                 exceptions.append(exc)
 
         if exceptions:
             raise ExceptionGroup(
-                f"{len(exceptions)} of {len(handlers)} event handlers raised while "
-                f"publishing {type(event).__name__}",
+                f"{len(exceptions)} of {len(handlers)} notification handlers raised while "
+                f"publishing {type(notification).__name__}",
                 exceptions,
             )

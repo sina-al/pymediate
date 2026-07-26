@@ -119,7 +119,7 @@ In suggested reading order:
 ## Details
 
 - This example compares dispatch typing, audit placement, and constructor dependencies. It
-  does not cover dependency injection containers or events.
+  does not cover dependency injection containers or notifications.
 - This is the synchronous mirror of [005-mediator-vs-service](../005-mediator-vs-service/).
   `RequestHandler`, `Mediator`, and `PipelineBehavior` have synchronous implementations;
   `Request` and `Services` are shared by both APIs.

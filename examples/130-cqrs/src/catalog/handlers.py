@@ -1,4 +1,4 @@
-"""Command handlers write; query handlers read; one event handler notifies the worker.
+"""Command handlers write; query handlers read; one notification handler notifies the worker.
 
 Each command handler touches only ``WriteStore`` (domain row + outbox row, atomically) and
 then publishes ``OutboxAppended``. Each query handler depends on ``ReadModel``, which does not
@@ -6,7 +6,7 @@ expose checkpoint updates or batch application. The benchmark-only
 ``NaiveInventoryReportHandler`` reads the write store to provide a comparison.
 """
 
-from pymediate import EventHandler, RequestHandler
+from pymediate import NotificationHandler, RequestHandler
 
 from .domain import (
     AdjustStock,
@@ -112,10 +112,10 @@ class NaiveInventoryReportHandler(RequestHandler[GetInventoryReportNaive]):
         return self._store.inventory_report_naive()
 
 
-# ---- The notification: an event handler that wakes the worker ----
+# ---- The notification: a notification handler that wakes the worker ----
 
 
-class WakeProjector(EventHandler[OutboxAppended]):
+class WakeProjector(NotificationHandler[OutboxAppended]):
     """Notify the projection worker that new outbox rows may be available.
 
     Writing to DuckDB here would put the read-model write inside the command's ``send`` call
@@ -126,5 +126,5 @@ class WakeProjector(EventHandler[OutboxAppended]):
     def __init__(self, worker: ProjectionWorker) -> None:
         self._worker = worker
 
-    async def __call__(self, event: OutboxAppended) -> None:
+    async def __call__(self, notification: OutboxAppended) -> None:
         self._worker.wake()
