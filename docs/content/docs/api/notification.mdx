@@ -1,0 +1,41 @@
+---
+title: Notification
+description: API reference for the Notification base class.
+---
+
+```python
+from pymediate import Notification
+
+class Notification: ...
+```
+
+`Notification` is the base class for messages published with
+[`Mediator.publish()`](/docs/api/mediator#publish). Publishing delivers a notification to every
+registered handler for its exact class and returns `None`. Zero handlers is valid.
+
+Notifications have no response type parameter. The same `Notification` class is re-exported from `pymediate`
+and `pymediate.sync`. Its subscription registry is also shared, so all handlers for one exact
+notification type must be asynchronous or all must be synchronous.
+
+## Example
+
+```python
+from dataclasses import dataclass
+
+from pymediate import Notification
+
+
+@dataclass(frozen=True)
+class OrderPlaced(Notification):
+    order_id: int
+    item: str
+```
+
+Dispatch is exact: a handler registered for a base notification class does not receive instances of a
+derived notification class.
+
+## See also
+
+- [NotificationHandler](/docs/api/notification-handler) — subscribes to one notification type
+- [Mediator.publish()](/docs/api/mediator#publish) — delivery and failure behavior
+- [Notifications](/docs/guide/notifications) — design and integration guidance

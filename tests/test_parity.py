@@ -22,7 +22,7 @@ import pymediate.sync
 INTENTIONAL_VARIANTS = frozenset(
     {
         "RequestHandler",
-        "EventHandler",
+        "NotificationHandler",
         "StreamRequestHandler",
         "Mediator",
         "PipelineBehavior",
@@ -55,7 +55,7 @@ def test_variant_names_are_distinct_objects() -> None:
 
 def test_variants_split_async_and_sync() -> None:
     """Top-level variants are the async side; pymediate.sync variants are sync."""
-    for name in ("RequestHandler", "EventHandler", "PipelineBehavior"):
+    for name in ("RequestHandler", "NotificationHandler", "PipelineBehavior"):
         assert inspect.iscoroutinefunction(getattr(pymediate, name).__call__)
         assert not inspect.iscoroutinefunction(getattr(pymediate.sync, name).__call__)
     for method in ("send", "publish"):

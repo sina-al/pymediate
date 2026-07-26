@@ -1,7 +1,7 @@
 """Large language model (LLM) token streaming on PyMediate's asynchronous API.
 
 Demonstrates the mediator's third dispatch shape: ``stream``. Where ``send`` returns one
-typed response and ``publish`` fans an event out to many handlers, ``stream`` answers one
+typed response and ``publish`` fans a notification out to many handlers, ``stream`` answers one
 request with a **lazy feed of typed chunks** — here, an LLM completion arriving one token
 (a ``str``) at a time. The handler's ``__call__`` is an *async generator*: it ``yield``\\s
 chunks instead of ``return``\\ing a value.

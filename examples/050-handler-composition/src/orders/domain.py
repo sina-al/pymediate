@@ -12,7 +12,7 @@ bound once the mediator exists. ``app.build_mediator`` shows that setup.
 from dataclasses import dataclass, field
 from typing import Protocol, TypeVar
 
-from pymediate import Event, Mediator, Request
+from pymediate import Mediator, Notification, Request
 
 ResponseT = TypeVar("ResponseT")
 
@@ -74,11 +74,11 @@ class ChargePayment(Request[Receipt]):
     amount_cents: int
 
 
-# ---- Event: the "announce" side of composition ----
+# ---- Notification: the "announce" side of composition ----
 
 
 @dataclass
-class OrderPlaced(Event):
+class OrderPlaced(Notification):
     """Announce a completed order to subscribers before publication returns."""
 
     order_id: int
@@ -130,8 +130,8 @@ class Sender(Protocol):
         """Dispatch a request to its handler and await the typed response."""
         ...
 
-    async def publish(self, event: Event) -> None:
-        """Publish an event to every subscribed handler."""
+    async def publish(self, notification: Notification) -> None:
+        """Publish a notification to every subscribed handler."""
         ...
 
 
@@ -159,6 +159,6 @@ class LateBoundSender:
         """Forward a request to the bound mediator and await its response."""
         return await self._require().send(request)
 
-    async def publish(self, event: Event) -> None:
-        """Forward an event to the bound mediator."""
-        await self._require().publish(event)
+    async def publish(self, notification: Notification) -> None:
+        """Forward a notification to the bound mediator."""
+        await self._require().publish(notification)

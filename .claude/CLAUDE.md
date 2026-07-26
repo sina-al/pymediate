@@ -9,7 +9,7 @@ Zero runtime dependencies in core; `dependency-injector` is an optional extra (`
 Async (the top-level `pymediate`) and sync (`pymediate.sync`) APIs are structural mirrors of
 each other — if you change one, check whether the other needs the equivalent change. A parity
 test (`tests/test_parity.py`) enforces that every shared name is the identical object in both
-namespaces, with `RequestHandler`/`EventHandler`/`Mediator`/`PipelineBehavior` as the only
+namespaces, with `RequestHandler`/`NotificationHandler`/`Mediator`/`PipelineBehavior` as the only
 intentional variants (ADR 0008).
 
 ## Layout

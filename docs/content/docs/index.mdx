@@ -68,7 +68,7 @@ Start with `send()`. The other dispatch forms use the same typed-message model f
 | --- | --- | --- | --- |
 | One result | `Request[T]` and `RequestHandler` | `await mediator.send(request)` | `T` |
 | Results over time | `StreamRequest[T]` and `StreamRequestHandler` | `mediator.stream(request)` | `AsyncIterator[T]` |
-| Zero or more subscribers | `Event` and `EventHandler` | `await mediator.publish(event)` | `None` |
+| Zero or more subscribers | `Notification` and `NotificationHandler` | `await mediator.publish(notification)` | `None` |
 
 `PipelineBehavior` can wrap `send()` with shared processing such as logging or validation. `Services` and the `ServiceProvider` protocol supply handler and behavior instances to the mediator. The [core concepts](/docs/getting-started/concepts) page introduces these parts after the request flow.
 

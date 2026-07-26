@@ -40,8 +40,8 @@ Note:
 from ..errors import (
     HandlerAlreadyRegisteredError,
     HandlerNotFoundError,
-    InvalidEventTypeError,
     InvalidHandlerSignatureError,
+    InvalidNotificationTypeError,
     InvalidPipelineBehaviorsError,
     InvalidRequestTypeError,
     InvalidStreamRequestTypeError,
@@ -49,13 +49,13 @@ from ..errors import (
     ResponseTypeMismatchError,
     ServiceAlreadyRegisteredError,
 )
-from ..event import Event
+from ..notification import Notification
 from ..request import Request
 from ..service import ServiceNotFoundError, ServiceProvider, Services
 from ..stream import StreamRequest
-from .event import EventHandler
 from .handler import RequestHandler
 from .mediator import Mediator
+from .notification import NotificationHandler
 from .pipeline import Next, PipelineBehavior
 from .stream import StreamRequestHandler
 
@@ -63,9 +63,9 @@ __all__ = [
     "Request",
     "RequestHandler",
     "Mediator",
-    # Events
-    "Event",
-    "EventHandler",
+    # Notifications
+    "Notification",
+    "NotificationHandler",
     # Streaming
     "StreamRequest",
     "StreamRequestHandler",
@@ -84,7 +84,7 @@ __all__ = [
     "InvalidHandlerSignatureError",
     "InvalidPipelineBehaviorsError",
     "InvalidRequestTypeError",
-    "InvalidEventTypeError",
+    "InvalidNotificationTypeError",
     "InvalidStreamRequestTypeError",
     "ResponseTypeMismatchError",
 ]

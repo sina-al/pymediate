@@ -119,7 +119,7 @@ In suggested reading order:
 ## Details
 
 - This example compares dispatch typing, audit placement, and constructor dependencies. It
-  does not cover dependency injection containers or events.
+  does not cover dependency injection containers or notifications.
 - Async is the default here. [005-mediator-vs-service-sync](../005-mediator-vs-service-sync/) uses
   synchronous handlers and removes `async` and `await`.
 - Everything is in memory, so each test starts from an empty store.
