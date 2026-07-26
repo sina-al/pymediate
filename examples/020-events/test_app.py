@@ -1,4 +1,4 @@
-"""Tests for the events example — the examples contract's `uv run pytest` entrypoint."""
+"""Tests for the notifications example — the examples contract's `uv run pytest` entrypoint."""
 
 import pytest
 from pymediate import Mediator
@@ -47,7 +47,7 @@ async def test_zero_subscribers_is_a_noop(mediator: Mediator, dashboard: Dashboa
 
 async def test_dispatch_is_by_exact_type(mediator: Mediator, dashboard: Dashboard) -> None:
     # TaskArchived subscribers don't exist, and TaskCompleted subscribers ignore it —
-    # events dispatch on the exact published class, never a sibling type.
+    # notifications dispatch on the exact published class, never a sibling type.
     await mediator.publish(TaskArchived(task_id=1))
     await mediator.publish(TaskCompleted(task_id=1, title="Ship it"))
 

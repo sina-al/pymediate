@@ -4,7 +4,7 @@ The roadmap lives in [GitHub Issues](https://github.com/sina-al/pymediate/issues
 this file:
 
 - [`roadmap`](https://github.com/sina-al/pymediate/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
-  — product and feature work (events/publishing, scoped registries, streaming handlers,
+  — product and feature work (notifications/publishing, scoped registries, streaming handlers,
   contrib behaviors, more examples, …), grounded in a July 2026 source-level survey of the
   six most popular mediator alternatives.
 - [`process`](https://github.com/sina-al/pymediate/issues?q=is%3Aissue+is%3Aopen+label%3Aprocess)

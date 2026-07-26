@@ -105,11 +105,11 @@ formal = GreetHandler(greeting="Good day")
 casual = GreetHandler(greeting="Hey")
 ```
 
-Event handlers have a related rule: several handler classes may subscribe to one event, so
-test-local subclasses accumulate as subscriptions instead of raising a duplicate-registration
-error. Define event-handler classes once and inject recordings or configuration into their
-instances. If several classes are registered for the same event, all of them remain
-subscribers.
+Notification handlers have a related rule: several handler classes may subscribe to one
+notification, so test-local subclasses accumulate as subscriptions instead of raising a
+duplicate-registration error. Define notification-handler classes once and inject recordings or
+configuration into their instances. If several classes are registered for the same
+notification, all of them remain subscribers.
 
 ## Where next
 

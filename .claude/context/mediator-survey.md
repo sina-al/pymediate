@@ -31,7 +31,7 @@ this repository.
 | Handler signature validation | None of the six validate at class-definition time; mistakes surface at dispatch (runtime). |
 | Duplicate registration | Silently overwrites the original handler, or silently ignores the new one; none raise. |
 | Sync API | Almost all async-only; synchronous codebases must adopt an event loop. |
-| Event publishing (one event, many handlers) | Five of six have it; every implementation is type-erased or async-only. PyMediate gap closed in 0.3.0 (issue #10, typed `Event`/`EventHandler[E]`). |
+| Notification publishing (one notification, many handlers) | Five of six have it; every implementation is type-erased or async-only. PyMediate gap closed in 0.3.0 (issue #10, typed `Notification`/`NotificationHandler[E]`). |
 | Streaming responses | One of six offers it, untyped. PyMediate gap closed in 0.6.0 (issue #12): typed `StreamRequest[ChunkT]` / `StreamRequestHandler[R]`, with lazy `Iterator[ChunkT]` and `AsyncIterator[ChunkT]` results. |
 | Runtime dependencies | Varies; several require a serialization framework or a dependency-injection container to participate at all. |
 
@@ -39,7 +39,7 @@ this repository.
 
 To be filled at the next full re-survey. For each of Library A–F record: dispatch
 mechanism, registry keying, `send()` return typing, duplicate-registration behavior,
-sync/async surface, event publishing (and whether typed), streaming (and whether typed),
+sync/async surface, notification publishing (and whether typed), streaming (and whether typed),
 required runtime dependencies, approximate SLOC of the dispatch core. No identifying
 details (see warning above).
 
@@ -57,7 +57,7 @@ docs row and the matching aggregate finding above must be updated.
 
 | Issue | Capability | Comparison row today |
 | --- | --- | --- |
-| #10 | Event publishing (`mediator.publish`) | Shipped in 0.3.0 (closed 2026-07-10); row describes typed `Event`/`EventHandler[E]`, sync sequential / async concurrent delivery, `ExceptionGroup` aggregation |
+| #10 | Notification publishing (`mediator.publish`) | Shipped in 0.3.0 (closed 2026-07-10); row describes typed `Notification`/`NotificationHandler[E]`, sync sequential / async concurrent delivery, `ExceptionGroup` aggregation |
 | #12 | Streaming handlers (`mediator.stream`) | Shipped in 0.6.0 (closed 2026-07-12); row describes typed, lazy sync and async streams, each served by exactly one handler |
 | #11 | Scoped registries | No row yet; add one if it ships and alternatives were surveyed for it |
 | #13 | contrib module of zero-dependency behaviors | Closed after ADR 0009 rejected the package; no comparison row |
@@ -73,7 +73,7 @@ Quoted on the comparison page; replace only with numbers from a fresh local run 
   full defaults), Python 3.13.0 (CPython), 2020 Intel MacBook Pro, macOS 15.7.4.
   Medians of five samples of 100,000 calls. Each publish scenario uses one subscriber
   and its **own** direct-call
-  baseline — the event handler returns `None`, so comparing it against the request
+  baseline — the notification handler returns `None`, so comparing it against the request
   handler's baseline (which constructs a dataclass) would be apples to oranges. The
   async publish figure is dominated by `asyncio.gather` task scheduling (the price of
   concurrent delivery), and the page says so explicitly. This machine's medians are
@@ -85,12 +85,12 @@ Quoted on the comparison page; replace only with numbers from a fresh local run 
 | Sync: `handler(request)` — direct call | 0.98 µs | Baseline |
 | Sync: `mediator.send(request)` | 3.1 µs | 3.2x |
 | Sync: `send()` plus one pipeline behavior | 3.6 µs | 3.7x |
-| Sync: `handler(event)` — direct call | 0.25 µs | Baseline |
-| Sync: `mediator.publish(event)` — one subscriber | 1.1 µs | 4.5x |
+| Sync: `handler(notification)` — direct call | 0.25 µs | Baseline |
+| Sync: `mediator.publish(notification)` — one subscriber | 1.1 µs | 4.5x |
 | Async: `await handler(request)` — direct call | 0.92 µs | Baseline |
 | Async: `await mediator.send(request)` | 2.3 µs | 2.5x |
-| Async: `await handler(event)` — direct call | 0.85 µs | Baseline |
-| Async: `await mediator.publish(event)` — one subscriber | 247 µs | 290x |
+| Async: `await handler(notification)` — direct call | 0.85 µs | Baseline |
+| Async: `await mediator.publish(notification)` — one subscriber | 247 µs | 290x |
 
   (The 2026-07-11 run on 0.3.0 quoted: sync direct 0.34 µs, send 0.87 µs / 2.6x,
   send+behavior 1.8 µs / 5.4x, async direct 0.45 µs, async send 1.0 µs / 2.3x,

@@ -10,7 +10,7 @@ supports three dispatch forms:
 | --- | --- | ---: | --- | --- |
 | `await send(request)` | `Request[T]` | One | `T` | Applied |
 | `stream(request)` | `StreamRequest[T]` | One | `AsyncIterator[T]` | Not applied |
-| `await publish(event)` | `Event` | Zero or more | `None` | Not applied |
+| `await publish(notification)` | `Notification` | Zero or more | `None` | Not applied |
 
 The top-level `pymediate.Mediator` is asynchronous. The
 [`pymediate.sync` variant](#use-the-synchronous-mediator) provides the corresponding blocking
@@ -85,10 +85,10 @@ generator contract and definition-time validation.
 
 ## How `publish()` resolves subscribers
 
-`publish()` looks up subscribers by the event's exact runtime class. Publishing an event with no
+`publish()` looks up subscribers by the notification's exact runtime class. Publishing a notification with no
 subscribers completes without error.
 
-For an event with subscribers, the mediator resolves every handler instance before running any of
+For a notification with subscribers, the mediator resolves every handler instance before running any of
 them. The asynchronous mediator then runs the handlers concurrently. The synchronous mediator runs
 them sequentially in registration order. Pipeline behaviors do not wrap either form.
 
@@ -96,7 +96,7 @@ The asynchronous mediator lets every subscriber finish after ordinary `Exception
 then reports those failures as a group. `KeyboardInterrupt` and `SystemExit` propagate instead and
 can cancel unfinished subscribers. The synchronous mediator continues only after ordinary
 `Exception` failures; a direct `BaseException` stops delivery and propagates immediately. See
-[events](/docs/guide/events) for the concurrency and error details.
+[notifications](/docs/guide/notifications) for the concurrency and error details.
 
 ## Handler and behavior lifetimes
 
@@ -122,10 +122,10 @@ Resolution and user-code errors occur at different points:
 | A subscriber class is declared but its instance is absent | `ServiceNotFoundError` before any subscriber runs |
 | A request handler or behavior raises | The exception propagates unchanged from `send()` |
 | A stream handler raises in its generator body | The exception propagates during iteration |
-| One or more async event handlers raise an ordinary `Exception` | Failures are grouped after every subscriber finishes |
-| An async event handler raises `KeyboardInterrupt` or `SystemExit` | The failure propagates and can cancel unfinished subscribers |
-| One or more sync event handlers raise an ordinary `Exception` | Failures are grouped after every subscriber has been called |
-| A sync event handler raises a direct `BaseException` | Delivery stops and the failure propagates immediately |
+| One or more async notification handlers raise an ordinary `Exception` | Failures are grouped after every subscriber finishes |
+| An async notification handler raises `KeyboardInterrupt` or `SystemExit` | The failure propagates and can cancel unfinished subscribers |
+| One or more sync notification handlers raise an ordinary `Exception` | Failures are grouped after every subscriber has been called |
+| A sync notification handler raises a direct `BaseException` | Delivery stops and the failure propagates immediately |
 
 The [error-handling guide](/docs/guide/error-handling) distinguishes these library errors from
 application and transport errors.

@@ -56,7 +56,7 @@ assert task.task_id == 1                                # typed attribute access
 
 ## Where next
 
-- [020-events-sync](../020-events-sync/) — publish one event to several handlers
+- [020-events-sync](../020-events-sync/) — publish one notification to several handlers
   synchronously.
 - [010-basic](../010-basic/) — the asynchronous version on the top-level `pymediate` API.
 - The docs: [quick start](https://pymediate.sina-al.uk/docs/getting-started/quick-start) ·

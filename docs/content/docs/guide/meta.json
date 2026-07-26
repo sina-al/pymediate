@@ -5,7 +5,7 @@
     "requests-responses",
     "handlers",
     "mediator",
-    "events",
+    "notifications",
     "streaming",
     "pipeline-behaviors",
     "dependency-injection",

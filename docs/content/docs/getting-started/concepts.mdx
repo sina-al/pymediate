@@ -1,9 +1,9 @@
 ---
 title: Core concepts
-description: Requests, handlers, dispatch, events, streaming, behaviors, and service resolution.
+description: Requests, handlers, dispatch, notifications, streaming, behaviors, and service resolution.
 ---
 
-PyMediate starts with one flow: a caller sends a request, one handler processes it, and the mediator returns the request's declared response type. Events, streaming, and pipeline behaviors extend that model for other needs.
+PyMediate starts with one flow: a caller sends a request, one handler processes it, and the mediator returns the request's declared response type. Notifications, streaming, and pipeline behaviors extend that model for other needs.
 
 ## Requests and responses
 
@@ -85,7 +85,7 @@ The mediator supports three result shapes:
 | --- | --- | --- | --- | --- |
 | Send a request | One | One response | `Request[T]` | `await mediator.send(request)` |
 | Stream a response | One | Many chunks | `StreamRequest[T]` | `mediator.stream(request)` |
-| Publish an event | Zero or more | No response | `Event` | `await mediator.publish(event)` |
+| Publish a notification | Zero or more | No response | `Notification` | `await mediator.publish(notification)` |
 
 ### Streaming
 
@@ -108,28 +108,28 @@ class ExportOrdersHandler(StreamRequestHandler[ExportOrders]):
 
 `mediator.stream()` returns an `AsyncIterator[bytes]`. The caller decides when to consume each chunk. See [streaming](/docs/guide/streaming) for resolution and iteration behavior.
 
-### Events
+### Notifications
 
-An event records that something happened. It has no response type, and any number of event handlers may subscribe:
+A notification records that something happened. It has no response type, and any number of notification handlers may subscribe:
 
 ```python
 from dataclasses import dataclass
-from pymediate import Event, EventHandler
+from pymediate import Notification, NotificationHandler
 
 @dataclass(frozen=True)
-class OrderPlaced(Event):
+class OrderPlaced(Notification):
     order_id: int
     item: str
 
-class RecordOrderMetric(EventHandler[OrderPlaced]):
-    async def __call__(self, event: OrderPlaced) -> None:
-        print(f"recorded order {event.order_id}")
+class RecordOrderMetric(NotificationHandler[OrderPlaced]):
+    async def __call__(self, notification: OrderPlaced) -> None:
+        print(f"recorded order {notification.order_id}")
 
 # After supplying RecordOrderMetric to the mediator's service provider:
 await mediator.publish(OrderPlaced(order_id=42, item="tea"))
 ```
 
-Publishing with no subscribers is valid. The [events guide](/docs/guide/events) covers concurrency, ordering, and error aggregation.
+Publishing with no subscribers is valid. The [notifications guide](/docs/guide/notifications) covers concurrency, ordering, and error aggregation.
 
 ## Pipeline behaviors
 
@@ -151,7 +151,7 @@ Behaviors can apply to every request or to selected request types. They wrap `se
 
 ## Asynchronous and synchronous APIs
 
-The top-level `pymediate` package is asynchronous. Request and event handlers use `async def`, `send()` and `publish()` are awaited, and `stream()` returns an asynchronous iterator.
+The top-level `pymediate` package is asynchronous. Request and notification handlers use `async def`, `send()` and `publish()` are awaited, and `stream()` returns an asynchronous iterator.
 
 `pymediate.sync` provides corresponding blocking mediator and handler classes. Shared message types, services, and errors are the same objects in both namespaces.
 
