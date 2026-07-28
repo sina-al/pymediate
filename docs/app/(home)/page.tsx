@@ -33,9 +33,10 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
         )
 
 async def main() -> None:
-    services = Services(PlaceOrderHandler())
+    services = Services()
+    services.add(PlaceOrderHandler())
 
-    mediator = Mediator(services)
+    mediator = Mediator(services.provider())
     request = PlaceOrder(customer_id=7, item="tea", quantity=2)
     receipt = await mediator.send(request)
 
@@ -67,9 +68,10 @@ class PlaceOrderHandler(RequestHandler[PlaceOrder]):
             summary=f"{request.quantity} × {request.item}",
         )
 
-services = Services(PlaceOrderHandler())
+services = Services()
+services.add(PlaceOrderHandler())
 
-mediator = Mediator(services)
+mediator = Mediator(services.provider())
 request = PlaceOrder(customer_id=7, item="tea", quantity=2)
 receipt = mediator.send(request)
 
@@ -95,34 +97,37 @@ class ValidatePlaceOrder(PipelineBehavior[PlaceOrder]):
         return await next()
 
 
-services = Services(ValidatePlaceOrder(), PlaceOrderHandler())
+services = Services()
+services.add(ValidatePlaceOrder())
+services.add(PlaceOrderHandler())
 
-mediator = Mediator(services, behaviors=[ValidatePlaceOrder])
+mediator = Mediator(services.provider())
 receipt = await mediator.send(
     PlaceOrder(customer_id=7, item="tea", quantity=2),
 )`;
 
-const notificationExample = `from dataclasses import dataclass
+const eventExample = `from dataclasses import dataclass
 from typing import override
 
-from pymediate import Mediator, Notification, NotificationHandler, Services
+from pymediate import Event, EventHandler, Mediator, Services
 
 
 @dataclass(frozen=True)
-class OrderPlaced(Notification):
+class OrderPlaced(Event):
     order_id: int
     item: str
 
 
-class RecordOrder(NotificationHandler[OrderPlaced]):
+class RecordOrder(EventHandler[OrderPlaced]):
     @override
-    async def __call__(self, notification: OrderPlaced) -> None:
-        print(f"recorded order {notification.order_id}")
+    async def __call__(self, event: OrderPlaced) -> None:
+        print(f"recorded order {event.order_id}")
 
 
-services = Services(RecordOrder())
+services = Services()
+services.add(RecordOrder())
 
-mediator = Mediator(services)
+mediator = Mediator(services.provider())
 await mediator.publish(
     OrderPlaced(order_id=42, item="tea"),
 )`;
@@ -145,8 +150,8 @@ const features = [
   },
   {
     icon: Send,
-    title: 'Requests, streams, and notifications',
-    body: 'send() returns one response, stream() yields typed chunks, and publish() delivers a notification to zero or more subscribers.',
+    title: 'Requests, streams, and events',
+    body: 'send() returns one response, stream() yields typed chunks, and publish() delivers an event to zero or more subscribers.',
   },
   {
     icon: Layers,
@@ -220,7 +225,7 @@ export default function HomePage() {
           <p className="mt-4 text-fd-muted-foreground">
             <code className="font-mono text-[0.9em]">PlaceOrder</code> declares that it returns an{' '}
             <code className="font-mono text-[0.9em]">OrderReceipt</code>. The handler accepts that
-            request, and the mediator dispatches it. The Behavior and Notification tabs are focused
+            request, and the mediator dispatches it. The Behavior and Event tabs are focused
             excerpts built on the same shop domain.
           </p>
           <Link
@@ -232,7 +237,7 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="mt-10 min-w-0 max-w-full">
-          <Tabs className="min-w-0 max-w-full" items={['Async', 'Sync', 'Behavior', 'Notification']}>
+          <Tabs className="min-w-0 max-w-full" items={['Async', 'Sync', 'Behavior', 'Event']}>
             <Tab value="Async" className="min-w-0 max-w-full">
               <CodeWindow code={asyncExample} title="async_request.py" className="not-prose" />
             </Tab>
@@ -242,8 +247,8 @@ export default function HomePage() {
             <Tab value="Behavior" className="min-w-0 max-w-full">
               <CodeWindow code={behaviorExample} title="behavior.py · excerpt" className="not-prose" />
             </Tab>
-            <Tab value="Notification" className="min-w-0 max-w-full">
-              <CodeWindow code={notificationExample} title="notification.py · excerpt" className="not-prose" />
+            <Tab value="Event" className="min-w-0 max-w-full">
+              <CodeWindow code={eventExample} title="event.py · excerpt" className="not-prose" />
             </Tab>
           </Tabs>
         </div>
@@ -255,9 +260,9 @@ export default function HomePage() {
             What the package provides
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-fd-muted-foreground">
-            Start with a request and its handler. Use streams for results over time, notifications
-            for zero-or-more subscribers, behaviors for shared processing, and a service provider
-            to resolve the registered instances.
+            Start with a request and its handler. Use streams for results over time, events for
+            notifications, behaviors for shared processing, and a service provider to resolve the
+            registered instances.
           </p>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (

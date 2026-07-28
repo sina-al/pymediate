@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: `%s | ${appName}`,
   },
   description:
-    'PyMediate routes typed in-process requests to handlers on Python 3.12+. It provides async and sync dispatch, streaming, notifications, and pipeline behaviors.',
+    'PyMediate routes typed in-process requests to handlers on Python 3.12+. It provides async and sync dispatch, streaming, events, and pipeline behaviors.',
 };
 
 export default function Layout({ children }: LayoutProps<'/'>) {
