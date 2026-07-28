@@ -113,6 +113,10 @@
       "path": "examples/110-testing-sync"
     },
     {
+      "name": "examples/120-custom-provider",
+      "path": "examples/120-custom-provider"
+    },
+    {
       "name": "examples/130-cqrs",
       "path": "examples/130-cqrs"
     },

@@ -69,6 +69,7 @@ application at the end.
 | --- | --- | --- | --- | --- |
 | 100 | Dependency injection | [100-dependency-injection](100-dependency-injection/) | [100-dependency-injection-sync](100-dependency-injection-sync/) | Resolve handlers and behaviors from `dependency-injector` and compare its provider lifetimes. |
 | 110 | Testing | [110-testing](110-testing/) | [110-testing-sync](110-testing-sync/) | Test handlers directly, replace an injected sender, and reserve a real mediator for wiring tests. |
+| 120 | Custom service provider | [120-custom-provider](120-custom-provider/) | — | Implement the `ServiceProvider` protocol yourself over an unsupported container, resolving handlers and behaviors through it. |
 
 ### Projected data
 
