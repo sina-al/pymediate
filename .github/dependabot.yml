@@ -27,6 +27,13 @@ updates:
     directory: "/docs"
     schedule:
       interval: "weekly"
+    # pnpm 11 defaults to a 24h minimumReleaseAge supply-chain check (rejects lockfile
+    # entries published too recently). Without a cooldown, Dependabot can bump to a
+    # version still inside that window, so docs.yml's frozen-lockfile install fails
+    # every time until the package ages out on its own (#141, #143). 3 days clears it
+    # with margin.
+    cooldown:
+      default-days: 3
     groups:
       docs-dependencies:
         patterns:
