@@ -7,7 +7,7 @@ dependencies = [
     # Loose lower bound per the examples contract: the release pipeline re-pins this to the
     # exact release candidate on TestPyPI (scripts/run_examples.py).
     "pymediate>=0.5.0",
-    "aiohttp>=3.11",
+    "aiohttp>=3.14.3",
     "asyncclick>=8.2",
     "fastapi>=0.115",
     "uvicorn>=0.30",
