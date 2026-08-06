@@ -38,12 +38,6 @@ updates:
       docs-dependencies:
         patterns:
           - "*"
-    # typescript 7 breaks next's `next typegen` (it fails to detect typescript at all,
-    # so the generated route types — LayoutProps/PageProps/RouteContext — never get
-    # written and tsc fails). Hold at 6.x until next/fumadocs support typescript 7.
-    ignore:
-      - dependency-name: "typescript"
-        versions: [">=7.0.0"]
     commit-message:
       prefix: "chore"
     labels:
