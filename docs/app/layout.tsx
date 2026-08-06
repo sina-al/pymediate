@@ -1,5 +1,6 @@
 import { Geist, JetBrains_Mono } from 'next/font/google';
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Provider } from '@/components/provider';
 import { appName, appTagline } from '@/lib/shared';
 import './global.css';
@@ -33,6 +34,11 @@ export default function Layout({ children }: LayoutProps<'/'>) {
     >
       <body className="flex flex-col min-h-screen font-sans">
         <Provider>{children}</Provider>
+        <Script
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon='{"token": "bc4265d65e924f968a2df4805ec2b038"}'
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
