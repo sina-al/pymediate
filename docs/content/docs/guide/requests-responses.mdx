@@ -61,6 +61,10 @@ class PlaceOrder(Request[OrderReceipt]):
 
 An HTTP route can translate its input before dispatch:
 
+{/* pmd-note: HTTP-boundary fragment over the entry point's current_user and body. */}
+
+{/* pmd-metadata: notest */}
+
 ```python
 request = PlaceOrder(
     customer_id=current_user.id,
@@ -128,6 +132,8 @@ Avoid putting HTTP status codes, framework response objects, or serialization me
 ## Commands and queries are optional conventions
 
 [CQRS](https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs) distinguishes operations that change state from operations that read state. PyMediate does not enforce CQRS; applications that use it can express both sides as requests:
+
+{/* pmd-metadata: continuation */}
 
 ```python
 @dataclass(frozen=True)

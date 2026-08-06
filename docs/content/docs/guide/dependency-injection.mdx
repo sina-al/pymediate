@@ -19,6 +19,8 @@ The core package does not require this integration. For direct instance registra
 the container's declared providers by their inferred output type, then delegates each resolution
 back to the original Dependency Injector provider:
 
+{/* pmd-metadata: fixture:PlaceOrderHandler */}
+
 ```python
 from dependency_injector import containers, providers
 
@@ -61,6 +63,10 @@ Injector's asynchronous mode.
 
 This distinction is valid:
 
+{/* pmd-note: Excerpt of the container body above; order_store is an attribute there. */}
+
+{/* pmd-metadata: notest */}
+
 ```python
 # Synchronous construction; asynchronous work remains in the handler method.
 place_order = providers.Factory(PlaceOrderHandler, orders=order_store)
@@ -81,6 +87,10 @@ The constructor expects a `DeclarativeContainer` or `DynamicContainer` instance.
 object raises `TypeError` before indexing begins.
 
 A function-backed factory therefore needs a concrete return annotation:
+
+{/* pmd-note: Same excerpt, taking a container provider attribute as an argument. */}
+
+{/* pmd-metadata: notest */}
 
 ```python
 def build_place_order_handler(
@@ -109,6 +119,8 @@ The adapter walks the whole provider graph with `Container.traverse()`, so servi
 `providers.Container` children are discovered alongside the root container's. Pipeline-behavior
 order does not depend on this - it is fixed by the mediator's `behaviors=` sequence, not by how the
 container resolves them:
+
+{/* pmd-metadata: continuation fixture:PlaceOrderHandler */}
 
 ```python
 class OrdersContainer(containers.DeclarativeContainer):
@@ -150,6 +162,8 @@ handler-wide default.
 Dependency Injector's `providers.Self()` pattern lets the container construct its own service
 provider and mediator without recursive indexing:
 
+{/* pmd-metadata: continuation fixture:PlaceOrderHandler */}
+
 ```python
 class ApplicationContainer(containers.DeclarativeContainer):
     __self__ = providers.Self()
@@ -183,6 +197,8 @@ If a provider produces a value that no longer matches its indexed type, resoluti
 `TypeError` and asks for the adapter to be rebuilt.
 
 Tests can use ordinary Dependency Injector overrides:
+
+{/* pmd-metadata: continuation fixture:PlaceOrderHandler */}
 
 ```python
 container = ApplicationContainer()
