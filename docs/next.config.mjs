@@ -10,6 +10,9 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH;
 const config = {
   output: 'export',
   reactStrictMode: true,
+  // TypeScript 7 doesn't provide the compiler API `next typegen` uses by default; this
+  // opts into Next's TypeScript-7-compatible CLI path instead (#144).
+  experimental: { useTypeScriptCli: true },
   ...(basePath ? { basePath } : {}),
 };
 
