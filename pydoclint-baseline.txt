@@ -1,0 +1,10 @@
+src/pymediate/service.py
+    DOC602: Class `ServiceNotFoundError`: Class docstring contains more class attributes than in actual class attributes.  (Please read https://jsh9.github.io/pydoclint/checking_class_attributes.html on how to correctly document class attributes.)
+    DOC603: Class `ServiceNotFoundError`: Class docstring attributes are different from actual class attributes. (Or could be other formatting issues: https://jsh9.github.io/pydoclint/violation_codes.html#notes-on-doc103 ). Arguments in the docstring but not in the actual class attributes: [available_types: , service_type: ]. (Please read https://jsh9.github.io/pydoclint/checking_class_attributes.html on how to correctly document class attributes.)
+--------------------
+src/pymediate/stream.py
+    DOC201: Method `StreamRequestHandler.__call__` does not have a return section in docstring
+--------------------
+src/pymediate/sync/stream.py
+    DOC201: Method `StreamRequestHandler.__call__` does not have a return section in docstring
+--------------------
