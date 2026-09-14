@@ -67,6 +67,8 @@ and supports three dispatch forms: one response, a stream of chunks, or notifica
 protocol, plus the ordered `PipelineBehavior` classes that make up the pipeline. `services` and
 `behaviors` are both keyword names:
 
+{/* pmd-metadata: fixture:PlaceOrderHandler */}
+
 ```python
 from pymediate import Mediator, Services
 
@@ -104,6 +106,8 @@ the handler without constructing a behavior chain.
 
 Exceptions raised by a behavior or handler propagate unchanged.
 
+{/* pmd-metadata: fixture:mediator */}
+
 ```python
 receipt = await mediator.send(
     PlaceOrder(customer_id=7, item="tea", quantity=2),
@@ -125,6 +129,8 @@ is lazy and runs as the caller consumes chunks.
 
 Errors from inside the generator are raised during iteration. Pipeline behaviors do not wrap
 `stream()`.
+
+{/* pmd-metadata: fixture:mediator */}
 
 ```python
 async for row in mediator.stream(ExportOrders(customer_id=7)):
@@ -150,6 +156,8 @@ handlers.
 The synchronous mediator runs handlers sequentially in registration order, continues after
 ordinary `Exception` failures, and raises those failures together as an `ExceptionGroup`. A direct
 `BaseException` that is not an `Exception` stops synchronous delivery and propagates immediately.
+
+{/* pmd-metadata: fixture:mediator */}
 
 ```python
 await mediator.publish(OrderPlaced(order_id=42, item="tea"))

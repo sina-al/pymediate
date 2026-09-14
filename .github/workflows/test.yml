@@ -7,6 +7,8 @@ on:
       - "src/**"
       - "scripts/**"
       - "tests/**"
+      - "docs/content/**"
+      - "README.md"
       - "pyproject.toml"
       - "uv.lock"
       - "tasks.toml"
@@ -31,6 +33,7 @@ jobs:
     if: github.event_name == 'pull_request'
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      doc-examples: ${{ steps.filter.outputs.doc-examples }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -46,6 +49,18 @@ jobs:
               - "src/**"
               - "scripts/**"
               - "tests/**"
+              - "pyproject.toml"
+              - "uv.lock"
+              - "tasks.toml"
+              - "pytest.ini"
+              - ".github/workflows/test.yml"
+            doc-examples:
+              # The snippets themselves, and everything they are executed against: a rename
+              # in src/ is exactly the drift this job exists to catch.
+              - "src/**"
+              - "docs/content/**"
+              - "README.md"
+              - "tests/markdown_docs_plugin.py"
               - "pyproject.toml"
               - "uv.lock"
               - "tasks.toml"
@@ -92,6 +107,42 @@ jobs:
 
       - name: Test
         run: uv run poe test:cov-xml
+
+  doc-examples:
+    # Executes every python fence in docs/content/, README.md, and the public docstrings
+    # against the real API. Lives here rather than in docs.yml on purpose: docs.yml is the
+    # Node-only carve-out (pnpm, no uv/poe bootstrap), and this is a Python test.
+    name: Documentation Examples
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: |
+      always() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.doc-examples == 'true')
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+
+      - name: Sync dependencies
+        run: |
+          uv sync --group test --all-extras
+
+      - name: Test documentation examples
+        run: uv run poe test:docs
 
   coverage-badge:
     # Stores coverage badge data on the python-coverage-comment-action-data branch
@@ -142,15 +193,20 @@ jobs:
   test-suite:
     name: Test Suite
     runs-on: ubuntu-latest
-    needs: [changes, test]
+    needs: [changes, test, doc-examples]
     if: always()
     env:
       TEST_RESULT: ${{ needs.test.result }}
+      DOC_EXAMPLES_RESULT: ${{ needs.doc-examples.result }}
     steps:
       - name: Check test result
         run: |
           if [[ "$TEST_RESULT" == "failure" ]]; then
             echo "Test matrix failed"
+            exit 1
+          fi
+          if [[ "$DOC_EXAMPLES_RESULT" == "failure" ]]; then
+            echo "Documentation examples failed"
             exit 1
           fi
           echo "Tests passed (or were skipped: no relevant changes)"

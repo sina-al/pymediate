@@ -223,6 +223,45 @@ together with `uv lock --upgrade-package basedpyright` and re-review the corpus)
 The flag excludes incomplete third-party stubs; PyMediate's own public symbols must still be
 fully known.
 
+## The documentation-example test system
+
+`uv run poe test:docs` executes every ` ```python ` fence in `docs/content/`, `README.md`, and
+the public docstrings under `src/pymediate/` against the real API, so a rename or dropped import
+fails CI in the same commit instead of shipping as a broken copy-paste example. It runs in
+`test.yml`'s **Documentation Examples** job (not `docs.yml` — that's the Node-only carve-out) and
+is part of `poe check:all`. `_internal/` is out of scope, matching the docstring policy's own
+boundary. The harness is `tests/markdown_docs_plugin.py` (pytest-markdown-docs, loaded only by
+that task); its module docstring explains the three hooks it installs and why.
+
+Two things about it are load-bearing and easy to break by "cleaning up":
+
+- **The parser is customized on purpose.** Fenced blocks are dedented before parsing (a
+  Google-convention `Examples:` section indents its body, and CommonMark reads a 4-space-indented
+  fence as an *indented code block*, making every docstring example invisible), and CommonMark's
+  HTML-block rule is disabled (`</Tab>` otherwise opens an HTML block that swallows the fence
+  below it, silently skipping every `<Tabs>`-wrapped API-reference example). Reverting either
+  makes the suite go quietly green over fewer snippets rather than red.
+- **Handler registration is process-global.** The plugin clears the registries after each snippet
+  and rebuilds the example cast per snippet. A handler is never seeded into the shared cast —
+  that would collide with the pages whose subject *is* defining a handler for `PlaceOrder` — so
+  fences that need a ready-made handler or mediator opt in per fence (see `docs/CLAUDE.md`).
+
+A snippet that can't run — it imports the fictional Shop application's own modules, or a
+third-party package that isn't a dependency — is exempted per fence, with a stated reason, never
+by widening the exclusion. Audit the exemption set at any time:
+
+```bash
+# currently 25 exempt of 119 fences in docs/ + README; 112 blocks execute (94 + 18 docstrings)
+grep -rn 'pmd-metadata: notest' docs/content/ | wc -l
+grep -rn -B2 'pmd-metadata: notest' docs/content/   # each carries its pmd-note: reason
+```
+
+Docstring↔signature parity is a separate check: `uv run poe doclint` (pydoclint, configured in
+`pyproject.toml`'s `[tool.pydoclint]`, wired into `poe check` and `checks.yml`). Accepted
+pre-existing violations live in `pydoclint-baseline.txt`; regenerate it with
+`poe doclint:baseline` only for genuine false positives — a real mismatch belongs fixed in the
+docstring.
+
 ## ADRs
 
 ADRs are scoped to **the package itself** — public API shape, generics/typing design, runtime

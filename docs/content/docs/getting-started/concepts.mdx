@@ -31,6 +31,8 @@ Read `PlaceOrder(Request[OrderReceipt])` as “`PlaceOrder` is a request for an 
 
 A request handler declares which request it accepts and implements `__call__`:
 
+{/* pmd-metadata: continuation */}
+
 ```python
 from pymediate import RequestHandler
 
@@ -50,6 +52,8 @@ PyMediate validates the handler's annotated parameter and return types when Pyth
 
 The mediator is the dispatch entry point. It receives a request and returns the handler's response:
 
+{/* pmd-metadata: continuation */}
+
 ```python
 from pymediate import Mediator, Services
 
@@ -67,6 +71,8 @@ The caller imports the request type and receives the response type. It does not 
 ## Services and service providers
 
 The mediator needs handler instances. The built-in `Services` collection takes them at construction and is itself the read-only `ServiceProvider` the mediator resolves through:
+
+{/* pmd-metadata: continuation */}
 
 ```python
 from pymediate import Mediator, Services
@@ -111,6 +117,10 @@ class ExportOrdersHandler(StreamRequestHandler[ExportOrders]):
 ### Notifications
 
 A notification records that something happened. It has no response type, and any number of notification handlers may subscribe:
+
+{/* pmd-note: Publishes through a provider this block's own comment defers to prose. */}
+
+{/* pmd-metadata: notest */}
 
 ```python
 from dataclasses import dataclass

@@ -20,6 +20,8 @@ methods.
 
 Register handler and behavior instances before constructing the mediator:
 
+{/* pmd-metadata: fixture:PlaceOrderHandler */}
+
 ```python
 from pymediate import Mediator, Services
 
@@ -52,6 +54,8 @@ Each `send()` call follows the same sequence:
 
 The return type comes from the request declaration:
 
+{/* pmd-metadata: fixture:mediator */}
+
 ```python
 receipt = await mediator.send(PlaceOrder(customer_id=7, item="tea", quantity=2))
 # receipt is inferred as OrderReceipt
@@ -69,6 +73,8 @@ covers selection, ordering, and short-circuiting.
 `stream()` uses the same exact-type lookup and service resolution for a
 `StreamRequestHandler`. Resolution happens when `stream()` is called, while the generator body is
 lazy:
+
+{/* pmd-metadata: fixture:mediator */}
 
 ```python
 chunks = mediator.stream(ExportOrders(customer_id=7))  # resolves the handler
@@ -133,6 +139,10 @@ application and transport errors.
 ## Use the synchronous mediator
 
 The blocking API has the same three methods without `await` or asynchronous iteration:
+
+{/* pmd-note: Sync summary: needs sync handlers for all three dispatch forms at once. */}
+
+{/* pmd-metadata: notest */}
 
 ```python
 from pymediate.sync import Mediator, Services

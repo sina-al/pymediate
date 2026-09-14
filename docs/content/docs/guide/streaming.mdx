@@ -92,6 +92,10 @@ requesting further chunks.
 If the caller may break early and prompt generator cleanup matters, close the iterator explicitly.
 Use `contextlib.aclosing()` for the asynchronous API:
 
+{/* pmd-note: Iterates the mediator and stream request built inside main() above. */}
+
+{/* pmd-metadata: notest */}
+
 ```python
 from contextlib import aclosing
 

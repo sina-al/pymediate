@@ -129,6 +129,10 @@ Build a new `Services` collection for tests that need isolated instances. A coll
 immutable once constructed, so tests never leak services into one another. To reuse a production
 wiring with one service swapped, combine it with `|` — the right operand wins:
 
+{/* pmd-note: Imports the fictional application's own wiring module. */}
+
+{/* pmd-metadata: notest */}
+
 ```python title="tests/test_orders.py (excerpt)"
 from pymediate import Mediator, Services
 
