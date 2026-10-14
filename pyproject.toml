@@ -44,6 +44,7 @@ dev = [
     "griffelib>=2.1.0",
     "typer>=0.26.8",
     "rich>=15.0.0",
+    "pydoclint>=0.7",
 ]
 test = [
     "mypy>=1.13.0",
@@ -54,6 +55,7 @@ test = [
     "pytest-xdist>=3.8.0",
     "basedpyright>=1.39.9",
     "hypothesis>=6.100",
+    "pytest-markdown-docs>=0.7",
 ]
 [build-system]
 requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
@@ -90,3 +92,27 @@ explicit = true
 
 [tool.poe]
 include = "tasks.toml"
+
+# Docstring<->signature parity for the public API (`poe doclint`). Scope matches the docstring
+# policy in CLAUDE.md: public surface only, so `_internal/` is excluded exactly as it is from
+# ruff's D rules.
+#
+# The options below turn off the checks that would fight this repo's house style rather than
+# catch drift. Docstrings here name an argument and describe it; the *types* live in the
+# annotations and are not repeated in prose (Google convention permits this, and duplicating
+# them is a second thing to keep in sync). `__init__` carries its own docstring because ruff's
+# D107 requires one. "Raises" documents what a caller can expect to catch, including exceptions
+# raised by a callee such as the service provider, so matching it against `raise` statements in
+# the immediate body reports false drift.
+#
+# What is left is the check this exists for: argument names and their order, and the presence
+# of Returns/Yields sections, against the real signature.
+[tool.pydoclint]
+style = "google"
+exclude = '.*/_internal/.*'
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-yield-types = false
+allow-init-docstring = true
+skip-checking-raises = true
+baseline = "pydoclint-baseline.txt"

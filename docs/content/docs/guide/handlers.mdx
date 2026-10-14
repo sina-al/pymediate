@@ -81,6 +81,10 @@ A handler without mutable fields can be reused, but that alone does not make the
 
 If a handler stores in-memory state, document the intended lifetime and concurrency:
 
+{/* pmd-note: CountOrder and CountResult are named by the prose, not defined. */}
+
+{/* pmd-metadata: notest */}
+
 ```python
 class CountingHandler(RequestHandler[CountOrder]):
     def __init__(self) -> None:
@@ -97,6 +101,10 @@ That counter belongs to one handler instance. It is lost when the process stops 
 
 One handler can call another operation through an ordinary collaborator:
 
+{/* pmd-note: RefundOrder and PaymentRefunds are named by the prose, not defined. */}
+
+{/* pmd-metadata: notest */}
+
 ```python
 class RefundOrderHandler(RequestHandler[RefundOrder]):
     def __init__(self, payments: PaymentRefunds) -> None:
@@ -106,6 +114,10 @@ class RefundOrderHandler(RequestHandler[RefundOrder]):
 This direct dependency follows an ordinary object reference and is often sufficient.
 
 A handler can instead receive a mediator when it must dispatch another application request without depending on that request's handler:
+
+{/* pmd-note: RefundOrder, RefundResult and RefundPayment likewise. */}
+
+{/* pmd-metadata: notest */}
 
 ```python
 class RefundOrderHandler(RequestHandler[RefundOrder]):

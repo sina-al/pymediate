@@ -48,6 +48,23 @@ test.cmd = "pytest tests/"
 "test:junit".help = "Run tests with a JUnit XML report"
 "test:junit".cmd = "pytest tests/ --tb=short --junit-xml=junit.xml"
 
+# Executes the ```python fences in the docs site, the README, and the public docstrings
+# against the real API, so a rename or dropped import in src/pymediate/ fails CI in the same
+# commit instead of shipping as a broken copy-paste example. Wired into test.yml (a Python
+# job) — deliberately NOT docs.yml, which is the Node-only carve-out.
+#
+# `_internal/` is excluded to match the docstring policy's own boundary (CLAUDE.md,
+# "Docstrings"): its docstrings are not public-facing, are exempt from ruff's D rules, and
+# their examples are illustrative fragments referring to symbols that never existed.
+# Invoked as `python3 -m pytest`, not `pytest`: `-p tests.markdown_docs_plugin` is resolved
+# during pre-parse, before pytest puts the rootdir on sys.path, so the bare console script
+# can't import it. The `-m` form puts the working directory on sys.path first.
+"test:docs".help = "Execute the code examples in the docs, README, and docstrings"
+"test:docs".cmd = """
+    python3 -m pytest --markdown-docs -p tests.markdown_docs_plugin
+    docs/content README.md src/pymediate --ignore=src/pymediate/_internal
+"""
+
 # ========== Type Checking ==========
 
 type.help = "Type-check the source with mypy --strict"
@@ -75,16 +92,27 @@ format.cmd = "ruff format src/ tests/ scripts/"
 "format:check".help = "Check formatting with ruff without changing files"
 "format:check".cmd = "ruff format --check src/ tests/ scripts/"
 
+# Docstring<->signature parity on the public API. Configuration (style, scope, and the checks
+# deliberately turned off) lives in pyproject.toml's [tool.pydoclint], which pydoclint reads
+# on its own; pre-existing violations sit in pydoclint-baseline.txt. Regenerate that file with
+# `poe doclint:baseline` only when a violation is a genuine false positive — a real mismatch
+# should be fixed in the docstring instead.
+doclint.help = "Check public docstrings against their signatures (pydoclint)"
+doclint.cmd = "pydoclint -q src/pymediate/"
+
+"doclint:baseline".help = "Regenerate the pydoclint baseline of accepted violations"
+"doclint:baseline".cmd = "pydoclint -q --generate-baseline=True src/pymediate/"
+
 fix.help = "Auto-fix lint, then format (ruff)"
 fix.sequence = ["lint:fix", "format"]
 
 # ========== Quality Checks ==========
 
 check.help = "Type-check, lint, and check formatting (no tests)"
-check.sequence = ["type", "lint", "format:check"]
+check.sequence = ["type", "lint", "format:check", "doclint"]
 
 "check:all".help = "Run all quality checks plus tests with coverage"
-"check:all".sequence = ["type:all", "lint", "format:check", "test:cov"]
+"check:all".sequence = ["type:all", "lint", "format:check", "doclint", "test:cov", "test:docs"]
 
 # ========== API Compatibility ==========
 

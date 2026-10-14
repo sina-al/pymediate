@@ -11,6 +11,10 @@ does not add a FastAPI-specific adapter.
 The route below validates an HTTP body with Pydantic, maps it to `PlaceOrder`, sends the
 request, and maps the `OrderReceipt` back to JSON:
 
+{/* pmd-note: FastAPI integration; fastapi and pydantic are not project dependencies. */}
+
+{/* pmd-metadata: notest */}
+
 ```python
 from dataclasses import dataclass
 from typing import Annotated

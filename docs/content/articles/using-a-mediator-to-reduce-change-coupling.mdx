@@ -15,6 +15,10 @@ The code blocks are focused excerpts from a fictional application. Names importe
 
 The first endpoint places an order directly:
 
+{/* pmd-note: Fictional Shop application: imports flask and the app's own db/models. */}
+
+{/* pmd-metadata: notest */}
+
 ```python title="app.py (excerpt)"
 from flask import Flask, g, jsonify, request
 
@@ -34,6 +38,10 @@ def place_order():
 For an application at this stage, the direct route is reasonable. It shows where input arrives, which work runs, and what response leaves the process.
 
 As the Shop adds cancellation, refunds, invoices, and exports, the order operations move into one module so several entry points can reuse them:
+
+{/* pmd-note: Fictional Shop application: imports eight of the app's own modules. */}
+
+{/* pmd-metadata: notest */}
 
 ```python title="orders/service.py (excerpt)"
 from audit import audit_log
@@ -67,6 +75,10 @@ The Shop later runs order exports from both HTTP and a scheduled worker. The exp
 
 Giving the export its own module removes dependencies that belong only to payment, mail, invoices, or inventory:
 
+{/* pmd-note: Fictional Shop application: imports csv_export, db, and files. */}
+
+{/* pmd-metadata: notest */}
+
 ```python title="orders/export.py (excerpt)"
 from dataclasses import dataclass
 
@@ -91,6 +103,10 @@ def create_order_export(request: CreateOrderExport) -> OrderExport:
 ```
 
 The HTTP route translates HTTP input and output:
+
+{/* pmd-note: Continues the Flask app object defined in the excerpt above. */}
+
+{/* pmd-metadata: notest */}
 
 ```python title="app.py (excerpt)"
 @app.post("/orders/export")
@@ -146,6 +162,10 @@ These protocols support static checking. They do not construct, wrap, or select 
 If each caller repeatedly passes the same objects, a callable object can receive them once at
 construction:
 
+{/* pmd-note: Annotations name the fictional export module's dataclasses. */}
+
+{/* pmd-metadata: notest */}
+
 ```python title="orders/export.py (excerpt)"
 class OrderExporter:
     def __init__(
@@ -168,6 +188,10 @@ correct than the function form. Application startup still chooses the concrete o
 next excerpt, `StoredOrderHistory` and `DownloadFiles` are application adapters;
 `worker_database` and `storage_client` are instances created by startup:
 
+{/* pmd-note: Startup wiring over the application's own adapters and clients. */}
+
+{/* pmd-metadata: notest */}
+
 ```python title="bootstrap.py (excerpt)"
 create_order_export = OrderExporter(
     history=StoredOrderHistory(worker_database),
@@ -183,6 +207,10 @@ The same separation can be applied when another operation needs to move or chang
 Over time, startup may construct several focused callables. The following names stand for
 application-defined operations and the dependencies they need:
 
+{/* pmd-note: Startup wiring over the application's own operations and dependencies. */}
+
+{/* pmd-metadata: notest */}
+
 ```python title="bootstrap.py (excerpt)"
 place_order = PlaceOrderHandler(orders, payments, inventory, notifications)
 refund_order = RefundOrderHandler(orders, payments)
@@ -193,6 +221,10 @@ create_order_export = OrderExporter(history, destination)
 Passing these objects directly to their callers has useful properties. Dependencies are visible, editor navigation follows ordinary references, and no dispatch mechanism is involved. If each caller needs only a short list, direct references can remain the final design.
 
 Repeated lists become a separate concern when several HTTP routes, command-line commands, workers, and scheduled jobs need overlapping sets of operations. A dictionary can centralize that lookup:
+
+{/* pmd-note: Dispatch table over the application's own operations. */}
+
+{/* pmd-metadata: notest */}
 
 ```python title="dispatch.py (excerpt)"
 operations = {
@@ -219,6 +251,8 @@ The dictionary also needs explicit checks if the application wants clearer error
 
 PyMediate provides that dispatch and validation. The request declares its response type:
 
+{/* pmd-metadata: continuation */}
+
 ```python title="orders/export.py (excerpt)"
 from dataclasses import dataclass
 from pymediate.sync import Request
@@ -234,6 +268,8 @@ class CreateOrderExport(Request[OrderExport]):
 ```
 
 The callable declares which request it handles:
+
+{/* pmd-metadata: continuation */}
 
 ```python title="orders/export.py (excerpt)"
 from pymediate.sync import RequestHandler
@@ -266,6 +302,10 @@ that point. This process-wide mapping is separate from supplying a handler insta
 
 Startup constructs the instance and supplies it to the mediator's service provider:
 
+{/* pmd-note: Startup wiring over the application's own adapters and clients. */}
+
+{/* pmd-metadata: notest */}
+
 ```python title="bootstrap.py (excerpt)"
 from pymediate.sync import Mediator, Services
 
@@ -281,6 +321,10 @@ mediator = Mediator(Services(handler))
 for one handler instance. If no instance is available, dispatch fails with a configuration error.
 
 The call site preserves the declared response type:
+
+{/* pmd-note: Calls the mediator built by the startup excerpt above. */}
+
+{/* pmd-metadata: notest */}
 
 ```python title="caller.py (excerpt)"
 result = mediator.send(CreateOrderExport(customer_id=7))

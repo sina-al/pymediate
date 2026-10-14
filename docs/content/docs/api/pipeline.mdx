@@ -114,6 +114,8 @@ Register behavior instances in the same `ServiceProvider` as request handlers, t
 pipeline explicitly with `Mediator`'s `behaviors` argument - an ordered sequence of behavior
 classes, first entry outermost:
 
+{/* pmd-metadata: continuation fixture:PlaceOrderHandler */}
+
 ```python
 services = Services(LoggingBehavior(), TracePlaceOrder(), PlaceOrderHandler())
 
@@ -130,6 +132,10 @@ Use the asynchronous behavior class with `pymediate.Mediator` and the synchronou
 ## Direct invocation
 
 There is no public pipeline object. A behavior can be tested directly by supplying a continuation:
+
+{/* pmd-note: Direct-invocation fragment over a caller's own handler and request. */}
+
+{/* pmd-metadata: notest */}
 
 ```python
 receipt = await TracePlaceOrder()(request, lambda: handler(request))

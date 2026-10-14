@@ -15,6 +15,7 @@ on:
       - "pymediate.code-workspace"
       - "ruff.toml"
       - "mypy.ini"
+      - "pydoclint-baseline.txt"
       - ".github/workflows/**"
       - ".claude/skills/example/**"
       - ".claude/context/**"
@@ -59,6 +60,7 @@ jobs:
               - "tasks.toml"
               - "ruff.toml"
               - "mypy.ini"
+              - "pydoclint-baseline.txt"
               - ".github/workflows/**"
               - ".claude/context/**"
               - ".claude/CLAUDE.md"
@@ -112,6 +114,13 @@ jobs:
       - name: Type check
         run: |
           uv run poe type
+
+      - name: Docstring signature parity
+        # Public docstrings are the API reference's source of truth (CLAUDE.md, "Docstrings"),
+        # so an Args list that no longer matches the signature misleads every reader.
+        # Accepted pre-existing violations live in pydoclint-baseline.txt.
+        run: |
+          uv run poe doclint
 
       - name: Context freshness
         # .claude/context/api-signatures.md is generated from src/pymediate/ and imported

@@ -142,6 +142,8 @@ Register behaviors through the same provider as handlers, then declare the pipel
 with the mediator's `behaviors` argument - an ordered sequence of behavior classes, first entry
 outermost:
 
+{/* pmd-metadata: fixture:PlaceOrderHandler */}
+
 ```python
 from pymediate import Mediator, Services
 
@@ -200,6 +202,8 @@ the mediator and handler being used.
 ## Test a behavior directly
 
 A behavior is a callable, so a focused test can supply a small `next` function:
+
+{/* pmd-metadata: continuation */}
 
 ```python
 async def finish() -> OrderReceipt:

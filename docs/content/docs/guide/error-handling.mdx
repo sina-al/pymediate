@@ -43,6 +43,8 @@ class OutOfStockError(ShopError):
 
 A handler can raise these errors as part of its operation:
 
+{/* pmd-metadata: continuation */}
+
 ```python
 class PlaceOrderHandler(RequestHandler[PlaceOrder]):
     def __init__(self, inventory: Inventory, orders: OrderStore) -> None:
@@ -71,6 +73,10 @@ does not use.
 
 Web frameworks provide central exception handlers. For example, FastAPI can map the same
 application errors to two HTTP responses:
+
+{/* pmd-note: FastAPI exception handlers; fastapi is not a dependency of this project. */}
+
+{/* pmd-metadata: notest */}
 
 ```python
 from fastapi import FastAPI, Request as HTTPRequest
@@ -193,6 +199,8 @@ subscribers. The synchronous mediator groups ordinary `Exception` instances; a d
 `BaseException` is not collected.
 
 Use `except*` to handle selected failures from a grouped publish:
+
+{/* pmd-metadata: fixture:mediator */}
 
 ```python
 try:

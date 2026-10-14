@@ -42,11 +42,26 @@ checked by `docs:check`.
 
 ## Conventions
 
-- **Every runnable or standalone code example must actually run** — same bar as docstrings (the
-  project CLAUDE.md, "Docstrings"): verify it in a scratch shell before committing. A focused
-  fragment may rely on definitions shown earlier on the page or application-specific symbols that
-  the surrounding text identifies. Add `(excerpt)` to its title when those omissions are not clear
-  from the immediate context.
+- **Every runnable or standalone code example must actually run** — and now CI proves it:
+  `uv run poe test:docs` executes every ` ```python ` fence on this site (see the project
+  CLAUDE.md, "The documentation-example test system"). A focused fragment may still rely on
+  definitions shown earlier on the page or application-specific symbols that the surrounding text
+  identifies. Add `(excerpt)` to its title when those omissions are not clear from the immediate
+  context.
+- **Tell the runner how a fragment gets its context**, with an MDX comment on the line directly
+  above the fence. These are invisible on the page and stripped from the `llms.mdx` routes:
+
+  | Marker | Use when |
+  | --- | --- |
+  | `{/* pmd-metadata: continuation */}` | The fence builds on an earlier fence of the same page; the runner prepends it. |
+  | `{/* pmd-metadata: fixture:PlaceOrderHandler */}` | The fence uses a registered handler the page never shows. |
+  | `{/* pmd-metadata: fixture:mediator */}` | The fence dispatches through an already-built mediator. |
+  | `{/* pmd-metadata: notest */}` | The fence genuinely cannot run — it imports the fictional Shop app's own modules, or a package that isn't a dependency. |
+
+  A page's recurring cast (`PlaceOrder`, `OrderReceipt`, `OrderPlaced`, `OrderStore`,
+  `RequestLogging`, …) is seeded automatically — see `tests/markdown_docs_plugin.py` for the
+  full list before adding a marker. Prefer `continuation` over `notest`; every `notest` needs a
+  `{/* pmd-note: <reason> */}` comment above it saying why, and the set is meant to stay small.
 - The site brand is the "midnight-signal" token system (light: violet primary on
   near-white; dark: cyan primary on near-black indigo; cyan→violet gradient used
   sparingly). Reuse existing tokens/components rather than introducing new colors.

@@ -27,10 +27,16 @@ export function getPageMarkdownUrl(page: (typeof source)['$inferPage']) {
   };
 }
 
+// Markers consumed by the repo's doc-example test runner (`poe test:docs`, which executes
+// every python fence on this site). They are invisible in the rendered page but would
+// otherwise show up verbatim in the raw markdown these routes serve, so strip them here —
+// the single choke point shared by /llms.mdx/**/content.md and /llms-full.txt.
+const PMD_METADATA_COMMENT = /^[ \t]*\{\/\*\s*pmd-(?:metadata|note):.*?\*\/\}[ \t]*\r?\n\r?\n?/gm;
+
 export async function getLLMText(page: (typeof source)['$inferPage']) {
   const processed = await page.data.getText('processed');
 
   return `# ${page.data.title} (${page.url})
 
-${processed}`;
+${processed.replace(PMD_METADATA_COMMENT, '')}`;
 }
