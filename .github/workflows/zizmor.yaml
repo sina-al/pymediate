@@ -61,7 +61,7 @@ jobs:
         # comment. The action itself pins the zizmor binary associated with its release,
         # so leaving its `version` input at the action-managed default keeps that binary
         # reproducible while allowing Dependabot action upgrades to carry scanner upgrades.
-        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           inputs: ./.github/workflows
           # Restrict collection to workflow definitions; this job intentionally does not
